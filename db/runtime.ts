@@ -41,6 +41,13 @@ const schemaStatements = [
     excluded_keywords TEXT NOT NULL DEFAULT '[]',
     updated_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS language_feedback (
+    job_id TEXT PRIMARY KEY NOT NULL,
+    verdict TEXT NOT NULL,
+    corrected_status TEXT NOT NULL DEFAULT '',
+    reason TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`,
   'CREATE INDEX IF NOT EXISTS jobs_language_status_idx ON jobs(language_status)',
   'CREATE INDEX IF NOT EXISTS jobs_status_updated_idx ON jobs(status, updated_at)',
 ];

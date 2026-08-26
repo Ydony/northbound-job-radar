@@ -49,3 +49,11 @@ export const searchSettings = sqliteTable('search_settings', {
   excludedKeywords: text('excluded_keywords').notNull().default('[]'),
   updatedAt: text('updated_at').notNull(),
 });
+
+export const languageFeedback = sqliteTable('language_feedback', {
+  jobId: text('job_id').primaryKey(),
+  verdict: text('verdict').notNull(),
+  correctedStatus: text('corrected_status').notNull().default(''),
+  reason: text('reason').notNull().default(''),
+  updatedAt: text('updated_at').notNull(),
+});

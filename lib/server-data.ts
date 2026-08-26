@@ -19,6 +19,10 @@ interface JobRow {
   language_status: JobRecord['languageStatus'];
   language_summary: string;
   language_signals: string;
+  feedback_verdict?: string | null;
+  feedback_corrected_status?: string | null;
+  feedback_reason?: string | null;
+  feedback_updated_at?: string | null;
   fit_score_a: number;
   fit_score_b: number;
   best_cv_slot: JobRecord['bestCvSlot'];
@@ -61,6 +65,14 @@ export function cvFromRow(row: CvRow): CvProfile {
 }
 
 export function jobFromRow(row: JobRow): JobRecord {
+  const languageFeedback = row.feedback_verdict === 'correct' || row.feedback_verdict === 'incorrect'
+    ? row.feedback_verdict
+    : '';
+  const correctedLanguageStatus = row.feedback_corrected_status === 'pass'
+    || row.feedback_corrected_status === 'review'
+    || row.feedback_corrected_status === 'blocked'
+    ? row.feedback_corrected_status
+    : '';
   return {
     id: row.id,
     sourceUrl: row.source_url,
@@ -71,6 +83,10 @@ export function jobFromRow(row: JobRow): JobRecord {
     languageStatus: row.language_status,
     languageSummary: row.language_summary,
     languageSignals: stringArray(row.language_signals),
+    languageFeedback,
+    correctedLanguageStatus,
+    languageFeedbackReason: row.feedback_reason ?? '',
+    languageFeedbackUpdatedAt: row.feedback_updated_at ?? '',
     fitScoreA: row.fit_score_a,
     fitScoreB: row.fit_score_b,
     bestCvSlot: row.best_cv_slot,
@@ -130,7 +146,11 @@ export async function upsertJob(db: D1Database, input: UpsertJobInput): Promise<
       input.languageSummary, JSON.stringify(input.languageSignals), input.fitScoreA, input.fitScoreB, input.bestCvSlot,
       JSON.stringify(input.matchedKeywords), JSON.stringify(input.missingKeywords), existing?.status ?? 'new',
       existing?.created_at ?? now, now).run();
-  const row = await db.prepare('SELECT * FROM jobs WHERE id = ?').bind(id).first<JobRow>();
+  const row = await db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,
+    language_feedback.corrected_status AS feedback_corrected_status,
+    language_feedback.reason AS feedback_reason, language_feedback.updated_at AS feedback_updated_at
+    FROM jobs LEFT JOIN language_feedback ON language_feedback.job_id = jobs.id WHERE jobs.id = ?`)
+    .bind(id).first<JobRow>();
   return jobFromRow(row!);
 }
 

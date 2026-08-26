@@ -26,6 +26,7 @@ export interface SearchCriteria {
 }
 
 export type JobStatus = 'new' | 'saved' | 'applied' | 'ignored';
+export type LanguageFeedbackVerdict = '' | 'correct' | 'incorrect';
 
 export interface JobRecord {
   id: string;
@@ -37,6 +38,10 @@ export interface JobRecord {
   languageStatus: LanguageStatus;
   languageSummary: string;
   languageSignals: string[];
+  languageFeedback: LanguageFeedbackVerdict;
+  correctedLanguageStatus: LanguageStatus | '';
+  languageFeedbackReason: string;
+  languageFeedbackUpdatedAt: string;
   fitScoreA: number;
   fitScoreB: number;
   bestCvSlot: CvSlot | '';

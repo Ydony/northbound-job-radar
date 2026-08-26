@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
+import { effectiveLanguageStatus } from '@/lib/language-feedback';
+import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, CvSlot, JobRecord, JobStatus, SearchCriteria } from '@/lib/types';
 
 type View = 'matches' | 'review' | 'pipeline' | 'all';
@@ -16,6 +18,11 @@ interface SlotState {
 interface CriteriaDraft extends Omit<SearchCriteria, 'requiredKeywords' | 'excludedKeywords' | 'updatedAt'> {
   requiredKeywords: string;
   excludedKeywords: string;
+}
+
+interface FeedbackDraft {
+  correctedStatus: LanguageStatus;
+  reason: string;
 }
 
 const emptySlotState: SlotState = { file: null, text: '', busy: false, message: '' };
@@ -84,6 +91,12 @@ function bestFitScore(job: JobRecord) {
   return Math.max(job.fitScoreA, job.fitScoreB);
 }
 
+function languageStatusLabel(status: LanguageStatus) {
+  if (status === 'pass') return 'English sufficient';
+  if (status === 'review') return 'Review language';
+  return 'Local language required';
+}
+
 export default function JobRadar() {
   const [state, setState] = useState<AppState>({ profiles: [], jobs: [], criteria: defaultSearchCriteria });
   const [loading, setLoading] = useState(true);
@@ -98,6 +111,10 @@ export default function JobRadar() {
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(criteriaToDraft(defaultSearchCriteria));
   const [criteriaBusy, setCriteriaBusy] = useState(false);
   const [criteriaMessage, setCriteriaMessage] = useState('');
+  const [feedbackOpen, setFeedbackOpen] = useState<Record<string, boolean>>({});
+  const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, FeedbackDraft>>({});
+  const [feedbackBusy, setFeedbackBusy] = useState('');
+  const [feedbackMessages, setFeedbackMessages] = useState<Record<string, string>>({});
   const importRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -122,15 +139,16 @@ export default function JobRadar() {
   );
 
   const counts = useMemo(() => ({
-    matches: criteriaFilteredJobs.filter((job) => job.languageStatus === 'pass' && job.status !== 'ignored').length,
-    review: criteriaFilteredJobs.filter((job) => job.languageStatus === 'review' && job.status !== 'ignored').length,
+    matches: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'pass' && job.status !== 'ignored').length,
+    review: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'review' && job.status !== 'ignored').length,
     pipeline: state.jobs.filter((job) => job.status === 'saved' || job.status === 'applied').length,
   }), [criteriaFilteredJobs, state.jobs]);
 
   const visibleJobs = useMemo(() => state.jobs.filter((job) => {
     const matchesCriteria = matchesSearchCriteria(job, state.criteria);
-    if (view === 'matches') return matchesCriteria && job.languageStatus === 'pass' && job.status !== 'ignored';
-    if (view === 'review') return matchesCriteria && job.languageStatus === 'review' && job.status !== 'ignored';
+    const languageStatus = effectiveLanguageStatus(job);
+    if (view === 'matches') return matchesCriteria && languageStatus === 'pass' && job.status !== 'ignored';
+    if (view === 'review') return matchesCriteria && languageStatus === 'review' && job.status !== 'ignored';
     if (view === 'pipeline') return job.status === 'saved' || job.status === 'applied';
     return matchesCriteria && job.status !== 'ignored';
   }).sort((a, b) => bestFitScore(b) - bestFitScore(a)), [state.criteria, state.jobs, view]);
@@ -281,6 +299,67 @@ export default function JobRadar() {
     }
   }
 
+  function openFeedbackCorrection(job: JobRecord) {
+    setFeedbackOpen((current) => ({ ...current, [job.id]: !current[job.id] }));
+    setFeedbackDrafts((current) => current[job.id] ? current : {
+      ...current,
+      [job.id]: {
+        correctedStatus: job.correctedLanguageStatus || (job.languageStatus === 'pass' ? 'review' : 'pass'),
+        reason: job.languageFeedbackReason,
+      },
+    });
+  }
+
+  function updateFeedbackDraft(id: string, patch: Partial<FeedbackDraft>) {
+    setFeedbackDrafts((current) => {
+      const existing = current[id] ?? { correctedStatus: 'review' as const, reason: '' };
+      return { ...current, [id]: { ...existing, ...patch } };
+    });
+  }
+
+  async function saveLanguageFeedback(
+    job: JobRecord,
+    languageFeedback: JobRecord['languageFeedback'],
+    correctedLanguageStatus: JobRecord['correctedLanguageStatus'] = '',
+    languageFeedbackReason = '',
+  ) {
+    setFeedbackBusy(job.id);
+    setFeedbackMessages((current) => ({ ...current, [job.id]: 'Saving…' }));
+    try {
+      const result = await responseJson<{ feedback: {
+        verdict: JobRecord['languageFeedback'];
+        correctedStatus: JobRecord['correctedLanguageStatus'];
+        reason: string;
+      } }>(await fetch(`/api/jobs/${job.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ languageFeedback, correctedLanguageStatus, languageFeedbackReason }),
+      }));
+      setState((current) => ({
+        ...current,
+        jobs: current.jobs.map((entry) => entry.id === job.id ? {
+          ...entry,
+          languageFeedback: result.feedback.verdict,
+          correctedLanguageStatus: result.feedback.correctedStatus,
+          languageFeedbackReason: result.feedback.reason,
+          languageFeedbackUpdatedAt: result.feedback.verdict ? new Date().toISOString() : '',
+        } : entry),
+      }));
+      setFeedbackOpen((current) => ({ ...current, [job.id]: false }));
+      setFeedbackMessages((current) => ({
+        ...current,
+        [job.id]: result.feedback.verdict ? 'Language feedback saved.' : 'Language feedback cleared.',
+      }));
+    } catch (error) {
+      setFeedbackMessages((current) => ({
+        ...current,
+        [job.id]: error instanceof Error ? error.message : 'Could not save language feedback.',
+      }));
+    } finally {
+      setFeedbackBusy('');
+    }
+  }
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -386,15 +465,35 @@ export default function JobRadar() {
             {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Open jobs.ch, copy a promising ad, then run the strict language check.' : 'Upload a CV to unlock search, screening and match scores.'}</p>{hasAnyCv && <button type="button" onClick={openImport}>Analyze your first job</button>}</div>}
             {visibleJobs.map((job) => {
               const bothCvsSaved = state.profiles.filter((profile) => profile.hasCvText).length > 1;
-              return <article className={`job-card ${job.languageStatus}`} key={job.id}>
+              const displayedLanguageStatus = effectiveLanguageStatus(job);
+              const hasCorrection = job.languageFeedback === 'incorrect' && Boolean(job.correctedLanguageStatus);
+              const feedbackDraft = feedbackDrafts[job.id] ?? {
+                correctedStatus: job.correctedLanguageStatus || (job.languageStatus === 'pass' ? 'review' : 'pass'),
+                reason: job.languageFeedbackReason,
+              };
+              return <article className={`job-card ${displayedLanguageStatus}`} key={job.id}>
                 <div className="score"><strong>{bestFitScore(job)}</strong><span>CV fit</span></div>
                 <div className="job-body">
-                  <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${job.languageStatus}`}>{job.languageStatus === 'pass' ? 'English sufficient' : job.languageStatus === 'review' ? 'Review language' : 'Local language required'}</span></div>
-                  <h3>{job.title}</h3><p className="language-summary">{job.languageSummary}</p>
+                  <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span></div>
+                  <h3>{job.title}</h3>
+                  {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
+                  <p className="language-summary">{hasCorrection ? `Detector note: ${job.languageSummary}` : job.languageSummary}</p>
                   {bothCvsSaved && <p className="fit-breakdown">
                     {state.profiles.filter((profile) => profile.hasCvText).map((profile) => `${roleForProfile(profile, state.criteria) || slotLabels[profile.slot]}: ${profile.slot === 'a' ? job.fitScoreA : job.fitScoreB}`).join(' · ')}
                   </p>}
                   <div className="tags">{job.matchedKeywords.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}{!job.matchedKeywords.length && <span>No clear CV overlap yet</span>}</div>
+                  <div className="language-feedback">
+                    <span>Was the language result right?</span>
+                    <button type="button" className={job.languageFeedback === 'correct' ? 'selected' : ''} disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'correct')}>✓ Accurate</button>
+                    <button type="button" className={job.languageFeedback === 'incorrect' ? 'selected' : ''} disabled={feedbackBusy === job.id} onClick={() => openFeedbackCorrection(job)}>Flag wrong</button>
+                    {job.languageFeedback && <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, '')}>Clear</button>}
+                    {feedbackMessages[job.id] && <small aria-live="polite">{feedbackMessages[job.id]}</small>}
+                  </div>
+                  {feedbackOpen[job.id] && <div className="feedback-form">
+                    <label><span>Correct result</span><select value={feedbackDraft.correctedStatus} onChange={(event) => updateFeedbackDraft(job.id, { correctedStatus: event.target.value as LanguageStatus })}><option value="pass">English sufficient</option><option value="review">Needs review</option><option value="blocked">Local language required</option></select></label>
+                    <label><span>Reason (optional)</span><input maxLength={500} value={feedbackDraft.reason} onChange={(event) => updateFeedbackDraft(job.id, { reason: event.target.value })} placeholder="e.g. German is only a plus" /></label>
+                    <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'incorrect', feedbackDraft.correctedStatus, feedbackDraft.reason)}>Save correction</button>
+                  </div>}
                   <div className="card-actions"><button type="button" className={job.status === 'saved' ? 'selected' : ''} onClick={() => updateStatus(job.id, job.status === 'saved' ? 'new' : 'saved')}>♡ {job.status === 'saved' ? 'Saved' : 'Save'}</button><button type="button" className={job.status === 'applied' ? 'selected' : ''} onClick={() => updateStatus(job.id, 'applied')}>✓ {job.status === 'applied' ? 'Applied' : 'Mark applied'}</button><button type="button" onClick={() => updateStatus(job.id, 'ignored')}>Hide</button></div>
                 </div>
                 <a className="apply-link" href={job.sourceUrl} target="_blank" rel="noreferrer">Apply on jobs.ch ↗</a>
