@@ -1,17 +1,25 @@
 import { NextResponse } from 'next/server';
 import { bindings, ensureSchema } from '@/db/runtime';
 import { analyzeLanguage, scoreFitAcrossCvs } from '@/lib/analysis';
+import { roleForSlot } from '@/lib/criteria';
 import { MAX_NEW_JOBS_PER_RUN, REQUEST_DELAY_MS, delay, fetchJobDetail, fetchSearchResultIds, interleaveUnique, stripHtml } from '@/lib/jobsch';
-import { upsertJob } from '@/lib/server-data';
-import type { JobRecord } from '@/lib/types';
+import { criteriaFromRow, upsertJob, type CriteriaRow } from '@/lib/server-data';
+import type { CvSlot, JobRecord } from '@/lib/types';
 
 export async function POST() {
   await ensureSchema();
   const { db } = bindings();
-  const cvRows = await db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
-    .all<{ slot: 'a' | 'b'; cv_text: string; derived_role: string }>();
+  const [cvRows, criteriaRow] = await Promise.all([
+    db.prepare('SELECT slot, cv_text, derived_role FROM cvs').all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
+    db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
+  ]);
   if (!cvRows.results.length) return NextResponse.json({ error: 'Upload at least one CV first.' }, { status: 400 });
-  const cvs = cvRows.results.map((row) => ({ slot: row.slot, cvText: row.cv_text, derivedRole: row.derived_role }));
+  const criteria = criteriaFromRow(criteriaRow);
+  const cvs = cvRows.results.map((row) => ({
+    slot: row.slot,
+    cvText: row.cv_text,
+    derivedRole: roleForSlot(row.slot, row.derived_role, criteria),
+  }));
 
   const searchTerms = [...new Set(cvs.map((cv) => cv.derivedRole).filter(Boolean))];
   if (!searchTerms.length) return NextResponse.json({ error: 'Could not detect a role from your CV(s). Try a CV with a clearer job title, or paste ads manually.' }, { status: 400 });
@@ -21,7 +29,7 @@ export async function POST() {
     const resultsByRole: string[][] = [];
     for (const [index, term] of searchTerms.entries()) {
       if (index > 0) await delay(REQUEST_DELAY_MS);
-      resultsByRole.push(await fetchSearchResultIds(term));
+      resultsByRole.push(await fetchSearchResultIds(term, undefined, criteria.location));
     }
     candidateUrls = interleaveUnique(resultsByRole);
   } catch (error) {

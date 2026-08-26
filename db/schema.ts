@@ -36,3 +36,16 @@ export const jobs = sqliteTable(
     index('jobs_status_updated_idx').on(table.status, table.updatedAt),
   ],
 );
+
+export const searchSettings = sqliteTable('search_settings', {
+  id: text('id').primaryKey(),
+  roleOverrideA: text('role_override_a').notNull().default(''),
+  roleOverrideB: text('role_override_b').notNull().default(''),
+  location: text('location').notNull().default(''),
+  workplace: text('workplace').notNull().default('any'),
+  seniority: text('seniority').notNull().default('any'),
+  contractType: text('contract_type').notNull().default('any'),
+  requiredKeywords: text('required_keywords').notNull().default('[]'),
+  excludedKeywords: text('excluded_keywords').notNull().default('[]'),
+  updatedAt: text('updated_at').notNull(),
+});

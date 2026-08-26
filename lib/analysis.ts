@@ -42,8 +42,8 @@ const nonEnglishMarkers = new Set([
   'ervaring', 'functie', 'het', 'met', 'van', 'vereisten', 'voor', 'wij',
 ]);
 
-const optionalWords = /\b(?:a plus|advantage|an asset|beneficial|bonus|desirable|nice to have|not required|optional|preferred|would be helpful)\b/gi;
-const requiredWords = /\b(?:at least|business[- ]fluent|excellent|fluency|fluent|good command|mandatory|minimum|must|required|requirement|strong|very good|working knowledge|proficien(?:t|cy)|native|b[12]|c[12])\b/gi;
+const optionalWords = /\b(?:a plus|advantage|advantageous|an asset|beneficial|bonus|desirable|nice to have|not required|optional|preferred|would be helpful)\b/gi;
+const requiredWords = /\b(?:advanced(?: level)?|at least|business[- ]fluent|excellent|fluency|fluent|good command|mandatory|minimum|must|required|requirement|strong|very good|working knowledge|proficien(?:t|cy)|native|b[12]|c[12])\b/gi;
 
 const skillPhrases = [
   'account management', 'agile', 'aws', 'azure', 'business analysis', 'change management', 'communication', 'crm',

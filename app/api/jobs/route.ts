@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { bindings, ensureSchema } from '@/db/runtime';
 import { analyzeLanguage, scoreFitAcrossCvs } from '@/lib/analysis';
+import { roleForSlot } from '@/lib/criteria';
 import { isJobsChUrl } from '@/lib/jobsch';
-import { upsertJob } from '@/lib/server-data';
+import { criteriaFromRow, upsertJob, type CriteriaRow } from '@/lib/server-data';
+import type { CvSlot } from '@/lib/types';
 
 function clean(value: unknown, max: number) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -22,10 +24,18 @@ export async function POST(request: Request) {
   if (description.length < 160) return NextResponse.json({ error: 'Paste the full job advertisement so the language gate has enough evidence.' }, { status: 400 });
 
   const { db } = bindings();
-  const cvRows = await db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
-    .all<{ slot: 'a' | 'b'; cv_text: string; derived_role: string }>();
+  const [cvRows, criteriaRow] = await Promise.all([
+    db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
+      .all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
+    db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
+  ]);
   if (!cvRows.results.length) return NextResponse.json({ error: 'Upload at least one CV before analyzing jobs.' }, { status: 400 });
-  const cvs = cvRows.results.map((row) => ({ slot: row.slot, cvText: row.cv_text, derivedRole: row.derived_role }));
+  const criteria = criteriaFromRow(criteriaRow);
+  const cvs = cvRows.results.map((row) => ({
+    slot: row.slot,
+    cvText: row.cv_text,
+    derivedRole: roleForSlot(row.slot, row.derived_role, criteria),
+  }));
 
   const language = analyzeLanguage(description);
   const fit = scoreFitAcrossCvs(description, title, cvs);

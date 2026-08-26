@@ -1,12 +1,27 @@
 import type { LanguageStatus } from './analysis';
 
 export type CvSlot = 'a' | 'b';
+export type WorkplaceMode = 'any' | 'remote' | 'hybrid' | 'onsite';
+export type Seniority = 'any' | 'internship' | 'entry' | 'mid' | 'senior' | 'lead';
+export type ContractType = 'any' | 'permanent' | 'temporary' | 'contract' | 'internship';
 
 export interface CvProfile {
   slot: CvSlot;
   cvFileName: string;
   hasCvText: boolean;
   derivedRole: string;
+  updatedAt: string;
+}
+
+export interface SearchCriteria {
+  roleOverrideA: string;
+  roleOverrideB: string;
+  location: string;
+  workplace: WorkplaceMode;
+  seniority: Seniority;
+  contractType: ContractType;
+  requiredKeywords: string[];
+  excludedKeywords: string[];
   updatedAt: string;
 }
 
@@ -35,4 +50,5 @@ export interface JobRecord {
 export interface AppState {
   profiles: CvProfile[];
   jobs: JobRecord[];
+  criteria: SearchCriteria;
 }

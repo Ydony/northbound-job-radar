@@ -23,6 +23,10 @@ test('treats not required as optional rather than mandatory', () => {
   assert.equal(analyzeLanguage(`${englishAd} German is not required.`).status, 'pass');
 });
 
+test('treats advantageous language skills as optional', () => {
+  assert.equal(analyzeLanguage(`${englishAd} German language skills are advantageous.`).status, 'pass');
+});
+
 test('blocks a mandatory local language', () => {
   const result = analyzeLanguage(`${englishAd} Fluent French is required.`);
   assert.equal(result.status, 'blocked');
@@ -37,6 +41,12 @@ test('does not let optional German mask mandatory French in the same sentence', 
 
 test('associates different cues with their nearest language', () => {
   const result = analyzeLanguage(`${englishAd} German preferred and French fluency.`);
+  assert.equal(result.status, 'blocked');
+  assert.match(result.summary, /French/);
+});
+
+test('blocks an advanced local-language level', () => {
+  const result = analyzeLanguage(`${englishAd} English and French advanced level.`);
   assert.equal(result.status, 'blocked');
   assert.match(result.summary, /French/);
 });

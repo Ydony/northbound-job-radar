@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { interleaveUnique, isJobsChUrl, stripHtml } from '../lib/jobsch';
+import { buildSearchUrl, interleaveUnique, isJobsChUrl, stripHtml } from '../lib/jobsch';
 
 test('interleaves results from two CV-derived roles', () => {
   assert.deepEqual(interleaveUnique([
@@ -18,4 +18,11 @@ test('accepts only HTTPS jobs.ch hosts', () => {
 
 test('strips basic HTML and entities from job descriptions', () => {
   assert.equal(stripHtml('<p>Project &amp; product</p><script>bad()</script><p>English&nbsp;only</p>'), 'Project & product English only');
+});
+
+test('encodes role, location and page in a jobs.ch search URL', () => {
+  const url = new URL(buildSearchUrl('Data Governance Analyst', 2, 'Zürich'));
+  assert.equal(url.searchParams.get('term'), 'Data Governance Analyst');
+  assert.equal(url.searchParams.get('location'), 'Zürich');
+  assert.equal(url.searchParams.get('page'), '2');
 });

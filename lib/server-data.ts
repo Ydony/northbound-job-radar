@@ -1,5 +1,5 @@
-import { scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
-import type { CvProfile, CvSlot, JobRecord } from './types';
+import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
+import type { CvProfile, CvSlot, JobRecord, SearchCriteria } from './types';
 
 interface CvRow {
   slot: CvSlot;
@@ -26,6 +26,18 @@ interface JobRow {
   missing_keywords: string;
   status: JobRecord['status'];
   created_at: string;
+  updated_at: string;
+}
+
+interface CriteriaRow {
+  role_override_a: string;
+  role_override_b: string;
+  location: string;
+  workplace: SearchCriteria['workplace'];
+  seniority: SearchCriteria['seniority'];
+  contract_type: SearchCriteria['contractType'];
+  required_keywords: string;
+  excluded_keywords: string;
   updated_at: string;
 }
 
@@ -67,6 +79,20 @@ export function jobFromRow(row: JobRow): JobRecord {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+export function criteriaFromRow(row: CriteriaRow | null): SearchCriteria {
+  return {
+    roleOverrideA: row?.role_override_a ?? '',
+    roleOverrideB: row?.role_override_b ?? '',
+    location: row?.location ?? '',
+    workplace: row?.workplace ?? 'any',
+    seniority: row?.seniority ?? 'any',
+    contractType: row?.contract_type ?? 'any',
+    requiredKeywords: stringArray(row?.required_keywords ?? '[]'),
+    excludedKeywords: stringArray(row?.excluded_keywords ?? '[]'),
+    updatedAt: row?.updated_at ?? '',
   };
 }
 
@@ -114,11 +140,14 @@ export async function rescoreAllJobs(db: D1Database, cvs: CvInput[]) {
   if (!jobs.results.length) return 0;
 
   const updates = jobs.results.map((job) => {
+    const language = analyzeLanguage(job.description);
     const fit = scoreFitAcrossCvs(job.description, job.title, cvs);
-    return db.prepare(`UPDATE jobs SET fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?,
-      matched_keywords = ?, missing_keywords = ?, updated_at = ? WHERE id = ?`)
-      .bind(fit.fitScoreA, fit.fitScoreB, fit.bestCvSlot, JSON.stringify(fit.matchedKeywords),
-        JSON.stringify(fit.missingKeywords), new Date().toISOString(), job.id);
+    return db.prepare(`UPDATE jobs SET language_status = ?, language_summary = ?, language_signals = ?,
+      fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, matched_keywords = ?, missing_keywords = ?,
+      updated_at = ? WHERE id = ?`)
+      .bind(language.status, language.summary, JSON.stringify(language.signals), fit.fitScoreA, fit.fitScoreB,
+        fit.bestCvSlot, JSON.stringify(fit.matchedKeywords), JSON.stringify(fit.missingKeywords),
+        new Date().toISOString(), job.id);
   });
   for (let start = 0; start < updates.length; start += 50) {
     await db.batch(updates.slice(start, start + 50));
@@ -126,4 +155,4 @@ export async function rescoreAllJobs(db: D1Database, cvs: CvInput[]) {
   return updates.length;
 }
 
-export type { CvRow, JobRow };
+export type { CriteriaRow, CvRow, JobRow };

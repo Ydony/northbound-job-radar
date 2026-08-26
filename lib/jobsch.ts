@@ -65,9 +65,10 @@ export function stripHtml(html: string) {
     .trim();
 }
 
-function buildSearchUrl(term: string, page: number) {
+export function buildSearchUrl(term: string, page: number, location = '') {
   const url = new URL(SEARCH_URL);
   url.searchParams.set('term', term);
+  if (location.trim()) url.searchParams.set('location', location.trim());
   if (page > 1) url.searchParams.set('page', String(page));
   return url.toString();
 }
@@ -79,8 +80,8 @@ async function fetchHtml(url: string) {
 }
 
 /** Server-rendered search results page: extract unique job-detail links. No JS execution needed. */
-export async function fetchSearchResultIds(term: string, page = RESULTS_PAGE): Promise<string[]> {
-  const html = await fetchHtml(buildSearchUrl(term, page));
+export async function fetchSearchResultIds(term: string, page = RESULTS_PAGE, location = ''): Promise<string[]> {
+  const html = await fetchHtml(buildSearchUrl(term, page, location));
   const ids = new Set<string>();
   for (const match of html.matchAll(DETAIL_ID_PATTERN)) ids.add(match[1].toLowerCase());
   return [...ids].map((id) => `https://www.jobs.ch/en/vacancies/detail/${id}/`);

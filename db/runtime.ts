@@ -29,6 +29,18 @@ const schemaStatements = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS search_settings (
+    id TEXT PRIMARY KEY NOT NULL,
+    role_override_a TEXT NOT NULL DEFAULT '',
+    role_override_b TEXT NOT NULL DEFAULT '',
+    location TEXT NOT NULL DEFAULT '',
+    workplace TEXT NOT NULL DEFAULT 'any',
+    seniority TEXT NOT NULL DEFAULT 'any',
+    contract_type TEXT NOT NULL DEFAULT 'any',
+    required_keywords TEXT NOT NULL DEFAULT '[]',
+    excluded_keywords TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL
+  )`,
   'CREATE INDEX IF NOT EXISTS jobs_language_status_idx ON jobs(language_status)',
   'CREATE INDEX IF NOT EXISTS jobs_status_updated_idx ON jobs(status, updated_at)',
 ];

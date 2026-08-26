@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import type { AppState, CvSlot, JobRecord, JobStatus } from '@/lib/types';
+import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
+import type { AppState, CvSlot, JobRecord, JobStatus, SearchCriteria } from '@/lib/types';
 
 type View = 'matches' | 'review' | 'pipeline' | 'all';
 
@@ -12,10 +13,28 @@ interface SlotState {
   message: string;
 }
 
+interface CriteriaDraft extends Omit<SearchCriteria, 'requiredKeywords' | 'excludedKeywords' | 'updatedAt'> {
+  requiredKeywords: string;
+  excludedKeywords: string;
+}
+
 const emptySlotState: SlotState = { file: null, text: '', busy: false, message: '' };
 const emptyImport = { sourceUrl: '', title: '', company: '', location: '', description: '' };
 const slots: CvSlot[] = ['a', 'b'];
 const slotLabels: Record<CvSlot, string> = { a: 'CV 1', b: 'CV 2' };
+
+function criteriaToDraft(criteria: SearchCriteria): CriteriaDraft {
+  return {
+    roleOverrideA: criteria.roleOverrideA,
+    roleOverrideB: criteria.roleOverrideB,
+    location: criteria.location,
+    workplace: criteria.workplace,
+    seniority: criteria.seniority,
+    contractType: criteria.contractType,
+    requiredKeywords: criteria.requiredKeywords.join(', '),
+    excludedKeywords: criteria.excludedKeywords.join(', '),
+  };
+}
 
 async function responseJson<T>(response: Response): Promise<T> {
   const body = await response.json() as T & { error?: string };
@@ -47,9 +66,13 @@ async function extractCvText(file: File) {
   throw new Error('Use a PDF, DOCX, or TXT file.');
 }
 
-function jobsSearchUrl(role: string) {
+function jobsSearchUrl(role: string, location = '') {
   const term = [role.trim(), 'English'].filter(Boolean).join(' ');
-  return `https://www.jobs.ch/en/vacancies/?advanced=1&term=${encodeURIComponent(term)}`;
+  const url = new URL('https://www.jobs.ch/en/vacancies/');
+  url.searchParams.set('advanced', '1');
+  url.searchParams.set('term', term);
+  if (location.trim()) url.searchParams.set('location', location.trim());
+  return url.toString();
 }
 
 function statusLabel(status: JobStatus) {
@@ -62,7 +85,7 @@ function bestFitScore(job: JobRecord) {
 }
 
 export default function JobRadar() {
-  const [state, setState] = useState<AppState>({ profiles: [], jobs: [] });
+  const [state, setState] = useState<AppState>({ profiles: [], jobs: [], criteria: defaultSearchCriteria });
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>('matches');
   const [cvSlots, setCvSlots] = useState<Record<CvSlot, SlotState>>({ a: { ...emptySlotState }, b: { ...emptySlotState } });
@@ -72,31 +95,92 @@ export default function JobRadar() {
   const [showImport, setShowImport] = useState(false);
   const [scrapeBusy, setScrapeBusy] = useState(false);
   const [scrapeMessage, setScrapeMessage] = useState('');
+  const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(criteriaToDraft(defaultSearchCriteria));
+  const [criteriaBusy, setCriteriaBusy] = useState(false);
+  const [criteriaMessage, setCriteriaMessage] = useState('');
   const importRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     fetch('/api/state')
       .then((response) => responseJson<AppState>(response))
-      .then(setState)
+      .then((next) => {
+        const criteria = next.criteria ?? defaultSearchCriteria;
+        setState({ ...next, criteria });
+        setCriteriaDraft(criteriaToDraft(criteria));
+      })
       .catch((error: Error) => setScrapeMessage(error.message))
       .finally(() => setLoading(false));
   }, []);
 
   const hasAnyCv = state.profiles.some((profile) => profile.hasCvText);
-  const primaryRole = state.profiles.find((profile) => profile.derivedRole)?.derivedRole ?? '';
+  const primaryProfile = state.profiles.find((profile) => profile.derivedRole);
+  const primaryRole = primaryProfile ? roleForProfile(primaryProfile, state.criteria) : '';
+
+  const criteriaFilteredJobs = useMemo(
+    () => state.jobs.filter((job) => matchesSearchCriteria(job, state.criteria)),
+    [state.jobs, state.criteria],
+  );
 
   const counts = useMemo(() => ({
-    matches: state.jobs.filter((job) => job.languageStatus === 'pass' && job.status !== 'ignored').length,
-    review: state.jobs.filter((job) => job.languageStatus === 'review' && job.status !== 'ignored').length,
+    matches: criteriaFilteredJobs.filter((job) => job.languageStatus === 'pass' && job.status !== 'ignored').length,
+    review: criteriaFilteredJobs.filter((job) => job.languageStatus === 'review' && job.status !== 'ignored').length,
     pipeline: state.jobs.filter((job) => job.status === 'saved' || job.status === 'applied').length,
-  }), [state.jobs]);
+  }), [criteriaFilteredJobs, state.jobs]);
 
   const visibleJobs = useMemo(() => state.jobs.filter((job) => {
-    if (view === 'matches') return job.languageStatus === 'pass' && job.status !== 'ignored';
-    if (view === 'review') return job.languageStatus === 'review' && job.status !== 'ignored';
+    const matchesCriteria = matchesSearchCriteria(job, state.criteria);
+    if (view === 'matches') return matchesCriteria && job.languageStatus === 'pass' && job.status !== 'ignored';
+    if (view === 'review') return matchesCriteria && job.languageStatus === 'review' && job.status !== 'ignored';
     if (view === 'pipeline') return job.status === 'saved' || job.status === 'applied';
-    return job.status !== 'ignored';
-  }).sort((a, b) => bestFitScore(b) - bestFitScore(a)), [state.jobs, view]);
+    return matchesCriteria && job.status !== 'ignored';
+  }).sort((a, b) => bestFitScore(b) - bestFitScore(a)), [state.criteria, state.jobs, view]);
+
+  async function persistCriteria(draft: CriteriaDraft) {
+    return responseJson<{ criteria: SearchCriteria }>(await fetch('/api/criteria', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...draft,
+        requiredKeywords: parseKeywordInput(draft.requiredKeywords),
+        excludedKeywords: parseKeywordInput(draft.excludedKeywords),
+      }),
+    }));
+  }
+
+  async function saveCriteria(event: FormEvent) {
+    event.preventDefault();
+    setCriteriaBusy(true);
+    setCriteriaMessage('Saving search criteria…');
+    try {
+      const result = await persistCriteria(criteriaDraft);
+      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
+      setState(refreshed);
+      setCriteriaDraft(criteriaToDraft(result.criteria));
+      setCriteriaMessage('Criteria saved and applied to search and results.');
+    } catch (error) {
+      setCriteriaMessage(error instanceof Error ? error.message : 'Could not save criteria.');
+    } finally {
+      setCriteriaBusy(false);
+    }
+  }
+
+  async function resetCriteria() {
+    const draft = criteriaToDraft(defaultSearchCriteria);
+    setCriteriaDraft(draft);
+    setCriteriaBusy(true);
+    setCriteriaMessage('Resetting criteria…');
+    try {
+      const result = await persistCriteria(draft);
+      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
+      setState(refreshed);
+      setCriteriaDraft(criteriaToDraft(result.criteria));
+      setCriteriaMessage('All optional criteria reset.');
+    } catch (error) {
+      setCriteriaMessage(error instanceof Error ? error.message : 'Could not reset criteria.');
+    } finally {
+      setCriteriaBusy(false);
+    }
+  }
 
   function updateSlot(slot: CvSlot, patch: Partial<SlotState>) {
     setCvSlots((current) => ({ ...current, [slot]: { ...current[slot], ...patch } }));
@@ -212,7 +296,7 @@ export default function JobRadar() {
           <p>Use jobs.ch normally, then let this private workspace reject ads that require German, French, Italian or Dutch and rank the rest against your CVs.</p>
           <div className="hero-actions">
             <a className="primary" href="#profile">Add your CVs <span>↓</span></a>
-            <a className="secondary" href={jobsSearchUrl(primaryRole)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
+            <a className="secondary" href={jobsSearchUrl(primaryRole, state.criteria.location)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
           </div>
         </div>
         <aside className="promise-card">
@@ -248,11 +332,30 @@ export default function JobRadar() {
         </div>
       </section>
 
+      <section className="criteria-section" id="criteria">
+        <div className="criteria-intro">
+          <span className="section-label coral">Search criteria</span>
+          <h2>Define what fits</h2>
+          <p>Role overrides and location shape the jobs.ch search. Every field filters your local result views; Pipeline always keeps saved and applied jobs visible.</p>
+        </div>
+        <form className="criteria-form" onSubmit={saveCriteria}>
+          <label className="field"><span>CV 1 role override</span><input value={criteriaDraft.roleOverrideA} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, roleOverrideA: event.target.value })} placeholder={state.profiles.find((profile) => profile.slot === 'a')?.derivedRole || 'Use detected role'} /></label>
+          <label className="field"><span>CV 2 role override</span><input value={criteriaDraft.roleOverrideB} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, roleOverrideB: event.target.value })} placeholder={state.profiles.find((profile) => profile.slot === 'b')?.derivedRole || 'Use detected role'} /></label>
+          <label className="field"><span>Location / canton</span><input value={criteriaDraft.location} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, location: event.target.value })} placeholder="e.g. Zürich" /></label>
+          <label className="field"><span>Workplace</span><select value={criteriaDraft.workplace} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, workplace: event.target.value as SearchCriteria['workplace'] })}><option value="any">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option></select></label>
+          <label className="field"><span>Seniority</span><select value={criteriaDraft.seniority} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, seniority: event.target.value as SearchCriteria['seniority'] })}><option value="any">Any</option><option value="internship">Internship</option><option value="entry">Entry / junior</option><option value="mid">Mid-level</option><option value="senior">Senior</option><option value="lead">Lead / principal</option></select></label>
+          <label className="field"><span>Contract type</span><select value={criteriaDraft.contractType} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, contractType: event.target.value as SearchCriteria['contractType'] })}><option value="any">Any</option><option value="permanent">Permanent / full-time</option><option value="temporary">Temporary / fixed-term</option><option value="contract">Contract / freelance</option><option value="internship">Internship</option></select></label>
+          <label className="field keywords"><span>Required keywords (all)</span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
+          <label className="field keywords"><span>Exclude if ad contains</span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
+          <div className="criteria-actions"><button className="search-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button><button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button><p aria-live="polite">{criteriaMessage || `${criteriaFilteredJobs.length} of ${state.jobs.length} analyzed jobs match the saved criteria.`}</p></div>
+        </form>
+      </section>
+
       <section className="workflow">
         <div className="workflow-copy"><span className="section-label coral">Step two</span><h2>Search on jobs.ch</h2><p>Run an automatic search for your detected roles, open a targeted search yourself, or paste one ad by hand. Log in on jobs.ch directly if needed.</p></div>
         <div className="workflow-steps"><span><b>1</b> Find or open a search</span><span><b>2</b> Screen for English</span><span><b>3</b> Review your matches</span></div>
         <button className="jobs-button" type="button" disabled={!hasAnyCv || scrapeBusy} onClick={findJobs}>{scrapeBusy ? 'Searching…' : 'Find new jobs'} <span>⟳</span></button>
-        <a className={`jobs-button ${!hasAnyCv ? 'disabled' : ''}`} href={jobsSearchUrl(primaryRole)} target={hasAnyCv ? '_blank' : undefined} rel="noreferrer">Open jobs.ch <span>↗</span></a>
+        <a className={`jobs-button ${!hasAnyCv ? 'disabled' : ''}`} href={jobsSearchUrl(primaryRole, state.criteria.location)} target={hasAnyCv ? '_blank' : undefined} rel="noreferrer">Open jobs.ch <span>↗</span></a>
         <button className="import-button" type="button" disabled={!hasAnyCv} onClick={openImport}>Analyze a job <span>＋</span></button>
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
       </section>
@@ -277,7 +380,7 @@ export default function JobRadar() {
             <button className={view === 'matches' ? 'active' : ''} onClick={() => setView('matches')}><span>English matches</span><i>{counts.matches}</i></button>
             <button className={view === 'review' ? 'active' : ''} onClick={() => setView('review')}><span>Needs review</span><i>{counts.review}</i></button>
             <button className={view === 'pipeline' ? 'active' : ''} onClick={() => setView('pipeline')}><span>Pipeline</span><i>{counts.pipeline}</i></button>
-            <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><span>All active</span><i>{state.jobs.filter((job) => job.status !== 'ignored').length}</i></button>
+            <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><span>All matching</span><i>{criteriaFilteredJobs.filter((job) => job.status !== 'ignored').length}</i></button>
           </aside>
           <div className="job-list">
             {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Open jobs.ch, copy a promising ad, then run the strict language check.' : 'Upload a CV to unlock search, screening and match scores.'}</p>{hasAnyCv && <button type="button" onClick={openImport}>Analyze your first job</button>}</div>}
@@ -289,7 +392,7 @@ export default function JobRadar() {
                   <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${job.languageStatus}`}>{job.languageStatus === 'pass' ? 'English sufficient' : job.languageStatus === 'review' ? 'Review language' : 'Local language required'}</span></div>
                   <h3>{job.title}</h3><p className="language-summary">{job.languageSummary}</p>
                   {bothCvsSaved && <p className="fit-breakdown">
-                    {state.profiles.filter((profile) => profile.hasCvText).map((profile) => `${profile.derivedRole || slotLabels[profile.slot]}: ${profile.slot === 'a' ? job.fitScoreA : job.fitScoreB}`).join(' · ')}
+                    {state.profiles.filter((profile) => profile.hasCvText).map((profile) => `${roleForProfile(profile, state.criteria) || slotLabels[profile.slot]}: ${profile.slot === 'a' ? job.fitScoreA : job.fitScoreB}`).join(' · ')}
                   </p>}
                   <div className="tags">{job.matchedKeywords.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}{!job.matchedKeywords.length && <span>No clear CV overlap yet</span>}</div>
                   <div className="card-actions"><button type="button" className={job.status === 'saved' ? 'selected' : ''} onClick={() => updateStatus(job.id, job.status === 'saved' ? 'new' : 'saved')}>♡ {job.status === 'saved' ? 'Saved' : 'Save'}</button><button type="button" className={job.status === 'applied' ? 'selected' : ''} onClick={() => updateStatus(job.id, 'applied')}>✓ {job.status === 'applied' ? 'Applied' : 'Mark applied'}</button><button type="button" onClick={() => updateStatus(job.id, 'ignored')}>Hide</button></div>

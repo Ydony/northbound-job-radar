@@ -65,5 +65,8 @@ function record(counts: Map<string, { count: number; words: number; earliestInde
 }
 
 function score(entry: { count: number; words: number; earliestIndex: number }) {
-  return entry.count * 10 + entry.words * 3 - entry.earliestIndex / 1000;
+  const nearHeader = entry.earliestIndex < 350;
+  const frequency = nearHeader ? Math.min(entry.count, 3) : entry.count;
+  const headerBonus = nearHeader ? 60 + entry.words * 10 : entry.earliestIndex < 800 ? 25 : 0;
+  return frequency * 10 + entry.words * 3 + headerBonus - entry.earliestIndex / 1000;
 }
