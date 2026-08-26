@@ -84,6 +84,8 @@ The MVP is single-user. Authentication and tenant isolation are post-MVP require
 
 `search_settings` holds the single-user search profile: optional role override for each CV, location/canton, workplace, seniority, contract type, required keywords, exclusions, and an update timestamp. Role overrides take precedence over the derived roles for discovery and scoring but do not overwrite the detected metadata.
 
+`language_feedback` holds an optional user verdict per job. `correct` confirms the detector result. `incorrect` stores a user-selected corrected status (`pass`, `review`, or `blocked`) and an optional reason. It is separate from `jobs`, so a CV replacement, criteria rescore, or job re-import updates detector output without erasing user feedback.
+
 `jobs` stores the source URL, title, company, location, full description, language result and evidence, one fit score per CV slot (`fit_score_a`, `fit_score_b`) plus `best_cv_slot` and the winning slot's keywords, pipeline status, and timestamps. `source_url` is unique so re-importing an ad refreshes its analysis without duplicating it.
 
 The client never receives the CV text or R2 object key. Original CV files are capped at 10 MB. Replacing a CV removes the previous object after the new one is stored.
@@ -99,6 +101,8 @@ The client never receives the CV text or R2 object key. Original CV files are ca
 5. Route insufficient text, uncertain ad language, or unqualified language mentions to review.
 
 The heuristic is explainable but not complete. It must be covered with a growing regression corpus before production. False positives are especially risky because they waste the user's application time.
+
+The result views use the detector status unless the user explicitly marks it incorrect and selects a replacement. A correction never destroys the detector status or explanation: cards show both, making the feedback auditable and suitable for a future labeled regression corpus.
 
 ## 6. CV-fit score
 
@@ -134,7 +138,7 @@ an error: the CV still saves and still scores jobs; it just contributes no searc
 - `PUT /api/criteria` — validate, persist, and apply role/location/workplace/seniority/contract/keyword criteria
 - `POST /api/jobs` — validate and analyze one user-supplied jobs.ch ad against every saved CV
 - `POST /api/scrape` — fetch and analyze new jobs.ch listings for each distinct derived role (see §2 for the compliance decision behind this route)
-- `PATCH /api/jobs/:id` — update `new`, `saved`, `applied`, or `ignored`
+- `PATCH /api/jobs/:id` — update pipeline status and save, change, or clear language feedback
 - `DELETE /api/jobs/:id` — delete an analyzed job (API support; UI currently uses hide)
 
 Saving either CV or changing role criteria recalculates every stored job's language result
@@ -176,12 +180,14 @@ migrations.
   overrides persisted across reload, two bounded searches produced 24 real jobs, and
   rescoring classified them as five pass, one review, and 18 blocked.
 - `drizzle/0000_open_whirlwind.sql` matches the two-CV schema and
-  `drizzle/0001_lush_silvermane.sql` adds saved search settings. However, generated
+  `drizzle/0001_lush_silvermane.sql` adds saved search settings;
+  `drizzle/0002_cultured_squadron_supreme.sql` adds language feedback. However, generated
   migrations are still not applied by the runtime; the broader migration limitation in
   §7a remains.
 - No authentication or multi-user isolation.
-- Deterministic language detection has focused regression tests and a reviewed 24-ad live
-  sample, but still needs a persisted labeled corpus and user correction controls.
+- Deterministic language detection has focused regression tests, a reviewed 24-ad live
+  sample, and persisted correction controls. The user still needs to label a representative
+  set before it can be treated as an evaluation corpus.
 - Role derivation (§6a) is a small hand-written heuristic. Its focused tests now cover
   header specificity and older repeated roles, but other CV layouts will surface new cases.
 - Scanned/image-only PDFs require OCR; the MVP reports that the file is unreadable.

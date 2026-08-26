@@ -11,7 +11,8 @@ Northbound is a local MVP for finding Swiss jobs where English is sufficient. It
    - `pass`: English ad, no mandatory local language detected;
    - `review`: evidence is incomplete or ambiguous;
    - `blocked`: a mandatory local language or a non-English ad is detected.
-5. Each job is scored against every saved CV; the card shows the best score and the per-CV breakdown, so you can see which CV version to apply with. You can save or hide the job, track applications, and open the original jobs.ch page to apply.
+5. Mark a language result accurate or correct it to pass, review, or blocked with an optional reason. Your explicit correction controls the result views while the detector's original decision remains visible.
+6. Each job is scored against every saved CV; the card shows the best score and the per-CV breakdown, so you can see which CV version to apply with. You can save or hide the job, track applications, and open the original jobs.ch page to apply.
 
 The MVP fetches public jobs.ch search and listing pages directly (see "Product and
 compliance decision" below) but does not automate a jobs.ch account, log in, or submit

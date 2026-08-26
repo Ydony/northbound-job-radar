@@ -44,7 +44,8 @@ Build a private job-search companion for a user seeking roles where English alon
 - The app is single-user for the MVP. It holds up to two CV versions for that one person,
   keyed by `slot` (`a`/`b`) in the `cvs` table. Each search role is derived locally from
   its CV, with an optional persisted override in `search_settings`; every job is scored
-  against both CVs.
+  against both CVs. Explicit language-result feedback lives separately in
+  `language_feedback` so rescoring never overwrites the user's judgment.
 
 ## Commands
 
@@ -65,6 +66,8 @@ On Windows, `@rolldown/binding-win32-x64-msvc` is an explicit dev dependency bec
 - Preserve the strict three-state language result: `pass`, `review`, `blocked`.
 - Prefer false negatives over false positives for “English sufficient.”
 - Keep the reason for every language decision visible to the user.
+- Preserve the detector result when applying user language corrections; only an explicit
+  user correction may change the effective result shown in Matches or Review.
 - Never send a CV or job description to a third-party model without explicit user consent and a documented retention policy.
 - Validate jobs.ch URLs server-side; do not trust browser input.
 - Keep one SQL statement per D1 `prepare()` call. Add indexes for new recurring queries.

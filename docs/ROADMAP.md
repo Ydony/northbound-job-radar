@@ -14,9 +14,10 @@ This document describes the overall product, including capabilities that are int
   2026-08-26 decision to automate this against jobs.ch's ToS/robots.txt, and the caps
   (no schedule, capped listings per click, no auth, no detection evasion) that bound it.
 - Strict `pass / review / blocked` language gate.
+- Persisted accurate/incorrect feedback with an optional corrected status and reason; explicit corrections control views without erasing detector evidence.
 - Explainable CV-fit score.
 - Save, hide, mark applied, and open the original application page.
-- Local D1/R2 persistence, a verified real-CV/24-ad run, and a focused 22-test regression set.
+- Local D1/R2 persistence, a verified real-CV/24-ad run, and a focused 26-test regression set.
 
 Exit criterion: the user can screen real jobs without a false “English sufficient” result in the agreed regression examples.
 

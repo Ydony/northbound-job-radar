@@ -9,6 +9,7 @@ Read this first, use `docs/TASKS.md` for current execution status, then read `RE
 - Baseline commit: `344a642` (`Initial commit: Northbound Swiss job radar MVP`).
 - Verified two-CV checkpoint: `2a77a70` (`Verify two-CV flow and add regression coverage`).
 - Real-CV and search-criteria checkpoint: `a8e7ba1` (`Add persisted job criteria and validate real CV flow`).
+- Language-correction checkpoint: `67669d8` (`Add persistent language classification feedback`).
 - Use `git status`, `git log -3 --oneline`, and `docs/TASKS.md` to identify later work.
 - No `.env` files or obvious committed secrets were found. `.openai/hosting.json` contains binding names only.
 - `*.tsbuildinfo`, dependency folders, builds, and local Miniflare data are ignored.
@@ -30,13 +31,13 @@ The current local database contains the two user-provided text-based PDFs and 24
 
 Quality checks:
 
-- `npm test`: 22 passing tests.
+- `npm test`: 26 passing tests.
 - `npm run typecheck`: clean.
 - `npm run lint`: clean.
 - `npm run build`: clean after the current changes.
 - `npm run db:generate`: generated `drizzle/0001_lush_silvermane.sql` for search settings.
 
-## 3. Important capabilities in `a8e7ba1`
+## 3. Important capabilities through `67669d8`
 
 - Persisted role overrides, location/canton, workplace, seniority, contract type, required keywords, and exclusions.
 - Role and location are sent to jobs.ch search; all criteria filter local result views, while saved/applied Pipeline jobs stay visible.
@@ -44,11 +45,14 @@ Quality checks:
 - Role detection strongly prefers a specific title in the CV header over repeated older roles.
 - Search settings exist in runtime schema, Drizzle schema, and migration `0001`.
 - Regression coverage includes language rules, real-CV-derived title shapes, search criteria, job URL construction, scoring, parsing, and source interleaving.
+- Every job card can be marked Accurate or corrected to pass/review/blocked with an optional reason.
+- An explicit correction controls Matches/Review and the card badge while preserving the detector's original status and explanation.
+- Feedback survives reload, criteria rescoring, CV/job analysis, and re-importing the same job; it can also be cleared.
+- The additive `language_feedback` table and migration `0002` avoid resetting the existing 24-job workspace.
 
 ## 4. Remaining work and risks
 
-- The language corpus has focused tests and a 24-ad live review, not a persisted representative labeled Swiss-job dataset. Expand it before relying on unattended alerts.
-- There is no UI yet to correct a language classification or save the user's reason.
+- The language corpus has focused tests, a 24-ad live review, and persisted correction controls, but the user has not yet labeled a representative set. Do that before relying on unattended alerts.
 - The role detector remains a small heuristic and needs more real CV layouts.
 - The scraper silently skips individual job-detail fetch/parse failures; source-health reporting is still missing.
 - There is no applied migration runner or backfill path. Runtime still uses `CREATE TABLE IF NOT EXISTS`; future schema changes require a real migration strategy before data matters.

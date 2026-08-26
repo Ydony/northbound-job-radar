@@ -7,10 +7,10 @@ This is the execution tracker for finishing the personal MVP and planning the wo
 ## Current snapshot
 
 - Core jobs.ch flow: **verified working** with both real PDFs and 24 real ads.
-- Quality baseline: **22 tests passing; type-check, lint, and production build clean**.
-- Git: real-CV/search-criteria work is committed as `a8e7ba1`, on top of `2a77a70` and baseline `344a642`.
+- Quality baseline: **26 tests passing; type-check, lint, and production build clean**.
+- Git: language-feedback work is committed as `67669d8`, on top of `a8e7ba1`, `2a77a70`, and baseline `344a642`.
 - Local preview: `http://localhost:3002/` while the development server is running.
-- Current local data: both real CV profiles, saved role overrides, and 24 screened jobs (5 pass, 1 review, 18 blocked).
+- Current local data: both real CV profiles, saved role overrides, and 24 screened jobs (5 pass, 1 review, 18 blocked). Temporary feedback test rows were cleared.
 
 ## MVP completion tracker
 
@@ -19,7 +19,7 @@ This is the execution tracker for finishing the personal MVP and planning the wo
 | MVP-01 | Commit verified fixes | Done | Verification commit `2a77a70` records the tested two-CV flow, classifier fix, migration, and 14-test suite. | None. | Completed 2026-08-26. |
 | MVP-02 | Test with real CVs | Done | Both PDFs parsed and saved. Detection now returns `Data Analyst` / `Data Governance Analyst`; specific overrides are saved. Two capped runs produced and reviewed 24 ads. | None. Keep the real PDFs and their temporary copies out of Git. | Completed 2026-08-26. |
 | MVP-03 | Editable search criteria | Done | Role overrides, location/canton, workplace, seniority, contract, required keywords, and exclusions persist. Role/location shape discovery; all fields filter local views; Reset clears optional criteria. | Refine semantics only when real usage exposes a gap. | Completed 2026-08-26 in `a8e7ba1`. |
-| MVP-04 | Validate and correct language results | Partial | The 24-ad review found two edge cases; `advantageous` now passes and `advanced level` blocks. Current split is 5 pass, 1 review, 18 blocked, with 22 total regression tests. | Add persisted correct/incorrect controls with an optional reason, then turn reviewed cases into a maintained labeled corpus. | A representative labeled corpus passes; corrections persist; corrected cases become regression tests; ambiguous cases still fail closed. |
+| MVP-04 | Validate and correct language results | Partial — controls done | Every card now supports persisted Accurate/Flag wrong feedback, corrected pass/review/blocked status, optional reason, clearing, and effective view reassignment. Feedback survived reload, rescore, and re-import; 26 tests pass. | Use the controls to label a representative set of real ads, then promote confirmed edge cases into the maintained regression corpus. | A representative labeled corpus passes; corrections persist; corrected cases become regression tests; ambiguous cases still fail closed. |
 | MVP-05 | Data controls | Partial | CV replacement works. Jobs can be saved, hidden, marked applied, or deleted through an API that is not exposed in the UI. | Add delete-CV, clear selected/all jobs, CSV/JSON export, and a confirmed workspace reset. | The user can inspect, export, delete, and reset all stored personal data without filesystem work. |
 | MVP-06 | Scraper diagnostics | Partial | Search-level errors surface, but individual detail-fetch and parse failures are silently skipped. | Return requested/fetched/parsed/skipped counts and safe failure reasons; record a run summary and display it in the UI. | A partial or broken source run is distinguishable from “no new jobs,” without exposing CV content or sensitive data. |
 | MVP-07 | Migrations and backups | Partial | Two-CV migration `0000` and search-settings migration `0001` exist, but runtime still creates tables with `CREATE TABLE IF NOT EXISTS` and applies neither migration. | Add an ordered migration runner, migration-version table, backup/export path, restore instructions, and a migration test. | Existing data survives a schema upgrade and can be backed up and restored deliberately. |
