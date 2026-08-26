@@ -126,7 +126,8 @@ export default function JobRadar() {
       form.set('cvText', current.text);
       form.set('file', current.file);
       const result = await responseJson<{ cv: AppState['profiles'][number] }>(await fetch('/api/profile', { method: 'POST', body: form }));
-      setState((state_) => ({ ...state_, profiles: [...state_.profiles.filter((profile) => profile.slot !== slot), result.cv].sort((a, b) => a.slot.localeCompare(b.slot)) }));
+      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
+      setState(refreshed);
       updateSlot(slot, { message: result.cv.derivedRole ? `Saved. Detected role: ${result.cv.derivedRole}` : 'Saved, but no role could be detected — try a CV with a clearer job title.' });
     } catch (error) {
       updateSlot(slot, { message: error instanceof Error ? error.message : 'Could not save this CV.' });

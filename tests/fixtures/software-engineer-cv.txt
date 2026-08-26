@@ -1,0 +1,4 @@
+Alex Example
+Software Engineer
+
+Experienced software engineer building web products with React, TypeScript, JavaScript, Node.js, SQL, Git, Docker, AWS, agile delivery and stakeholder communication. Previously worked as a senior software engineer and technical consultant for international teams. English is fluent.

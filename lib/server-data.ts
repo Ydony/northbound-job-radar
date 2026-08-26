@@ -1,4 +1,4 @@
-import type { LanguageStatus } from './analysis';
+import { scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
 import type { CvProfile, CvSlot, JobRecord } from './types';
 
 interface CvRow {
@@ -106,6 +106,24 @@ export async function upsertJob(db: D1Database, input: UpsertJobInput): Promise<
       existing?.created_at ?? now, now).run();
   const row = await db.prepare('SELECT * FROM jobs WHERE id = ?').bind(id).first<JobRow>();
   return jobFromRow(row!);
+}
+
+export async function rescoreAllJobs(db: D1Database, cvs: CvInput[]) {
+  const jobs = await db.prepare('SELECT id, title, description FROM jobs')
+    .all<{ id: string; title: string; description: string }>();
+  if (!jobs.results.length) return 0;
+
+  const updates = jobs.results.map((job) => {
+    const fit = scoreFitAcrossCvs(job.description, job.title, cvs);
+    return db.prepare(`UPDATE jobs SET fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?,
+      matched_keywords = ?, missing_keywords = ?, updated_at = ? WHERE id = ?`)
+      .bind(fit.fitScoreA, fit.fitScoreB, fit.bestCvSlot, JSON.stringify(fit.matchedKeywords),
+        JSON.stringify(fit.missingKeywords), new Date().toISOString(), job.id);
+  });
+  for (let start = 0; start < updates.length; start += 50) {
+    await db.batch(updates.slice(start, start + 50));
+  }
+  return updates.length;
 }
 
 export type { CvRow, JobRow };

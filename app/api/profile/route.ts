@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { bindings, ensureSchema } from '@/db/runtime';
 import { deriveRoleFromCv } from '@/lib/role-detection';
-import { cvFromRow, type CvRow } from '@/lib/server-data';
+import { cvFromRow, rescoreAllJobs, type CvRow } from '@/lib/server-data';
 import type { CvSlot } from '@/lib/types';
 
 const maxCvBytes = 10 * 1024 * 1024;
@@ -43,6 +43,14 @@ export async function POST(request: Request) {
     .bind(crypto.randomUUID(), slot, file.name, objectKey, cvText, derivedRole, now).run();
   if (previous?.object_key && previous.object_key !== objectKey) await files.delete(previous.object_key);
 
+  const allCvs = await db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
+    .all<{ slot: CvSlot; cv_text: string; derived_role: string }>();
+  const rescoredJobs = await rescoreAllJobs(db, allCvs.results.map((saved) => ({
+    slot: saved.slot,
+    cvText: saved.cv_text,
+    derivedRole: saved.derived_role,
+  })));
+
   const row = await db.prepare('SELECT * FROM cvs WHERE slot = ?').bind(slot).first<CvRow>();
-  return NextResponse.json({ cv: cvFromRow(row!) });
+  return NextResponse.json({ cv: cvFromRow(row!), rescoredJobs });
 }

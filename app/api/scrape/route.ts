@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { bindings, ensureSchema } from '@/db/runtime';
 import { analyzeLanguage, scoreFitAcrossCvs } from '@/lib/analysis';
-import { MAX_NEW_JOBS_PER_RUN, REQUEST_DELAY_MS, delay, fetchJobDetail, fetchSearchResultIds, stripHtml } from '@/lib/jobsch';
+import { MAX_NEW_JOBS_PER_RUN, REQUEST_DELAY_MS, delay, fetchJobDetail, fetchSearchResultIds, interleaveUnique, stripHtml } from '@/lib/jobsch';
 import { upsertJob } from '@/lib/server-data';
 import type { JobRecord } from '@/lib/types';
 
@@ -18,12 +18,12 @@ export async function POST() {
 
   let candidateUrls: string[];
   try {
-    const found = new Set<string>();
+    const resultsByRole: string[][] = [];
     for (const [index, term] of searchTerms.entries()) {
       if (index > 0) await delay(REQUEST_DELAY_MS);
-      for (const url of await fetchSearchResultIds(term)) found.add(url);
+      resultsByRole.push(await fetchSearchResultIds(term));
     }
-    candidateUrls = [...found];
+    candidateUrls = interleaveUnique(resultsByRole);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Could not reach jobs.ch.' }, { status: 502 });
   }

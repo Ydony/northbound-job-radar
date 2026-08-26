@@ -13,7 +13,6 @@ const NOT_TITLE_WORDS = new Set([
   'employment', 'current', 'previous', 'present', 'former', 'seeking', 'aspiring', 'am',
 ]);
 
-const TITLE_NOUN_PATTERN = new RegExp(`\\b(${TITLE_NOUNS.join('|')})\\b`, 'gi');
 const WORD_PATTERN = /[a-zA-Z][a-zA-Z+#.-]*/g;
 
 function titleCase(value: string) {

@@ -42,8 +42,8 @@ const nonEnglishMarkers = new Set([
   'ervaring', 'functie', 'het', 'met', 'van', 'vereisten', 'voor', 'wij',
 ]);
 
-const optionalWords = /\b(?:a plus|advantage|an asset|beneficial|bonus|desirable|nice to have|not required|optional|preferred|would be helpful)\b/i;
-const requiredWords = /\b(?:at least|business[- ]fluent|excellent|fluency|fluent|good command|mandatory|minimum|must|required|requirement|strong|very good|working knowledge|proficien(?:t|cy)|native|b[12]|c[12])\b/i;
+const optionalWords = /\b(?:a plus|advantage|an asset|beneficial|bonus|desirable|nice to have|not required|optional|preferred|would be helpful)\b/gi;
+const requiredWords = /\b(?:at least|business[- ]fluent|excellent|fluency|fluent|good command|mandatory|minimum|must|required|requirement|strong|very good|working knowledge|proficien(?:t|cy)|native|b[12]|c[12])\b/gi;
 
 const skillPhrases = [
   'account management', 'agile', 'aws', 'azure', 'business analysis', 'change management', 'communication', 'crm',
@@ -72,6 +72,28 @@ function labelLanguage(value: string) {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
+interface Cue {
+  start: number;
+  end: number;
+}
+
+function cues(sentence: string, pattern: RegExp) {
+  return [...sentence.matchAll(pattern)].map((match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+  }));
+}
+
+function distanceToCue(languageStart: number, languageEnd: number, cue: Cue) {
+  if (cue.end < languageStart) return languageStart - cue.end;
+  if (cue.start > languageEnd) return cue.start - languageEnd;
+  return 0;
+}
+
+function nearestDistance(languageStart: number, languageEnd: number, matches: Cue[]) {
+  return matches.reduce((nearest, cue) => Math.min(nearest, distanceToCue(languageStart, languageEnd, cue)), Number.POSITIVE_INFINITY);
+}
+
 export function analyzeLanguage(description: string): LanguageResult {
   const tokens = words(description);
   const englishScore = tokens.filter((token) => englishMarkers.has(token)).length;
@@ -83,13 +105,19 @@ export function analyzeLanguage(description: string): LanguageResult {
 
   for (const sentence of sentences) {
     const matches = [...sentence.matchAll(new RegExp(`\\b(${languagePattern})\\b`, 'gi'))];
+    const optionalCues = cues(sentence, optionalWords);
+    const requiredCues = cues(sentence, requiredWords).filter((required) =>
+      !optionalCues.some((optional) => required.start >= optional.start && required.end <= optional.end),
+    );
     for (const match of matches) {
       const language = labelLanguage(match[1]);
-      const start = Math.max(0, (match.index ?? 0) - 80);
-      const end = Math.min(sentence.length, (match.index ?? 0) + match[0].length + 80);
-      const context = sentence.slice(start, end);
-      if (optionalWords.test(context) && !/\b(?:must|required|mandatory)\b/i.test(context)) optional.add(language);
-      else if (requiredWords.test(context) || /\benglish\s*(?:,|\/|and|&)\s*(?:german|french|italian|dutch)\b/i.test(context)) mandatory.add(language);
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      const optionalDistance = nearestDistance(start, end, optionalCues);
+      const requiredDistance = nearestDistance(start, end, requiredCues);
+      const associationLimit = 55;
+      if (requiredDistance <= associationLimit && requiredDistance <= optionalDistance) mandatory.add(language);
+      else if (optionalDistance <= associationLimit) optional.add(language);
       else ambiguous.add(language);
     }
   }

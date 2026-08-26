@@ -35,6 +35,22 @@ export function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function interleaveUnique(groups: string[][]) {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  const longest = Math.max(0, ...groups.map((group) => group.length));
+  for (let index = 0; index < longest; index += 1) {
+    for (const group of groups) {
+      const value = group[index];
+      if (value && !seen.has(value)) {
+        seen.add(value);
+        result.push(value);
+      }
+    }
+  }
+  return result;
+}
+
 export function stripHtml(html: string) {
   return html
     .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')

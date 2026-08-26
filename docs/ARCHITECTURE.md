@@ -133,6 +133,9 @@ an error: the CV still saves and still scores jobs; it just contributes no searc
 - `PATCH /api/jobs/:id` — update `new`, `saved`, `applied`, or `ignored`
 - `DELETE /api/jobs/:id` — delete an analyzed job (API support; UI currently uses hide)
 
+Saving either CV also recalculates every stored job's two fit scores in D1 batches. The
+client reloads state after the upload so the visible score and winning CV are current.
+
 ## 7a. Schema changes and local state (read before changing a column)
 
 The schema is defined **twice** and the two must be kept in sync by hand:
@@ -163,23 +166,19 @@ migrations.
   embed `schema.org JobPosting` JSON-LD; either changing would silently return zero
   results (fails closed — `fetchJobDetail`/`fetchSearchResultIds` return null/empty
   rather than throwing per-listing) rather than erroring loudly.
-- **The two-CV schema change is not verified end to end (2026-08-26).** Lint, build, and
-  type-check pass, and CV upload plus role derivation were confirmed working against
-  `POST /api/profile`. `POST /api/scrape` was last observed returning `500` against a
-  local database created under the previous single-CV schema — see §7a; it has not been
-  re-run against a freshly created database, so the two-CV scrape and the per-CV score
-  breakdown in the UI remain unconfirmed.
-- **`drizzle/` is stale.** It still describes the pre-two-CV schema. `npm run db:generate`
-  needs an interactive terminal to resolve the `profiles` → `cvs` table rename, so it has
-  not been regenerated. This does not affect runtime (see §7a) but means `db/schema.ts`
-  and `drizzle/` disagree.
+- The two-CV flow was verified end to end on a fresh local database on 2026-08-26: both
+  roles were derived, a bounded scrape added eight alternating-role results, all jobs had
+  valid per-CV scores and winning slots, and replacing a CV rescored all eight stored jobs.
+- `drizzle/0000_open_whirlwind.sql` now matches the two-CV schema. However, generated
+  migrations are still not applied by the runtime; the broader migration limitation in
+  §7a remains.
 - No authentication or multi-user isolation.
-- Deterministic language detection needs a larger labeled test corpus.
+- Deterministic language detection has focused regression tests but still needs a larger labeled Swiss-job corpus.
 - Role derivation (§6a) is a small hand-written heuristic with no test corpus. It was
   corrected once already for pulling a stray word off a CV's name line into the role; other
   CV layouts will surface similar cases.
 - Scanned/image-only PDFs require OCR; the MVP reports that the file is unreadable.
 - The local persistence emulator is not a backup.
 - No retention controls, CV delete/export flow, encryption policy, consent screen, or audit log yet.
-- No automatic discovery, alerts, deduplication across sources, or expiry checks.
+- No scheduled discovery, alerts, cross-source deduplication, or expiry checks.
 - jobs.ch URL structure and terms can change; revalidate them before releases.
