@@ -1,84 +1,70 @@
 # Handover
 
-Last updated: 2026-08-26.
+Last updated: 2026-08-26 after real-CV, search-criteria, and 24-ad verification.
 
-Current state, what is unfinished, and the next action. Read this first, then
-`README.md`, `docs/ARCHITECTURE.md`, and `AGENTS.md`.
+Read this first, use `docs/TASKS.md` for current execution status, then read `README.md`, `docs/ARCHITECTURE.md`, and `AGENTS.md`.
 
-## 1. Read this before anything else: nothing is committed
+## 1. Repository state
 
-`git log` reports **no commits on `master`** — the entire project is untracked working-tree
-state. There is no baseline to diff against and no way to recover an earlier version of any
-file. Two sessions of work (the jobs.ch scraper and the two-CV change) exist only as
-uncommitted files.
+- Baseline commit: `344a642` (`Initial commit: Northbound Swiss job radar MVP`).
+- Verified two-CV checkpoint: `2a77a70` (`Verify two-CV flow and add regression coverage`).
+- Real-CV and search-criteria checkpoint: `a8e7ba1` (`Add persisted job criteria and validate real CV flow`).
+- Use `git status`, `git log -3 --oneline`, and `docs/TASKS.md` to identify later work.
+- No `.env` files or obvious committed secrets were found. `.openai/hosting.json` contains binding names only.
+- `*.tsbuildinfo`, dependency folders, builds, and local Miniflare data are ignored.
 
-**Highest-value next action: make an initial commit.** Check `.openai/hosting.json` and any
-`.env*` for secrets before staging, and add `tsconfig.tsbuildinfo` (a build artifact,
-currently untracked) to `.gitignore`.
+## 2. Verified working with the user's real CVs
 
-## 2. What works
+The old `.wrangler/` state was preserved under ignored `work/wrangler-before-two-cv-verification/`, then a fresh local database was created.
 
-- Language gate, per-CV fit scoring, and the pipeline UI (`lib/analysis.ts`,
-  `app/job-radar.tsx`).
-- `POST /api/profile` — verified: both CV slots save, and role derivation returns
-  `"Software Engineer"` / `"Data Analyst"` for the two synthetic test CVs.
-- The jobs.ch scraper (`lib/jobsch.ts`, `POST /api/scrape`) was verified end to end
-  **under the previous single-CV schema**: it scanned 21 listings, added 8, correctly
-  blocked 7 for mandatory German/French, and deduplicated on a second run.
-- `npm run lint`, `npm run build`, and `npx tsc --noEmit` are all clean. (`tsc` reports two
-  pre-existing `pdfjs-dist` typing errors that predate this work.)
+The current local database contains the two user-provided text-based PDFs and 24 real jobs.ch ads. End-to-end checks completed successfully:
 
-## 3. What is unfinished or broken
+- Both PDFs parsed through the browser UI (4,049 and 4,885 extracted characters) and saved to separate slots.
+- Improved role detection derived `Data Analyst` and `Data Governance Analyst`; saved overrides refine these to `Supply Chain Data Analyst` and `Master Data Governance Analyst`.
+- Role overrides persisted after reload and shaped jobs.ch URLs, new-job fit scoring, rescoring, and UI labels.
+- Two manually triggered, capped searches expanded the workspace from eight to 24 ads.
+- The reviewed language split is five `pass`, one deliberately ambiguous `review`, and 18 `blocked`.
+- Live findings added regression rules for `German ... advantageous` (optional/pass) and `English and French advanced level` (mandatory/block).
+- Every stored job has numeric per-CV scores and a valid winning slot.
+- The dashboard is available at `http://localhost:3002/` while the current development process is running.
 
-### `POST /api/scrape` returns 500 — not yet re-verified
+Quality checks:
 
-The two-CV schema change (`fit_score` → `fit_score_a`/`fit_score_b`/`best_cv_slot`,
-`profiles` → `cvs`) is complete in code but **was never successfully exercised**.
+- `npm test`: 22 passing tests.
+- `npm run typecheck`: clean.
+- `npm run lint`: clean.
+- `npm run build`: clean after the current changes.
+- `npm run db:generate`: generated `drizzle/0001_lush_silvermane.sql` for search settings.
 
-Root cause is understood and is *not* a code bug: `ensureSchema()` only runs
-`CREATE TABLE IF NOT EXISTS`, so the local database created under the old schema still has
-the old columns. Reads returned `undefined` (surfacing as a `NaN` React warning) and writes
-failed with a 500. See `docs/ARCHITECTURE.md` §7a.
+## 3. Important capabilities in `a8e7ba1`
 
-**Next action:** stop any running dev server, move `.wrangler/` aside, `npm run dev`,
-re-upload two CVs, then `POST /api/scrape` and confirm the response carries sensible
-`fitScoreA`/`fitScoreB`/`bestCvSlot`, and that the UI renders the per-CV breakdown. Until
-that passes, treat two-CV support as unverified — this was never confirmed working.
+- Persisted role overrides, location/canton, workplace, seniority, contract type, required keywords, and exclusions.
+- Role and location are sent to jobs.ch search; all criteria filter local result views, while saved/applied Pipeline jobs stay visible.
+- Changing roles or replacing a CV recalculates language and fit data for all stored jobs.
+- Role detection strongly prefers a specific title in the CV header over repeated older roles.
+- Search settings exist in runtime schema, Drizzle schema, and migration `0001`.
+- Regression coverage includes language rules, real-CV-derived title shapes, search criteria, job URL construction, scoring, parsing, and source interleaving.
 
-### `drizzle/` is stale
+## 4. Remaining work and risks
 
-Still describes the pre-two-CV schema. `npm run db:generate` needs an interactive terminal
-to resolve the `profiles` → `cvs` rename, so it could not be regenerated non-interactively.
-No runtime impact (see §7a), but `db/schema.ts` and `drizzle/` currently disagree.
+- The language corpus has focused tests and a 24-ad live review, not a persisted representative labeled Swiss-job dataset. Expand it before relying on unattended alerts.
+- There is no UI yet to correct a language classification or save the user's reason.
+- The role detector remains a small heuristic and needs more real CV layouts.
+- The scraper silently skips individual job-detail fetch/parse failures; source-health reporting is still missing.
+- There is no applied migration runner or backfill path. Runtime still uses `CREATE TABLE IF NOT EXISTS`; future schema changes require a real migration strategy before data matters.
+- No authentication, multi-user isolation, CV delete/export, OCR, backups, or retention controls exist.
+- The old duplicate project folder at `C:\Users\anddo\Documents\ChatGPT\Auto Job hunt` has no source file absent from the new project, but Windows would not recycle it because this Codex task still holds a lock. Nothing was deleted. Close this task or reopen from `C:\Projects\Auto Job hunt`, then retire the old folder.
 
-### No tests exist
+## 5. Environment notes
 
-There is no test framework installed. `AGENTS.md` asks for tests whenever the language
-rules change, and `docs/ROADMAP.md` makes a regression corpus part of the Phase 0 exit
-criterion. Two things now most need coverage: the language gate's
-"optional" vs "mandatory" wording, and `lib/role-detection.ts` — a small hand-written
-heuristic that already needed one fix (it was pulling "Candidate" off a CV's name line into
-the derived role).
+- Only one `vinext dev` server can run per machine.
+- Ports 3000 and 3001 are occupied on this machine, so the app normally uses 3002.
+- Running repeated production builds while the development server was hot-reloading produced a transient Vinext/Vite `window is not defined` development overlay. API saves still returned 200 and the clean production build passed; restart the dev server if the overlay persists instead of treating it as a data failure.
+- Fresh local state is in `.wrangler/`; the pre-verification state backup is in ignored `work/`.
+- Fixture CVs in `tests/fixtures/` contain synthetic names and data only. Temporary real-CV test copies live under ignored `tmp/` and must never be committed.
 
-## 4. Environment gotchas that cost time
+## 6. Compliance status
 
-- **Only one `vinext dev` server can run per machine.** Startup fails with the PID and
-  directory of the existing one; stop that process first.
-- **A second copy of this project exists at
-  `C:\Users\anddo\Documents\ChatGPT\Auto Job hunt`.** It is a separate, unsynced directory
-  (not a symlink) without any of this work, and it holds the same machine-wide dev-server
-  lock. Confirm which directory you are in before starting servers or killing processes.
-  Worth deciding whether that copy should be retired — the two will keep diverging.
-- The dev server usually lands on **port 3002** (3000 and 3001 are taken on this machine).
-- In Git Bash, `taskkill` needs escaped slashes: `taskkill //PID <pid> //F`.
+`POST /api/scrape` knowingly operates against jobs.ch's Terms of Service and `robots.txt` at the user's explicit, informed direction. The full decision is in `docs/ARCHITECTURE.md` §2.
 
-## 5. Compliance status — unchanged, still deliberate
-
-`POST /api/scrape` knowingly operates against jobs.ch's Terms of Service and its
-`robots.txt` (which disallows the job-detail pages specifically). This was the user's
-explicit, informed decision on 2026-08-26, reversing this repo's original prohibition. The
-full decision record is in `docs/ARCHITECTURE.md` §2.
-
-The boundary that did **not** move: no detection evasion. No randomized/human-like timing,
-fingerprint spoofing, headless-browser stealth plugins, or proxy rotation. Keep it that way
-regardless of any future scope change here.
+The unchanged boundary is no detection evasion: no randomized or human-like timing, fingerprint spoofing, stealth browser plugins, or proxy rotation. The fetch remains manually triggered, unauthenticated, delayed, and capped.

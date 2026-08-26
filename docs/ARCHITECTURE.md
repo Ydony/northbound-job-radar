@@ -62,6 +62,7 @@ permission or an authorized API/feed; see `ROADMAP.md` for that path.
 ```text
 React client
   ├─ PDF/DOCX/TXT text extraction in browser
+  ├─ persisted search criteria and local result filtering
   ├─ "Find new jobs" trigger + manual ad import + jobs.ch search handoff
   ├─ results UI
   └─ shortlist/application controls
@@ -79,7 +80,9 @@ The MVP is single-user. Authentication and tenant isolation are post-MVP require
 
 ## 4. Data model
 
-`cvs` holds up to two rows, keyed by a unique `slot` (`a` or `b`) for one person's two CV versions: CV filename, private R2 object key, extracted CV text, the role derived from that CV's content (§6a), and an update timestamp. There is no user-entered target role.
+`cvs` holds up to two rows, keyed by a unique `slot` (`a` or `b`) for one person's two CV versions: CV filename, private R2 object key, extracted CV text, the role derived from that CV's content (§6a), and an update timestamp.
+
+`search_settings` holds the single-user search profile: optional role override for each CV, location/canton, workplace, seniority, contract type, required keywords, exclusions, and an update timestamp. Role overrides take precedence over the derived roles for discovery and scoring but do not overwrite the detected metadata.
 
 `jobs` stores the source URL, title, company, location, full description, language result and evidence, one fit score per CV slot (`fit_score_a`, `fit_score_b`) plus `best_cv_slot` and the winning slot's keywords, pipeline status, and timestamps. `source_url` is unique so re-importing an ad refreshes its analysis without duplicating it.
 
@@ -92,7 +95,7 @@ The client never receives the CV text or R2 object key. Original CV files are ca
 1. Count common English and non-English markers across the full advertisement.
 2. Inspect sentence-level context around every local-language mention.
 3. Mark mandatory wording such as `required`, `must`, `fluent`, `minimum B2`, or `working knowledge` as blocked.
-4. Recognize optional wording such as `nice to have`, `preferred`, `a plus`, and `an asset`.
+4. Recognize optional wording such as `nice to have`, `preferred`, `a plus`, `an asset`, and `advantageous`.
 5. Route insufficient text, uncertain ad language, or unqualified language mentions to review.
 
 The heuristic is explainable but not complete. It must be covered with a growing regression corpus before production. False positives are especially risky because they waste the user's application time.
@@ -117,8 +120,8 @@ Matched keywords are displayed. Later semantic ranking must preserve explanation
 `lib/role-detection.ts` derives each CV's likely target role locally and deterministically —
 no third-party model call, consistent with the CV-privacy rule in `AGENTS.md`. It scans for
 `modifier? word{0,2} title-noun` phrases (e.g. "senior software engineer"), ranks them by
-frequency with a bonus for appearing early in the document (a title under the name or in a
-summary line beats one mentioned in passing), and returns the top phrase.
+frequency with a strong bonus for a specific phrase near the document header (a target title
+under the name beats older titles repeated in work history), and returns the top phrase.
 
 It is a heuristic and can return `''` for an unconventionally-worded CV. That is handled, not
 an error: the CV still saves and still scores jobs; it just contributes no search term, and
@@ -126,15 +129,17 @@ an error: the CV still saves and still scores jobs; it just contributes no searc
 
 ## 7. API surface
 
-- `GET /api/state` — saved CV metadata (both slots) and analyzed jobs
+- `GET /api/state` — saved CV metadata (both slots), search criteria, and analyzed jobs
 - `POST /api/profile` — one CV slot (`a`/`b`): extracted CV text and CV file; derives and stores that CV's role
+- `PUT /api/criteria` — validate, persist, and apply role/location/workplace/seniority/contract/keyword criteria
 - `POST /api/jobs` — validate and analyze one user-supplied jobs.ch ad against every saved CV
 - `POST /api/scrape` — fetch and analyze new jobs.ch listings for each distinct derived role (see §2 for the compliance decision behind this route)
 - `PATCH /api/jobs/:id` — update `new`, `saved`, `applied`, or `ignored`
 - `DELETE /api/jobs/:id` — delete an analyzed job (API support; UI currently uses hide)
 
-Saving either CV also recalculates every stored job's two fit scores in D1 batches. The
-client reloads state after the upload so the visible score and winning CV are current.
+Saving either CV or changing role criteria recalculates every stored job's language result
+and two fit scores in D1 batches. The client reloads state afterward so classifications,
+visible scores, labels, and the winning CV are current.
 
 ## 7a. Schema changes and local state (read before changing a column)
 
@@ -166,17 +171,19 @@ migrations.
   embed `schema.org JobPosting` JSON-LD; either changing would silently return zero
   results (fails closed — `fetchJobDetail`/`fetchSearchResultIds` return null/empty
   rather than throwing per-listing) rather than erroring loudly.
-- The two-CV flow was verified end to end on a fresh local database on 2026-08-26: both
-  roles were derived, a bounded scrape added eight alternating-role results, all jobs had
-  valid per-CV scores and winning slots, and replacing a CV rescored all eight stored jobs.
-- `drizzle/0000_open_whirlwind.sql` now matches the two-CV schema. However, generated
+- The real-CV flow was verified end to end on 2026-08-26: both text-based PDFs parsed,
+  roles derived as `Data Analyst` and `Data Governance Analyst`, more specific role
+  overrides persisted across reload, two bounded searches produced 24 real jobs, and
+  rescoring classified them as five pass, one review, and 18 blocked.
+- `drizzle/0000_open_whirlwind.sql` matches the two-CV schema and
+  `drizzle/0001_lush_silvermane.sql` adds saved search settings. However, generated
   migrations are still not applied by the runtime; the broader migration limitation in
   §7a remains.
 - No authentication or multi-user isolation.
-- Deterministic language detection has focused regression tests but still needs a larger labeled Swiss-job corpus.
-- Role derivation (§6a) is a small hand-written heuristic with no test corpus. It was
-  corrected once already for pulling a stray word off a CV's name line into the role; other
-  CV layouts will surface similar cases.
+- Deterministic language detection has focused regression tests and a reviewed 24-ad live
+  sample, but still needs a persisted labeled corpus and user correction controls.
+- Role derivation (§6a) is a small hand-written heuristic. Its focused tests now cover
+  header specificity and older repeated roles, but other CV layouts will surface new cases.
 - Scanned/image-only PDFs require OCR; the MVP reports that the file is unreadable.
 - The local persistence emulator is not a backup.
 - No retention controls, CV delete/export flow, encryption policy, consent screen, or audit log yet.

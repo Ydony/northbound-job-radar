@@ -5,8 +5,10 @@ This document describes the overall product, including capabilities that are int
 ## Phase 0 — testable MVP (current)
 
 - One Swiss source: jobs.ch.
-- Up to two CV versions, local text extraction, and automatic per-CV role derivation
-  (no manually-typed target role). Every job is scored against both CVs.
+- Up to two CV versions, local text extraction, automatic per-CV role derivation, and
+  persisted role overrides. Every job is scored against both CVs.
+- Persisted location/canton, workplace, seniority, contract, required-keyword, and
+  exclusion criteria for discovery and local filtering.
 - Manually-triggered automatic search + fetch (`POST /api/scrape`), alongside
   user-driven search and manual ad import — see `docs/ARCHITECTURE.md` §2 for the
   2026-08-26 decision to automate this against jobs.ch's ToS/robots.txt, and the caps
@@ -14,7 +16,7 @@ This document describes the overall product, including capabilities that are int
 - Strict `pass / review / blocked` language gate.
 - Explainable CV-fit score.
 - Save, hide, mark applied, and open the original application page.
-- Local D1/R2 persistence and an end-to-end test set.
+- Local D1/R2 persistence, a verified real-CV/24-ad run, and a focused 22-test regression set.
 
 Exit criterion: the user can screen real jobs without a false “English sufficient” result in the agreed regression examples.
 
@@ -22,7 +24,7 @@ Exit criterion: the user can screen real jobs without a false “English suffici
 
 - Add a labeled language corpus covering Swiss phrasing, CEFR levels, combined-language requirements, and optional wording.
 - Add OCR for scanned CVs and robust parsing for multi-column PDFs.
-- Add editable CV profile fields, preferred locations, remote/hybrid, seniority, salary, contract type, exclusions, and visa/work-permit constraints.
+- Add editable salary and visa/work-permit constraints; refine the Phase 0 location, workplace, seniority, contract, keyword, and exclusion filters as real usage demands.
 - Add duplicate detection, job expiry checks initiated by the user, notes, deadlines, contacts, and export/import.
 - Add CV deletion, retention controls, encrypted backups, error telemetry with no CV content, accessibility tests, and mobile polish.
 

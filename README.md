@@ -4,13 +4,14 @@ Northbound is a local MVP for finding Swiss jobs where English is sufficient. It
 
 ## What the MVP does
 
-1. Upload up to two PDF, DOCX, or TXT CVs (e.g. a generalist and a specialist version). Northbound detects a likely target role from each CV's own content — there is no target-role field to fill in.
-2. Click "Find new jobs" to fetch and screen fresh jobs.ch listings for the detected role(s) automatically, or open a targeted jobs.ch search yourself and paste one ad in by hand.
-3. Northbound classifies the language requirement as:
+1. Upload up to two PDF, DOCX, or TXT CVs (e.g. a generalist and a specialist version). Northbound detects a likely target role from each CV's own content; you can override either role when the heuristic is too broad.
+2. Set optional location/canton, workplace, seniority, contract, required-keyword, and exclusion filters. The criteria persist across reloads; role and location shape jobs.ch discovery and all criteria filter the local views.
+3. Click "Find new jobs" to fetch and screen fresh jobs.ch listings for the selected role(s) automatically, or open a targeted jobs.ch search yourself and paste one ad in by hand.
+4. Northbound classifies the language requirement as:
    - `pass`: English ad, no mandatory local language detected;
    - `review`: evidence is incomplete or ambiguous;
    - `blocked`: a mandatory local language or a non-English ad is detected.
-4. Each job is scored against every saved CV; the card shows the best score and the per-CV breakdown, so you can see which CV version to apply with. You can save or hide the job, track applications, and open the original jobs.ch page to apply.
+5. Each job is scored against every saved CV; the card shows the best score and the per-CV breakdown, so you can see which CV version to apply with. You can save or hide the job, track applications, and open the original jobs.ch page to apply.
 
 The MVP fetches public jobs.ch search and listing pages directly (see "Product and
 compliance decision" below) but does not automate a jobs.ch account, log in, or submit
@@ -39,6 +40,8 @@ Quality checks:
 
 ```text
 npm run lint
+npm test
+npm run typecheck
 npm run build
 npm run db:generate
 ```
@@ -49,15 +52,17 @@ column rename.
 ## Important files
 
 - `app/job-radar.tsx` — dashboard and client-side CV parsing
-- `app/api/` — profile, state, job import/scrape, and status endpoints
+- `app/api/` — profile, criteria, state, job import/scrape, and status endpoints
 - `lib/analysis.ts` — deterministic language gate and per-CV fit scoring
 - `lib/role-detection.ts` — derives a likely target role from CV text
 - `lib/jobsch.ts` — jobs.ch search/detail fetching and parsing (see compliance decision below)
+- `tests/` — deterministic language, role, scoring, and source-helper regression tests
 - `db/schema.ts` — D1 schema used for generated migrations
 - `db/runtime.ts` — local/runtime schema initialization and bindings
 - `.openai/hosting.json` — Sites persistence bindings
 - `AGENTS.md` — rules for another coding LLM
 - `docs/HANDOFF.md` — current state, what is unfinished, and the next action
+- `docs/TASKS.md` — MVP and post-MVP execution tracker with progress and acceptance criteria
 - `docs/ARCHITECTURE.md` — flows, decisions, data model, and risks
 - `docs/ROADMAP.md` — what is needed after the MVP
 

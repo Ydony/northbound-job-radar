@@ -1,7 +1,7 @@
 # Northbound: instructions for coding agents
 
 **Read `docs/HANDOFF.md` first** — current state, what is unfinished or broken, and the next
-action. Then `README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making
+action. Use `docs/TASKS.md` for execution status. Then `README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making
 product or integration changes.
 
 ## Product objective
@@ -42,8 +42,9 @@ Build a private job-search companion for a user seeking roles where English alon
 - API routes live under `app/api`; deterministic analysis lives in `lib/analysis.ts` and
   `lib/role-detection.ts`.
 - The app is single-user for the MVP. It holds up to two CV versions for that one person,
-  keyed by `slot` (`a`/`b`) in the `cvs` table. There is no user-entered target role: each
-  CV's search role is derived from its own text, and every job is scored against both CVs.
+  keyed by `slot` (`a`/`b`) in the `cvs` table. Each search role is derived locally from
+  its CV, with an optional persisted override in `search_settings`; every job is scored
+  against both CVs.
 
 ## Commands
 
@@ -51,6 +52,8 @@ Build a private job-search companion for a user seeking roles where English alon
 npm install
 npm run dev
 npm run lint
+npm test
+npm run typecheck
 npm run build
 npm run db:generate
 ```
@@ -80,5 +83,5 @@ Run lint and production build, exercise the affected API or UI flow, update the 
 
 Lint and build passing is not the same as working. If a flow was not actually exercised —
 or was exercised and failed — say so plainly in the summary and record it under "Known
-risks" in `docs/ARCHITECTURE.md` rather than implying the feature is done. The two-CV
-change is currently in exactly that state; see §8 there before building on it.
+risks" in `docs/ARCHITECTURE.md` rather than implying the feature is done. The current
+two-CV verification evidence and remaining gaps are recorded in `docs/HANDOFF.md`.
