@@ -46,3 +46,29 @@ export async function POST(request: Request) {
   });
   return NextResponse.json({ job });
 }
+
+export async function DELETE(request: Request) {
+  await ensureSchema();
+  const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+  const all = body.all === true;
+  const ids = Array.isArray(body.ids)
+    ? [...new Set(body.ids.filter((id): id is string => typeof id === 'string' && id.length > 0))].slice(0, 250)
+    : [];
+  if (!all && !ids.length) return NextResponse.json({ error: 'Choose at least one job to delete.' }, { status: 400 });
+
+  const { db } = bindings();
+  if (all) {
+    const results = await db.batch([
+      db.prepare('DELETE FROM language_feedback'),
+      db.prepare('DELETE FROM jobs'),
+    ]);
+    return NextResponse.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
+  }
+
+  const placeholders = ids.map(() => '?').join(',');
+  const results = await db.batch([
+    db.prepare(`DELETE FROM language_feedback WHERE job_id IN (${placeholders})`).bind(...ids),
+    db.prepare(`DELETE FROM jobs WHERE id IN (${placeholders})`).bind(...ids),
+  ]);
+  return NextResponse.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
+}

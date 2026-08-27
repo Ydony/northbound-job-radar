@@ -59,3 +59,37 @@ export async function POST(request: Request) {
   const row = await db.prepare('SELECT * FROM cvs WHERE slot = ?').bind(slot).first<CvRow>();
   return NextResponse.json({ cv: cvFromRow(row!), rescoredJobs });
 }
+
+export async function DELETE(request: Request) {
+  await ensureSchema();
+  const slot = new URL(request.url).searchParams.get('slot') as CvSlot;
+  if (!slots.has(slot)) return NextResponse.json({ error: 'Invalid CV slot.' }, { status: 400 });
+
+  const { db, files } = bindings();
+  const saved = await db.prepare('SELECT object_key FROM cvs WHERE slot = ?')
+    .bind(slot).first<{ object_key: string }>();
+  if (!saved) return NextResponse.json({ error: 'CV not found.' }, { status: 404 });
+  if (saved.object_key) await files.delete(saved.object_key);
+
+  const now = new Date().toISOString();
+  const clearOverrideSql = slot === 'a'
+    ? 'UPDATE search_settings SET role_override_a = ?, updated_at = ? WHERE id = ?'
+    : 'UPDATE search_settings SET role_override_b = ?, updated_at = ? WHERE id = ?';
+  await db.batch([
+    db.prepare('DELETE FROM cvs WHERE slot = ?').bind(slot),
+    db.prepare(clearOverrideSql).bind('', now, 'default'),
+  ]);
+
+  const [allCvs, criteriaRow] = await Promise.all([
+    db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
+      .all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
+    db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
+  ]);
+  const criteria = criteriaFromRow(criteriaRow);
+  const rescoredJobs = await rescoreAllJobs(db, allCvs.results.map((remaining) => ({
+    slot: remaining.slot,
+    cvText: remaining.cv_text,
+    derivedRole: roleForSlot(remaining.slot, remaining.derived_role, criteria),
+  })));
+  return NextResponse.json({ ok: true, rescoredJobs });
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
+import { jobsToCsv, workspaceToJson } from '@/lib/export';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
 import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, CvSlot, JobRecord, JobStatus, SearchCriteria } from '@/lib/types';
@@ -115,6 +116,9 @@ export default function JobRadar() {
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, FeedbackDraft>>({});
   const [feedbackBusy, setFeedbackBusy] = useState('');
   const [feedbackMessages, setFeedbackMessages] = useState<Record<string, string>>({});
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
+  const [dataBusy, setDataBusy] = useState(false);
+  const [dataMessage, setDataMessage] = useState('');
   const importRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -360,6 +364,96 @@ export default function JobRadar() {
     }
   }
 
+  async function deleteCv(slot: CvSlot) {
+    const profile = state.profiles.find((entry) => entry.slot === slot);
+    if (!profile || !window.confirm(`Delete ${slotLabels[slot]} (${profile.cvFileName}) and its stored file? Existing jobs will be rescored with the remaining CV.`)) return;
+    updateSlot(slot, { busy: true, message: 'Deleting CV and rescoring jobs…' });
+    try {
+      await responseJson(await fetch(`/api/profile?slot=${slot}`, { method: 'DELETE' }));
+      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
+      setState(refreshed);
+      setCriteriaDraft(criteriaToDraft(refreshed.criteria));
+      setCvSlots((current) => ({ ...current, [slot]: { ...emptySlotState, message: 'CV deleted.' } }));
+    } catch (error) {
+      updateSlot(slot, { message: error instanceof Error ? error.message : 'Could not delete this CV.' });
+    } finally {
+      updateSlot(slot, { busy: false });
+    }
+  }
+
+  function toggleJobSelection(id: string) {
+    setSelectedJobIds((current) => current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]);
+  }
+
+  async function deleteJobs(ids: string[] = [], all = false) {
+    const count = all ? state.jobs.length : ids.length;
+    if (!count || !window.confirm(all
+      ? `Delete all ${count} analyzed jobs and their language feedback? Your CVs and search criteria will remain.`
+      : `Delete ${count} selected job${count === 1 ? '' : 's'} and associated feedback?`)) return;
+    setDataBusy(true);
+    setDataMessage('Deleting jobs…');
+    try {
+      const result = await responseJson<{ deletedJobs: number }>(await fetch('/api/jobs', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(all ? { all: true } : { ids }),
+      }));
+      setState((current) => ({
+        ...current,
+        jobs: all ? [] : current.jobs.filter((job) => !ids.includes(job.id)),
+      }));
+      setSelectedJobIds([]);
+      setDataMessage(`Deleted ${result.deletedJobs} job${result.deletedJobs === 1 ? '' : 's'}.`);
+    } catch (error) {
+      setDataMessage(error instanceof Error ? error.message : 'Could not delete jobs.');
+    } finally {
+      setDataBusy(false);
+    }
+  }
+
+  function downloadText(fileName: string, type: string, content: string) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  function exportWorkspace(format: 'json' | 'csv') {
+    const date = new Date().toISOString().slice(0, 10);
+    if (format === 'json') downloadText(`northbound-${date}.json`, 'application/json', workspaceToJson(state));
+    else downloadText(`northbound-jobs-${date}.csv`, 'text/csv;charset=utf-8', jobsToCsv(state.jobs));
+    setDataMessage(`Exported ${state.jobs.length} job${state.jobs.length === 1 ? '' : 's'} as ${format.toUpperCase()}.`);
+  }
+
+  async function resetWorkspace() {
+    if (!window.confirm(`Reset the entire workspace? This permanently deletes ${state.profiles.length} CV file${state.profiles.length === 1 ? '' : 's'}, ${state.jobs.length} jobs, feedback, and all search criteria.`)) return;
+    setDataBusy(true);
+    setDataMessage('Resetting workspace…');
+    try {
+      await responseJson(await fetch('/api/workspace', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirm: 'RESET' }),
+      }));
+      setState({ profiles: [], jobs: [], criteria: defaultSearchCriteria });
+      setCriteriaDraft(criteriaToDraft(defaultSearchCriteria));
+      setCvSlots({ a: { ...emptySlotState }, b: { ...emptySlotState } });
+      setSelectedJobIds([]);
+      setFeedbackOpen({});
+      setFeedbackDrafts({});
+      setFeedbackMessages({});
+      setDataMessage('Workspace reset complete.');
+    } catch (error) {
+      setDataMessage(error instanceof Error ? error.message : 'Could not reset the workspace.');
+    } finally {
+      setDataBusy(false);
+    }
+  }
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -403,7 +497,7 @@ export default function JobRadar() {
                   <span><b>{local.file?.name || saved?.cvFileName || 'Upload a CV'}</b><small>PDF, DOCX or TXT · max 10 MB</small></span>
                   <input type="file" accept=".pdf,.docx,.txt" onChange={(event) => chooseCv(slot, event.target.files?.[0] ?? null)} />
                 </label>
-                <button className="search-button" type="submit" disabled={local.busy}>{local.busy ? 'Saving…' : saved ? 'Update' : 'Save'}</button>
+                <div className="cv-actions"><button className="search-button" type="submit" disabled={local.busy}>{local.busy ? 'Saving…' : saved ? 'Update' : 'Save'}</button>{saved && <button className="delete-button" type="button" disabled={local.busy} onClick={() => deleteCv(slot)}>Delete CV</button>}</div>
                 <p className="form-message" aria-live="polite">{local.message || (saved ? (saved.derivedRole ? `Detected role: ${saved.derivedRole}` : 'No role detected yet.') : 'Your CV never goes to jobs.ch from this app.')}</p>
               </form>
             );
@@ -453,6 +547,15 @@ export default function JobRadar() {
 
       <section className="results" id="jobs">
         <div className="section-heading"><div><span className="section-label coral">Your workspace</span><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…' : `${state.jobs.length} analyzed`}</span></div>
+        <div className="data-toolbar">
+          <span>{selectedJobIds.length ? `${selectedJobIds.length} selected` : 'Data controls'}</span>
+          <button type="button" disabled={!selectedJobIds.length || dataBusy} onClick={() => deleteJobs(selectedJobIds)}>Delete selected</button>
+          <button type="button" disabled={!state.jobs.length || dataBusy} onClick={() => exportWorkspace('json')}>Export JSON</button>
+          <button type="button" disabled={!state.jobs.length || dataBusy} onClick={() => exportWorkspace('csv')}>Export CSV</button>
+          <button className="danger" type="button" disabled={!state.jobs.length || dataBusy} onClick={() => deleteJobs([], true)}>Clear all jobs</button>
+          <button className="danger" type="button" disabled={dataBusy || (!state.jobs.length && !state.profiles.length)} onClick={resetWorkspace}>Reset workspace</button>
+          <p aria-live="polite">{dataMessage}</p>
+        </div>
         <div className="result-layout">
           <aside className="filters" id="pipeline">
             <b>Views</b>
@@ -472,7 +575,7 @@ export default function JobRadar() {
                 reason: job.languageFeedbackReason,
               };
               return <article className={`job-card ${displayedLanguageStatus}`} key={job.id}>
-                <div className="score"><strong>{bestFitScore(job)}</strong><span>CV fit</span></div>
+                <div className="score-column"><label className="job-select"><input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /><span>Select</span></label><div className="score"><strong>{bestFitScore(job)}</strong><span>CV fit</span></div></div>
                 <div className="job-body">
                   <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span></div>
                   <h3>{job.title}</h3>
