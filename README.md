@@ -94,6 +94,8 @@ column rename.
 - `docs/ROADMAP.md` — what is needed after the MVP
 - `docs/VPN.md` — optional official VPN installation and VPN-enforced local launcher
 - `docs/GETTING_STARTED.md` — friend-ready macOS/Windows installation and usage guide
+- `docs/MULTI_SOURCE_PLAN.md` — accepted next iteration for automatic multi-site search,
+  durable deduplication, filters, posted dates, role keywords, and source analytics
 
 ## Product and compliance decision
 

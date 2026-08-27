@@ -2,6 +2,11 @@
 
 Last updated: 2026-08-27.
 
+The accepted next-iteration architecture for automatic Swiss + Netherlands multi-source
+search is specified in `docs/MULTI_SOURCE_PLAN.md`. It is a plan, not a statement of current
+functionality. Until its adapter and migration tasks are complete, the runtime remains the
+single jobs.ch automatic flow plus Netherlands handoffs described below.
+
 ## 1. Goal and acceptance rule
 
 The user wants Switzerland and Amsterdam-area Netherlands jobs where English alone is enough. “The ad contains the word English” is not sufficient. A match must satisfy both:

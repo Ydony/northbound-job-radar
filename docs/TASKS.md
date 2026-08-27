@@ -31,11 +31,34 @@ This is the execution tracker for finishing the personal MVP and planning the wo
 2. `MVP-06` — make source failures observable.
 3. `MVP-07` — protect accumulated data before longer-term use.
 
+## Accepted next iteration — automatic multi-source search
+
+The user accepted the direction on 2026-08-27 and asked implementation to proceed after
+the task documentation was created. The detailed data model, adapter contract, source
+roster, risks, and acceptance criteria are in `docs/MULTI_SOURCE_PLAN.md`.
+
+| ID | Task | Status | Next action |
+|---|---|---|---|
+| MS-01 | Ordered migrations and verified backup/restore | Next | Implement before changing existing job fields. |
+| MS-02 | Independent saved, Applied/Not applied, and dismissed state | Planned | Migrate the current overloaded `status` safely. |
+| MS-03 | Canonical URL, source identity, cross-source dedupe, and dismissal tombstones | Planned | Add identity helpers and regression fixtures. |
+| MS-04 | Five additional persisted role keywords | Planned | Add ordered role storage, validation, and criteria UI. |
+| MS-05 | Source, country, and original posted date | Planned | Normalize fields and show them on every card. |
+| MS-06 | Shared adapter contract plus persisted per-source run reports | Planned | Record complete/partial/failed/blocked status and all counts. |
+| MS-07 | Refactor jobs.ch into the shared adapter | Planned | Preserve the existing capped manual trigger and language gate. |
+| MS-08 | Other Swiss website adapters | Planned | Review and add jobup.ch/JobScout24 first; keep unsupported sources visible as blocked. |
+| MS-09 | Netherlands website adapters | Planned | Review and add viable sources; LinkedIn remains excluded. |
+| MS-10 | One-click search-all orchestration | Planned | Run all enabled adapters with failure isolation and one deduplicated result list. |
+| MS-11 | Country/application/source filters and card controls | Planned | Add Switzerland/Netherlands and Applied/Not applied filters plus card actions. |
+| MS-12 | Latest-run and cumulative source dashboard | Planned | Show new/known/added/skipped per search and applications per website. |
+| MS-13 | Remove the manual Amsterdam source directory | Planned | Replace it with automatic source coverage and status. |
+| MS-14 | Adapter, migration, date, role, filter, dedupe, and dismissal verification | Planned | Finish fixtures and affected live smoke flows before release. |
+
 ## After the MVP
 
 | Phase | Scope | Status | Dependency |
 |---|---|---|---|
-| POST-01 | Add Netherlands and Amsterdam-area sources and Dutch-specific location/work-authorization filters. | Partial — handoffs done | Five source handoffs and strict manual imports are implemented without LinkedIn; country-specific saved filters and authorized automation remain. |
+| POST-01 | Add Netherlands and Amsterdam-area sources and Dutch-specific location/work-authorization filters. | In planning — automatic expansion accepted | `MS-01`–`MS-14` replace the handoff directory with a one-click, truthfully reported multi-source design. |
 | POST-02 | Replace unsanctioned jobs.ch fetching with JobCloud permission, an authorized feed, alerts, or direct ATS/company sources. | Not started | JobCloud discussion and adapter architecture. |
 | POST-03 | Scheduled searches, deduplicated digests, thresholds, quiet hours, and source-health monitoring. | Not started | Authorized sources, migrations, backups, and reliable diagnostics. |
 | POST-04 | Better semantic CV matching, must-have qualification checks, visible explanations, and multiple CV versions. | Not started | Privacy/provider decision and a labeled evaluation dataset. |

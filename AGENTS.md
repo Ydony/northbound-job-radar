@@ -1,8 +1,9 @@
 # Northbound: instructions for coding agents
 
 **Read `docs/HANDOFF.md` first** — current state, what is unfinished or broken, and the next
-action. Use `docs/TASKS.md` for execution status. Then `README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making
-product or integration changes.
+action. Use `docs/TASKS.md` for execution status. Read `docs/MULTI_SOURCE_PLAN.md` before
+changing discovery, job identity, filters, pipeline state, or source adapters. Then read
+`README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making product or integration changes.
 
 ## Product objective
 

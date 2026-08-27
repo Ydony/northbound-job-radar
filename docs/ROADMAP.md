@@ -28,6 +28,9 @@ Exit criterion: the user can screen real jobs without a false “English suffici
 
 ## Phase 1 — hardening for personal daily use
 
+- Execute `docs/MULTI_SOURCE_PLAN.md`: ordered migrations, durable deduplication/dismissal,
+  five role keywords, source/country/posted-date normalization, application filters, and
+  per-source run reporting.
 - Add a labeled language corpus covering Swiss phrasing, CEFR levels, combined-language requirements, and optional wording.
 - Add OCR for scanned CVs and robust parsing for multi-column PDFs.
 - Add editable salary and visa/work-permit constraints; refine the Phase 0 location, workplace, seniority, contract, keyword, and exclusion filters as real usage demands.
@@ -53,15 +56,20 @@ If JobCloud does not authorize ingestion, keep jobs.ch user-driven and add compl
 
 Never disguise crawling as a virtual Chrome browser. The mechanism does not change the platform permission requirement.
 
-## Phase 3 — Netherlands / Amsterdam automation expansion
+## Phase 3 — Switzerland + Netherlands automation expansion
 
-Phase 0 now provides user-controlled handoffs to five Netherlands sources and strict manual
-analysis. Phase 3 adds country-specific authorized adapters and a shared normalized job
-schema. LinkedIn remains excluded by user request. Indeed and other source terms must be
-reviewed before any automation; use alerts/user handoff or obtain partner access rather
-than assuming the jobs.ch decision applies.
+Phase 0 provides one jobs.ch adapter and user-controlled Netherlands handoffs. The user
+requested on 2026-08-27 that one action automatically search every configured Swiss and
+Netherlands source and replace the handoff directory. `docs/MULTI_SOURCE_PLAN.md` is the
+implementation specification. LinkedIn remains excluded.
 
-For automated coverage, prioritize direct employer career pages and public ATS endpoints. Add Dutch as a prohibited mandatory language, Amsterdam-radius filtering, commute/remote rules, and Netherlands-specific work-authorization fields.
+Each source still receives an implementation-time terms/robots review and a truthful run
+state. JobCloud and Indeed currently prohibit unsanctioned automated access; the dashboard
+must report blocked/disabled/failed sources rather than claiming they were searched.
+
+For sustainable automated coverage, prioritize direct employer career pages and public ATS
+endpoints. Add Dutch as a prohibited mandatory language, Amsterdam-radius filtering,
+commute/remote rules, and Netherlands-specific work-authorization fields.
 
 ## Phase 4 — better ranking and learning
 

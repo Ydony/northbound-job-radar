@@ -1,8 +1,14 @@
 # Handover
 
-Last updated: 2026-08-27 after Windows VPN, macOS launcher, and Netherlands-source verification.
+Last updated: 2026-08-27 after documenting the accepted automatic multi-source iteration.
 
 Read this first, use `docs/TASKS.md` for current execution status, then read `README.md`, `docs/ARCHITECTURE.md`, and `AGENTS.md`.
+
+Before changing discovery, job identity, pipeline state, or filters, also read
+`docs/MULTI_SOURCE_PLAN.md`. It records the user's accepted next iteration: one-click Swiss
+and Netherlands searching, five role keywords, source/country/application filters, posted
+dates, per-source run metrics, removal of the Amsterdam link directory, and durable
+suppression of dismissed duplicates.
 
 ## 1. Repository state
 
@@ -66,6 +72,10 @@ Quality checks:
   both real CVs and all 24 stored jobs remained intact.
 
 ## 4. Remaining work and risks
+
+- The next implementation sequence is `MS-01`–`MS-14` in `docs/TASKS.md` and
+  `docs/MULTI_SOURCE_PLAN.md`. Start with ordered migrations; do not reset the current CVs
+  and 24 jobs to add the new fields.
 
 - The language corpus has focused tests, a 24-ad live review, and persisted correction controls, but the user has not yet labeled a representative set. Do that before relying on unattended alerts.
 - The role detector remains a small heuristic and needs more real CV layouts.
