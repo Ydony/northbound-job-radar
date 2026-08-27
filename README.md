@@ -13,6 +13,7 @@ Northbound is a local MVP for finding Swiss jobs where English is sufficient. It
    - `blocked`: a mandatory local language or a non-English ad is detected.
 5. Mark a language result accurate or correct it to pass, review, or blocked with an optional reason. Your explicit correction controls the result views while the detector's original decision remains visible.
 6. Each job is scored against every saved CV; the card shows the best score and the per-CV breakdown, so you can see which CV version to apply with. You can save or hide the job, track applications, and open the original jobs.ch page to apply.
+7. Export the workspace as JSON or jobs as CSV, delete selected/all jobs, remove either CV, or reset all locally stored data from the dashboard.
 
 The MVP fetches public jobs.ch search and listing pages directly (see "Product and
 compliance decision" below) but does not automate a jobs.ch account, log in, or submit
@@ -57,7 +58,7 @@ column rename.
 - `lib/analysis.ts` — deterministic language gate and per-CV fit scoring
 - `lib/role-detection.ts` — derives a likely target role from CV text
 - `lib/jobsch.ts` — jobs.ch search/detail fetching and parsing (see compliance decision below)
-- `tests/` — deterministic language, role, scoring, and source-helper regression tests
+- `tests/` — deterministic language, role, scoring, export, and source-helper regression tests
 - `db/schema.ts` — D1 schema used for generated migrations
 - `db/runtime.ts` — local/runtime schema initialization and bindings
 - `.openai/hosting.json` — Sites persistence bindings

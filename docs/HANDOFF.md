@@ -1,6 +1,6 @@
 # Handover
 
-Last updated: 2026-08-26 after real-CV, search-criteria, and 24-ad verification.
+Last updated: 2026-08-27 after data-control implementation and verification.
 
 Read this first, use `docs/TASKS.md` for current execution status, then read `README.md`, `docs/ARCHITECTURE.md`, and `AGENTS.md`.
 
@@ -10,6 +10,7 @@ Read this first, use `docs/TASKS.md` for current execution status, then read `RE
 - Verified two-CV checkpoint: `2a77a70` (`Verify two-CV flow and add regression coverage`).
 - Real-CV and search-criteria checkpoint: `a8e7ba1` (`Add persisted job criteria and validate real CV flow`).
 - Language-correction checkpoint: `67669d8` (`Add persistent language classification feedback`).
+- Personal-data controls checkpoint: `7c1fa3b` (`Add personal data export and deletion controls`).
 - Use `git status`, `git log -3 --oneline`, and `docs/TASKS.md` to identify later work.
 - No `.env` files or obvious committed secrets were found. `.openai/hosting.json` contains binding names only.
 - `*.tsbuildinfo`, dependency folders, builds, and local Miniflare data are ignored.
@@ -31,13 +32,13 @@ The current local database contains the two user-provided text-based PDFs and 24
 
 Quality checks:
 
-- `npm test`: 26 passing tests.
+- `npm test`: 28 passing tests.
 - `npm run typecheck`: clean.
 - `npm run lint`: clean.
 - `npm run build`: clean after the current changes.
 - `npm run db:generate`: generated `drizzle/0001_lush_silvermane.sql` for search settings.
 
-## 3. Important capabilities through `67669d8`
+## 3. Important capabilities through `7c1fa3b`
 
 - Persisted role overrides, location/canton, workplace, seniority, contract type, required keywords, and exclusions.
 - Role and location are sent to jobs.ch search; all criteria filter local result views, while saved/applied Pipeline jobs stay visible.
@@ -49,6 +50,9 @@ Quality checks:
 - An explicit correction controls Matches/Review and the card badge while preserving the detector's original status and explanation.
 - Feedback survives reload, criteria rescoring, CV/job analysis, and re-importing the same job; it can also be cleared.
 - The additive `language_feedback` table and migration `0002` avoid resetting the existing 24-job workspace.
+- The dashboard can export safe workspace metadata/jobs as JSON or jobs as CSV, delete selected/all jobs, delete either CV, and perform a confirmation-gated full reset.
+- Exported profile metadata never includes extracted CV text or R2 object keys. Job deletion also removes associated language feedback; CV deletion removes its R2 object and rescores jobs with the remaining CV.
+- Safe live verification passed three destructive-action guards plus a temporary job create/delete round trip. Both real CVs, all 24 real jobs, their 5/1/18 raw language split, and saved criteria remained unchanged.
 
 ## 4. Remaining work and risks
 
@@ -56,7 +60,7 @@ Quality checks:
 - The role detector remains a small heuristic and needs more real CV layouts.
 - The scraper silently skips individual job-detail fetch/parse failures; source-health reporting is still missing.
 - There is no applied migration runner or backfill path. Runtime still uses `CREATE TABLE IF NOT EXISTS`; future schema changes require a real migration strategy before data matters.
-- No authentication, multi-user isolation, CV delete/export, OCR, backups, or retention controls exist.
+- No authentication, multi-user isolation, OCR, automated backups, retention schedule, or encryption policy exists. User-triggered deletion/reset and JSON/CSV export are now available.
 - The old duplicate project folder at `C:\Users\anddo\Documents\ChatGPT\Auto Job hunt` has no source file absent from the new project, but Windows would not recycle it because this Codex task still holds a lock. Nothing was deleted. Close this task or reopen from `C:\Projects\Auto Job hunt`, then retire the old folder.
 
 ## 5. Environment notes

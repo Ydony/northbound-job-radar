@@ -1,6 +1,6 @@
 # Architecture and decision record
 
-Last updated: 2026-08-26.
+Last updated: 2026-08-27.
 
 ## 1. Goal and acceptance rule
 
@@ -135,11 +135,17 @@ an error: the CV still saves and still scores jobs; it just contributes no searc
 
 - `GET /api/state` — saved CV metadata (both slots), search criteria, and analyzed jobs
 - `POST /api/profile` — one CV slot (`a`/`b`): extracted CV text and CV file; derives and stores that CV's role
+- `DELETE /api/profile?slot=a|b` — delete one stored CV/file, clear its role override, and rescore jobs with the remaining CV
 - `PUT /api/criteria` — validate, persist, and apply role/location/workplace/seniority/contract/keyword criteria
 - `POST /api/jobs` — validate and analyze one user-supplied jobs.ch ad against every saved CV
 - `POST /api/scrape` — fetch and analyze new jobs.ch listings for each distinct derived role (see §2 for the compliance decision behind this route)
 - `PATCH /api/jobs/:id` — update pipeline status and save, change, or clear language feedback
 - `DELETE /api/jobs/:id` — delete an analyzed job (API support; UI currently uses hide)
+- `DELETE /api/jobs` — delete selected job IDs or all jobs and their associated language feedback
+- `DELETE /api/workspace` — confirmation-gated deletion of CV objects, jobs, feedback, and criteria
+
+JSON and CSV export are generated client-side from `GET /api/state`. JSON includes only
+the CV metadata already safe for the client, never extracted CV text or R2 object keys.
 
 Saving either CV or changing role criteria recalculates every stored job's language result
 and two fit scores in D1 batches. The client reloads state afterward so classifications,
@@ -192,6 +198,6 @@ migrations.
   header specificity and older repeated roles, but other CV layouts will surface new cases.
 - Scanned/image-only PDFs require OCR; the MVP reports that the file is unreadable.
 - The local persistence emulator is not a backup.
-- No retention controls, CV delete/export flow, encryption policy, consent screen, or audit log yet.
+- User-triggered CV/job deletion, full reset, and JSON/CSV export are available. There is still no automated retention schedule, encryption policy, consent screen, or audit log.
 - No scheduled discovery, alerts, cross-source deduplication, or expiry checks.
 - jobs.ch URL structure and terms can change; revalidate them before releases.

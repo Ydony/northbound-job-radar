@@ -17,7 +17,8 @@ This document describes the overall product, including capabilities that are int
 - Persisted accurate/incorrect feedback with an optional corrected status and reason; explicit corrections control views without erasing detector evidence.
 - Explainable CV-fit score.
 - Save, hide, mark applied, and open the original application page.
-- Local D1/R2 persistence, a verified real-CV/24-ad run, and a focused 26-test regression set.
+- Delete either CV or selected/all jobs, reset the workspace, and export safe JSON/CSV data.
+- Local D1/R2 persistence, a verified real-CV/24-ad run, and a focused 28-test regression set.
 
 Exit criterion: the user can screen real jobs without a false “English sufficient” result in the agreed regression examples.
 
@@ -26,8 +27,8 @@ Exit criterion: the user can screen real jobs without a false “English suffici
 - Add a labeled language corpus covering Swiss phrasing, CEFR levels, combined-language requirements, and optional wording.
 - Add OCR for scanned CVs and robust parsing for multi-column PDFs.
 - Add editable salary and visa/work-permit constraints; refine the Phase 0 location, workplace, seniority, contract, keyword, and exclusion filters as real usage demands.
-- Add duplicate detection, job expiry checks initiated by the user, notes, deadlines, contacts, and export/import.
-- Add CV deletion, retention controls, encrypted backups, error telemetry with no CV content, accessibility tests, and mobile polish.
+- Add duplicate detection, job expiry checks initiated by the user, notes, deadlines, contacts, and import/restore.
+- Add retention schedules, encrypted backups, error telemetry with no CV content, accessibility tests, and mobile polish.
 
 ## Phase 2 — authorized Swiss discovery
 
