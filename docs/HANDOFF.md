@@ -55,8 +55,13 @@ Quality checks:
 - Safe live verification passed three destructive-action guards plus a temporary job create/delete round trip. Both real CVs, all 24 real jobs, their 5/1/18 raw language split, and saved criteria remained unchanged.
 - Optional Windows VPN helpers install the official Windscribe or Proton client, detect a
   full-tunnel route, and provide `npm run dev:private`, which refuses to start without one.
-  No VPN credentials or tunnel keys are stored. The current machine correctly fails the
-  check because no supported VPN adapter is connected yet.
+  No VPN credentials or tunnel keys are stored. Windscribe 2.23.12 was installed and live
+  verification passed through the Netherlands (`WindscribeWireguard`, exit country NL).
+- Matching macOS commands install through Homebrew and enforce a full `utun` IPv4 route.
+  Their shell syntax is verified on Windows; live behavior still needs the Apple device.
+- Five Netherlands source handoffs are present without LinkedIn. A temporary Indeed
+  Netherlands-shaped URL completed import, strict English/Dutch screening, and deletion;
+  both real CVs and all 24 stored jobs remained intact.
 
 ## 4. Remaining work and risks
 

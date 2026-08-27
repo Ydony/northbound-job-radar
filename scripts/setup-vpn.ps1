@@ -39,9 +39,24 @@ else {
   Write-Host "$($selected.DisplayName) is already installed." -ForegroundColor Green
 }
 
-$startApp = Get-StartApps | Where-Object { $_.Name -like "*$($selected.DisplayName)*" } | Select-Object -First 1
-if ($startApp) {
-  Start-Process explorer.exe "shell:AppsFolder\$($startApp.AppID)"
+$clientPaths = if ($Provider -eq 'Windscribe') {
+  @((Join-Path $env:ProgramFiles 'Windscribe\Windscribe.exe')) + @(
+    if (${env:ProgramFiles(x86)}) { Join-Path ${env:ProgramFiles(x86)} 'Windscribe\Windscribe.exe' }
+  )
+}
+else {
+  @(
+    (Join-Path $env:ProgramFiles 'Proton\VPN\ProtonVPN.Launcher.exe'),
+    (Join-Path $env:ProgramFiles 'Proton\VPN\ProtonVPN.exe')
+  )
+}
+$clientPath = $clientPaths | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+if ($clientPath) {
+  Start-Process -FilePath $clientPath
+}
+else {
+  $startApp = Get-StartApps | Where-Object { $_.Name -like "*$($selected.DisplayName)*" } | Select-Object -First 1
+  if ($startApp) { Start-Process explorer.exe "shell:AppsFolder\$($startApp.AppID)" }
 }
 
 Write-Host ''

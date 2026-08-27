@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
 import { jobsToCsv, workspaceToJson } from '@/lib/export';
+import { netherlandsJobSources, sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
 import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, CvSlot, JobRecord, JobStatus, SearchCriteria } from '@/lib/types';
@@ -136,6 +137,7 @@ export default function JobRadar() {
   const hasAnyCv = state.profiles.some((profile) => profile.hasCvText);
   const primaryProfile = state.profiles.find((profile) => profile.derivedRole);
   const primaryRole = primaryProfile ? roleForProfile(primaryProfile, state.criteria) : '';
+  const dutchSources = netherlandsJobSources(primaryRole);
 
   const criteriaFilteredJobs = useMemo(
     () => state.jobs.filter((job) => matchesSearchCriteria(job, state.criteria)),
@@ -457,16 +459,16 @@ export default function JobRadar() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="#top"><span className="brand-mark">N</span><span><b>Northbound</b><small>Swiss job radar</small></span></a>
+        <a className="brand" href="#top"><span className="brand-mark">N</span><span><b>Northbound</b><small>English job radar</small></span></a>
         <nav aria-label="Main navigation"><a className="active" href="#jobs">Matches</a><a href="#profile">My CVs</a><a href="#pipeline">Pipeline</a></nav>
-        <span className="source-pill"><i /> Source: jobs.ch</span>
+        <span className="source-pill"><i /> Switzerland + Netherlands</span>
       </header>
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <span className="eyebrow">English-only roles · Switzerland</span>
+          <span className="eyebrow">English-only roles · Switzerland + Amsterdam</span>
           <h1>Less searching.<br /><em>More fitting.</em></h1>
-          <p>Use jobs.ch normally, then let this private workspace reject ads that require German, French, Italian or Dutch and rank the rest against your CVs.</p>
+          <p>Search Swiss and Netherlands job sites, then let this private workspace reject ads that require German, French, Italian or Dutch and rank the rest against your CVs.</p>
           <div className="hero-actions">
             <a className="primary" href="#profile">Add your CVs <span>↓</span></a>
             <a className="secondary" href={jobsSearchUrl(primaryRole, state.criteria.location)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
@@ -479,12 +481,12 @@ export default function JobRadar() {
             <li><b>02</b><span>No local language is marked as mandatory</span></li>
             <li><b>03</b><span>Your best-fitting CV is scored with visible evidence</span></li>
           </ol>
-          <p>Unclear ads go to Review. Applications stay on jobs.ch, where you can sign in yourself.</p>
+          <p>Unclear ads go to Review. Applications stay on the original job site, where you sign in yourself.</p>
         </aside>
       </section>
 
       <section className="profile-section" id="profile">
-        <div className="profile-intro"><span className="section-label">Step one</span><h2>Upload up to two CVs</h2><p>Each CV is stored privately. We detect a likely target role from its content and search jobs.ch for both roles.</p></div>
+        <div className="profile-intro"><span className="section-label">Step one</span><h2>Upload up to two CVs</h2><p>Each CV is stored privately. We detect a likely target role and use it to shape your Swiss and Netherlands searches.</p></div>
         <div className="cv-slots">
           {slots.map((slot) => {
             const saved = state.profiles.find((profile) => profile.slot === slot);
@@ -509,7 +511,7 @@ export default function JobRadar() {
         <div className="criteria-intro">
           <span className="section-label coral">Search criteria</span>
           <h2>Define what fits</h2>
-          <p>Role overrides and location shape the jobs.ch search. Every field filters your local result views; Pipeline always keeps saved and applied jobs visible.</p>
+          <p>Role overrides shape source searches; location shapes jobs.ch. Every field filters your local result views, while Pipeline keeps saved and applied jobs visible.</p>
         </div>
         <form className="criteria-form" onSubmit={saveCriteria}>
           <label className="field"><span>CV 1 role override</span><input value={criteriaDraft.roleOverrideA} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, roleOverrideA: event.target.value })} placeholder={state.profiles.find((profile) => profile.slot === 'a')?.derivedRole || 'Use detected role'} /></label>
@@ -525,7 +527,7 @@ export default function JobRadar() {
       </section>
 
       <section className="workflow">
-        <div className="workflow-copy"><span className="section-label coral">Step two</span><h2>Search on jobs.ch</h2><p>Run an automatic search for your detected roles, open a targeted search yourself, or paste one ad by hand. Log in on jobs.ch directly if needed.</p></div>
+        <div className="workflow-copy"><span className="section-label coral">Step two</span><h2>Find and screen jobs</h2><p>Run the existing jobs.ch search, open any supported source yourself, or paste one full ad. Netherlands sources remain user-controlled and are not scraped.</p></div>
         <div className="workflow-steps"><span><b>1</b> Find or open a search</span><span><b>2</b> Screen for English</span><span><b>3</b> Review your matches</span></div>
         <button className="jobs-button" type="button" disabled={!hasAnyCv || scrapeBusy} onClick={findJobs}>{scrapeBusy ? 'Searching…' : 'Find new jobs'} <span>⟳</span></button>
         <a className={`jobs-button ${!hasAnyCv ? 'disabled' : ''}`} href={jobsSearchUrl(primaryRole, state.criteria.location)} target={hasAnyCv ? '_blank' : undefined} rel="noreferrer">Open jobs.ch <span>↗</span></a>
@@ -533,10 +535,28 @@ export default function JobRadar() {
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
       </section>
 
+      <section className="source-directory" id="netherlands">
+        <div className="source-directory-copy">
+          <span className="section-label coral">Netherlands · no LinkedIn</span>
+          <h2>Amsterdam job sources</h2>
+          <p>English-focused sources come first. Open a site, choose a promising role, then paste the complete advertisement into Northbound for the strict Dutch-language check.</p>
+          <button className="import-button" type="button" disabled={!hasAnyCv} onClick={openImport}>Analyze a Netherlands job <span>＋</span></button>
+        </div>
+        <div className="source-grid">
+          {dutchSources.map((source, index) => <a href={source.url} key={source.name} target="_blank" rel="noreferrer">
+            <span className="source-number">0{index + 1}</span>
+            <small>{source.focus}</small>
+            <h3>{source.name}</h3>
+            <p>{source.note}</p>
+            <b>Open search ↗</b>
+          </a>)}
+        </div>
+      </section>
+
       {showImport && <section className="import-panel" ref={importRef}>
-        <div className="import-heading"><div><span className="section-label">Strict screening</span><h2>Paste one jobs.ch advertisement</h2></div><button type="button" onClick={() => setShowImport(false)} aria-label="Close import form">×</button></div>
+        <div className="import-heading"><div><span className="section-label">Strict screening</span><h2>Paste one complete job advertisement</h2></div><button type="button" onClick={() => setShowImport(false)} aria-label="Close import form">×</button></div>
         <form onSubmit={addJob}>
-          <label className="field wide"><span>jobs.ch job URL</span><input type="url" value={importData.sourceUrl} onChange={(event) => setImportData({ ...importData, sourceUrl: event.target.value })} placeholder="https://www.jobs.ch/en/vacancies/detail/…" required /></label>
+          <label className="field wide"><span>Public HTTPS job-ad URL</span><input type="url" value={importData.sourceUrl} onChange={(event) => setImportData({ ...importData, sourceUrl: event.target.value })} placeholder="https://job-site.example/vacancy/…" required /></label>
           <label className="field"><span>Job title</span><input value={importData.title} onChange={(event) => setImportData({ ...importData, title: event.target.value })} required /></label>
           <label className="field"><span>Company</span><input value={importData.company} onChange={(event) => setImportData({ ...importData, company: event.target.value })} /></label>
           <label className="field"><span>Location</span><input value={importData.location} onChange={(event) => setImportData({ ...importData, location: event.target.value })} placeholder="e.g. Zürich / Remote" /></label>
@@ -565,7 +585,7 @@ export default function JobRadar() {
             <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><span>All matching</span><i>{criteriaFilteredJobs.filter((job) => job.status !== 'ignored').length}</i></button>
           </aside>
           <div className="job-list">
-            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Open jobs.ch, copy a promising ad, then run the strict language check.' : 'Upload a CV to unlock search, screening and match scores.'}</p>{hasAnyCv && <button type="button" onClick={openImport}>Analyze your first job</button>}</div>}
+            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Open a source, copy a promising ad, then run the strict language check.' : 'Upload a CV to unlock search, screening and match scores.'}</p>{hasAnyCv && <button type="button" onClick={openImport}>Analyze your first job</button>}</div>}
             {visibleJobs.map((job) => {
               const bothCvsSaved = state.profiles.filter((profile) => profile.hasCvText).length > 1;
               const displayedLanguageStatus = effectiveLanguageStatus(job);
@@ -599,7 +619,7 @@ export default function JobRadar() {
                   </div>}
                   <div className="card-actions"><button type="button" className={job.status === 'saved' ? 'selected' : ''} onClick={() => updateStatus(job.id, job.status === 'saved' ? 'new' : 'saved')}>♡ {job.status === 'saved' ? 'Saved' : 'Save'}</button><button type="button" className={job.status === 'applied' ? 'selected' : ''} onClick={() => updateStatus(job.id, 'applied')}>✓ {job.status === 'applied' ? 'Applied' : 'Mark applied'}</button><button type="button" onClick={() => updateStatus(job.id, 'ignored')}>Hide</button></div>
                 </div>
-                <a className="apply-link" href={job.sourceUrl} target="_blank" rel="noreferrer">Apply on jobs.ch ↗</a>
+                <a className="apply-link" href={job.sourceUrl} target="_blank" rel="noreferrer">Apply on {sourceNameForUrl(job.sourceUrl)} ↗</a>
                 <span className="status-chip">{statusLabel(job.status)}</span>
               </article>;
             })}
@@ -607,7 +627,7 @@ export default function JobRadar() {
         </div>
       </section>
 
-      <footer><b>Northbound MVP</b><span>One source · strict English gate · user-controlled applications</span><a href="https://www.jobs.ch/en/terms/" target="_blank" rel="noreferrer">jobs.ch terms ↗</a></footer>
+      <footer><b>Northbound MVP</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#netherlands">Netherlands sources ↑</a></footer>
     </main>
   );
 }

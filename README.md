@@ -1,23 +1,28 @@
-# Northbound — Swiss Job Radar
+# Northbound — English Job Radar
 
-Northbound is a local MVP for finding Swiss jobs where English is sufficient. It combines a CV profile with strict language screening and a simple application pipeline while keeping jobs.ch login and applications on jobs.ch.
+Northbound is a local MVP for finding Swiss and Netherlands jobs where English is sufficient. It combines CV profiles with strict language screening and a simple application pipeline while keeping login and applications on the original job site.
 
 ## What the MVP does
 
 1. Upload up to two PDF, DOCX, or TXT CVs (e.g. a generalist and a specialist version). Northbound detects a likely target role from each CV's own content; you can override either role when the heuristic is too broad.
 2. Set optional location/canton, workplace, seniority, contract, required-keyword, and exclusion filters. The criteria persist across reloads; role and location shape jobs.ch discovery and all criteria filter the local views.
-3. Click "Find new jobs" to fetch and screen fresh jobs.ch listings for the selected role(s) automatically, or open a targeted jobs.ch search yourself and paste one ad in by hand.
-4. Northbound classifies the language requirement as:
+3. Click "Find new jobs" for the existing jobs.ch flow, or open one of five Netherlands sources: I amsterdam, IamExpat, Undutchables, Indeed Netherlands, and Nationale Vacaturebank. LinkedIn is deliberately excluded.
+4. For Netherlands sources, choose a role yourself and paste its complete advertisement into Northbound. These new sources are not scraped or logged into automatically.
+5. Northbound classifies the language requirement as:
    - `pass`: English ad, no mandatory local language detected;
    - `review`: evidence is incomplete or ambiguous;
    - `blocked`: a mandatory local language or a non-English ad is detected.
-5. Mark a language result accurate or correct it to pass, review, or blocked with an optional reason. Your explicit correction controls the result views while the detector's original decision remains visible.
-6. Each job is scored against every saved CV; the card shows the best score and the per-CV breakdown, so you can see which CV version to apply with. You can save or hide the job, track applications, and open the original jobs.ch page to apply.
-7. Export the workspace as JSON or jobs as CSV, delete selected/all jobs, remove either CV, or reset all locally stored data from the dashboard.
+6. Mark a language result accurate or correct it to pass, review, or blocked with an optional reason. Your explicit correction controls the result views while the detector's original decision remains visible.
+7. Each job is scored against every saved CV; the card shows the best score and the per-CV breakdown, so you can see which CV version to apply with. You can save or hide the job, track applications, and open the original source page to apply.
+8. Export the workspace as JSON or jobs as CSV, delete selected/all jobs, remove either CV, or reset all locally stored data from the dashboard.
 
 The MVP fetches public jobs.ch search and listing pages directly (see "Product and
 compliance decision" below) but does not automate a jobs.ch account, log in, or submit
 applications — those stay on jobs.ch, done by you.
+
+The Netherlands source directory is handoff-only. Northbound does not fetch, scrape,
+log in to, or submit applications on those sites. Manual imports accept a public HTTPS
+job-ad URL, including an employer page reached from a listed source.
 
 ## Run locally
 
@@ -32,6 +37,9 @@ For the optional Windows privacy launcher, run `npm run vpn:setup` once, complet
 provider's visible sign-in and Netherlands/kill-switch setup, then use
 `npm run dev:private`. That launcher refuses to start without a detected full VPN route.
 See `docs/VPN.md`; no VPN credentials are stored by Northbound.
+
+On macOS, the equivalent commands are `npm run vpn:setup:mac` once and
+`npm run dev:private:mac` for VPN-enforced startup.
 
 Open the local URL printed by the development server. D1 and R2 are emulated locally by Miniflare; their state remains in the ignored `.wrangler/` directory.
 

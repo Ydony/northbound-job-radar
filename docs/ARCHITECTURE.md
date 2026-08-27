@@ -4,7 +4,7 @@ Last updated: 2026-08-27.
 
 ## 1. Goal and acceptance rule
 
-The user wants Switzerland and, later, Amsterdam-area Netherlands jobs where English alone is enough. “The ad contains the word English” is not sufficient. A match must satisfy both:
+The user wants Switzerland and Amsterdam-area Netherlands jobs where English alone is enough. “The ad contains the word English” is not sufficient. A match must satisfy both:
 
 - the full job advertisement is predominantly English; and
 - German, French, Italian, and Dutch are not mandatory.
@@ -63,7 +63,7 @@ permission or an authorized API/feed; see `ROADMAP.md` for that path.
 React client
   ├─ PDF/DOCX/TXT text extraction in browser
   ├─ persisted search criteria and local result filtering
-  ├─ "Find new jobs" trigger + manual ad import + jobs.ch search handoff
+  ├─ "Find new jobs" trigger + manual ad import + Swiss/Netherlands source handoffs
   ├─ results UI
   └─ shortlist/application controls
          │ JSON / multipart
@@ -137,7 +137,7 @@ an error: the CV still saves and still scores jobs; it just contributes no searc
 - `POST /api/profile` — one CV slot (`a`/`b`): extracted CV text and CV file; derives and stores that CV's role
 - `DELETE /api/profile?slot=a|b` — delete one stored CV/file, clear its role override, and rescore jobs with the remaining CV
 - `PUT /api/criteria` — validate, persist, and apply role/location/workplace/seniority/contract/keyword criteria
-- `POST /api/jobs` — validate and analyze one user-supplied jobs.ch ad against every saved CV
+- `POST /api/jobs` — validate and analyze one user-supplied public HTTPS job ad against every saved CV; the URL is never fetched by this route
 - `POST /api/scrape` — fetch and analyze new jobs.ch listings for each distinct derived role (see §2 for the compliance decision behind this route)
 - `PATCH /api/jobs/:id` — update pipeline status and save, change, or clear language feedback
 - `DELETE /api/jobs/:id` — delete an analyzed job (API support; UI currently uses hide)
@@ -201,6 +201,9 @@ migrations.
 - User-triggered CV/job deletion, full reset, and JSON/CSV export are available. There is still no automated retention schedule, encryption policy, consent screen, or audit log.
 - No scheduled discovery, alerts, cross-source deduplication, or expiry checks.
 - jobs.ch URL structure and terms can change; revalidate them before releases.
+- Netherlands sources are handoff-only: I amsterdam, IamExpat, Undutchables, Indeed
+  Netherlands, and Nationale Vacaturebank. LinkedIn is excluded. Their links and terms can
+  change, and no automation permission has been established for them.
 
 ## 9. Optional local VPN launcher
 
@@ -214,3 +217,8 @@ remain a one-time visible provider step. The free Windows clients do not publish
 supported interface for automating those settings, and Northbound must never capture VPN
 credentials or manipulate undocumented provider state. The route check is a guardrail,
 not proof of anonymity; its optional exit-IP display calls Cloudflare's trace endpoint.
+
+The equivalent macOS scripts use the official Homebrew casks and require a full IPv4 route
+over a `utun` interface. Windows was live-verified on 2026-08-27 with Windscribe through a
+Netherlands exit; macOS scripts were syntax-checked but require live validation on the
+Apple device.

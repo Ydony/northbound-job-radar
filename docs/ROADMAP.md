@@ -2,7 +2,7 @@
 
 This document describes the overall product, including capabilities that are intentionally outside the first jobs.ch MVP.
 
-## Phase 0 — testable MVP (current)
+## Phase 0 — testable Swiss MVP plus Netherlands handoffs (current)
 
 - One Swiss source: jobs.ch.
 - Up to two CV versions, local text extraction, automatic per-CV role derivation, and
@@ -18,7 +18,11 @@ This document describes the overall product, including capabilities that are int
 - Explainable CV-fit score.
 - Save, hide, mark applied, and open the original application page.
 - Delete either CV or selected/all jobs, reset the workspace, and export safe JSON/CSV data.
-- Local D1/R2 persistence, a verified real-CV/24-ad run, and a focused 28-test regression set.
+- Five Netherlands/Amsterdam source handoffs without LinkedIn: I amsterdam, IamExpat,
+  Undutchables, Indeed Netherlands, and Nationale Vacaturebank. Ads are selected and pasted
+  by the user; these sources are not scraped.
+- Optional VPN-enforced local launchers for Windows and macOS.
+- Local D1/R2 persistence, a verified real-CV/24-ad run, and a focused 31-test regression set.
 
 Exit criterion: the user can screen real jobs without a false “English sufficient” result in the agreed regression examples.
 
@@ -49,9 +53,13 @@ If JobCloud does not authorize ingestion, keep jobs.ch user-driven and add compl
 
 Never disguise crawling as a virtual Chrome browser. The mechanism does not change the platform permission requirement.
 
-## Phase 3 — Netherlands / Amsterdam expansion
+## Phase 3 — Netherlands / Amsterdam automation expansion
 
-Add country-specific source adapters and a shared normalized job schema. Initial market sources to evaluate are LinkedIn, Indeed Netherlands, I amsterdam Jobs, IamExpat Jobs, and Nationale Vacaturebank. LinkedIn and Indeed prohibit unauthorized automated extraction, so use alerts/user handoff or obtain partner access rather than scraping.
+Phase 0 now provides user-controlled handoffs to five Netherlands sources and strict manual
+analysis. Phase 3 adds country-specific authorized adapters and a shared normalized job
+schema. LinkedIn remains excluded by user request. Indeed and other source terms must be
+reviewed before any automation; use alerts/user handoff or obtain partner access rather
+than assuming the jobs.ch decision applies.
 
 For automated coverage, prioritize direct employer career pages and public ATS endpoints. Add Dutch as a prohibited mandatory language, Amsterdam-radius filtering, commute/remote rules, and Netherlands-specific work-authorization fields.
 

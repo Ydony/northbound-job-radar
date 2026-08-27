@@ -57,3 +57,23 @@ the launcher.
 - Do not add proxy rotation, IP cycling, fingerprint spoofing, or bot-detection evasion.
 - A VPN changes the visible source IP. It does not override a job site's terms or authorize
   scraping, automated login, or application submission.
+
+## Apple / macOS
+
+The same enforced workflow is available on macOS. It installs the official Windscribe
+application through Homebrew, opens it for the one-time sign-in and macOS VPN permission,
+then checks for a full route over an active `utun` interface.
+
+```text
+npm run vpn:setup:mac
+npm run vpn:check:mac
+npm run dev:private:mac
+```
+
+Homebrew must already be installed; if it is missing, the setup script opens the official
+Homebrew page and stops instead of downloading and executing an unreviewed bootstrap script.
+To use Proton VPN instead, run `bash scripts/setup-vpn-macos.sh ProtonVPN`.
+
+Use Windscribe Firewall mode **Always on** and disable split tunnelling. On an Intel Mac
+with Apple's T2 security chip, review the provider's current kill-switch guidance before
+using Proton VPN because that combination has a documented macOS stability limitation.

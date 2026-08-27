@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { bindings, ensureSchema } from '@/db/runtime';
 import { analyzeLanguage, scoreFitAcrossCvs } from '@/lib/analysis';
 import { roleForSlot } from '@/lib/criteria';
-import { isJobsChUrl } from '@/lib/jobsch';
+import { isSafeManualJobUrl } from '@/lib/job-sources';
 import { criteriaFromRow, upsertJob, type CriteriaRow } from '@/lib/server-data';
 import type { CvSlot } from '@/lib/types';
 
@@ -16,10 +16,10 @@ export async function POST(request: Request) {
   const sourceUrl = clean(payload.sourceUrl, 1000);
   const title = clean(payload.title, 240);
   const company = clean(payload.company, 240);
-  const location = clean(payload.location, 240) || 'Switzerland';
+  const location = clean(payload.location, 240) || 'Location not added';
   const description = clean(payload.description, 120_000);
 
-  if (!isJobsChUrl(sourceUrl)) return NextResponse.json({ error: 'Paste a valid https://www.jobs.ch job URL.' }, { status: 400 });
+  if (!isSafeManualJobUrl(sourceUrl)) return NextResponse.json({ error: 'Paste a valid public HTTPS job-ad URL.' }, { status: 400 });
   if (!title) return NextResponse.json({ error: 'Add the job title.' }, { status: 400 });
   if (description.length < 160) return NextResponse.json({ error: 'Paste the full job advertisement so the language gate has enough evidence.' }, { status: 400 });
 

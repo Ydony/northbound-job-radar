@@ -16,10 +16,16 @@ function Test-VpnRoute {
 }
 
 if (-not (Test-VpnRoute)) {
-  $vpnApp = Get-StartApps | Where-Object { $_.Name -match 'Windscribe|Proton VPN|Cloudflare WARP' } | Select-Object -First 1
-  if ($vpnApp) {
-    Write-Host "Starting $($vpnApp.Name) and waiting for a full VPN route..." -ForegroundColor Cyan
-    Start-Process explorer.exe "shell:AppsFolder\$($vpnApp.AppID)"
+  $knownClients = @(
+    (Join-Path $env:ProgramFiles 'Windscribe\Windscribe.exe'),
+    (Join-Path $env:ProgramFiles 'Proton\VPN\ProtonVPN.Launcher.exe')
+  )
+  $clientPath = $knownClients | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+  $vpnApp = if (-not $clientPath) { Get-StartApps | Where-Object { $_.Name -match 'Windscribe|Proton VPN|Cloudflare WARP' } | Select-Object -First 1 } else { $null }
+  if ($clientPath -or $vpnApp) {
+    $clientName = if ($clientPath) { [IO.Path]::GetFileNameWithoutExtension($clientPath) } else { $vpnApp.Name }
+    Write-Host "Starting $clientName and waiting for a full VPN route..." -ForegroundColor Cyan
+    if ($clientPath) { Start-Process -FilePath $clientPath } else { Start-Process explorer.exe "shell:AppsFolder\$($vpnApp.AppID)" }
     for ($attempt = 0; $attempt -lt 20 -and -not (Test-VpnRoute); $attempt += 1) {
       Start-Sleep -Seconds 2
     }

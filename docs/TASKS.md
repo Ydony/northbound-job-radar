@@ -7,11 +7,11 @@ This is the execution tracker for finishing the personal MVP and planning the wo
 ## Current snapshot
 
 - Core jobs.ch flow: **verified working** with both real PDFs and 24 real ads.
-- Quality baseline: **28 tests passing; type-check, lint, and production build clean**.
+- Quality baseline: **31 tests passing; type-check, lint, and production build clean**.
 - Git: data controls are committed as `7c1fa3b`; language feedback is `67669d8` and the baseline is `344a642`.
 - Local preview: `http://localhost:3002/` while the development server is running.
 - Current local data: both real CV profiles, saved role overrides, and 24 screened jobs (5 pass, 1 review, 18 blocked). Temporary feedback test rows were cleared.
-- Optional VPN bootstrap: official-client installation and VPN-enforced local startup are implemented; one-time provider account/login/location/kill-switch setup remains user-visible by design.
+- Optional VPN bootstrap: official-client installation and VPN-enforced local startup are implemented for Windows and macOS. Windows passed live through a Netherlands exit; macOS awaits testing on the Apple device. Provider credentials remain user-visible and outside Northbound.
 
 ## MVP completion tracker
 
@@ -37,7 +37,7 @@ This is the execution tracker for finishing the personal MVP and planning the wo
 
 | Phase | Scope | Status | Dependency |
 |---|---|---|---|
-| POST-01 | Add Netherlands and Amsterdam-area sources and Dutch-specific location/work-authorization filters. | Not started | Stable normalized job/source model and source-specific permission review. |
+| POST-01 | Add Netherlands and Amsterdam-area sources and Dutch-specific location/work-authorization filters. | Partial — handoffs done | Five source handoffs and strict manual imports are implemented without LinkedIn; country-specific saved filters and authorized automation remain. |
 | POST-02 | Replace unsanctioned jobs.ch fetching with JobCloud permission, an authorized feed, alerts, or direct ATS/company sources. | Not started | JobCloud discussion and adapter architecture. |
 | POST-03 | Scheduled searches, deduplicated digests, thresholds, quiet hours, and source-health monitoring. | Not started | Authorized sources, migrations, backups, and reliable diagnostics. |
 | POST-04 | Better semantic CV matching, must-have qualification checks, visible explanations, and multiple CV versions. | Not started | Privacy/provider decision and a labeled evaluation dataset. |

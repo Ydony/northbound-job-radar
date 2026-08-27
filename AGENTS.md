@@ -6,7 +6,7 @@ product or integration changes.
 
 ## Product objective
 
-Build a private job-search companion for a user seeking roles where English alone is sufficient. The MVP covers Switzerland and uses jobs.ch as the market source. A job is a match only when the full advertisement is predominantly English and German, French, Italian, and Dutch are not mandatory. Ambiguous ads must go to `review`, never `pass`.
+Build a private job-search companion for a user seeking roles where English alone is sufficient. It covers Switzerland through jobs.ch and provides user-controlled Netherlands/Amsterdam handoffs without LinkedIn. A job is a match only when the full advertisement is predominantly English and German, French, Italian, and Dutch are not mandatory. Ambiguous ads must go to `review`, never `pass`.
 
 ## jobs.ch integration boundary
 
@@ -32,6 +32,10 @@ Build a private job-search companion for a user seeking roles where English alon
 - A full, sanctioned jobs.ch ingestion integration (higher volume, scheduled, or
   authenticated) still requires written JobCloud permission or an authorized API/feed.
   Employer-side XML ingestion is not a public job-seeker search API.
+- The jobs.ch automation reversal does not apply to Netherlands sources. I amsterdam,
+  IamExpat, Undutchables, Indeed Netherlands, and Nationale Vacaturebank are external
+  handoff links only. Do not fetch or automate them without a fresh source-specific terms
+  review and explicit user decision. LinkedIn is excluded by request.
 
 ## Technical shape
 

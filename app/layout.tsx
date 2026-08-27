@@ -6,8 +6,8 @@ const sans = DM_Sans({ variable: '--font-sans', subsets: ['latin'] });
 const display = Fraunces({ variable: '--font-display', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Northbound — Swiss Job Radar',
-  description: 'Strict English-language screening and CV matching for jobs.ch roles.',
+  title: 'Northbound — English Job Radar',
+  description: 'Strict English-language screening and CV matching for Swiss and Netherlands roles.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

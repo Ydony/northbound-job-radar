@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vinext dev",
     "dev:private": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-private.ps1",
+    "dev:private:mac": "bash scripts/start-private-macos.sh",
     "build": "vinext build",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
@@ -15,7 +16,9 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "vpn:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-vpn.ps1",
-    "vpn:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-vpn.ps1 -ShowPublicIp"
+    "vpn:setup:mac": "bash scripts/setup-vpn-macos.sh",
+    "vpn:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-vpn.ps1 -ShowPublicIp",
+    "vpn:check:mac": "bash scripts/check-vpn-macos.sh --show-public-ip"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
