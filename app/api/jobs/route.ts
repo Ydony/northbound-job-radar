@@ -3,6 +3,7 @@ import { bindings, ensureSchema } from '@/db/runtime';
 import { analyzeLanguage, scoreFitAcrossCvs } from '@/lib/analysis';
 import { roleForSlot } from '@/lib/criteria';
 import { isSafeManualJobUrl } from '@/lib/job-sources';
+import { canonicalJobUrl } from '@/lib/job-identity';
 import { criteriaFromRow, upsertJob, type CriteriaRow } from '@/lib/server-data';
 import type { CvSlot } from '@/lib/types';
 
@@ -13,11 +14,12 @@ function clean(value: unknown, max: number) {
 export async function POST(request: Request) {
   await ensureSchema();
   const payload = await request.json() as Record<string, unknown>;
-  const sourceUrl = clean(payload.sourceUrl, 1000);
+  const sourceUrl = canonicalJobUrl(clean(payload.sourceUrl, 1000));
   const title = clean(payload.title, 240);
   const company = clean(payload.company, 240);
   const location = clean(payload.location, 240) || 'Location not added';
   const description = clean(payload.description, 120_000);
+  const postedAt = clean(payload.postedAt, 80);
 
   if (!isSafeManualJobUrl(sourceUrl)) return NextResponse.json({ error: 'Paste a valid public HTTPS job-ad URL.' }, { status: 400 });
   if (!title) return NextResponse.json({ error: 'Add the job title.' }, { status: 400 });
@@ -39,12 +41,13 @@ export async function POST(request: Request) {
 
   const language = analyzeLanguage(description);
   const fit = scoreFitAcrossCvs(description, title, cvs);
-  const job = await upsertJob(db, {
+  const result = await upsertJob(db, {
     sourceUrl, title, company, location, description,
     languageStatus: language.status, languageSummary: language.summary, languageSignals: language.signals,
+    postedAt,
     ...fit,
   });
-  return NextResponse.json({ job });
+  return NextResponse.json({ job: result.job, duplicate: result.wasKnown || result.wasDuplicate, dismissed: result.wasDismissed });
 }
 
 export async function DELETE(request: Request) {

@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForSlot } from '../lib/criteria';
+import { defaultSearchCriteria, matchesSearchCriteria, normalizeRoleKeywords, parseKeywordInput, roleForSlot,
+  searchTermsForProfiles } from '../lib/criteria';
 import type { JobRecord, SearchCriteria } from '../lib/types';
 
 const job: JobRecord = {
   id: 'job-1',
   sourceUrl: 'https://www.jobs.ch/en/vacancies/detail/00000000-0000-0000-0000-000000000000/',
+  canonicalUrl: 'https://www.jobs.ch/en/vacancies/detail/00000000-0000-0000-0000-000000000000',
+  sourceKey: 'jobs.ch',
+  sourceName: 'jobs.ch',
+  sourceJobId: '00000000-0000-0000-0000-000000000000',
+  country: 'switzerland',
   title: 'Senior Data Governance Analyst',
   company: 'Example AG',
   location: 'Zürich 8000',
@@ -22,7 +28,13 @@ const job: JobRecord = {
   bestCvSlot: 'b',
   matchedKeywords: ['sql'],
   missingKeywords: [],
-  status: 'new',
+  identityFingerprint: 'job-v1-example',
+  isSaved: false,
+  applicationStatus: 'not_applied',
+  visibilityStatus: 'active',
+  postedAt: '2026-08-25T00:00:00.000Z',
+  firstSeenAt: '2026-08-26T00:00:00.000Z',
+  lastSeenAt: '2026-08-26T00:00:00.000Z',
   createdAt: '2026-08-26T00:00:00.000Z',
   updatedAt: '2026-08-26T00:00:00.000Z',
 };
@@ -41,6 +53,16 @@ test('uses a role override only for its matching CV slot', () => {
   assert.equal(roleForSlot('a', 'Data Analyst', configured), 'Supply Chain Analyst');
   assert.equal(roleForSlot('b', 'Business Analyst', configured), 'Data Governance Analyst');
   assert.equal(roleForSlot('a', 'Data Analyst', criteria()), 'Data Analyst');
+});
+
+test('stores five distinct role keywords and combines them with CV roles', () => {
+  assert.deepEqual(normalizeRoleKeywords([' Master Data ', 'Supply Chain', 'master data', '', 'Data Quality', 'SAP', 'Analytics', 'Extra']),
+    ['Master Data', 'Supply Chain', 'Data Quality', 'SAP', 'Analytics']);
+  const configured = criteria({ roleOverrideA: 'Data Governance', roleKeywords: ['Master Data', 'Supply Chain'] });
+  assert.deepEqual(searchTermsForProfiles([
+    { slot: 'a', derivedRole: 'Data Analyst' },
+    { slot: 'b', derivedRole: 'Business Analyst' },
+  ], configured), ['Data Governance', 'Business Analyst', 'Master Data', 'Supply Chain']);
 });
 
 test('applies accent-insensitive location plus required and excluded keywords', () => {

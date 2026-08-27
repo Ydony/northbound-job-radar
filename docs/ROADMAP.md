@@ -2,39 +2,41 @@
 
 This document describes the overall product, including capabilities that are intentionally outside the first jobs.ch MVP.
 
-## Phase 0 — testable Swiss MVP plus Netherlands handoffs (current)
+## Phase 0 — testable local multi-source MVP (current)
 
-- One Swiss source: jobs.ch.
+- One-click, manually triggered adapter orchestration for Switzerland and the Netherlands.
+  Enabled: jobs.ch, jobup.ch, JobScout24, IamExpat, and Undutchables. LinkedIn is excluded;
+  unsupported sources remain visible with truthful blocked/unavailable/disabled status.
 - Up to two CV versions, local text extraction, automatic per-CV role derivation, and
   persisted role overrides. Every job is scored against both CVs.
-- Persisted location/canton, workplace, seniority, contract, required-keyword, and
-  exclusion criteria for discovery and local filtering.
-- Manually-triggered automatic search + fetch (`POST /api/scrape`), alongside
-  user-driven search and manual ad import — see `docs/ARCHITECTURE.md` §2 for the
-  2026-08-26 decision to automate this against jobs.ch's ToS/robots.txt, and the caps
-  (no schedule, capped listings per click, no auth, no detection evasion) that bound it.
+- Five persisted role keywords plus location/canton, workplace, seniority, contract,
+  required-keyword, and exclusion criteria for discovery and local filtering.
+- Manually triggered, capped automatic search (`POST /api/scrape`) with no schedule,
+  authentication, detection evasion, or application automation. See
+  `docs/ARCHITECTURE.md` §2 for the source-specific permission record.
 - Strict `pass / review / blocked` language gate.
 - Persisted accurate/incorrect feedback with an optional corrected status and reason; explicit corrections control views without erasing detector evidence.
 - Explainable CV-fit score.
-- Save, hide, mark applied, and open the original application page.
+- Independent saved, Applied/Not applied, and active/dismissed state; durable suppression
+  of dismissed duplicates; source/country/application/result filters.
+- Posted dates and source/country identity on cards; latest-run and cumulative source
+  dashboards.
 - Delete either CV or selected/all jobs, reset the workspace, and export safe JSON/CSV data.
-- Five Netherlands/Amsterdam source handoffs without LinkedIn: I amsterdam, IamExpat,
-  Undutchables, Indeed Netherlands, and Nationale Vacaturebank. Ads are selected and pasted
-  by the user; these sources are not scraped.
 - Optional VPN-enforced local launchers for Windows and macOS.
-- Local D1/R2 persistence, a verified real-CV/24-ad run, and a focused 31-test regression set.
+- Ordered local D1 migrations, R2 persistence, two real CV profiles, 48 preserved ads, and
+  a focused 45-test regression set. The first live multi-source external run still requires
+  the VPN to be reconnected.
 
 Exit criterion: the user can screen real jobs without a false “English sufficient” result in the agreed regression examples.
 
 ## Phase 1 — hardening for personal daily use
 
-- Execute `docs/MULTI_SOURCE_PLAN.md`: ordered migrations, durable deduplication/dismissal,
-  five role keywords, source/country/posted-date normalization, application filters, and
-  per-source run reporting.
+- Complete the VPN-protected live adapter run and add captured parser fixtures for every
+  enabled source without committing personal job data.
 - Add a labeled language corpus covering Swiss phrasing, CEFR levels, combined-language requirements, and optional wording.
 - Add OCR for scanned CVs and robust parsing for multi-column PDFs.
 - Add editable salary and visa/work-permit constraints; refine the Phase 0 location, workplace, seniority, contract, keyword, and exclusion filters as real usage demands.
-- Add duplicate detection, job expiry checks initiated by the user, notes, deadlines, contacts, and import/restore.
+- Add job expiry checks initiated by the user, notes, deadlines, contacts, and import/restore.
 - Add retention schedules, encrypted backups, error telemetry with no CV content, accessibility tests, and mobile polish.
 
 ## Phase 2 — authorized Swiss discovery
@@ -56,16 +58,15 @@ If JobCloud does not authorize ingestion, keep jobs.ch user-driven and add compl
 
 Never disguise crawling as a virtual Chrome browser. The mechanism does not change the platform permission requirement.
 
-## Phase 3 — Switzerland + Netherlands automation expansion
+## Phase 3 — authorized Switzerland + Netherlands coverage expansion
 
-Phase 0 provides one jobs.ch adapter and user-controlled Netherlands handoffs. The user
-requested on 2026-08-27 that one action automatically search every configured Swiss and
-Netherlands source and replace the handoff directory. `docs/MULTI_SOURCE_PLAN.md` is the
-implementation specification. LinkedIn remains excluded.
+Phase 0 now has the one-click shared-adapter implementation requested on 2026-08-27 and
+the manual Amsterdam handoff directory is gone. `docs/MULTI_SOURCE_PLAN.md` records the
+implementation and its source status. LinkedIn remains excluded.
 
-Each source still receives an implementation-time terms/robots review and a truthful run
-state. JobCloud and Indeed currently prohibit unsanctioned automated access; the dashboard
-must report blocked/disabled/failed sources rather than claiming they were searched.
+The next expansion must prioritize authorized feeds, direct employer career pages, and
+public ATS endpoints. JobCloud remains unsanctioned and Indeed remains blocked; keep the
+dashboard's blocked/disabled/failed states rather than claiming unsupported coverage.
 
 For sustainable automated coverage, prioritize direct employer career pages and public ATS
 endpoints. Add Dutch as a prohibited mandatory language, Amsterdam-radius filtering,
@@ -108,8 +109,8 @@ commute/remote rules, and Netherlands-specific work-authorization fields.
 1. Test corpus and privacy/delete controls.
 2. Search-profile depth and pipeline usability.
 3. JobCloud permission request plus direct ATS adapters in parallel.
-4. Netherlands market adapter and Amsterdam filters.
-5. Alerts and deduplication.
+4. Amsterdam-radius and work-authorization filters.
+5. Authorized alerts and expiry monitoring.
 6. Semantic matching and application drafting.
 
 This order protects the core promise—English really is enough—before increasing source volume.

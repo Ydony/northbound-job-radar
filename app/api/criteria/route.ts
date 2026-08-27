@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { bindings, ensureSchema } from '@/db/runtime';
-import { roleForSlot } from '@/lib/criteria';
-import { criteriaFromRow, rescoreAllJobs, type CriteriaRow } from '@/lib/server-data';
+import { normalizeRoleKeywords, roleForSlot } from '@/lib/criteria';
+import { criteriaFromRow, rescoreAllJobs, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
 import type { ContractType, CvSlot, Seniority, WorkplaceMode } from '@/lib/types';
 
 const workplaces = new Set<WorkplaceMode>(['any', 'remote', 'hybrid', 'onsite']);
@@ -30,6 +30,7 @@ export async function PUT(request: Request) {
   const input = {
     roleOverrideA: cleanText(body.roleOverrideA),
     roleOverrideB: cleanText(body.roleOverrideB),
+    roleKeywords: normalizeRoleKeywords(Array.isArray(body.roleKeywords) ? body.roleKeywords : []),
     location: cleanText(body.location),
     workplace,
     seniority,
@@ -39,7 +40,7 @@ export async function PUT(request: Request) {
   };
   const now = new Date().toISOString();
   const { db } = bindings();
-  await db.prepare(`INSERT INTO search_settings (id, role_override_a, role_override_b, location, workplace,
+  const statements = [db.prepare(`INSERT INTO search_settings (id, role_override_a, role_override_b, location, workplace,
       seniority, contract_type, required_keywords, excluded_keywords, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET role_override_a = excluded.role_override_a,
@@ -48,9 +49,17 @@ export async function PUT(request: Request) {
       required_keywords = excluded.required_keywords, excluded_keywords = excluded.excluded_keywords,
       updated_at = excluded.updated_at`)
     .bind('default', input.roleOverrideA, input.roleOverrideB, input.location, input.workplace, input.seniority,
-      input.contractType, JSON.stringify(input.requiredKeywords), JSON.stringify(input.excludedKeywords), now).run();
-  const row = await db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>();
-  const criteria = criteriaFromRow(row);
+      input.contractType, JSON.stringify(input.requiredKeywords), JSON.stringify(input.excludedKeywords), now),
+    db.prepare('DELETE FROM search_roles')];
+  input.roleKeywords.forEach((role, position) => statements.push(db.prepare(
+    'INSERT INTO search_roles (id, position, role, updated_at) VALUES (?, ?, ?, ?)',
+  ).bind(`default:${position}`, position, role, now)));
+  await db.batch(statements);
+  const [row, roles] = await Promise.all([
+    db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
+    db.prepare('SELECT position, role FROM search_roles ORDER BY position').all<SearchRoleRow>(),
+  ]);
+  const criteria = criteriaFromRow(row, roles.results);
   const cvRows = await db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
     .all<{ slot: CvSlot; cv_text: string; derived_role: string }>();
   const rescoredJobs = await rescoreAllJobs(db, cvRows.results.map((saved) => ({

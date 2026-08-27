@@ -3,12 +3,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
 import { jobsToCsv, workspaceToJson } from '@/lib/export';
-import { netherlandsJobSources, sourceNameForUrl } from '@/lib/job-sources';
+import { countryLabel } from '@/lib/job-identity';
+import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
 import type { LanguageStatus } from '@/lib/analysis';
-import type { AppState, CvSlot, JobRecord, JobStatus, SearchCriteria } from '@/lib/types';
+import type { AppState, ApplicationStatus, CvSlot, JobCountry, JobRecord, SearchCriteria,
+  SearchRun } from '@/lib/types';
 
-type View = 'matches' | 'review' | 'pipeline' | 'all';
+type View = 'matches' | 'review' | 'pipeline' | 'dismissed' | 'all';
+type CountryFilter = 'all' | Exclude<JobCountry, 'unknown'>;
+type ApplicationFilter = 'all' | ApplicationStatus;
 
 interface SlotState {
   file: File | null;
@@ -28,7 +32,7 @@ interface FeedbackDraft {
 }
 
 const emptySlotState: SlotState = { file: null, text: '', busy: false, message: '' };
-const emptyImport = { sourceUrl: '', title: '', company: '', location: '', description: '' };
+const emptyImport = { sourceUrl: '', title: '', company: '', location: '', postedAt: '', description: '' };
 const slots: CvSlot[] = ['a', 'b'];
 const slotLabels: Record<CvSlot, string> = { a: 'CV 1', b: 'CV 2' };
 
@@ -36,6 +40,7 @@ function criteriaToDraft(criteria: SearchCriteria): CriteriaDraft {
   return {
     roleOverrideA: criteria.roleOverrideA,
     roleOverrideB: criteria.roleOverrideB,
+    roleKeywords: [...criteria.roleKeywords],
     location: criteria.location,
     workplace: criteria.workplace,
     seniority: criteria.seniority,
@@ -84,9 +89,11 @@ function jobsSearchUrl(role: string, location = '') {
   return url.toString();
 }
 
-function statusLabel(status: JobStatus) {
-  if (status === 'new') return 'New';
-  return status.charAt(0).toUpperCase() + status.slice(1);
+function statusLabel(job: JobRecord) {
+  if (job.visibilityStatus === 'dismissed') return 'Dismissed';
+  if (job.applicationStatus === 'applied') return 'Applied';
+  if (job.isSaved) return 'Saved';
+  return 'Not applied';
 }
 
 function bestFitScore(job: JobRecord) {
@@ -99,10 +106,20 @@ function languageStatusLabel(status: LanguageStatus) {
   return 'Local language required';
 }
 
+function formatDate(value: string) {
+  if (!value) return 'Posting date unavailable';
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return `Posted ${value.slice(0, 10)}`;
+  return `Posted ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)}`;
+}
+
 export default function JobRadar() {
-  const [state, setState] = useState<AppState>({ profiles: [], jobs: [], criteria: defaultSearchCriteria });
+  const [state, setState] = useState<AppState>({ profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [] });
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>('matches');
+  const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
+  const [applicationFilter, setApplicationFilter] = useState<ApplicationFilter>('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [cvSlots, setCvSlots] = useState<Record<CvSlot, SlotState>>({ a: { ...emptySlotState }, b: { ...emptySlotState } });
   const [importData, setImportData] = useState(emptyImport);
   const [importBusy, setImportBusy] = useState(false);
@@ -127,7 +144,7 @@ export default function JobRadar() {
       .then((response) => responseJson<AppState>(response))
       .then((next) => {
         const criteria = next.criteria ?? defaultSearchCriteria;
-        setState({ ...next, criteria });
+        setState({ ...next, criteria, searchRuns: next.searchRuns ?? [] });
         setCriteriaDraft(criteriaToDraft(criteria));
       })
       .catch((error: Error) => setScrapeMessage(error.message))
@@ -136,8 +153,8 @@ export default function JobRadar() {
 
   const hasAnyCv = state.profiles.some((profile) => profile.hasCvText);
   const primaryProfile = state.profiles.find((profile) => profile.derivedRole);
-  const primaryRole = primaryProfile ? roleForProfile(primaryProfile, state.criteria) : '';
-  const dutchSources = netherlandsJobSources(primaryRole);
+  const primaryRole = state.criteria.roleKeywords[0]
+    || (primaryProfile ? roleForProfile(primaryProfile, state.criteria) : '');
 
   const criteriaFilteredJobs = useMemo(
     () => state.jobs.filter((job) => matchesSearchCriteria(job, state.criteria)),
@@ -145,19 +162,48 @@ export default function JobRadar() {
   );
 
   const counts = useMemo(() => ({
-    matches: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'pass' && job.status !== 'ignored').length,
-    review: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'review' && job.status !== 'ignored').length,
-    pipeline: state.jobs.filter((job) => job.status === 'saved' || job.status === 'applied').length,
+    matches: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'pass' && job.visibilityStatus === 'active').length,
+    review: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'review' && job.visibilityStatus === 'active').length,
+    pipeline: state.jobs.filter((job) => job.visibilityStatus === 'active' && (job.isSaved || job.applicationStatus === 'applied')).length,
+    dismissed: state.jobs.filter((job) => job.visibilityStatus === 'dismissed').length,
   }), [criteriaFilteredJobs, state.jobs]);
 
   const visibleJobs = useMemo(() => state.jobs.filter((job) => {
     const matchesCriteria = matchesSearchCriteria(job, state.criteria);
     const languageStatus = effectiveLanguageStatus(job);
-    if (view === 'matches') return matchesCriteria && languageStatus === 'pass' && job.status !== 'ignored';
-    if (view === 'review') return matchesCriteria && languageStatus === 'review' && job.status !== 'ignored';
-    if (view === 'pipeline') return job.status === 'saved' || job.status === 'applied';
-    return matchesCriteria && job.status !== 'ignored';
-  }).sort((a, b) => bestFitScore(b) - bestFitScore(a)), [state.criteria, state.jobs, view]);
+    const matchesCountry = countryFilter === 'all' || job.country === countryFilter;
+    const matchesApplication = applicationFilter === 'all' || job.applicationStatus === applicationFilter;
+    const matchesSource = sourceFilter === 'all' || job.sourceKey === sourceFilter;
+    if (!matchesCountry || !matchesApplication || !matchesSource) return false;
+    if (view === 'dismissed') return job.visibilityStatus === 'dismissed';
+    if (job.visibilityStatus !== 'active') return false;
+    if (view === 'matches') return matchesCriteria && languageStatus === 'pass';
+    if (view === 'review') return matchesCriteria && languageStatus === 'review';
+    if (view === 'pipeline') return job.isSaved || job.applicationStatus === 'applied';
+    return matchesCriteria;
+  }).sort((a, b) => bestFitScore(b) - bestFitScore(a)), [applicationFilter, countryFilter, sourceFilter, state.criteria, state.jobs, view]);
+
+  const sourceOptions = useMemo(() => [...new Map(state.jobs.map((job) => [job.sourceKey, job.sourceName])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1])), [state.jobs]);
+
+  const sourceMetrics = useMemo(() => {
+    const metrics = new Map<string, { key: string; name: string; country: JobCountry; analyzed: number; passing: number; saved: number; applied: number; dismissed: number }>();
+    for (const job of state.jobs) {
+      const current = metrics.get(job.sourceKey) ?? {
+        key: job.sourceKey, name: job.sourceName, country: job.country,
+        analyzed: 0, passing: 0, saved: 0, applied: 0, dismissed: 0,
+      };
+      current.analyzed += 1;
+      if (effectiveLanguageStatus(job) === 'pass') current.passing += 1;
+      if (job.isSaved) current.saved += 1;
+      if (job.applicationStatus === 'applied') current.applied += 1;
+      if (job.visibilityStatus === 'dismissed') current.dismissed += 1;
+      metrics.set(job.sourceKey, current);
+    }
+    return [...metrics.values()].sort((a, b) => b.applied - a.applied || b.passing - a.passing || b.analyzed - a.analyzed);
+  }, [state.jobs]);
+
+  const latestRun = state.searchRuns[0];
 
   async function persistCriteria(draft: CriteriaDraft) {
     return responseJson<{ criteria: SearchCriteria }>(await fetch('/api/criteria', {
@@ -254,14 +300,18 @@ export default function JobRadar() {
     setImportBusy(true);
     setImportMessage('Checking the ad language and CV fit…');
     try {
-      const result = await responseJson<{ job: JobRecord }>(await fetch('/api/jobs', {
+      const result = await responseJson<{ job: JobRecord; duplicate: boolean; dismissed: boolean }>(await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(importData),
       }));
       setState((current) => ({ ...current, jobs: [result.job, ...current.jobs.filter((job) => job.id !== result.job.id)] }));
       setImportData(emptyImport);
-      setImportMessage(result.job.languageSummary);
+      setImportMessage(result.dismissed
+        ? 'This vacancy matches a previously dismissed job and remains in Dismissed.'
+        : result.duplicate
+          ? `Already known. ${result.job.languageSummary}`
+          : result.job.languageSummary);
       setView(result.job.languageStatus === 'pass' ? 'matches' : result.job.languageStatus === 'review' ? 'review' : 'all');
     } catch (error) {
       setImportMessage(error instanceof Error ? error.message : 'Could not analyze this job.');
@@ -272,33 +322,33 @@ export default function JobRadar() {
 
   async function findJobs() {
     setScrapeBusy(true);
-    setScrapeMessage('Searching jobs.ch…');
+    setScrapeMessage('Searching every configured job source…');
     try {
-      const result = await responseJson<{ added: JobRecord[]; scanned: number; alreadyKnown: number }>(
+      const result = await responseJson<{ added: JobRecord[]; run: SearchRun; scanned: number; alreadyKnown: number }>(
         await fetch('/api/scrape', { method: 'POST' }),
       );
       setState((current) => ({
         ...current,
         jobs: [...result.added, ...current.jobs.filter((job) => !result.added.some((added) => added.id === job.id))],
+        searchRuns: [result.run, ...current.searchRuns.filter((run) => run.id !== result.run.id)].slice(0, 12),
       }));
-      setScrapeMessage(result.added.length
-        ? `Found ${result.added.length} new job${result.added.length === 1 ? '' : 's'} (${result.alreadyKnown} already known).`
-        : `No new jobs found (${result.alreadyKnown} already known).`);
+      const completedSources = result.run.sources.filter((source) => source.status === 'complete' || source.status === 'partial').length;
+      setScrapeMessage(`${completedSources} sources returned a result. ${result.added.length} jobs added, ${result.alreadyKnown} previously known. See the source report below.`);
     } catch (error) {
-      setScrapeMessage(error instanceof Error ? error.message : 'Could not search jobs.ch.');
+      setScrapeMessage(error instanceof Error ? error.message : 'Could not search the configured job sources.');
     } finally {
       setScrapeBusy(false);
     }
   }
 
-  async function updateStatus(id: string, status: JobStatus) {
+  async function updateJobState(id: string, patch: Partial<Pick<JobRecord, 'isSaved' | 'applicationStatus' | 'visibilityStatus'>>) {
     const previous = state.jobs;
-    setState((current) => ({ ...current, jobs: current.jobs.map((job) => job.id === id ? { ...job, status } : job) }));
+    setState((current) => ({ ...current, jobs: current.jobs.map((job) => job.id === id ? { ...job, ...patch } : job) }));
     try {
       await responseJson(await fetch(`/api/jobs/${id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(patch),
       }));
     } catch {
       setState((current) => ({ ...current, jobs: previous }));
@@ -441,7 +491,7 @@ export default function JobRadar() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ confirm: 'RESET' }),
       }));
-      setState({ profiles: [], jobs: [], criteria: defaultSearchCriteria });
+      setState({ profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [] });
       setCriteriaDraft(criteriaToDraft(defaultSearchCriteria));
       setCvSlots({ a: { ...emptySlotState }, b: { ...emptySlotState } });
       setSelectedJobIds([]);
@@ -511,11 +561,22 @@ export default function JobRadar() {
         <div className="criteria-intro">
           <span className="section-label coral">Search criteria</span>
           <h2>Define what fits</h2>
-          <p>Role overrides shape source searches; location shapes jobs.ch. Every field filters your local result views, while Pipeline keeps saved and applied jobs visible.</p>
+          <p>CV overrides and five extra role keywords shape automatic searches. The remaining fields filter your combined local results.</p>
         </div>
         <form className="criteria-form" onSubmit={saveCriteria}>
           <label className="field"><span>CV 1 role override</span><input value={criteriaDraft.roleOverrideA} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, roleOverrideA: event.target.value })} placeholder={state.profiles.find((profile) => profile.slot === 'a')?.derivedRole || 'Use detected role'} /></label>
           <label className="field"><span>CV 2 role override</span><input value={criteriaDraft.roleOverrideB} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, roleOverrideB: event.target.value })} placeholder={state.profiles.find((profile) => profile.slot === 'b')?.derivedRole || 'Use detected role'} /></label>
+          <div className="role-keywords">
+            <span>Additional search roles · up to five</span>
+            <div>{Array.from({ length: 5 }, (_, index) => <label className="field" key={index}>
+              <span>Role {index + 1}</span>
+              <input value={criteriaDraft.roleKeywords[index] ?? ''} onChange={(event) => {
+                const roleKeywords = [...criteriaDraft.roleKeywords];
+                roleKeywords[index] = event.target.value;
+                setCriteriaDraft({ ...criteriaDraft, roleKeywords });
+              }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
+            </label>)}</div>
+          </div>
           <label className="field"><span>Location / canton</span><input value={criteriaDraft.location} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, location: event.target.value })} placeholder="e.g. Zürich" /></label>
           <label className="field"><span>Workplace</span><select value={criteriaDraft.workplace} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, workplace: event.target.value as SearchCriteria['workplace'] })}><option value="any">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option></select></label>
           <label className="field"><span>Seniority</span><select value={criteriaDraft.seniority} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, seniority: event.target.value as SearchCriteria['seniority'] })}><option value="any">Any</option><option value="internship">Internship</option><option value="entry">Entry / junior</option><option value="mid">Mid-level</option><option value="senior">Senior</option><option value="lead">Lead / principal</option></select></label>
@@ -527,29 +588,33 @@ export default function JobRadar() {
       </section>
 
       <section className="workflow">
-        <div className="workflow-copy"><span className="section-label coral">Step two</span><h2>Find and screen jobs</h2><p>Run the existing jobs.ch search, open any supported source yourself, or paste one full ad. Netherlands sources remain user-controlled and are not scraped.</p></div>
-        <div className="workflow-steps"><span><b>1</b> Find or open a search</span><span><b>2</b> Screen for English</span><span><b>3</b> Review your matches</span></div>
-        <button className="jobs-button" type="button" disabled={!hasAnyCv || scrapeBusy} onClick={findJobs}>{scrapeBusy ? 'Searching…' : 'Find new jobs'} <span>⟳</span></button>
+        <div className="workflow-copy"><span className="section-label coral">Step two</span><h2>Search and screen everywhere</h2><p>One search runs every enabled Swiss and Netherlands adapter, records source failures, removes duplicates, and applies the strict English gate.</p></div>
+        <div className="workflow-steps"><span><b>1</b> Search configured sites</span><span><b>2</b> Deduplicate and screen</span><span><b>3</b> Compare source results</span></div>
+        <button className="jobs-button" type="button" disabled={!hasAnyCv || scrapeBusy} onClick={findJobs}>{scrapeBusy ? 'Searching all sites…' : 'Search all job sites'} <span>⟳</span></button>
         <a className={`jobs-button ${!hasAnyCv ? 'disabled' : ''}`} href={jobsSearchUrl(primaryRole, state.criteria.location)} target={hasAnyCv ? '_blank' : undefined} rel="noreferrer">Open jobs.ch <span>↗</span></a>
         <button className="import-button" type="button" disabled={!hasAnyCv} onClick={openImport}>Analyze a job <span>＋</span></button>
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
       </section>
 
-      <section className="source-directory" id="netherlands">
-        <div className="source-directory-copy">
-          <span className="section-label coral">Netherlands · no LinkedIn</span>
-          <h2>Amsterdam job sources</h2>
-          <p>English-focused sources come first. Open a site, choose a promising role, then paste the complete advertisement into Northbound for the strict Dutch-language check.</p>
-          <button className="import-button" type="button" disabled={!hasAnyCv} onClick={openImport}>Analyze a Netherlands job <span>＋</span></button>
+      <section className="source-dashboard" id="sources">
+        <div className="source-dashboard-heading">
+          <div><span className="section-label coral">Search coverage</span><h2>What every source returned</h2></div>
+          <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run Search all job sites to create the first source report.'}</p>
         </div>
-        <div className="source-grid">
-          {dutchSources.map((source, index) => <a href={source.url} key={source.name} target="_blank" rel="noreferrer">
-            <span className="source-number">0{index + 1}</span>
-            <small>{source.focus}</small>
-            <h3>{source.name}</h3>
-            <p>{source.note}</p>
-            <b>Open search ↗</b>
-          </a>)}
+        {latestRun && <div className="source-report-grid">
+          {latestRun.sources.map((source) => <article className={`source-report ${source.status}`} key={source.sourceKey}>
+            <div><span>{countryLabel(source.country)}</span><b>{source.status}</b></div>
+            <h3>{source.sourceName}</h3>
+            <dl><div><dt>Found</dt><dd>{source.foundCount}</dd></div><div><dt>Known</dt><dd>{source.knownCount}</dd></div><div><dt>New</dt><dd>{source.newCount}</dd></div><div><dt>Added</dt><dd>{source.importedCount}</dd></div><div><dt>Duplicates</dt><dd>{source.duplicateCount}</dd></div><div><dt>Skipped</dt><dd>{source.skippedCount}</dd></div></dl>
+            <p>{source.message}</p>
+          </article>)}
+        </div>}
+        <div className="source-performance">
+          <div><span className="section-label">Workspace performance</span><h3>Applications by website</h3><p>Sorted by applications, then English-sufficient opportunities.</p></div>
+          {sourceMetrics.length ? <div className="performance-table" role="table" aria-label="Source performance">
+            <div className="performance-row heading" role="row"><span>Website</span><span>Analyzed</span><span>English</span><span>Saved</span><span>Applied</span><span>Dismissed</span></div>
+            {sourceMetrics.map((source) => <div className="performance-row" role="row" key={source.key}><b>{source.name}<small>{countryLabel(source.country)}</small></b><span>{source.analyzed}</span><span>{source.passing}</span><span>{source.saved}</span><span>{source.applied}</span><span>{source.dismissed}</span></div>)}
+          </div> : <p className="no-source-data">No analyzed jobs yet.</p>}
         </div>
       </section>
 
@@ -560,6 +625,7 @@ export default function JobRadar() {
           <label className="field"><span>Job title</span><input value={importData.title} onChange={(event) => setImportData({ ...importData, title: event.target.value })} required /></label>
           <label className="field"><span>Company</span><input value={importData.company} onChange={(event) => setImportData({ ...importData, company: event.target.value })} /></label>
           <label className="field"><span>Location</span><input value={importData.location} onChange={(event) => setImportData({ ...importData, location: event.target.value })} placeholder="e.g. Zürich / Remote" /></label>
+          <label className="field"><span>Original posted date (optional)</span><input type="date" value={importData.postedAt} onChange={(event) => setImportData({ ...importData, postedAt: event.target.value })} /></label>
           <label className="field wide"><span>Full job advertisement</span><textarea value={importData.description} onChange={(event) => setImportData({ ...importData, description: event.target.value })} placeholder="Copy the title, responsibilities, requirements and language section from the open ad…" rows={11} required /></label>
           <div className="import-footer"><p aria-live="polite">{importMessage || 'The complete text is needed to distinguish “required” from “nice to have.”'}</p><button className="primary" type="submit" disabled={importBusy}>{importBusy ? 'Analyzing…' : 'Analyze & add'}</button></div>
         </form>
@@ -582,10 +648,20 @@ export default function JobRadar() {
             <button className={view === 'matches' ? 'active' : ''} onClick={() => setView('matches')}><span>English matches</span><i>{counts.matches}</i></button>
             <button className={view === 'review' ? 'active' : ''} onClick={() => setView('review')}><span>Needs review</span><i>{counts.review}</i></button>
             <button className={view === 'pipeline' ? 'active' : ''} onClick={() => setView('pipeline')}><span>Pipeline</span><i>{counts.pipeline}</i></button>
-            <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><span>All matching</span><i>{criteriaFilteredJobs.filter((job) => job.status !== 'ignored').length}</i></button>
+            <button className={view === 'dismissed' ? 'active' : ''} onClick={() => setView('dismissed')}><span>Dismissed</span><i>{counts.dismissed}</i></button>
+            <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><span>All matching</span><i>{criteriaFilteredJobs.filter((job) => job.visibilityStatus === 'active').length}</i></button>
+            <b className="filter-group">Country</b>
+            <button className={countryFilter === 'all' ? 'active' : ''} onClick={() => setCountryFilter('all')}><span>All countries</span></button>
+            <button className={countryFilter === 'switzerland' ? 'active' : ''} onClick={() => setCountryFilter('switzerland')}><span>Switzerland</span></button>
+            <button className={countryFilter === 'netherlands' ? 'active' : ''} onClick={() => setCountryFilter('netherlands')}><span>Netherlands</span></button>
+            <b className="filter-group">Application</b>
+            <button className={applicationFilter === 'all' ? 'active' : ''} onClick={() => setApplicationFilter('all')}><span>All states</span></button>
+            <button className={applicationFilter === 'applied' ? 'active' : ''} onClick={() => setApplicationFilter('applied')}><span>Applied</span></button>
+            <button className={applicationFilter === 'not_applied' ? 'active' : ''} onClick={() => setApplicationFilter('not_applied')}><span>Not applied</span></button>
+            {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites</option>{sourceOptions.map(([key, name]) => <option value={key} key={key}>{name}</option>)}</select></label>}
           </aside>
           <div className="job-list">
-            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Open a source, copy a promising ad, then run the strict language check.' : 'Upload a CV to unlock search, screening and match scores.'}</p>{hasAnyCv && <button type="button" onClick={openImport}>Analyze your first job</button>}</div>}
+            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Run Search all job sites, change the filters, or analyze a public advert manually.' : 'Upload a CV to unlock search, screening and match scores.'}</p>{hasAnyCv && <button type="button" onClick={openImport}>Analyze a job</button>}</div>}
             {visibleJobs.map((job) => {
               const bothCvsSaved = state.profiles.filter((profile) => profile.hasCvText).length > 1;
               const displayedLanguageStatus = effectiveLanguageStatus(job);
@@ -599,6 +675,7 @@ export default function JobRadar() {
                 <div className="job-body">
                   <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span></div>
                   <h3>{job.title}</h3>
+                  <p className="source-date"><b>{job.sourceName}</b><span>{countryLabel(job.country)}</span><span>{formatDate(job.postedAt)}</span></p>
                   {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
                   <p className="language-summary">{hasCorrection ? `Detector note: ${job.languageSummary}` : job.languageSummary}</p>
                   {bothCvsSaved && <p className="fit-breakdown">
@@ -617,17 +694,22 @@ export default function JobRadar() {
                     <label><span>Reason (optional)</span><input maxLength={500} value={feedbackDraft.reason} onChange={(event) => updateFeedbackDraft(job.id, { reason: event.target.value })} placeholder="e.g. German is only a plus" /></label>
                     <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'incorrect', feedbackDraft.correctedStatus, feedbackDraft.reason)}>Save correction</button>
                   </div>}
-                  <div className="card-actions"><button type="button" className={job.status === 'saved' ? 'selected' : ''} onClick={() => updateStatus(job.id, job.status === 'saved' ? 'new' : 'saved')}>♡ {job.status === 'saved' ? 'Saved' : 'Save'}</button><button type="button" className={job.status === 'applied' ? 'selected' : ''} onClick={() => updateStatus(job.id, 'applied')}>✓ {job.status === 'applied' ? 'Applied' : 'Mark applied'}</button><button type="button" onClick={() => updateStatus(job.id, 'ignored')}>Hide</button></div>
+                  <div className="card-actions">
+                    <button type="button" className={job.isSaved ? 'selected' : ''} onClick={() => updateJobState(job.id, { isSaved: !job.isSaved })}>♡ {job.isSaved ? 'Saved' : 'Save'}</button>
+                    <button type="button" className={job.applicationStatus === 'applied' ? 'selected' : ''} onClick={() => updateJobState(job.id, { applicationStatus: 'applied' })}>✓ Applied</button>
+                    <button type="button" className={job.applicationStatus === 'not_applied' ? 'selected' : ''} onClick={() => updateJobState(job.id, { applicationStatus: 'not_applied' })}>○ Not applied</button>
+                    <button type="button" onClick={() => updateJobState(job.id, { visibilityStatus: job.visibilityStatus === 'dismissed' ? 'active' : 'dismissed' })}>{job.visibilityStatus === 'dismissed' ? 'Restore' : 'Dismiss'}</button>
+                  </div>
                 </div>
-                <a className="apply-link" href={job.sourceUrl} target="_blank" rel="noreferrer">Apply on {sourceNameForUrl(job.sourceUrl)} ↗</a>
-                <span className="status-chip">{statusLabel(job.status)}</span>
+                <a className="apply-link" href={job.sourceUrl} target="_blank" rel="noreferrer">Apply on {job.sourceName || sourceNameForUrl(job.sourceUrl)} ↗</a>
+                <span className="status-chip">{statusLabel(job)}</span>
               </article>;
             })}
           </div>
         </div>
       </section>
 
-      <footer><b>Northbound MVP</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#netherlands">Netherlands sources ↑</a></footer>
+      <footer><b>Northbound MVP</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#sources">Source report ↑</a></footer>
     </main>
   );
 }

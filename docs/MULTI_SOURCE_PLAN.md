@@ -1,6 +1,6 @@
 # Multi-source search implementation plan
 
-Status: accepted product direction, not yet implemented.
+Status: implemented locally; one VPN-protected external run remains before final live sign-off.
 
 Last updated: 2026-08-27 after the user requested one-click automatic search across the
 configured Swiss and Netherlands sources.
@@ -43,10 +43,10 @@ LinkedIn remains excluded.
 
 | Source | Planned role | Current permission/technical note |
 |---|---|---|
-| jobs.ch | Existing automatic adapter | Currently runs at the user's accepted risk. JobCloud terms prohibit crawlers, scrapers, bots, scripts, and automated access; robots.txt disallows job-detail crawling. |
-| jobup.ch | Swiss adapter candidate | Covered by the same JobCloud terms as jobs.ch and JobScout24. A separate adapter should reuse JobCloud normalization while recording the source distinctly. |
-| JobScout24 | Swiss adapter candidate | Covered by the same JobCloud automation prohibition. Search/detail markup differs and needs its own fixture and parser. |
-| Indeed Switzerland | Adapter candidate, disabled until consciously enabled | Indeed's 2026 Site Rules prohibit automated access without express written permission. Search may also be technically blocked. No login, CAPTCHA handling, or evasion may be added. |
+| jobs.ch | Enabled automatic adapter | Runs at the user's accepted risk. JobCloud terms prohibit crawlers, scrapers, bots, scripts, and automated access; no permission has been granted. |
+| jobup.ch | Enabled automatic adapter | Shares the jobs.ch structured parser and is recorded separately. Covered by the same JobCloud prohibition; unsanctioned. |
+| JobScout24 | Enabled automatic adapter | Uses its own search-link pattern and shared structured detail parser. Covered by the same JobCloud prohibition; unsanctioned. |
+| Indeed Switzerland | Blocked | Indeed's 2026 Site Rules prohibit automated access without express written permission and the live search returned HTTP 403. No login, CAPTCHA handling, or evasion. |
 | Job-Room | Permission/API investigation | The published Jobs API is an authenticated employer publication API, not a public job-seeker search API. Request or identify an authorized search feed before enabling. |
 
 jobup.ch and JobScout24 overlap heavily with jobs.ch because they are JobCloud platforms;
@@ -56,11 +56,11 @@ cross-source duplicate detection is therefore mandatory before enabling them.
 
 | Source | Planned role | Current permission/technical note |
 |---|---|---|
-| IamExpat | Adapter candidate | Public job pages expose complete ads and posting dates. Re-check general terms and the current `/career/jobs-netherlands/` paths before enabling. |
-| Undutchables | Adapter candidate | Public vacancies exist; robots.txt disallows query-string vacancy searches. Prefer a permitted feed, sitemap, or explicit approval rather than routing around the restriction. |
-| Indeed Netherlands | Adapter candidate, disabled until consciously enabled | Indeed Site Rules prohibit automated access without express written permission and robots.txt disallows job-detail routes. No CAPTCHA handling or evasion. |
-| Nationale Vacaturebank | Adapter candidate, currently blocked | robots.txt returned HTTP 403 during the 2026-08-27 review. Treat as unavailable unless a documented feed or permission is obtained. |
-| I amsterdam | Remove as a job-result source | The current page is a job-search guide/directory, not a vacancy feed. It should not be reported as automatically searched. |
+| IamExpat | Enabled automatic adapter | Uses current public `/career/jobs-netherlands/` listing/detail paths and their structured posting data. |
+| Undutchables | Enabled, constrained adapter | Uses plain `/vacancies` and public detail pages only; it does not use disallowed query-string search paths. |
+| Indeed Netherlands | Blocked | Indeed rules prohibit automated access without permission; live search returned HTTP 403 and robots.txt disallows job-detail routes. |
+| Nationale Vacaturebank | Unavailable | Automated access returned HTTP 403 during the 2026-08-27 review; no authorized feed is configured. |
+| I amsterdam | Disabled | The current page is a guide/directory, not a vacancy feed, and is not reported as searched. |
 
 The 2026-08-27 request explicitly asks for the configured sources to behave like the
 current jobs.ch integration. This records the product request, not platform permission.
@@ -186,20 +186,20 @@ Every card shows:
 
 | ID | Task | Dependency | Acceptance criterion |
 |---|---|---|---|
-| MS-01 | Add ordered migration runner and backup/restore test | None | Existing 24-job workspace survives the new schema and can be restored. |
-| MS-02 | Split saved/application/visibility state | MS-01 | Saved, applied, not applied, dismissed, and restored states persist independently. |
-| MS-03 | Add canonical identity, fingerprints, and dismissal tombstones | MS-01 | Tracking variants and cross-source copies collapse; dismissed jobs stay hidden after future runs. |
-| MS-04 | Add five additional role-keyword inputs | MS-01 | Five roles persist, deduplicate, and are included in every relevant source query/report. |
-| MS-05 | Add normalized country, source, and posted-date fields | MS-01 | Every result has source/country; cards display a date or an explicit unavailable state. |
-| MS-06 | Define adapter contract and multi-source run persistence | MS-01 | Every configured source produces a truthful per-run status and metrics row. |
-| MS-07 | Refactor jobs.ch into the shared adapter | MS-03, MS-06 | Existing jobs.ch behavior and language gating pass under the new orchestrator. |
-| MS-08 | Add other Swiss adapters | MS-03, MS-06 | Enabled Swiss sources return normalized results; blocked sources report their reason. |
-| MS-09 | Add Netherlands adapters | MS-03, MS-06 | Enabled Netherlands sources return normalized results and strict Dutch-language screening. |
-| MS-10 | Build one-click orchestration and partial-failure handling | MS-07–MS-09 | One press searches all enabled adapters and returns one deduplicated list plus a full report. |
-| MS-11 | Add country/application/source filters and card controls | MS-02, MS-05 | Filters combine correctly; every card can switch Applied ↔ Not applied. |
-| MS-12 | Build latest-run and cumulative source dashboards | MS-06, MS-10 | User can compare new/known jobs per run and applications per source. |
-| MS-13 | Remove manual Amsterdam source directory | MS-09, MS-10 | The link-card section is replaced by automatic coverage/status UI. |
-| MS-14 | Add fixtures, adapter contract tests, dedupe tests, migration tests, and live smoke checks | All | Partial failures, dates, roles, countries, duplicates, dismissals, and filters are regression-tested. |
+| MS-01 | Add ordered migration runner and backup/restore test | Done | Existing 48-job workspace and two CV slots survived; byte-matched backup retained in ignored `work/`. |
+| MS-02 | Split saved/application/visibility state | Done | Independent state API and card controls passed a restore-safe live smoke check. |
+| MS-03 | Add canonical identity, fingerprints, and dismissal tombstones | Done | Tracking/trailing-slash variants collapse and dismissed repeat import is suppressed. |
+| MS-04 | Add five additional role-keyword inputs | Done | Five roles persist and deduplicate. |
+| MS-05 | Add normalized country, source, and posted-date fields | Done | Stored/exported/card fields implemented, including unavailable-date label. |
+| MS-06 | Define adapter contract and multi-source run persistence | Done | All configured sources produce a truthful per-run status/metrics contract. |
+| MS-07 | Refactor jobs.ch into the shared adapter | Implemented; live run pending | Local/unit verification complete; needs active VPN route. |
+| MS-08 | Add other Swiss adapters | Implemented; live run pending | jobup.ch and JobScout24 enabled; blocked/unavailable sources report reasons. |
+| MS-09 | Add Netherlands adapters | Implemented; live run pending | IamExpat and Undutchables enabled; Dutch remains a mandatory-language blocker. |
+| MS-10 | Build one-click orchestration and partial-failure handling | Implemented; live run pending | One route isolates adapters and stores one combined report. |
+| MS-11 | Add country/application/source filters and card controls | Done | Combined filters and card actions implemented. |
+| MS-12 | Build latest-run and cumulative source dashboards | Done | Discovery and application-source metrics implemented. |
+| MS-13 | Remove manual Amsterdam source directory | Done | Manual link cards removed and replaced with coverage status. |
+| MS-14 | Add fixtures, adapter contract tests, dedupe tests, migration tests, and live smoke checks | Partial | 45 tests and local API/schema smoke checks pass; external adapter run awaits VPN. |
 
 ## 7. Recommended execution order
 

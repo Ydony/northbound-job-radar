@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildSearchUrl, interleaveUnique, isJobsChUrl, stripHtml } from '../lib/jobsch';
+import { buildSearchUrl, extractJobPosting, interleaveUnique, isJobsChUrl, stripHtml } from '../lib/jobsch';
 
 test('interleaves results from two CV-derived roles', () => {
   assert.deepEqual(interleaveUnique([
@@ -25,4 +25,20 @@ test('encodes role, location and page in a jobs.ch search URL', () => {
   assert.equal(url.searchParams.get('term'), 'Data Governance Analyst');
   assert.equal(url.searchParams.get('location'), 'Zürich');
   assert.equal(url.searchParams.get('page'), '2');
+});
+
+test('extracts posting dates and fields from a JobPosting graph', () => {
+  const html = `<script type="application/ld+json">${JSON.stringify({
+    '@graph': [{
+      '@type': 'JobPosting',
+      title: 'Master Data Analyst',
+      description: '<p>English role description</p>',
+      datePosted: '2026-08-27',
+      hiringOrganization: { name: 'Example BV' },
+    }],
+  })}</script>`;
+  const posting = extractJobPosting(html);
+  assert.equal(posting?.title, 'Master Data Analyst');
+  assert.equal(posting?.datePosted, '2026-08-27');
+  assert.equal(posting?.hiringOrganization?.name, 'Example BV');
 });

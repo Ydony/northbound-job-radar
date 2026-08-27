@@ -12,14 +12,16 @@ export interface ParsedJob {
   company: string;
   location: string;
   descriptionHtml: string;
+  postedAt: string;
 }
 
-interface JobPostingLd {
+export interface JobPostingLd {
   '@type'?: string;
   title?: string;
   description?: string;
   hiringOrganization?: { name?: string };
-  jobLocation?: { address?: { addressRegion?: string; postalCode?: string } };
+  jobLocation?: { address?: { addressLocality?: string; addressRegion?: string; postalCode?: string; addressCountry?: string } };
+  datePosted?: string;
 }
 
 export function isJobsChUrl(value: string) {
@@ -87,12 +89,19 @@ export async function fetchSearchResultIds(term: string, page = RESULTS_PAGE, lo
   return [...ids].map((id) => `https://www.jobs.ch/en/vacancies/detail/${id}/`);
 }
 
-function extractJobPosting(html: string): JobPostingLd | null {
+function candidatesFromJsonLd(value: unknown): JobPostingLd[] {
+  if (Array.isArray(value)) return value.flatMap(candidatesFromJsonLd);
+  if (!value || typeof value !== 'object') return [];
+  const record = value as Record<string, unknown>;
+  return [value as JobPostingLd, ...candidatesFromJsonLd(record['@graph'])];
+}
+
+export function extractJobPosting(html: string): JobPostingLd | null {
   const blocks = html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
   for (const block of blocks) {
     try {
       const parsed: unknown = JSON.parse(block[1]);
-      const candidates = Array.isArray(parsed) ? parsed : [parsed];
+      const candidates = candidatesFromJsonLd(parsed);
       for (const candidate of candidates) {
         if (candidate && typeof candidate === 'object' && (candidate as JobPostingLd)['@type'] === 'JobPosting') {
           return candidate as JobPostingLd;
@@ -100,6 +109,16 @@ function extractJobPosting(html: string): JobPostingLd | null {
       }
     } catch {
       // Malformed or unrelated block; keep looking.
+    }
+  }
+  for (const match of html.matchAll(/"children":"((?:\\.|[^"\\])*)"/g)) {
+    try {
+      const decoded = JSON.parse(`"${match[1]}"`) as string;
+      const parsed: unknown = JSON.parse(decoded);
+      const posting = candidatesFromJsonLd(parsed).find((candidate) => candidate['@type'] === 'JobPosting');
+      if (posting) return posting;
+    } catch {
+      // Not a JSON-LD children payload.
     }
   }
   return null;
@@ -117,13 +136,15 @@ export async function fetchJobDetail(sourceUrl: string): Promise<ParsedJob | nul
   const posting = extractJobPosting(html);
   if (!posting?.title || !posting.description) return null;
   const address = posting.jobLocation?.address;
-  const location = [address?.addressRegion, address?.postalCode].filter(Boolean).join(' ') || 'Switzerland';
+  const location = [address?.addressLocality, address?.addressRegion, address?.postalCode]
+    .filter(Boolean).join(' ') || 'Switzerland';
   return {
     sourceUrl,
     title: posting.title,
     company: posting.hiringOrganization?.name ?? '',
     location,
     descriptionHtml: posting.description,
+    postedAt: posting.datePosted ?? '',
   };
 }
 

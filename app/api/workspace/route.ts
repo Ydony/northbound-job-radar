@@ -17,6 +17,10 @@ export async function DELETE(request: Request) {
     db.prepare('DELETE FROM jobs'),
     db.prepare('DELETE FROM cvs'),
     db.prepare('DELETE FROM search_settings'),
+    db.prepare('DELETE FROM search_roles'),
+    db.prepare('DELETE FROM dismissed_jobs'),
+    db.prepare('DELETE FROM search_run_sources'),
+    db.prepare('DELETE FROM search_runs'),
   ]);
   return NextResponse.json({ ok: true });
 }

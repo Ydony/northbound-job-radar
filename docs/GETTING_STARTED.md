@@ -116,30 +116,33 @@ auto-connect enabled. Northbound never reads or stores the VPN credentials.
 1. Upload one or two text-based PDF, DOCX, or TXT CVs. Scanned image-only PDFs need OCR and
    are not supported yet.
 2. Review the detected role for each CV and use the role-override fields when necessary.
-3. Set optional location, workplace, seniority, contract, required keywords, and excluded
-   keywords. Save the criteria.
-4. Open a Swiss or Netherlands source. Netherlands sources are handoff links only; select
-   an advertisement yourself.
-5. Choose **Analyze a job**, paste the public HTTPS job URL, title, company, location, and
-   complete advertisement text.
-6. Read the result:
+3. Add up to five role keywords, then set optional location, workplace, seniority,
+   contract, required keywords, and excluded keywords. Save the criteria.
+4. With a full VPN route active, choose **Search all job sites**. The source report says
+   exactly which Swiss and Netherlands adapters completed, failed, or were blocked.
+5. Use country, Applied/Not applied, source, and result filters on the unified job list.
+   **Analyze a job** remains available for a public HTTPS ad that could not be fetched.
+6. Read the language result:
    - **English sufficient** means the full ad appears English and no local language was
      detected as mandatory.
    - **Needs review** means the evidence is ambiguous. Review it manually.
    - **Local language required** means German, French, Italian, or Dutch appears mandatory,
      or the advertisement is not predominantly English.
-7. Mark language decisions accurate or correct them with a reason. Save jobs, mark
-   applications, or hide unsuitable roles.
+7. Mark language decisions accurate or correct them with a reason. Save jobs, mark them
+   Applied or Not applied, and dismiss/restore unsuitable roles. Dismissed adverts are
+   suppressed during future searches.
 8. Open the original source to apply personally. Northbound does not log in or submit an
    application for the user.
 9. Use JSON/CSV export and deletion controls to manage local data.
 
-## Important jobs.ch warning
+## Important source warning
 
-The **Find new jobs** jobs.ch action performs a manually triggered, capped fetch that the
-project documentation records as contrary to jobs.ch terms and robots.txt. A new user
-should use manual source links and **Analyze a job** unless they independently review and
-accept that risk. The Netherlands sources are not scraped.
+**Search all job sites** performs manually triggered, capped public-page fetches. The three
+JobCloud adapters (jobs.ch, jobup.ch, and JobScout24) are contrary to JobCloud's published
+automation terms and are not sanctioned integrations. Indeed remains blocked. IamExpat
+and Undutchables use current public paths, but source policies and markup can change. A new
+user should read `docs/ARCHITECTURE.md` §2 and disable adapters they do not accept; manual
+**Analyze a job** remains the fallback. No source login or application is automated.
 
 ## Local data and troubleshooting
 

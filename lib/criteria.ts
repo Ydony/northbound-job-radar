@@ -3,6 +3,7 @@ import type { CvProfile, CvSlot, JobRecord, SearchCriteria } from './types';
 export const defaultSearchCriteria: SearchCriteria = {
   roleOverrideA: '',
   roleOverrideB: '',
+  roleKeywords: [],
   location: '',
   workplace: 'any',
   seniority: 'any',
@@ -12,6 +13,8 @@ export const defaultSearchCriteria: SearchCriteria = {
   updatedAt: '',
 };
 
+export const MAX_ROLE_KEYWORDS = 5;
+
 export function roleForSlot(slot: CvSlot, derivedRole: string, criteria: SearchCriteria) {
   const override = slot === 'a' ? criteria.roleOverrideA : criteria.roleOverrideB;
   return override.trim() || derivedRole;
@@ -19,6 +22,31 @@ export function roleForSlot(slot: CvSlot, derivedRole: string, criteria: SearchC
 
 export function roleForProfile(profile: CvProfile, criteria: SearchCriteria) {
   return roleForSlot(profile.slot, profile.derivedRole, criteria);
+}
+
+export function normalizeRoleKeywords(values: readonly unknown[]) {
+  const seen = new Set<string>();
+  const roles: string[] = [];
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const role = value.trim().replace(/\s+/g, ' ').slice(0, 160);
+    const key = role.toLocaleLowerCase('en');
+    if (!role || seen.has(key)) continue;
+    seen.add(key);
+    roles.push(role);
+    if (roles.length === MAX_ROLE_KEYWORDS) break;
+  }
+  return roles;
+}
+
+export function searchTermsForProfiles(
+  profiles: Array<Pick<CvProfile, 'slot' | 'derivedRole'>>,
+  criteria: SearchCriteria,
+) {
+  return normalizeRoleKeywords([
+    ...profiles.map((profile) => roleForSlot(profile.slot, profile.derivedRole, criteria)),
+    ...criteria.roleKeywords,
+  ]);
 }
 
 export function parseKeywordInput(value: string) {

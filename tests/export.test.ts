@@ -7,6 +7,11 @@ import type { JobRecord } from '../lib/types';
 const job: JobRecord = {
   id: 'job-1',
   sourceUrl: 'https://www.jobs.ch/en/vacancies/detail/00000000-0000-0000-0000-000000000000/',
+  canonicalUrl: 'https://www.jobs.ch/en/vacancies/detail/00000000-0000-0000-0000-000000000000',
+  sourceKey: 'jobs.ch',
+  sourceName: 'jobs.ch',
+  sourceJobId: '00000000-0000-0000-0000-000000000000',
+  country: 'switzerland',
   title: 'Data Analyst, Governance',
   company: 'Example "AG"',
   location: 'Zürich',
@@ -23,7 +28,13 @@ const job: JobRecord = {
   bestCvSlot: 'b',
   matchedKeywords: ['sap', 'data governance'],
   missingKeywords: ['python'],
-  status: 'saved',
+  identityFingerprint: 'job-v1-example',
+  isSaved: true,
+  applicationStatus: 'not_applied',
+  visibilityStatus: 'active',
+  postedAt: '2026-08-25T00:00:00.000Z',
+  firstSeenAt: '2026-08-26T00:00:00.000Z',
+  lastSeenAt: '2026-08-26T00:00:00.000Z',
   createdAt: '2026-08-26T00:00:00.000Z',
   updatedAt: '2026-08-26T00:00:00.000Z',
 };
@@ -41,6 +52,7 @@ test('exports workspace metadata without hidden CV text or object keys', () => {
     profiles: [{ slot: 'a', cvFileName: 'cv.pdf', hasCvText: true, derivedRole: 'Data Analyst', updatedAt: 'now' }],
     criteria: defaultSearchCriteria,
     jobs: [job],
+    searchRuns: [],
   }, '2026-08-26T12:00:00.000Z');
   const parsed = JSON.parse(json);
   assert.equal(parsed.exportedAt, '2026-08-26T12:00:00.000Z');

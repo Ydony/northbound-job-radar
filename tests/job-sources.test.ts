@@ -1,15 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isSafeManualJobUrl, netherlandsJobSources, sourceNameForUrl } from '../lib/job-sources';
-
-test('lists five Netherlands sources without LinkedIn', () => {
-  const sources = netherlandsJobSources('Data Governance Analyst');
-  assert.equal(sources.length, 5);
-  assert.equal(sources.some((source) => /linkedin/i.test(`${source.name} ${source.url}`)), false);
-  const indeed = new URL(sources.find((source) => source.name === 'Indeed Netherlands')!.url);
-  assert.equal(indeed.searchParams.get('q'), 'Data Governance Analyst English');
-  assert.equal(indeed.searchParams.get('l'), 'Amsterdam');
-});
+import { isSafeManualJobUrl, sourceNameForUrl } from '../lib/job-sources';
 
 test('accepts safe HTTPS manual job links and rejects local or deceptive URLs', () => {
   assert.equal(isSafeManualJobUrl('https://nl.indeed.com/viewjob?jk=example'), true);

@@ -1,14 +1,12 @@
 # Handover
 
-Last updated: 2026-08-27 after documenting the accepted automatic multi-source iteration.
+Last updated: 2026-08-27 after implementing and locally verifying the automatic multi-source iteration.
 
 Read this first, use `docs/TASKS.md` for current execution status, then read `README.md`, `docs/ARCHITECTURE.md`, and `AGENTS.md`.
 
 Before changing discovery, job identity, pipeline state, or filters, also read
-`docs/MULTI_SOURCE_PLAN.md`. It records the user's accepted next iteration: one-click Swiss
-and Netherlands searching, five role keywords, source/country/application filters, posted
-dates, per-source run metrics, removal of the Amsterdam link directory, and durable
-suppression of dismissed duplicates.
+`docs/MULTI_SOURCE_PLAN.md`. It is now both the accepted design and the source-by-source
+permission/availability record.
 
 ## 1. Repository state
 
@@ -19,34 +17,39 @@ suppression of dismissed duplicates.
 - Personal-data controls checkpoint: `7c1fa3b` (`Add personal data export and deletion controls`).
 - Windows VPN checkpoint: `bfce858` (`Add VPN-enforced local launcher`).
 - Netherlands/macOS checkpoint: `6fd7b18` (`Add Netherlands sources and macOS VPN launcher`).
+- Multi-source plan checkpoint: `7cc480c` (`Plan automatic multi-source job search`).
 - Use `git status`, `git log -3 --oneline`, and `docs/TASKS.md` to identify later work.
 - No `.env` files or obvious committed secrets were found. `.openai/hosting.json` contains binding names only.
 - `*.tsbuildinfo`, dependency folders, builds, and local Miniflare data are ignored.
 
-## 2. Verified working with the user's real CVs
+## 2. Current local data and verification
 
 The old `.wrangler/` state was preserved under ignored `work/wrangler-before-two-cv-verification/`, then a fresh local database was created.
 
-The current local database contains the two user-provided text-based PDFs and 24 real jobs.ch ads. End-to-end checks completed successfully:
+The current local database contains both user-provided CV profiles and 48 distinct jobs.ch ads. The multi-source upgrade was applied in place after copying all 18 `.wrangler` files (680,925 bytes) to ignored `work/wrangler-before-multisource/`. Verification completed without exposing CV text:
 
 - Both PDFs parsed through the browser UI (4,049 and 4,885 extracted characters) and saved to separate slots.
 - Improved role detection derived `Data Analyst` and `Data Governance Analyst`; saved overrides refine these to `Supply Chain Data Analyst` and `Master Data Governance Analyst`.
 - Role overrides persisted after reload and shaped jobs.ch URLs, new-job fit scoring, rescoring, and UI labels.
-- Two manually triggered, capped searches expanded the workspace from eight to 24 ads.
-- The reviewed language split is five `pass`, one deliberately ambiguous `review`, and 18 `blocked`.
+- Earlier capped searches eventually expanded the workspace to 48 ads. The current raw language split is seven `pass`, one `review`, and 40 `blocked`; 44 are active and four dismissed.
 - Live findings added regression rules for `German ... advantageous` (optional/pass) and `English and French advanced level` (mandatory/block).
 - Every stored job has numeric per-CV scores and a valid winning slot.
-- The dashboard is available at `http://localhost:3002/` while the current development process is running.
+- Five additional roles are saved: Supply Chain, Data Analyst, Data Governance, Master Data, and Business Analyst.
+- Runtime migrations 1–3 applied successfully; all 48 IDs and canonical URLs are distinct.
+- Live API smoke checks switched one existing card to Applied and Dismissed, then attempted
+  both its trailing-slash URL variant and an equivalent jobup.ch mirror. Both returned the
+  same stored ID as duplicate+dismissed, the count stayed 48, and the original state was restored.
+- The dashboard is available at `http://localhost:3000/` while the current development process is running.
 
 Quality checks:
 
-- `npm test`: 28 passing tests.
+- `npm test`: 45 passing tests.
 - `npm run typecheck`: clean.
 - `npm run lint`: clean.
 - `npm run build`: clean after the current changes.
-- `npm run db:generate`: generated `drizzle/0001_lush_silvermane.sql` for search settings.
+- `npm run db:generate`: generated `drizzle/0003_cloudy_toro.sql` and its snapshot for the multi-source schema.
 
-## 3. Important capabilities through `7c1fa3b`
+## 3. Current capabilities
 
 - Persisted role overrides, location/canton, workplace, seniority, contract type, required keywords, and exclusions.
 - Role and location are sent to jobs.ch search; all criteria filter local result views, while saved/applied Pipeline jobs stay visible.
@@ -57,30 +60,45 @@ Quality checks:
 - Every job card can be marked Accurate or corrected to pass/review/blocked with an optional reason.
 - An explicit correction controls Matches/Review and the card badge while preserving the detector's original status and explanation.
 - Feedback survives reload, criteria rescoring, CV/job analysis, and re-importing the same job; it can also be cleared.
-- The additive `language_feedback` table and migration `0002` avoid resetting the existing 24-job workspace.
+- The additive `language_feedback` table and migration `0002` avoided resetting the then-24-job workspace.
 - The dashboard can export safe workspace metadata/jobs as JSON or jobs as CSV, delete selected/all jobs, delete either CV, and perform a confirmation-gated full reset.
 - Exported profile metadata never includes extracted CV text or R2 object keys. Job deletion also removes associated language feedback; CV deletion removes its R2 object and rescores jobs with the remaining CV.
-- Safe live verification passed three destructive-action guards plus a temporary job create/delete round trip. Both real CVs, all 24 real jobs, their 5/1/18 raw language split, and saved criteria remained unchanged.
+- The earlier data-control checkpoint passed three destructive-action guards plus a temporary job create/delete round trip while preserving the then-current 24 jobs and saved criteria.
 - Optional Windows VPN helpers install the official Windscribe or Proton client, detect a
   full-tunnel route, and provide `npm run dev:private`, which refuses to start without one.
   No VPN credentials or tunnel keys are stored. Windscribe 2.23.12 was installed and live
   verification passed through the Netherlands (`WindscribeWireguard`, exit country NL).
 - Matching macOS commands install through Homebrew and enforce a full `utun` IPv4 route.
   Their shell syntax is verified on Windows; live behavior still needs the Apple device.
-- Five Netherlands source handoffs are present without LinkedIn. A temporary Indeed
-  Netherlands-shaped URL completed import, strict English/Dutch screening, and deletion;
-  both real CVs and all 24 stored jobs remained intact.
+- One **Search all job sites** action runs every configured adapter with failure isolation,
+  deduplicates the combined result set, applies the strict language gate, scores both CVs,
+  and stores a per-source report.
+- Enabled adapters: jobs.ch, jobup.ch, JobScout24, IamExpat, and Undutchables. LinkedIn is
+  absent. Indeed CH/NL, Job-Room, Nationale Vacaturebank, and I amsterdam remain visible as
+  blocked, unavailable, or disabled rather than being reported as searched.
+- Five editable search roles persist and are included in adapter queries/reports.
+- Jobs store canonical identity, source, country, original posted date, first/last seen,
+  independent saved/application/visibility state, and conservative cross-source identity.
+- The unified list filters by country, application state, source, and result view. Every
+  card provides Applied, Not applied, Save, Dismiss, and Restore controls and displays a
+  posting date or an explicit unavailable label.
+- Latest-run and cumulative source dashboards show discovery and pipeline performance.
+  The old Amsterdam manual-link directory has been removed.
 
 ## 4. Remaining work and risks
 
-- The next implementation sequence is `MS-01`–`MS-14` in `docs/TASKS.md` and
-  `docs/MULTI_SOURCE_PLAN.md`. Start with ordered migrations; do not reset the current CVs
-  and 24 jobs to add the new fields.
+- **Only the external multi-source smoke run is still pending.** `npm run dev:private`
+  correctly refused to start because no full VPN route was active. Connect Windscribe or
+  Proton with split tunnelling disabled, start `npm run dev:private`, press **Search all job
+  sites**, and confirm that a run report is stored even when individual sources fail.
 
 - The language corpus has focused tests, a 24-ad live review, and persisted correction controls, but the user has not yet labeled a representative set. Do that before relying on unattended alerts.
 - The role detector remains a small heuristic and needs more real CV layouts.
-- The scraper silently skips individual job-detail fetch/parse failures; source-health reporting is still missing.
-- There is no applied migration runner or backfill path. Runtime still uses `CREATE TABLE IF NOT EXISTS`; future schema changes require a real migration strategy before data matters.
+- Detail fetch/parse failures are counted as skipped and source failures are isolated, but
+  the exact parser failure is intentionally not persisted per job. Add fixture coverage
+  whenever a public source changes its markup.
+- Runtime migrations are now applied and versioned. Drizzle SQL is generated for schema
+  review but is not the local runtime executor; keep all three schema representations in sync.
 - No authentication, multi-user isolation, OCR, automated backups, retention schedule, or encryption policy exists. User-triggered deletion/reset and JSON/CSV export are now available.
 
 ## 5. Environment notes
@@ -88,11 +106,17 @@ Quality checks:
 - Only one `vinext dev` server can run per machine.
 - The development server selects the first available local port, normally 3000 on a fresh machine.
 - Running repeated production builds while the development server was hot-reloading produced a transient Vinext/Vite `window is not defined` development overlay. API saves still returned 200 and the clean production build passed; restart the dev server if the overlay persists instead of treating it as a data failure.
-- Fresh local state is in `.wrangler/`; the pre-verification state backup is in ignored `work/`.
+- Local state is in `.wrangler/`; the byte-count-verified pre-multi-source backup is in
+  ignored `work/wrangler-before-multisource/`.
 - Fixture CVs in `tests/fixtures/` contain synthetic names and data only. Temporary real-CV test copies live under ignored `tmp/` and must never be committed.
 
 ## 6. Compliance status
 
-`POST /api/scrape` knowingly operates against jobs.ch's Terms of Service and `robots.txt` at the user's explicit, informed direction. The full decision is in `docs/ARCHITECTURE.md` §2.
+`POST /api/scrape` knowingly operates unsanctioned JobCloud public-page adapters for
+jobs.ch, jobup.ch, and JobScout24 at the user's explicit, informed direction. Indeed stays
+blocked. The current source-by-source decision is in `docs/ARCHITECTURE.md` §2 and
+`docs/MULTI_SOURCE_PLAN.md`.
 
-The unchanged boundary is no detection evasion: no randomized or human-like timing, fingerprint spoofing, stealth browser plugins, or proxy rotation. The fetch remains manually triggered, unauthenticated, delayed, and capped.
+The unchanged boundary is no detection evasion: no randomized or human-like timing,
+fingerprint spoofing, stealth browser plugins, CAPTCHA handling, or proxy rotation. Fetches
+remain manually triggered, unauthenticated, delayed, capped, and truthfully identified.

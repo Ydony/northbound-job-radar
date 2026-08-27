@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const cvs = sqliteTable('cvs', {
   id: text('id').primaryKey(),
@@ -15,6 +15,11 @@ export const jobs = sqliteTable(
   {
     id: text('id').primaryKey(),
     sourceUrl: text('source_url').notNull().unique(),
+    canonicalUrl: text('canonical_url').notNull().default(''),
+    sourceKey: text('source_key').notNull().default(''),
+    sourceName: text('source_name').notNull().default(''),
+    sourceJobId: text('source_job_id').notNull().default(''),
+    country: text('country').notNull().default('unknown'),
     title: text('title').notNull(),
     company: text('company').notNull().default(''),
     location: text('location').notNull().default('Switzerland'),
@@ -27,6 +32,13 @@ export const jobs = sqliteTable(
     bestCvSlot: text('best_cv_slot').notNull().default(''),
     matchedKeywords: text('matched_keywords').notNull().default('[]'),
     missingKeywords: text('missing_keywords').notNull().default('[]'),
+    identityFingerprint: text('identity_fingerprint').notNull().default(''),
+    isSaved: integer('is_saved', { mode: 'boolean' }).notNull().default(false),
+    applicationStatus: text('application_status').notNull().default('not_applied'),
+    visibilityStatus: text('visibility_status').notNull().default('active'),
+    postedAt: text('posted_at').notNull().default(''),
+    firstSeenAt: text('first_seen_at').notNull().default(''),
+    lastSeenAt: text('last_seen_at').notNull().default(''),
     status: text('status').notNull().default('new'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
@@ -34,6 +46,10 @@ export const jobs = sqliteTable(
   (table) => [
     index('jobs_language_status_idx').on(table.languageStatus),
     index('jobs_status_updated_idx').on(table.status, table.updatedAt),
+    index('jobs_country_application_visibility_idx').on(table.country, table.applicationStatus, table.visibilityStatus),
+    index('jobs_source_identity_idx').on(table.sourceKey, table.sourceJobId),
+    index('jobs_canonical_url_idx').on(table.canonicalUrl),
+    index('jobs_identity_fingerprint_idx').on(table.identityFingerprint),
   ],
 );
 
@@ -57,3 +73,49 @@ export const languageFeedback = sqliteTable('language_feedback', {
   reason: text('reason').notNull().default(''),
   updatedAt: text('updated_at').notNull(),
 });
+
+export const searchRoles = sqliteTable('search_roles', {
+  id: text('id').primaryKey(),
+  position: integer('position').notNull(),
+  role: text('role').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [uniqueIndex('search_roles_position_idx').on(table.position)]);
+
+export const dismissedJobs = sqliteTable('dismissed_jobs', {
+  id: text('id').primaryKey(),
+  sourceKey: text('source_key').notNull().default(''),
+  sourceJobId: text('source_job_id').notNull().default(''),
+  canonicalUrl: text('canonical_url').notNull().default(''),
+  identityFingerprint: text('identity_fingerprint').notNull().default(''),
+  dismissedAt: text('dismissed_at').notNull(),
+}, (table) => [
+  index('dismissed_jobs_source_identity_idx').on(table.sourceKey, table.sourceJobId),
+  index('dismissed_jobs_canonical_url_idx').on(table.canonicalUrl),
+  index('dismissed_jobs_fingerprint_idx').on(table.identityFingerprint),
+]);
+
+export const searchRuns = sqliteTable('search_runs', {
+  id: text('id').primaryKey(),
+  status: text('status').notNull(),
+  startedAt: text('started_at').notNull(),
+  completedAt: text('completed_at').notNull().default(''),
+}, (table) => [index('search_runs_started_at_idx').on(table.startedAt)]);
+
+export const searchRunSources = sqliteTable('search_run_sources', {
+  runId: text('run_id').notNull(),
+  sourceKey: text('source_key').notNull(),
+  sourceName: text('source_name').notNull(),
+  country: text('country').notNull(),
+  status: text('status').notNull(),
+  rolesSearched: text('roles_searched').notNull().default('[]'),
+  foundCount: integer('found_count').notNull().default(0),
+  knownCount: integer('known_count').notNull().default(0),
+  newCount: integer('new_count').notNull().default(0),
+  importedCount: integer('imported_count').notNull().default(0),
+  duplicateCount: integer('duplicate_count').notNull().default(0),
+  skippedCount: integer('skipped_count').notNull().default(0),
+  message: text('message').notNull().default(''),
+}, (table) => [
+  primaryKey({ columns: [table.runId, table.sourceKey] }),
+  index('search_run_sources_source_key_idx').on(table.sourceKey, table.runId),
+]);

@@ -4,6 +4,9 @@ export type CvSlot = 'a' | 'b';
 export type WorkplaceMode = 'any' | 'remote' | 'hybrid' | 'onsite';
 export type Seniority = 'any' | 'internship' | 'entry' | 'mid' | 'senior' | 'lead';
 export type ContractType = 'any' | 'permanent' | 'temporary' | 'contract' | 'internship';
+export type JobCountry = 'switzerland' | 'netherlands' | 'unknown';
+export type ApplicationStatus = 'not_applied' | 'applied';
+export type VisibilityStatus = 'active' | 'dismissed';
 
 export interface CvProfile {
   slot: CvSlot;
@@ -16,6 +19,7 @@ export interface CvProfile {
 export interface SearchCriteria {
   roleOverrideA: string;
   roleOverrideB: string;
+  roleKeywords: string[];
   location: string;
   workplace: WorkplaceMode;
   seniority: Seniority;
@@ -25,12 +29,16 @@ export interface SearchCriteria {
   updatedAt: string;
 }
 
-export type JobStatus = 'new' | 'saved' | 'applied' | 'ignored';
 export type LanguageFeedbackVerdict = '' | 'correct' | 'incorrect';
 
 export interface JobRecord {
   id: string;
   sourceUrl: string;
+  canonicalUrl: string;
+  sourceKey: string;
+  sourceName: string;
+  sourceJobId: string;
+  country: JobCountry;
   title: string;
   company: string;
   location: string;
@@ -47,13 +55,45 @@ export interface JobRecord {
   bestCvSlot: CvSlot | '';
   matchedKeywords: string[];
   missingKeywords: string[];
-  status: JobStatus;
+  identityFingerprint: string;
+  isSaved: boolean;
+  applicationStatus: ApplicationStatus;
+  visibilityStatus: VisibilityStatus;
+  postedAt: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export type SourceRunStatus = 'complete' | 'partial' | 'failed' | 'blocked' | 'disabled' | 'unavailable';
+
+export interface SearchRunSource {
+  sourceKey: string;
+  sourceName: string;
+  country: JobCountry;
+  status: SourceRunStatus;
+  rolesSearched: string[];
+  foundCount: number;
+  knownCount: number;
+  newCount: number;
+  importedCount: number;
+  duplicateCount: number;
+  skippedCount: number;
+  message: string;
+}
+
+export interface SearchRun {
+  id: string;
+  status: 'complete' | 'partial' | 'failed';
+  startedAt: string;
+  completedAt: string;
+  sources: SearchRunSource[];
 }
 
 export interface AppState {
   profiles: CvProfile[];
   jobs: JobRecord[];
   criteria: SearchCriteria;
+  searchRuns: SearchRun[];
 }

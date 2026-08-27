@@ -2,10 +2,9 @@
 
 Last updated: 2026-08-27.
 
-The accepted next-iteration architecture for automatic Swiss + Netherlands multi-source
-search is specified in `docs/MULTI_SOURCE_PLAN.md`. It is a plan, not a statement of current
-functionality. Until its adapter and migration tasks are complete, the runtime remains the
-single jobs.ch automatic flow plus Netherlands handoffs described below.
+The accepted Swiss + Netherlands multi-source architecture in
+`docs/MULTI_SOURCE_PLAN.md` is implemented. The only remaining verification gap is one
+external end-to-end run while a full VPN route is active.
 
 ## 1. Goal and acceptance rule
 
@@ -16,7 +15,7 @@ The user wants Switzerland and Amsterdam-area Netherlands jobs where English alo
 
 Local languages described as optional, preferred, a plus, or an asset may pass, but the optional wording is shown. Any unclear mention is routed to manual review.
 
-## 2. Why the MVP is a jobs.ch companion — and the 2026-08-26 reversal
+## 2. Source policy and the 2026-08-26/27 decisions
 
 jobs.ch is the chosen Swiss source because of its market coverage and native search
 filters. The [JobCloud terms](https://www.jobs.ch/en/terms/) prohibit crawlers,
@@ -26,57 +25,72 @@ full ad text). JobCloud publishes [technical XML solutions](https://www.jobcloud
 for employers to submit vacancies; these are not a public job-seeker search API.
 
 The MVP originally enforced a compliant, manual-copy boundary for exactly these reasons.
-**On 2026-08-26, the user explicitly reversed that decision** after being told both
-findings above, and after explicitly declining any request to add detection-evasion
-behavior. The current flow is:
+**On 2026-08-26, the user explicitly reversed that decision for jobs.ch** after being told
+both findings above and declining detection-evasion behavior. On 2026-08-27, after a
+source-specific review, the user explicitly requested the same manually triggered search
+for other Swiss and Netherlands sources. The current flow is:
 
 ```text
-Northbound builds a jobs.ch search URL
+Northbound builds role searches for every enabled adapter
         ↓
-POST /api/scrape fetches the search-results page directly (no login, one page, capped)
+POST /api/scrape fetches capped public result pages (no login)
         ↓
-For each new listing, fetches the detail page and reads its schema.org
-JobPosting JSON-LD block (the same structured data job aggregators consume)
+For a few new listings per source, reads schema.org JobPosting data
         ↓
-Northbound verifies language + scores CV fit
+Northbound canonicalizes/deduplicates, verifies language, and scores CV fit
         ↓
-User opens jobs.ch and applies personally
+Every source records an honest run report; the user opens the source and applies personally
 ```
 
 The user can still search/paste manually instead — both paths exist side by side.
 
-**This is a knowing ToS and robots.txt violation, done at the user's explicit
-instruction, not a compliant integration.** It is bounded on purpose:
-- Manually triggered only (`app/job-radar.tsx`'s "Find new jobs" button calling
+The source roster is deliberately mixed:
+
+- jobs.ch, jobup.ch, and JobScout24 are enabled at the user's accepted risk. They are all
+  JobCloud properties covered by the same automation prohibition and are not sanctioned.
+- IamExpat is enabled against its current public career listing/detail paths.
+- Undutchables is enabled only through the plain `/vacancies` listing and public detail
+  pages; query-string vacancy search is not used because its robots policy disallows it.
+- Indeed Switzerland and Netherlands are blocked because their rules prohibit automated
+  access without written permission and live requests returned HTTP 403.
+- Job-Room is unavailable because its published API is for employers posting adverts,
+  Nationale Vacaturebank is unavailable after HTTP 403, and I amsterdam is disabled
+  because it is a guide rather than a vacancy feed.
+- LinkedIn is not configured by user request.
+
+This is bounded on purpose:
+- Manually triggered only (`app/job-radar.tsx`'s "Search all job sites" button calling
   `POST /api/scrape`) — no cron/schedule.
-- One search-results page **per distinct derived role** (so at most 2 search requests per
-  click, since there are at most 2 CVs, and 1 when both CVs derive the same role), capped
-  to `MAX_NEW_JOBS_PER_RUN` new detail-page fetches per click in total (`lib/jobsch.ts`),
-  with the same fixed delay between every request.
-- No authentication — only pages that are public without a jobs.ch session are read.
-- A plain, non-spoofed browser User-Agent and no anti-detection behavior of any kind
+- At most five distinct normalized search roles and four new detail fetches per enabled
+  source per click, with fixed delays inside each adapter.
+- No authentication — only pages that are public without a source-site session are read.
+- A plain, identifiable User-Agent and no anti-detection behavior of any kind
   (no randomized timing, fingerprinting, headless-browser stealth, or proxy rotation) —
   that boundary held even though the automation boundary did not, and stays unchanged
   regardless of any future scope increase here.
 
-A sanctioned, higher-volume, or scheduled integration still requires written JobCloud
-permission or an authorized API/feed; see `ROADMAP.md` for that path.
+A sanctioned, higher-volume, or scheduled integration still requires source permission or
+an authorized API/feed; see `ROADMAP.md` for that path.
 
 ## 3. Runtime architecture
 
 ```text
 React client
   ├─ PDF/DOCX/TXT text extraction in browser
-  ├─ persisted search criteria and local result filtering
-  ├─ "Find new jobs" trigger + manual ad import + Swiss/Netherlands source handoffs
-  ├─ results UI
-  └─ shortlist/application controls
+  ├─ two CV-specific role overrides + five general role keywords
+  ├─ persisted criteria and country/application/source/result filtering
+  ├─ "Search all job sites" trigger + manual ad import fallback
+  ├─ source-run and cumulative performance dashboards
+  └─ saved/applied/dismissed controls
          │ JSON / multipart
          ▼
 Next-compatible API routes on Vinext/Cloudflare
-  ├─ validation and jobs.ch URL allowlist (`lib/jobsch.ts`)
-  ├─ jobs.ch search + detail-page fetch and JobPosting JSON-LD parsing (`lib/jobsch.ts`)
+  ├─ manual-import URL safety validation (`lib/job-sources.ts`)
+  ├─ shared source adapters and availability roster (`lib/job-adapters.ts`)
+  ├─ canonical/source/fingerprint identity (`lib/job-identity.ts`)
+  ├─ public-page fetching + JobPosting JSON-LD parsing
   ├─ deterministic language and fit analysis
+  ├─ ordered runtime migrations (`db/migrations.ts`)
   ├─ D1 structured persistence (`DB`)
   └─ R2 original CV file storage (`CV_FILES`)
 ```
@@ -87,11 +101,25 @@ The MVP is single-user. Authentication and tenant isolation are post-MVP require
 
 `cvs` holds up to two rows, keyed by a unique `slot` (`a` or `b`) for one person's two CV versions: CV filename, private R2 object key, extracted CV text, the role derived from that CV's content (§6a), and an update timestamp.
 
-`search_settings` holds the single-user search profile: optional role override for each CV, location/canton, workplace, seniority, contract type, required keywords, exclusions, and an update timestamp. Role overrides take precedence over the derived roles for discovery and scoring but do not overwrite the detected metadata.
+`search_settings` holds the single-user filters and the optional role override for each CV.
+`search_roles` holds up to five ordered general role keywords. Normalized CV roles and
+general roles are deduplicated before adapter searches.
 
 `language_feedback` holds an optional user verdict per job. `correct` confirms the detector result. `incorrect` stores a user-selected corrected status (`pass`, `review`, or `blocked`) and an optional reason. It is separate from `jobs`, so a CV replacement, criteria rescore, or job re-import updates detector output without erasing user feedback.
 
-`jobs` stores the source URL, title, company, location, full description, language result and evidence, one fit score per CV slot (`fit_score_a`, `fit_score_b`) plus `best_cv_slot` and the winning slot's keywords, pipeline status, and timestamps. `source_url` is unique so re-importing an ad refreshes its analysis without duplicating it.
+`jobs` stores source/canonical URL, source identity, country, title, company, location,
+original posting date, full description, language evidence, one fit score per CV,
+cross-source identity fingerprint, first/last seen, and independent saved, application, and
+visibility fields. Exact source IDs/URLs and a conservative title+company+location+posting-
+day fingerprint suppress duplicates.
+
+`dismissed_jobs` holds durable identity tombstones so clearing a dismissed job row does not
+allow the same advert back on a later search. Restoring a card deliberately removes its
+matching tombstone.
+
+`search_runs` and `search_run_sources` store the run status and per-source roles, found,
+known, new, imported, duplicate, skipped, and safe message fields. Blocked or unavailable
+sources therefore remain visible without being misreported as successful searches.
 
 The client never receives the CV text or R2 object key. Original CV files are capped at 10 MB. Replacing a CV removes the previous object after the new one is stored.
 
@@ -132,20 +160,20 @@ no third-party model call, consistent with the CV-privacy rule in `AGENTS.md`. I
 frequency with a strong bonus for a specific phrase near the document header (a target title
 under the name beats older titles repeated in work history), and returns the top phrase.
 
-It is a heuristic and can return `''` for an unconventionally-worded CV. That is handled, not
-an error: the CV still saves and still scores jobs; it just contributes no search term, and
-`POST /api/scrape` fails with a clear message only if *no* CV yields a role.
+It is a heuristic and can return `''` for an unconventionally-worded CV. That is handled,
+not an error: the CV still saves and scores jobs. `POST /api/scrape` fails clearly only if
+neither a CV-derived/overridden role nor one of the five general roles exists.
 
 ## 7. API surface
 
-- `GET /api/state` — saved CV metadata (both slots), search criteria, and analyzed jobs
+- `GET /api/state` — saved CV metadata, criteria/roles, analyzed jobs, and recent source runs
 - `POST /api/profile` — one CV slot (`a`/`b`): extracted CV text and CV file; derives and stores that CV's role
 - `DELETE /api/profile?slot=a|b` — delete one stored CV/file, clear its role override, and rescore jobs with the remaining CV
-- `PUT /api/criteria` — validate, persist, and apply role/location/workplace/seniority/contract/keyword criteria
+- `PUT /api/criteria` — validate and persist CV role overrides, five general roles, and filters
 - `POST /api/jobs` — validate and analyze one user-supplied public HTTPS job ad against every saved CV; the URL is never fetched by this route
-- `POST /api/scrape` — fetch and analyze new jobs.ch listings for each distinct derived role (see §2 for the compliance decision behind this route)
-- `PATCH /api/jobs/:id` — update pipeline status and save, change, or clear language feedback
-- `DELETE /api/jobs/:id` — delete an analyzed job (API support; UI currently uses hide)
+- `POST /api/scrape` — run every configured adapter, deduplicate, analyze, and persist the full source report
+- `PATCH /api/jobs/:id` — independently update saved/application/visibility state and language feedback; dismissal writes a tombstone
+- `DELETE /api/jobs/:id` — delete one analyzed job and its language feedback
 - `DELETE /api/jobs` — delete selected job IDs or all jobs and their associated language feedback
 - `DELETE /api/workspace` — confirmation-gated deletion of CV objects, jobs, feedback, and criteria
 
@@ -158,43 +186,35 @@ visible scores, labels, and the winning CV are current.
 
 ## 7a. Schema changes and local state (read before changing a column)
 
-The schema is defined **twice** and the two must be kept in sync by hand:
+The schema is represented in three places and must be kept in sync:
 
-- `db/runtime.ts` (`schemaStatements`) is what actually creates tables at runtime, via
-  `CREATE TABLE IF NOT EXISTS`.
-- `db/schema.ts` is the drizzle source used only by `npm run db:generate` to emit files
-  into `drizzle/`. Those files are **not** applied automatically by anything.
+- `db/runtime.ts` creates the legacy-compatible base tables for a brand-new local state.
+- `db/migrations.ts` contains ordered, additive upgrades that `ensureSchema()` applies and
+  records in `schema_migrations`.
+- `db/schema.ts` is the latest Drizzle model used by `npm run db:generate`; generated SQL
+  is review/deployment material, not the local runtime executor.
 
-Because `ensureSchema()` uses `CREATE TABLE IF NOT EXISTS`, **it never alters an existing
-table.** Adding or renaming a column therefore leaves any already-created local database
-on the old shape, and queries against the new columns fail at runtime (a `500` from the
-route, and `undefined` values reaching the client). After changing a column you must reset
-local state — move or remove the emulator's `.wrangler/` directory and let the dev server
-recreate the database — not just restart the server.
-
-There is no migration/backfill path for real data. Before this app holds anything worth
-keeping, replace the `CREATE TABLE IF NOT EXISTS` approach with applied, ordered
-migrations.
+Never edit an applied migration version. Add a new version containing one SQL statement
+per D1 `prepare()` call, update the Drizzle model, generate/inspect the SQL, and test against
+both a copied existing `.wrangler/` state and a fresh state. The 2026-08-27 multi-source
+upgrade followed this process: all 18 local state files were copied before migration and
+the two CV profiles plus 48 jobs survived. Do not reset `.wrangler/` as a migration shortcut.
 
 ## 8. Known risks and missing production controls
 
-- `POST /api/scrape` knowingly violates jobs.ch's ToS and `robots.txt` (§2). Realistic
-  consequences include IP-level blocking or a cease-and-desist; there is no legal
-  authorization behind this path. It is capped and manually triggered to limit exposure,
-  not to hide it.
-- The scrape depends on jobs.ch continuing to server-render search/detail pages and
-  embed `schema.org JobPosting` JSON-LD; either changing would silently return zero
-  results (fails closed — `fetchJobDetail`/`fetchSearchResultIds` return null/empty
-  rather than throwing per-listing) rather than erroring loudly.
-- The real-CV flow was verified end to end on 2026-08-26: both text-based PDFs parsed,
-  roles derived as `Data Analyst` and `Data Governance Analyst`, more specific role
-  overrides persisted across reload, two bounded searches produced 24 real jobs, and
-  rescoring classified them as five pass, one review, and 18 blocked.
+- The three enabled JobCloud adapters are unsanctioned (§2). Realistic consequences include
+  IP blocking or legal demands. Caps and manual triggers limit load, not legal exposure.
+- Public-page markup and structured data can change independently for every enabled
+  adapter. Runs now show failed/partial/skipped counts, but parser fixtures still need to
+  be refreshed when a site changes.
+- The existing database upgrade was verified with two real CV profiles and 48 distinct
+  jobs (7 pass, 1 review, 40 blocked; 4 dismissed). The new external multi-source run has
+  not been executed because `npm run dev:private` found no active full VPN route.
 - `drizzle/0000_open_whirlwind.sql` matches the two-CV schema and
   `drizzle/0001_lush_silvermane.sql` adds saved search settings;
-  `drizzle/0002_cultured_squadron_supreme.sql` adds language feedback. However, generated
-  migrations are still not applied by the runtime; the broader migration limitation in
-  §7a remains.
+  `drizzle/0002_cultured_squadron_supreme.sql` adds language feedback, and
+  `drizzle/0003_cloudy_toro.sql` represents the multi-source schema. Runtime migrations
+  are separately applied and versioned as described in §7a.
 - No authentication or multi-user isolation.
 - Deterministic language detection has focused regression tests, a reviewed 24-ad live
   sample, and persisted correction controls. The user still needs to label a representative
@@ -204,11 +224,10 @@ migrations.
 - Scanned/image-only PDFs require OCR; the MVP reports that the file is unreadable.
 - The local persistence emulator is not a backup.
 - User-triggered CV/job deletion, full reset, and JSON/CSV export are available. There is still no automated retention schedule, encryption policy, consent screen, or audit log.
-- No scheduled discovery, alerts, cross-source deduplication, or expiry checks.
-- jobs.ch URL structure and terms can change; revalidate them before releases.
-- Netherlands sources are handoff-only: I amsterdam, IamExpat, Undutchables, Indeed
-  Netherlands, and Nationale Vacaturebank. LinkedIn is excluded. Their links and terms can
-  change, and no automation permission has been established for them.
+- No scheduled discovery, alerts, or expiry checks. Scheduling remains restricted to
+  authorized sources.
+- Source URLs, rules, and availability can change; revalidate them before releases and
+  keep the adapter feature states truthful. LinkedIn remains excluded.
 
 ## 9. Optional local VPN launcher
 
