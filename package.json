@@ -7,12 +7,15 @@
   },
   "scripts": {
     "dev": "vinext dev",
+    "dev:private": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-private.ps1",
     "build": "vinext build",
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test": "tsx --test tests/**/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "vpn:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-vpn.ps1",
+    "vpn:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-vpn.ps1 -ShowPublicIp"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

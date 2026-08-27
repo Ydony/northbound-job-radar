@@ -28,6 +28,11 @@ npm install
 npm run dev
 ```
 
+For the optional Windows privacy launcher, run `npm run vpn:setup` once, complete the
+provider's visible sign-in and Netherlands/kill-switch setup, then use
+`npm run dev:private`. That launcher refuses to start without a detected full VPN route.
+See `docs/VPN.md`; no VPN credentials are stored by Northbound.
+
 Open the local URL printed by the development server. D1 and R2 are emulated locally by Miniflare; their state remains in the ignored `.wrangler/` directory.
 
 Only one `vinext dev` server can run per machine. If startup reports one is already
@@ -67,6 +72,7 @@ column rename.
 - `docs/TASKS.md` — MVP and post-MVP execution tracker with progress and acceptance criteria
 - `docs/ARCHITECTURE.md` — flows, decisions, data model, and risks
 - `docs/ROADMAP.md` — what is needed after the MVP
+- `docs/VPN.md` — optional official VPN installation and VPN-enforced local launcher
 
 ## Product and compliance decision
 

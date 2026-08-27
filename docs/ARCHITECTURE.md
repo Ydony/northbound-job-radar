@@ -201,3 +201,16 @@ migrations.
 - User-triggered CV/job deletion, full reset, and JSON/CSV export are available. There is still no automated retention schedule, encryption policy, consent screen, or audit log.
 - No scheduled discovery, alerts, cross-source deduplication, or expiry checks.
 - jobs.ch URL structure and terms can change; revalidate them before releases.
+
+## 9. Optional local VPN launcher
+
+The Windows-only scripts under `scripts/` provide an optional privacy wrapper for local
+use. `setup-vpn.ps1` installs the official Windscribe or Proton VPN client through
+Windows Package Manager. `start-private.ps1` refuses to launch the development server
+unless `check-vpn.ps1` finds a supported active adapter carrying a full IPv4 route.
+
+Provider account creation, sign-in, country selection, and Firewall/Kill Switch settings
+remain a one-time visible provider step. The free Windows clients do not publish a
+supported interface for automating those settings, and Northbound must never capture VPN
+credentials or manipulate undocumented provider state. The route check is a guardrail,
+not proof of anonymity; its optional exit-IP display calls Cloudflare's trace endpoint.

@@ -69,6 +69,9 @@ On Windows, `@rolldown/binding-win32-x64-msvc` is an explicit dev dependency bec
 - Preserve the detector result when applying user language corrections; only an explicit
   user correction may change the effective result shown in Matches or Review.
 - Never send a CV or job description to a third-party model without explicit user consent and a documented retention policy.
+- Never store VPN credentials or private tunnel keys in the project. Preserve the
+  provider-supported, user-visible sign-in boundary in `docs/VPN.md`; do not replace it
+  with UI automation, public proxies, proxy rotation, or IP cycling.
 - Validate jobs.ch URLs server-side; do not trust browser input.
 - Keep one SQL statement per D1 `prepare()` call. Add indexes for new recurring queries.
 - The schema lives in two hand-synced places: `db/runtime.ts` (authoritative at runtime)

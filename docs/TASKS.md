@@ -11,6 +11,7 @@ This is the execution tracker for finishing the personal MVP and planning the wo
 - Git: data controls are committed as `7c1fa3b`; language feedback is `67669d8` and the baseline is `344a642`.
 - Local preview: `http://localhost:3002/` while the development server is running.
 - Current local data: both real CV profiles, saved role overrides, and 24 screened jobs (5 pass, 1 review, 18 blocked). Temporary feedback test rows were cleared.
+- Optional VPN bootstrap: official-client installation and VPN-enforced local startup are implemented; one-time provider account/login/location/kill-switch setup remains user-visible by design.
 
 ## MVP completion tracker
 

@@ -53,6 +53,10 @@ Quality checks:
 - The dashboard can export safe workspace metadata/jobs as JSON or jobs as CSV, delete selected/all jobs, delete either CV, and perform a confirmation-gated full reset.
 - Exported profile metadata never includes extracted CV text or R2 object keys. Job deletion also removes associated language feedback; CV deletion removes its R2 object and rescores jobs with the remaining CV.
 - Safe live verification passed three destructive-action guards plus a temporary job create/delete round trip. Both real CVs, all 24 real jobs, their 5/1/18 raw language split, and saved criteria remained unchanged.
+- Optional Windows VPN helpers install the official Windscribe or Proton client, detect a
+  full-tunnel route, and provide `npm run dev:private`, which refuses to start without one.
+  No VPN credentials or tunnel keys are stored. The current machine correctly fails the
+  check because no supported VPN adapter is connected yet.
 
 ## 4. Remaining work and risks
 
