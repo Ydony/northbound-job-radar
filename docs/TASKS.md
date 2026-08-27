@@ -24,14 +24,12 @@ This is the execution tracker for finishing the personal MVP and planning the wo
 | MVP-05 | Data controls | Done | The dashboard now deletes either CV, selected jobs, or all jobs; exports JSON/CSV; and performs a confirmed full reset. API guards and a temporary-job create/delete round trip passed while preserving both real CVs, all 24 real jobs, and saved criteria. | None. Destructive success paths were deliberately not run against the real workspace. | Completed 2026-08-27 in `7c1fa3b`. |
 | MVP-06 | Scraper diagnostics | Partial | Search-level errors surface, but individual detail-fetch and parse failures are silently skipped. | Return requested/fetched/parsed/skipped counts and safe failure reasons; record a run summary and display it in the UI. | A partial or broken source run is distinguishable from “no new jobs,” without exposing CV content or sensitive data. |
 | MVP-07 | Migrations and backups | Partial | Two-CV migration `0000` and search-settings migration `0001` exist, but runtime still creates tables with `CREATE TABLE IF NOT EXISTS` and applies neither migration. | Add an ordered migration runner, migration-version table, backup/export path, restore instructions, and a migration test. | Existing data survives a schema upgrade and can be backed up and restored deliberately. |
-| MVP-08 | Remove old project folder | Blocked by current task lock | The old folder has no source files missing from the new project. Windows refused to recycle it because this Codex task still holds a lock; nothing was deleted. | Close this task or reopen it from `C:\Projects\Auto Job hunt`, then recycle `C:\Users\anddo\Documents\ChatGPT\Auto Job hunt` and verify it is gone. | Only `C:\Projects\Auto Job hunt` remains and all commands/documentation use it. |
 
 ## Recommended execution order
 
 1. `MVP-04` — expand the language corpus using the completed correction loop.
 2. `MVP-06` — make source failures observable.
 3. `MVP-07` — protect accumulated data before longer-term use.
-4. `MVP-08` — retire the duplicate folder after its lock is released.
 
 ## After the MVP
 

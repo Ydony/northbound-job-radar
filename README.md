@@ -2,6 +2,18 @@
 
 Northbound is a local MVP for finding Swiss and Netherlands jobs where English is sufficient. It combines CV profiles with strict language screening and a simple application pipeline while keeping login and applications on the original job site.
 
+## Download with Codex
+
+Give Codex this repository URL:
+
+```text
+https://github.com/Ydony/northbound-job-radar
+```
+
+Ask it to clone the repository and read `AGENTS.md`, `docs/GETTING_STARTED.md`, and
+`docs/VPN.md` before installing anything. The getting-started guide contains dedicated
+Apple Silicon/Intel macOS instructions, Windows instructions, VPN setup, and normal usage.
+
 ## What the MVP does
 
 1. Upload up to two PDF, DOCX, or TXT CVs (e.g. a generalist and a specialist version). Northbound detects a likely target role from each CV's own content; you can override either role when the heuristic is too broad.
@@ -81,6 +93,7 @@ column rename.
 - `docs/ARCHITECTURE.md` — flows, decisions, data model, and risks
 - `docs/ROADMAP.md` — what is needed after the MVP
 - `docs/VPN.md` — optional official VPN installation and VPN-enforced local launcher
+- `docs/GETTING_STARTED.md` — friend-ready macOS/Windows installation and usage guide
 
 ## Product and compliance decision
 

@@ -72,12 +72,11 @@ Quality checks:
 - The scraper silently skips individual job-detail fetch/parse failures; source-health reporting is still missing.
 - There is no applied migration runner or backfill path. Runtime still uses `CREATE TABLE IF NOT EXISTS`; future schema changes require a real migration strategy before data matters.
 - No authentication, multi-user isolation, OCR, automated backups, retention schedule, or encryption policy exists. User-triggered deletion/reset and JSON/CSV export are now available.
-- The old duplicate project folder at `C:\Users\anddo\Documents\ChatGPT\Auto Job hunt` has no source file absent from the new project, but Windows would not recycle it because this Codex task still holds a lock. Nothing was deleted. Close this task or reopen from `C:\Projects\Auto Job hunt`, then retire the old folder.
 
 ## 5. Environment notes
 
 - Only one `vinext dev` server can run per machine.
-- Ports 3000 and 3001 are occupied on this machine, so the app normally uses 3002.
+- The development server selects the first available local port, normally 3000 on a fresh machine.
 - Running repeated production builds while the development server was hot-reloading produced a transient Vinext/Vite `window is not defined` development overlay. API saves still returned 200 and the clean production build passed; restart the dev server if the overlay persists instead of treating it as a data failure.
 - Fresh local state is in `.wrangler/`; the pre-verification state backup is in ignored `work/`.
 - Fixture CVs in `tests/fixtures/` contain synthetic names and data only. Temporary real-CV test copies live under ignored `tmp/` and must never be committed.
