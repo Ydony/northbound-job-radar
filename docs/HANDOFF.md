@@ -18,6 +18,7 @@ permission/availability record.
 - Windows VPN checkpoint: `bfce858` (`Add VPN-enforced local launcher`).
 - Netherlands/macOS checkpoint: `6fd7b18` (`Add Netherlands sources and macOS VPN launcher`).
 - Multi-source plan checkpoint: `7cc480c` (`Plan automatic multi-source job search`).
+- Multi-source implementation checkpoint: `6e52c09` (`Implement multi-source job search and pipeline controls`).
 - Use `git status`, `git log -3 --oneline`, and `docs/TASKS.md` to identify later work.
 - No `.env` files or obvious committed secrets were found. `.openai/hosting.json` contains binding names only.
 - `*.tsbuildinfo`, dependency folders, builds, and local Miniflare data are ignored.

@@ -8,7 +8,7 @@ This is the execution tracker for finishing the personal MVP and planning the wo
 
 - Core search: **multi-source implementation complete; live external run pending an active full VPN route**.
 - Quality baseline: **45 tests passing; type-check, lint, database generation, and production build clean**.
-- Git: documentation plan checkpoint is `7cc480c`; this tracker describes the verified multi-source implementation that follows it.
+- Git: multi-source plan `7cc480c`; verified implementation `6e52c09`.
 - Local preview: `http://localhost:3000/` using the ordinary local server for database/API checks only. `npm run dev:private` correctly refused to start while the VPN route was inactive.
 - Current local data: both real CV profiles, five saved role keywords, and 48 distinct screened jobs (7 pass, 1 review, 40 blocked; 4 dismissed). The upgrade preserved all rows and did not print CV text.
 - Optional VPN bootstrap: official-client installation and VPN-enforced local startup are implemented for Windows and macOS. Windows passed live through a Netherlands exit; macOS awaits testing on the Apple device. Provider credentials remain user-visible and outside Northbound.
