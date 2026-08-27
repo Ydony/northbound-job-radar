@@ -8,8 +8,8 @@ This is the execution tracker for finishing the personal MVP and planning the wo
 
 - Core jobs.ch flow: **verified working** with both real PDFs and 24 real ads.
 - Quality baseline: **31 tests passing; type-check, lint, and production build clean**.
-- Git: data controls are committed as `7c1fa3b`; language feedback is `67669d8` and the baseline is `344a642`.
-- Local preview: `http://localhost:3002/` while the development server is running.
+- Git: Netherlands sources and macOS VPN support are committed as `6fd7b18`; the Windows VPN foundation is `bfce858` and the baseline is `344a642`.
+- Local preview: `http://localhost:3000/` while the current VPN-enforced development server is running.
 - Current local data: both real CV profiles, saved role overrides, and 24 screened jobs (5 pass, 1 review, 18 blocked). Temporary feedback test rows were cleared.
 - Optional VPN bootstrap: official-client installation and VPN-enforced local startup are implemented for Windows and macOS. Windows passed live through a Netherlands exit; macOS awaits testing on the Apple device. Provider credentials remain user-visible and outside Northbound.
 

@@ -1,6 +1,6 @@
 # Handover
 
-Last updated: 2026-08-27 after data-control implementation and verification.
+Last updated: 2026-08-27 after Windows VPN, macOS launcher, and Netherlands-source verification.
 
 Read this first, use `docs/TASKS.md` for current execution status, then read `README.md`, `docs/ARCHITECTURE.md`, and `AGENTS.md`.
 
@@ -11,6 +11,8 @@ Read this first, use `docs/TASKS.md` for current execution status, then read `RE
 - Real-CV and search-criteria checkpoint: `a8e7ba1` (`Add persisted job criteria and validate real CV flow`).
 - Language-correction checkpoint: `67669d8` (`Add persistent language classification feedback`).
 - Personal-data controls checkpoint: `7c1fa3b` (`Add personal data export and deletion controls`).
+- Windows VPN checkpoint: `bfce858` (`Add VPN-enforced local launcher`).
+- Netherlands/macOS checkpoint: `6fd7b18` (`Add Netherlands sources and macOS VPN launcher`).
 - Use `git status`, `git log -3 --oneline`, and `docs/TASKS.md` to identify later work.
 - No `.env` files or obvious committed secrets were found. `.openai/hosting.json` contains binding names only.
 - `*.tsbuildinfo`, dependency folders, builds, and local Miniflare data are ignored.
