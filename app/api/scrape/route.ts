@@ -56,9 +56,15 @@ export async function POST(request: Request) {
   const limited = rateLimit(`scrape:${user.id}`, 6, 10 * 60_000);
   if (limited) return limited;
 
-  // 'authorized' runs only official/keyed APIs and needs no VPN; 'all' adds the page-fetching sources.
+  // 'authorized' runs only official or keyed APIs. 'all' additionally reads public web pages, which
+  // is the mode that carries terms risk, so it is restricted to administrators and is not merely
+  // hidden in the UI - a non-admin calling this directly is refused.
   const body = await request.json().catch(() => ({})) as { mode?: SearchMode };
-  const mode: SearchMode = body.mode === 'all' ? 'all' : 'authorized';
+  const requestedAll = body.mode === 'all';
+  if (requestedAll && user.role !== 'admin') {
+    return NextResponse.json({ error: 'That search mode is not available on this account.' }, { status: 403 });
+  }
+  const mode: SearchMode = requestedAll ? 'all' : 'authorized';
   const activeAdapters = jobSourceAdapters.filter((adapter) => mode === 'all' || adapter.access === 'authorized-api');
   const [cvRows, criteriaRow, roleRows] = await Promise.all([
     db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id).all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
@@ -261,7 +267,11 @@ export async function POST(request: Request) {
     .bind(overallStatus, completedAt, runId, user.id));
   await db.batch(statements);
 
-  const run: SearchRun = { id: runId, status: overallStatus, startedAt, completedAt, sources: sourceReports };
+  const visibleSources = user.role === 'admin'
+    ? sourceReports
+    : sourceReports.filter((source) => jobSourceAdapters
+      .find((adapter) => adapter.key === source.sourceKey)?.access === 'authorized-api');
+  const run: SearchRun = { id: runId, status: overallStatus, startedAt, completedAt, sources: visibleSources };
   const added = [...addedById.values()];
   return NextResponse.json({
     added,

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
-import { ensureSchema } from '@/db/runtime';
-import { requireSession } from '@/lib/guard';
+import { authSecrets, ensureSchema } from '@/db/runtime';
+import { recordVisit } from '@/lib/analytics';
+import { clientIp, requireSession } from '@/lib/guard';
+import { jobSourceAdapters } from '@/lib/job-adapters';
 import { criteriaFromRow, cvFromRow, jobFromRow, searchRunsFromRows, type CriteriaRow, type CvRow,
   type JobRow, type SearchRoleRow, type SearchRunRow, type SearchRunSourceRow } from '@/lib/server-data';
 
@@ -9,6 +11,9 @@ export async function GET(request: Request) {
   const { session, response } = await requireSession(request);
   if (response) return response;
   const { db, user } = session;
+  // Counted here rather than on every request: one visit per dashboard load. Nothing identifying
+  // is stored - see lib/analytics.ts.
+  await recordVisit(db, clientIp(request), request.headers.get('user-agent') ?? '', authSecrets().sessionSecret);
 
   const [cvs, jobs, criteria, roles, runs] = await Promise.all([
     db.prepare('SELECT * FROM cvs WHERE user_id = ? ORDER BY slot').bind(user.id).all<CvRow>(),
@@ -32,6 +37,11 @@ export async function GET(request: Request) {
     profiles: cvs.results.map(cvFromRow),
     jobs: jobs.results.map(jobFromRow),
     criteria: criteriaFromRow(criteria, roles.results),
-    searchRuns: searchRunsFromRows(runs.results, runSources.results),
+    // Page-fetching sources are an administrator capability, so their run rows are withheld from
+    // everyone else rather than only hidden in the interface.
+    searchRuns: searchRunsFromRows(runs.results, user.role === 'admin'
+      ? runSources.results
+      : runSources.results.filter((row) => jobSourceAdapters
+        .find((adapter) => adapter.key === row.source_key)?.access === 'authorized-api')),
   });
 }

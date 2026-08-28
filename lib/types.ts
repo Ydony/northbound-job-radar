@@ -93,7 +93,13 @@ export interface SearchRun {
   sources: SearchRunSource[];
 }
 
+export interface AccountSummary {
+  email: string;
+  role: 'admin' | 'user';
+}
+
 export interface AppState {
+  account: AccountSummary | null;
   profiles: CvProfile[];
   jobs: JobRecord[];
   criteria: SearchCriteria;

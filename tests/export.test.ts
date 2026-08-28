@@ -54,6 +54,7 @@ test('exports workspace metadata without hidden CV text or object keys', () => {
     criteria: defaultSearchCriteria,
     jobs: [job],
     searchRuns: [],
+  account: null,
   }, '2026-08-26T12:00:00.000Z');
   const parsed = JSON.parse(json);
   assert.equal(parsed.exportedAt, '2026-08-26T12:00:00.000Z');

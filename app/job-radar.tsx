@@ -117,7 +117,7 @@ function formatDate(value: string) {
 }
 
 export default function JobRadar() {
-  const [state, setState] = useState<AppState>({ profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [] });
+  const [state, setState] = useState<AppState>({ profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [], account: null });
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>('matches');
   const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
@@ -153,10 +153,14 @@ export default function JobRadar() {
         setState({ ...next, criteria, searchRuns: next.searchRuns ?? [] });
         setCriteriaDraft(criteriaToDraft(criteria));
       })
-      .catch((error: Error) => setScrapeMessage(error.message))
+      .catch((error: Error) => {
+        if (/sign in/i.test(error.message)) window.location.href = '/login';
+        else setScrapeMessage(error.message);
+      })
       .finally(() => setLoading(false));
   }, []);
 
+  const isAdmin = state.account?.role === 'admin';
   const hasAnyCv = state.profiles.some((profile) => profile.hasCvText);
   const primaryProfile = state.profiles.find((profile) => profile.derivedRole);
   const primaryRole = state.criteria.roleKeywords[0]
@@ -356,6 +360,11 @@ export default function JobRadar() {
     }
   }
 
+  async function signOut() {
+    await fetch('/api/auth', { method: 'DELETE' }).catch(() => undefined);
+    window.location.href = '/login';
+  }
+
   async function checkHealth() {
     setHealthBusy(true);
     try {
@@ -544,7 +553,7 @@ export default function JobRadar() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ confirm: 'RESET' }),
       }));
-      setState({ profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [] });
+      setState({ profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [], account: state.account });
       setCriteriaDraft(criteriaToDraft(defaultSearchCriteria));
       setCvSlots({ a: { ...emptySlotState }, b: { ...emptySlotState } });
       setSelectedJobIds([]);
@@ -563,7 +572,12 @@ export default function JobRadar() {
     <main className="shell">
       <header className="topbar">
         <a className="brand" href="#top"><span className="brand-mark">N</span><span><b>Northbound</b><small>English job radar</small></span></a>
-        <nav aria-label="Main navigation"><a className="active" href="#jobs">Matches</a><a href="#profile">My CVs</a><a href="#pipeline">Pipeline</a></nav>
+        <nav aria-label="Main navigation">
+          <a className="active" href="#jobs">Matches</a><a href="#profile">My CVs</a>
+          <Link href="/settings">Settings</Link>
+          {isAdmin && <Link href="/admin">Admin</Link>}
+          <button className="nav-signout" type="button" onClick={signOut}>Sign out</button>
+        </nav>
         <span className="source-pill"><i /> Switzerland + Netherlands</span>
       </header>
 
@@ -644,11 +658,11 @@ export default function JobRadar() {
         <div className="workflow-copy"><span className="section-label coral">Step two</span><h2>Search and screen everywhere</h2><p>One search runs every enabled Swiss and Netherlands adapter, records source failures, removes duplicates, and applies the strict English gate.</p></div>
         <div className="workflow-steps"><span><b>1</b> Search configured sites</span><span><b>2</b> Deduplicate and screen</span><span><b>3</b> Compare source results</span></div>
         <button className="jobs-button" type="button" disabled={!hasAnyCv || Boolean(scrapeBusy)} onClick={() => findJobs('authorized')} title="Official and keyed APIs only (Job-Room, Adzuna, Careerjet). No VPN needed.">
-          {scrapeBusy === 'authorized' ? 'Searching APIs…' : 'Search — VPN off'} <span>⚡</span>
+          {scrapeBusy === 'authorized' ? 'Searching…' : isAdmin ? 'Search — VPN off' : 'Find new jobs'} <span>⚡</span>
         </button>
-        <button className="jobs-button" type="button" disabled={!hasAnyCv || Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Adds the page-fetching sources (jobs.ch, jobup.ch, JobScout24, IamExpat, Undutchables). Connect the VPN first.">
+        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={!hasAnyCv || Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
-        </button>
+        </button>}
         <a className={`jobs-button ${!hasAnyCv ? 'disabled' : ''}`} href={jobsSearchUrl(primaryRole, state.criteria.location)} target={hasAnyCv ? '_blank' : undefined} rel="noreferrer">Open jobs.ch <span>↗</span></a>
         <button className="import-button" type="button" disabled={!hasAnyCv} onClick={openImport}>Analyze a job <span>＋</span></button>
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
