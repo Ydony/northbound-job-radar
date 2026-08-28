@@ -17,3 +17,10 @@ ADZUNA_APP_KEY=
 #   website you registered - see docs/ARCHITECTURE.md 7b.
 #   Free tier: ~1000 requests/hour. Covers Switzerland and Netherlands.
 CAREERJET_API_KEY=
+
+# Careerjet binds the key to the website you registered and enforces it via the
+# Referer header; requests without a matching referrer are refused with HTTP 403.
+CAREERJET_REFERER=
+# Careerjet also requires the end user's IP on every query, and must match a
+# declared "Server IP address" in your partner account.
+CAREERJET_USER_IP=

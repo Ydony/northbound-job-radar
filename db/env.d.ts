@@ -6,5 +6,8 @@ declare namespace Cloudflare {
     ADZUNA_APP_ID?: string;
     ADZUNA_APP_KEY?: string;
     CAREERJET_API_KEY?: string;
+    /** Must match the website registered with Careerjet; they enforce it via the Referer header. */
+    CAREERJET_REFERER?: string;
+    CAREERJET_USER_IP?: string;
   }
 }

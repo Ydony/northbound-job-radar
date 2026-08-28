@@ -9,14 +9,21 @@ import type { JobCountry } from './types';
 export const AGGREGATOR_SNIPPET_NOTE = 'Aggregator listing: the API returns a short teaser, so language evidence is limited.';
 
 const ADZUNA_COUNTRY: Record<Exclude<JobCountry, 'unknown'>, string> = { switzerland: 'ch', netherlands: 'nl' };
-const CAREERJET_LOCALE: Record<Exclude<JobCountry, 'unknown'>, string> = { switzerland: 'en_CH', netherlands: 'en_NL' };
+// Careerjet has no English locale for either market; en_CH, en_NL and it_CH are all rejected as
+// unsupported. de_CH and fr_CH return the same Swiss index, so either works.
+const CAREERJET_LOCALE: Record<Exclude<JobCountry, 'unknown'>, string> = { switzerland: 'de_CH', netherlands: 'nl_NL' };
 const RESULTS_PER_PAGE = 50;
+const CAREERJET_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 
 export interface AggregatorCredentials {
   adzunaAppId?: string;
   adzunaAppKey?: string;
   /** Careerjet v4 API key, sent as the HTTP Basic Auth username with an empty password. */
   careerjetApiKey?: string;
+  /** Careerjet binds a key to one registered publisher site and enforces it via the Referer header. */
+  careerjetReferer?: string;
+  /** Careerjet requires the end user's IP; it rejects the request outright without it. */
+  careerjetUserIp?: string;
 }
 
 interface AdzunaResult {
@@ -97,9 +104,18 @@ export async function searchCareerjet(
       url.searchParams.set('locale_code', CAREERJET_LOCALE[country]);
       url.searchParams.set('pagesize', String(RESULTS_PER_PAGE));
       url.searchParams.set('page', String(page));
+      // Both are mandatory: without them the API answers 403 rather than searching.
+      url.searchParams.set('user_ip', credentials.careerjetUserIp || '127.0.0.1');
+      url.searchParams.set('user_agent', CAREERJET_USER_AGENT);
       if (term.trim()) url.searchParams.set('keywords', term.trim());
       if (location.trim()) url.searchParams.set('location', location.trim());
-      const response = await fetch(url.toString(), { headers: { accept: 'application/json', authorization } });
+      const response = await fetch(url.toString(), {
+        headers: {
+          accept: 'application/json',
+          authorization,
+          referer: credentials.careerjetReferer || 'https://localhost1.com/',
+        },
+      });
       if (!response.ok) {
         const detail = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(`Careerjet request failed (${response.status}${detail?.error ? `: ${detail.error}` : ''}).`);

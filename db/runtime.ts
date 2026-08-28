@@ -111,6 +111,8 @@ export function aggregatorCredentials() {
     adzunaAppId: env.ADZUNA_APP_ID ?? '',
     adzunaAppKey: env.ADZUNA_APP_KEY ?? '',
     careerjetApiKey: env.CAREERJET_API_KEY ?? '',
+    careerjetReferer: env.CAREERJET_REFERER ?? '',
+    careerjetUserIp: env.CAREERJET_USER_IP ?? '',
   };
 }
 
