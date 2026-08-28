@@ -17,6 +17,8 @@ export interface SourceInfo {
 const sources: Record<string, SourceInfo> = {
   'jobs.ch': { key: 'jobs.ch', name: 'jobs.ch', country: 'switzerland' },
   'www.jobs.ch': { key: 'jobs.ch', name: 'jobs.ch', country: 'switzerland' },
+  'job-room.ch': { key: 'job-room.ch', name: 'Job-Room (arbeit.swiss)', country: 'switzerland' },
+  'www.job-room.ch': { key: 'job-room.ch', name: 'Job-Room (arbeit.swiss)', country: 'switzerland' },
   'jobup.ch': { key: 'jobup.ch', name: 'jobup.ch', country: 'switzerland' },
   'www.jobup.ch': { key: 'jobup.ch', name: 'jobup.ch', country: 'switzerland' },
   'jobscout24.ch': { key: 'jobscout24.ch', name: 'JobScout24', country: 'switzerland' },
@@ -106,7 +108,7 @@ export function sourceJobIdFromUrl(value: string) {
   try {
     const url = new URL(value);
     const path = url.pathname.replace(/\/+$/, '');
-    const uuid = path.match(/(?:detail|job)\/([0-9a-f]{8}-[0-9a-f-]{27,})$/i)?.[1];
+    const uuid = path.match(/(?:detail|job|job-search)\/([0-9a-f]{8}-[0-9a-f-]{27,})$/i)?.[1];
     if (uuid) return uuid.toLowerCase();
     if (url.hostname.toLowerCase().includes('indeed.')) return url.searchParams.get('jk') ?? '';
     if (/iamexpat\.nl$/i.test(url.hostname)) return path.split('/').pop() ?? '';

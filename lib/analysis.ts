@@ -26,6 +26,63 @@ export interface FitBySlot {
   missingKeywords: string[];
 }
 
+/** Employer-declared language requirement, as published by sources that expose structured fields (currently Job-Room). */
+export interface StructuredLanguageSkill {
+  languageIsoCode: string;
+  spokenLevel: string | null;
+  writtenLevel: string | null;
+}
+
+const languageLevelRank: Record<string, number> = { NONE: 0, BASIC: 1, INTERMEDIATE: 2, PROFICIENT: 3 };
+const workingLevel = languageLevelRank.INTERMEDIATE;
+const localIsoCodes: Record<string, string> = { de: 'German', fr: 'French', it: 'Italian', nl: 'Dutch' };
+
+function highestLevel(skill: StructuredLanguageSkill) {
+  return Math.max(languageLevelRank[skill.spokenLevel ?? 'NONE'] ?? 0, languageLevelRank[skill.writtenLevel ?? 'NONE'] ?? 0);
+}
+
+/**
+ * Employer-declared requirements beat prose heuristics, so this takes precedence when a source
+ * publishes them. Returns null when nothing is declared, letting `analyzeLanguage` run instead.
+ * An ad can be written in German while only requiring English, which the prose gate cannot tell.
+ */
+export function analyzeStructuredLanguages(skills: StructuredLanguageSkill[]): LanguageResult | null {
+  const declared = skills.filter((skill) => skill.languageIsoCode && highestLevel(skill) > 0);
+  if (!declared.length) return null;
+
+  const required = declared.filter((skill) => highestLevel(skill) >= workingLevel);
+  const requiredLocal = required
+    .filter((skill) => localIsoCodes[skill.languageIsoCode.toLowerCase()])
+    .map((skill) => localIsoCodes[skill.languageIsoCode.toLowerCase()]);
+  const englishLevel = Math.max(0, ...declared
+    .filter((skill) => skill.languageIsoCode.toLowerCase() === 'en')
+    .map(highestLevel));
+  const signals = [`Employer-declared: ${declared
+    .map((skill) => `${localIsoCodes[skill.languageIsoCode.toLowerCase()] ?? skill.languageIsoCode.toUpperCase()} ${
+      skill.spokenLevel ?? skill.writtenLevel ?? 'NONE'}`)
+    .join(', ')}`];
+
+  if (requiredLocal.length) {
+    return {
+      status: 'blocked',
+      summary: `Excluded: the employer requires ${[...new Set(requiredLocal)].join(', ')} at working level.`,
+      signals,
+    };
+  }
+  if (englishLevel >= workingLevel) {
+    return {
+      status: 'pass',
+      summary: 'English is sufficient; the employer lists English and no local language at working level.',
+      signals,
+    };
+  }
+  return {
+    status: 'review',
+    summary: 'Needs review: the employer lists no local language at working level, but does not list English either.',
+    signals,
+  };
+}
+
 const localLanguages = ['german', 'french', 'italian', 'dutch', 'deutsch', 'français', 'francais', 'italiano', 'nederlands'];
 const languagePattern = localLanguages.join('|');
 

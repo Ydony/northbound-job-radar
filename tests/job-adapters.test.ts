@@ -87,3 +87,15 @@ test('extracts normalized candidates through the enabled source adapters', async
     'https://www.jobscout24.ch/en/job/33333333-3333-3333-3333-333333333333/',
   ]);
 });
+
+test('adapter keys are unique so per-source run rows never collide', () => {
+  const keys = jobSourceAdapters.map((adapter) => adapter.key);
+  assert.equal(new Set(keys).size, keys.length, `duplicate adapter key: ${keys.join(', ')}`);
+});
+
+test('enabled adapters can either fetch details per job or return them in bulk', () => {
+  for (const adapter of jobSourceAdapters.filter((entry) => entry.availability === 'enabled')) {
+    assert.ok(adapter.searchDetailed || (adapter.search && adapter.fetchDetail),
+      `${adapter.key} is enabled but cannot produce jobs`);
+  }
+});

@@ -1,3 +1,5 @@
+import { searchAdzuna, searchCareerjet, type AggregatorCredentials } from './job-aggregators';
+import { searchJobRoom } from './job-room';
 import { delay, extractJobPosting, interleaveUnique, stripHtml, type ParsedJob } from './jobsch';
 import type { JobCountry, SourceRunStatus } from './types';
 
@@ -12,6 +14,10 @@ export interface JobSourceAdapter {
   availabilityMessage: string;
   search?: (terms: string[], location: string) => Promise<string[]>;
   fetchDetail?: (url: string) => Promise<ParsedJob | null>;
+  /** Sources whose search response already carries whole advertisements: one request yields many jobs, with no per-job fetch. */
+  searchDetailed?: (terms: string[], location: string, credentials: AggregatorCredentials) => Promise<ParsedJob[]>;
+  /** Keyed integrations report themselves unavailable until the user supplies free credentials. */
+  hasCredentials?: (credentials: AggregatorCredentials) => boolean;
 }
 
 async function fetchHtml(url: string, sourceName: string) {
@@ -177,6 +183,35 @@ const jobScoutSearch = jobCloudSearchAdapter({
 
 export const jobSourceAdapters: JobSourceAdapter[] = [
   {
+    key: 'job-room.ch', name: 'Job-Room (arbeit.swiss)', country: 'switzerland', availability: 'enabled',
+    availabilityMessage: 'Official Swiss public employment service; unauthenticated public search API with employer-declared language requirements.',
+    searchDetailed: (terms) => searchJobRoom(terms),
+  },
+  {
+    key: 'adzuna-ch', name: 'Adzuna Switzerland', country: 'switzerland', availability: 'enabled',
+    availabilityMessage: 'Authorized aggregator API. Add a free ADZUNA_APP_ID and ADZUNA_APP_KEY to enable it.',
+    searchDetailed: (terms, location, credentials) => searchAdzuna(terms, location, 'switzerland', credentials),
+    hasCredentials: (credentials) => Boolean(credentials.adzunaAppId && credentials.adzunaAppKey),
+  },
+  {
+    key: 'adzuna-nl', name: 'Adzuna Netherlands', country: 'netherlands', availability: 'enabled',
+    availabilityMessage: 'Authorized aggregator API. Add a free ADZUNA_APP_ID and ADZUNA_APP_KEY to enable it.',
+    searchDetailed: (terms, location, credentials) => searchAdzuna(terms, location, 'netherlands', credentials),
+    hasCredentials: (credentials) => Boolean(credentials.adzunaAppId && credentials.adzunaAppKey),
+  },
+  {
+    key: 'careerjet-ch', name: 'Careerjet Switzerland', country: 'switzerland', availability: 'enabled',
+    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_AFFID to enable it.',
+    searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'switzerland', credentials),
+    hasCredentials: (credentials) => Boolean(credentials.careerjetAffiliateId),
+  },
+  {
+    key: 'careerjet-nl', name: 'Careerjet Netherlands', country: 'netherlands', availability: 'enabled',
+    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_AFFID to enable it.',
+    searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'netherlands', credentials),
+    hasCredentials: (credentials) => Boolean(credentials.careerjetAffiliateId),
+  },
+  {
     key: 'jobs.ch', name: 'jobs.ch', country: 'switzerland', availability: 'enabled',
     availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
     search: jobsChSearch,
@@ -213,10 +248,6 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'indeed-ch', name: 'Indeed Switzerland', country: 'switzerland', availability: 'blocked',
     availabilityMessage: 'Not searched: Indeed prohibits automated access without written permission and returned HTTP 403.',
-  },
-  {
-    key: 'job-room.ch', name: 'Job-Room', country: 'switzerland', availability: 'unavailable',
-    availabilityMessage: 'Not searched: the published API is for employers posting jobs, not public job-seeker search.',
   },
   {
     key: 'indeed-nl', name: 'Indeed Netherlands', country: 'netherlands', availability: 'blocked',

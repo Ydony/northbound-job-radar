@@ -105,6 +105,15 @@ export function bindings() {
   return { db: env.DB, files: env.CV_FILES };
 }
 
+/** Optional free aggregator keys. Missing values leave the matching sources reported as unavailable rather than failing a run. */
+export function aggregatorCredentials() {
+  return {
+    adzunaAppId: env.ADZUNA_APP_ID ?? '',
+    adzunaAppKey: env.ADZUNA_APP_KEY ?? '',
+    careerjetAffiliateId: env.CAREERJET_AFFID ?? '',
+  };
+}
+
 export function ensureSchema() {
   if (!schemaReady) {
     const { db } = bindings();

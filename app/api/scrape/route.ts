@@ -1,14 +1,23 @@
 import { NextResponse } from 'next/server';
-import { bindings, ensureSchema } from '@/db/runtime';
-import { analyzeLanguage, scoreFitAcrossCvs } from '@/lib/analysis';
+import { aggregatorCredentials, bindings, ensureSchema } from '@/db/runtime';
+import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
 import { descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS, sourceStatusForAvailability } from '@/lib/job-adapters';
 import { canonicalJobUrl, isGloballyStableSourceJobId, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
-import { delay, stripHtml } from '@/lib/jobsch';
+import { delay, stripHtml, type ParsedJob } from '@/lib/jobsch';
 import { roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
 import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
 import type { CvSlot, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
 
+/** Page-fetching sources cost one request per job, so they stay tightly capped. */
 const MAX_NEW_PER_SOURCE = 4;
+/** Bulk API sources return whole advertisements in the search response, so a far larger batch costs only a few requests. */
+const MAX_NEW_PER_BULK_SOURCE = 200;
+
+/** Employer-declared requirements are more reliable than prose, so they win when a source publishes them. */
+function languageForParsedJob(parsed: ParsedJob, description: string): LanguageResult {
+  const skills = (parsed as { languageSkills?: Parameters<typeof analyzeStructuredLanguages>[0] }).languageSkills;
+  return (skills && analyzeStructuredLanguages(skills)) || analyzeLanguage(description);
+}
 
 interface KnownIdentity {
   source_key: string;
@@ -71,15 +80,23 @@ export async function POST() {
   ]);
   const known = [...jobIdentities.results, ...dismissedIdentities.results];
 
+  const credentials = aggregatorCredentials();
   const searchResults = await Promise.all(jobSourceAdapters.map(async (adapter) => {
-    if (adapter.availability !== 'enabled' || !adapter.search) {
-      return { adapter, candidates: [] as string[], error: '' };
+    const empty = { adapter, candidates: [] as string[], bulk: [] as ParsedJob[], error: '', missingCredentials: false };
+    if (adapter.availability !== 'enabled') return empty;
+    if (adapter.hasCredentials && !adapter.hasCredentials(credentials)) {
+      return { ...empty, missingCredentials: true };
     }
     try {
+      if (adapter.searchDetailed) {
+        const bulk = await adapter.searchDetailed(searchTerms, criteria.location, credentials);
+        return { ...empty, bulk, candidates: bulk.map((job) => canonicalJobUrl(job.sourceUrl)) };
+      }
+      if (!adapter.search) return empty;
       const candidates = [...new Set((await adapter.search(searchTerms, criteria.location)).map(canonicalJobUrl))];
-      return { adapter, candidates, error: '' };
+      return { ...empty, candidates };
     } catch (error) {
-      return { adapter, candidates: [] as string[], error: error instanceof Error ? error.message : 'Source request failed.' };
+      return { ...empty, error: error instanceof Error ? error.message : 'Source request failed.' };
     }
   }));
 
@@ -87,7 +104,24 @@ export async function POST() {
   const sourceReports: SearchRunSource[] = [];
 
   for (const result of searchResults) {
-    const { adapter, candidates, error } = result;
+    const { adapter, candidates, bulk, error, missingCredentials } = result;
+    if (missingCredentials) {
+      sourceReports.push({
+        sourceKey: adapter.key,
+        sourceName: adapter.name,
+        country: adapter.country,
+        status: 'unavailable',
+        rolesSearched: [],
+        foundCount: 0,
+        knownCount: 0,
+        newCount: 0,
+        importedCount: 0,
+        duplicateCount: 0,
+        skippedCount: 0,
+        message: adapter.availabilityMessage,
+      });
+      continue;
+    }
     if (adapter.availability !== 'enabled') {
       sourceReports.push({
         sourceKey: adapter.key,
@@ -105,7 +139,8 @@ export async function POST() {
       });
       continue;
     }
-    if (error || !adapter.fetchDetail) {
+    const isBulk = Boolean(adapter.searchDetailed);
+    if (error || (!isBulk && !adapter.fetchDetail)) {
       sourceReports.push({
         sourceKey: adapter.key,
         sourceName: adapter.name,
@@ -123,27 +158,35 @@ export async function POST() {
       continue;
     }
 
+    const bulkByUrl = new Map(bulk.map((job) => [canonicalJobUrl(job.sourceUrl), job]));
     const knownCount = candidates.filter((url) => isKnownUrl(url, known)).length;
     const newCandidates = candidates.filter((url) => !isKnownUrl(url, known));
-    const attempted = newCandidates.slice(0, MAX_NEW_PER_SOURCE);
+    const attempted = newCandidates.slice(0, isBulk ? MAX_NEW_PER_BULK_SOURCE : MAX_NEW_PER_SOURCE);
     let importedCount = 0;
     let duplicateCount = 0;
-    let skippedCount = newCandidates.length - attempted.length;
+    // Deferring candidates because of the per-run cap is normal; only real parse/filter failures make a run partial.
+    const deferredCount = newCandidates.length - attempted.length;
+    let failedCount = 0;
 
     for (const [index, url] of attempted.entries()) {
-      if (index > 0) await delay(REQUEST_DELAY_MS);
-      const parsed = await adapter.fetchDetail(url);
+      let parsed: ParsedJob | null;
+      if (isBulk) {
+        parsed = bulkByUrl.get(url) ?? null;
+      } else {
+        if (index > 0) await delay(REQUEST_DELAY_MS);
+        parsed = await adapter.fetchDetail!(url);
+      }
       if (!parsed) {
-        skippedCount += 1;
+        failedCount += 1;
         continue;
       }
       const description = stripHtml(parsed.descriptionHtml);
       const parsedCountry = sourceInfoForUrl(parsed.sourceUrl, parsed.location).country;
       if (description.length < 160 || parsedCountry !== adapter.country || !descriptionMatchesRoles(parsed, searchTerms)) {
-        skippedCount += 1;
+        failedCount += 1;
         continue;
       }
-      const language = analyzeLanguage(description);
+      const language = languageForParsedJob(parsed, description);
       const fit = scoreFitAcrossCvs(description, parsed.title, cvs);
       const stored = await upsertJob(db, {
         sourceUrl: parsed.sourceUrl,
@@ -174,17 +217,19 @@ export async function POST() {
       sourceKey: adapter.key,
       sourceName: adapter.name,
       country: adapter.country,
-      status: skippedCount ? 'partial' : 'complete',
+      status: failedCount ? 'partial' : 'complete',
       rolesSearched: searchTerms,
       foundCount: candidates.length,
       knownCount,
       newCount: newCandidates.length,
       importedCount,
       duplicateCount,
-      skippedCount,
-      message: skippedCount
-        ? `${adapter.availabilityMessage} ${skippedCount} new candidate${skippedCount === 1 ? '' : 's'} were deferred or could not be parsed.`
-        : adapter.availabilityMessage,
+      skippedCount: deferredCount + failedCount,
+      message: [
+        adapter.availabilityMessage,
+        deferredCount ? `${deferredCount} further new listing${deferredCount === 1 ? '' : 's'} deferred to the next run by the per-run cap.` : '',
+        failedCount ? `${failedCount} listing${failedCount === 1 ? '' : 's'} could not be parsed or did not match the search.` : '',
+      ].filter(Boolean).join(' '),
     });
   }
 

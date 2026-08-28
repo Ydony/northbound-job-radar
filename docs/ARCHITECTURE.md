@@ -200,6 +200,44 @@ both a copied existing `.wrangler/` state and a fresh state. The 2026-08-27 mult
 upgrade followed this process: all 18 local state files were copied before migration and
 the two CV profiles plus 48 jobs survived. Do not reset `.wrangler/` as a migration shortcut.
 
+## 7b. Authorized high-volume sources (2026-08-28)
+
+Page-fetching adapters cost one request per job and are capped at four new jobs per source per
+run, which limits discovery badly. Three API sources were added that return whole advertisements
+in the search response, so a run costs a few requests instead of hundreds. These are capped at
+200 new jobs per source per run (`MAX_NEW_PER_BULK_SOURCE`).
+
+**Job-Room (`lib/job-room.ts`)** is the most important of the three. It is the official Swiss
+public employment service (SECO / arbeit.swiss). Its Angular front end calls an unauthenticated
+public JSON search API, which this adapter uses directly:
+`POST https://www.job-room.ch/jobadservice/api/jobAdvertisements/_search?page=N&size=100`.
+It exposes 67,000+ live Swiss vacancies, and since 2018 shortage-occupation roles must be posted
+there before anywhere else. Unlike jobs.ch, its `robots.txt` does not disallow the API path — but
+that file's comment reads "Do not crawl Job Adverts", so this is materially cleaner than the
+jobs.ch adapter without being an explicit grant. Re-check before increasing volume.
+
+Job-Room publishes **employer-declared `languageSkills`** (ISO code plus spoken/written level from
+`NONE | BASIC | INTERMEDIATE | PROFICIENT`). `analyzeStructuredLanguages` in `lib/analysis.ts`
+consumes these and takes precedence over the prose heuristic, because a declared requirement is
+stronger evidence than inferred wording. It matters in both directions: an advertisement written
+in German may only require English, which the prose gate cannot tell. The rules are conservative —
+any local language at INTERMEDIATE or above blocks; English at INTERMEDIATE or above with no local
+requirement passes; anything else goes to review. Listed languages with null levels are not
+treated as requirements, so those ads fall back to prose analysis.
+
+**Adzuna and Careerjet** are authorized aggregator APIs covering both Switzerland and the
+Netherlands. Both need free credentials (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`, `CAREERJET_AFFID`) and
+report themselves `unavailable` with setup instructions until those are set — a missing key never
+fails a run. Note their APIs return short teaser descriptions, so their jobs will usually land in
+review rather than pass; they are best understood as discovery breadth, not language evidence.
+
+Two dead ends were confirmed and should not be re-investigated without new information: werk.nl /
+UWV (the Dutch public employment service) publishes only aggregated open data and has no vacancy
+API, and recruitment agencies were measured directly — ten major CH/NL agencies yielded twelve
+jobs in total across Greenhouse, Lever, Recruitee, SmartRecruiters and Personio, because agencies
+use those platforms for their own internal hiring while client vacancies sit in closed recruitment
+CRMs. The same ATS endpoints are rich for direct employers.
+
 ## 8. Known risks and missing production controls
 
 - The three enabled JobCloud adapters are unsanctioned (§2). Realistic consequences include

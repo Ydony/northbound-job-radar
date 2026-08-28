@@ -1,6 +1,32 @@
 # Handover
 
-Last updated: 2026-08-28 after live-verifying and correcting the automatic multi-source iteration.
+Last updated: 2026-08-28 after adding authorized high-volume API sources (Job-Room, Adzuna,
+Careerjet) and employer-declared language screening.
+
+## 0. Most recent change: authorized bulk sources
+
+Discovery was limited by page-fetching adapters costing one request per job (four new jobs per
+source per run). Three API-based sources now return whole advertisements in the search response:
+
+- **Job-Room (arbeit.swiss)** — official Swiss public employment service, unauthenticated public
+  search API, 67,000+ vacancies, and **employer-declared language requirements** that now take
+  precedence over the prose heuristic. No key needed; live and working.
+- **Adzuna** and **Careerjet** (CH + NL) — authorized aggregator APIs. Both are wired and report
+  `unavailable` with setup instructions until free credentials are set. **To enable them, add
+  `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` and `CAREERJET_AFFID`** — sign-up is free at
+  developer.adzuna.com and careerjet.com/partners/api. Their descriptions are teasers, so expect
+  their jobs to land in review rather than pass.
+
+Measured live result of one run: the workspace went from **77 to 250 jobs**, scanning 799
+candidates (590 from Job-Room alone) versus roughly 90 before. See `docs/ARCHITECTURE.md` §7b.
+
+Do not re-investigate two confirmed dead ends: werk.nl/UWV has no vacancy API, and recruitment
+agencies yielded 12 jobs across 10 major CH/NL firms because their ATS boards carry only internal
+hiring. Detail and reasoning are in §7b.
+
+## 0b. Earlier state (still current)
+
+Last verified 2026-08-28 after live-verifying and correcting the automatic multi-source iteration.
 
 Read this first, use `docs/TASKS.md` for current execution status, then read `README.md`, `docs/ARCHITECTURE.md`, and `AGENTS.md`.
 
