@@ -6,7 +6,7 @@ import { jobsToCsv, workspaceToJson } from '@/lib/export';
 import { countryLabel } from '@/lib/job-identity';
 import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
-import { workplaceLabel } from '@/lib/workplace';
+import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, ApplicationStatus, CvSlot, JobCountry, JobRecord, SearchCriteria,
@@ -122,6 +122,7 @@ export default function JobRadar() {
   const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
   const [applicationFilter, setApplicationFilter] = useState<ApplicationFilter>('all');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [workTypeFilter, setWorkTypeFilter] = useState<'all' | WorkplaceType>('all');
   const [cvSlots, setCvSlots] = useState<Record<CvSlot, SlotState>>({ a: { ...emptySlotState }, b: { ...emptySlotState } });
   const [importData, setImportData] = useState(emptyImport);
   const [importBusy, setImportBusy] = useState(false);
@@ -172,20 +173,50 @@ export default function JobRadar() {
     dismissed: state.jobs.filter((job) => job.visibilityStatus === 'dismissed').length,
   }), [criteriaFilteredJobs, state.jobs]);
 
-  const visibleJobs = useMemo(() => state.jobs.filter((job) => {
+  const passesView = useMemo(() => (job: JobRecord) => {
     const matchesCriteria = matchesSearchCriteria(job, state.criteria);
     const languageStatus = effectiveLanguageStatus(job);
-    const matchesCountry = countryFilter === 'all' || job.country === countryFilter;
-    const matchesApplication = applicationFilter === 'all' || job.applicationStatus === applicationFilter;
-    const matchesSource = sourceFilter === 'all' || job.sourceKey === sourceFilter;
-    if (!matchesCountry || !matchesApplication || !matchesSource) return false;
     if (view === 'dismissed') return job.visibilityStatus === 'dismissed';
     if (job.visibilityStatus !== 'active') return false;
     if (view === 'matches') return matchesCriteria && languageStatus === 'pass';
     if (view === 'review') return matchesCriteria && languageStatus === 'review';
     if (view === 'pipeline') return job.isSaved || job.applicationStatus === 'applied';
     return matchesCriteria;
-  }).sort((a, b) => bestFitScore(b) - bestFitScore(a)), [applicationFilter, countryFilter, sourceFilter, state.criteria, state.jobs, view]);
+  }, [state.criteria, view]);
+
+  /**
+   * Facet counts: each dimension is counted with every *other* filter applied, so a number shows
+   * what selecting that option would actually return rather than a total that may be unreachable.
+   */
+  const facets = useMemo(() => {
+    const inView = state.jobs.filter(passesView);
+    const byCountry = (job: JobRecord) => countryFilter === 'all' || job.country === countryFilter;
+    const byApplication = (job: JobRecord) => applicationFilter === 'all' || job.applicationStatus === applicationFilter;
+    const bySource = (job: JobRecord) => sourceFilter === 'all' || job.sourceKey === sourceFilter;
+    const byWorkType = (job: JobRecord) => workTypeFilter === 'all' || job.workplaceType === workTypeFilter;
+    const except = (skip: 'country' | 'application' | 'source' | 'workType') => inView.filter((job) =>
+      (skip === 'country' || byCountry(job))
+      && (skip === 'application' || byApplication(job))
+      && (skip === 'source' || bySource(job))
+      && (skip === 'workType' || byWorkType(job)));
+    const tally = <T extends string>(jobs: JobRecord[], pick: (job: JobRecord) => T) => {
+      const counts = new Map<string, number>();
+      for (const job of jobs) counts.set(pick(job), (counts.get(pick(job)) ?? 0) + 1);
+      return { all: jobs.length, get: (key: string) => counts.get(key) ?? 0 };
+    };
+    return {
+      country: tally(except('country'), (job) => job.country),
+      application: tally(except('application'), (job) => job.applicationStatus),
+      source: tally(except('source'), (job) => job.sourceKey),
+      workType: tally(except('workType'), (job) => job.workplaceType),
+      visible: inView.filter((job) => byCountry(job) && byApplication(job) && bySource(job) && byWorkType(job)),
+    };
+  }, [applicationFilter, countryFilter, passesView, sourceFilter, state.jobs, workTypeFilter]);
+
+  const visibleJobs = useMemo(
+    () => [...facets.visible].sort((a, b) => bestFitScore(b) - bestFitScore(a)),
+    [facets.visible],
+  );
 
   const sourceOptions = useMemo(() => [...new Map(state.jobs.map((job) => [job.sourceKey, job.sourceName])).entries()]
     .sort((a, b) => a[1].localeCompare(b[1])), [state.jobs]);
@@ -698,14 +729,20 @@ export default function JobRadar() {
             <button className={view === 'dismissed' ? 'active' : ''} onClick={() => setView('dismissed')}><span>Dismissed</span><i>{counts.dismissed}</i></button>
             <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><span>All matching</span><i>{criteriaFilteredJobs.filter((job) => job.visibilityStatus === 'active').length}</i></button>
             <b className="filter-group">Country</b>
-            <button className={countryFilter === 'all' ? 'active' : ''} onClick={() => setCountryFilter('all')}><span>All countries</span></button>
-            <button className={countryFilter === 'switzerland' ? 'active' : ''} onClick={() => setCountryFilter('switzerland')}><span>Switzerland</span></button>
-            <button className={countryFilter === 'netherlands' ? 'active' : ''} onClick={() => setCountryFilter('netherlands')}><span>Netherlands</span></button>
+            <button className={countryFilter === 'all' ? 'active' : ''} onClick={() => setCountryFilter('all')}><span>All countries</span><i>{facets.country.all}</i></button>
+            <button className={countryFilter === 'switzerland' ? 'active' : ''} onClick={() => setCountryFilter('switzerland')}><span>Switzerland</span><i>{facets.country.get('switzerland')}</i></button>
+            <button className={countryFilter === 'netherlands' ? 'active' : ''} onClick={() => setCountryFilter('netherlands')}><span>Netherlands</span><i>{facets.country.get('netherlands')}</i></button>
+            <b className="filter-group">Work type</b>
+            <button className={workTypeFilter === 'all' ? 'active' : ''} onClick={() => setWorkTypeFilter('all')}><span>Any work type</span><i>{facets.workType.all}</i></button>
+            <button className={workTypeFilter === 'remote' ? 'active' : ''} onClick={() => setWorkTypeFilter('remote')}><span>Remote</span><i>{facets.workType.get('remote')}</i></button>
+            <button className={workTypeFilter === 'hybrid' ? 'active' : ''} onClick={() => setWorkTypeFilter('hybrid')}><span>Hybrid</span><i>{facets.workType.get('hybrid')}</i></button>
+            <button className={workTypeFilter === 'onsite' ? 'active' : ''} onClick={() => setWorkTypeFilter('onsite')}><span>On-site</span><i>{facets.workType.get('onsite')}</i></button>
+            <button className={workTypeFilter === 'unknown' ? 'active' : ''} onClick={() => setWorkTypeFilter('unknown')}><span>Not stated</span><i>{facets.workType.get('unknown')}</i></button>
             <b className="filter-group">Application</b>
-            <button className={applicationFilter === 'all' ? 'active' : ''} onClick={() => setApplicationFilter('all')}><span>All states</span></button>
-            <button className={applicationFilter === 'applied' ? 'active' : ''} onClick={() => setApplicationFilter('applied')}><span>Applied</span></button>
-            <button className={applicationFilter === 'not_applied' ? 'active' : ''} onClick={() => setApplicationFilter('not_applied')}><span>Not applied</span></button>
-            {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites</option>{sourceOptions.map(([key, name]) => <option value={key} key={key}>{name}</option>)}</select></label>}
+            <button className={applicationFilter === 'all' ? 'active' : ''} onClick={() => setApplicationFilter('all')}><span>All states</span><i>{facets.application.all}</i></button>
+            <button className={applicationFilter === 'applied' ? 'active' : ''} onClick={() => setApplicationFilter('applied')}><span>Applied</span><i>{facets.application.get('applied')}</i></button>
+            <button className={applicationFilter === 'not_applied' ? 'active' : ''} onClick={() => setApplicationFilter('not_applied')}><span>Not applied</span><i>{facets.application.get('not_applied')}</i></button>
+            {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites ({facets.source.all})</option>{sourceOptions.map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
           </aside>
           <div className="job-list">
             {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Run Search all job sites, change the filters, or analyze a public advert manually.' : 'Upload a CV to unlock search, screening and match scores.'}</p>{hasAnyCv && <button type="button" onClick={openImport}>Analyze a job</button>}</div>}
