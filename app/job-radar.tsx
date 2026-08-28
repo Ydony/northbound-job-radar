@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
 import { jobsToCsv, workspaceToJson } from '@/lib/export';
@@ -793,7 +794,7 @@ export default function JobRadar() {
         </div>
       </section>
 
-      <footer><b>Northbound MVP</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#sources">Source report ↑</a></footer>
+      <footer><b>Ik Engels</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#sources">Source report ↑</a><Link href="/sources">Where the jobs come from →</Link></footer>
     </main>
   );
 }
