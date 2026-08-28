@@ -19,24 +19,31 @@ test('rejects the wrong password and any malformed stored hash', async () => {
   assert.equal(await verifyPassword('x', 'pbkdf2$1$AAAA$AAAA'), false, 'must reject a low iteration count');
 });
 
-test('a session round-trips its owner and nothing else', async () => {
-  const value = await createSessionValue('user-1', 'secret');
-  assert.equal(await readSessionValue(value, 'secret'), 'user-1');
+test('a session round-trips its owner and epoch', async () => {
+  const value = await createSessionValue('user-1', 'secret', 3);
+  assert.deepEqual(await readSessionValue(value, 'secret'), { userId: 'user-1', epoch: 3 });
+});
+
+test('a cookie issued before the epoch was raised is distinguishable', async () => {
+  // The guard compares this epoch against the account, which is what makes revocation possible.
+  const old = await readSessionValue(await createSessionValue('user-1', 'secret', 1), 'secret');
+  const now = await readSessionValue(await createSessionValue('user-1', 'secret', 2), 'secret');
+  assert.notEqual(old?.epoch, now?.epoch);
 });
 
 test('a tampered or foreign-signed cookie yields no user', async () => {
   const value = await createSessionValue('user-1', 'secret');
-  // Swapping the user id must invalidate the signature rather than switching accounts.
-  const swapped = value.replace('user-1', 'user-2');
-  assert.equal(await readSessionValue(swapped, 'secret'), '');
-  assert.equal(await readSessionValue(value, 'different-secret'), '');
-  assert.equal(await readSessionValue('garbage', 'secret'), '');
-  assert.equal(await readSessionValue('', 'secret'), '');
+  // Swapping the user id or the epoch must invalidate the signature rather than take effect.
+  assert.equal(await readSessionValue(value.replace('user-1', 'user-2'), 'secret'), null);
+  assert.equal(await readSessionValue(value.replace(':1:', ':99:'), 'secret'), null);
+  assert.equal(await readSessionValue(value, 'different-secret'), null);
+  assert.equal(await readSessionValue('garbage', 'secret'), null);
+  assert.equal(await readSessionValue('', 'secret'), null);
 });
 
 test('an expired session is refused', async () => {
-  const value = await createSessionValue('user-1', 'secret', Date.now() - 30 * 24 * 60 * 60 * 1000);
-  assert.equal(await readSessionValue(value, 'secret'), '');
+  const value = await createSessionValue('user-1', 'secret', 1, Date.now() - 30 * 24 * 60 * 60 * 1000);
+  assert.equal(await readSessionValue(value, 'secret'), null);
 });
 
 test('the session cookie is not reachable from scripts or other sites', () => {

@@ -1,4 +1,8 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
+import { authSecrets, bindings, ensureSchema } from '@/db/runtime';
+import { readSessionValue } from '@/lib/auth';
+import { findUserById } from '@/lib/users';
 import { atsCompanies } from '@/lib/ats-feeds';
 import { collectionPrinciples, POLICIES_VERIFIED_ON, sourcePolicies, stanceLabel } from '@/lib/source-policies';
 
@@ -9,13 +13,36 @@ export const metadata = {
 
 const groups = ['Authorized APIs', 'Page-fetched sites', 'Not used'] as const;
 
+/**
+ * Page fetching is an administrator-only capability, so its section is shown only to a signed-in
+ * administrator. Ordinary visitors see the sources their own searches actually use; listing the
+ * rest to them would describe something they can neither trigger nor benefit from.
+ */
+async function viewerIsAdmin() {
+  try {
+    await ensureSchema();
+    const cookie = (await headers()).get('cookie') ?? '';
+    const value = cookie.split(';').map((part) => part.trim())
+      .find((part) => part.startsWith('ike_session='))?.slice('ike_session='.length) ?? '';
+    const claims = await readSessionValue(value, authSecrets().sessionSecret);
+    if (!claims) return false;
+    const row = await findUserById(bindings().db, claims.userId);
+    if (!row || (row.session_epoch ?? 1) !== claims.epoch) return false;
+    return row.role === 'admin' && row.status === 'active';
+  } catch {
+    return false;
+  }
+}
+
 const groupBlurb: Record<(typeof groups)[number], string> = {
   'Authorized APIs': 'Official or keyed interfaces, used the way they are published. These run in the default search and need no VPN.',
   'Page-fetched sites': 'Public web pages read as HTML. These run only under the explicit "Search all" action, and the position on each one is stated plainly below.',
   'Not used': 'Sources deliberately left alone, and why. They appear in the app marked blocked or unavailable so an empty result is never mistaken for "no jobs found".',
 };
 
-export default function SourcesPage() {
+export default async function SourcesPage() {
+  const isAdmin = await viewerIsAdmin();
+  const visibleGroups = groups.filter((group) => group !== 'Page-fetched sites' || isAdmin);
   return (
     <main className="shell">
       <header className="topbar">
@@ -41,7 +68,7 @@ export default function SourcesPage() {
         <ul>{collectionPrinciples.map((line) => <li key={line}>{line}</li>)}</ul>
       </section>
 
-      {groups.map((group) => (
+      {visibleGroups.map((group) => (
         <section className="policy-group" key={group}>
           <div className="policy-group-head">
             <h2>{group}</h2>

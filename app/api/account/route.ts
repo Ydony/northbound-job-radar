@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { authSecrets, ensureSchema } from '@/db/runtime';
 import { createSessionValue, hashPassword, sessionCookie, verifyPassword } from '@/lib/auth';
 import { rateLimit, requireSession } from '@/lib/guard';
-import { findUserByEmail, isValidEmail, normalizeEmail, passwordProblem } from '@/lib/users';
+import { findUserById, findUserByEmail, isValidEmail, normalizeEmail, passwordProblem, revokeSessions } from '@/lib/users';
 
 function isSecureRequest(request: Request) {
   return new URL(request.url).protocol === 'https:'
@@ -64,8 +64,11 @@ export async function PATCH(request: Request) {
   // Any outstanding reset links become useless once the password changes.
   await db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(user.id).run();
 
+  // Changing the password signs out every other device, then re-issues a cookie for this one.
+  await revokeSessions(db, user.id);
+  const fresh = await findUserById(db, user.id);
   const { sessionSecret } = authSecrets();
-  const refreshed = await createSessionValue(user.id, sessionSecret);
+  const refreshed = await createSessionValue(user.id, sessionSecret, fresh?.session_epoch ?? 1);
   return NextResponse.json({ ok: true }, {
     headers: { 'set-cookie': sessionCookie(refreshed, isSecureRequest(request)) },
   });

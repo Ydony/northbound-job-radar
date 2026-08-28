@@ -10,6 +10,7 @@ export interface UserRecord {
   status: UserStatus;
   createdAt: string;
   lastSeenAt: string;
+  sessionEpoch: number;
 }
 
 interface UserRow {
@@ -20,6 +21,7 @@ interface UserRow {
   status: UserStatus;
   created_at: string;
   last_seen_at: string;
+  session_epoch?: number;
 }
 
 export function userFromRow(row: UserRow): UserRecord {
@@ -30,6 +32,7 @@ export function userFromRow(row: UserRow): UserRecord {
     status: row.status === 'disabled' ? 'disabled' : 'active',
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
+    sessionEpoch: row.session_epoch ?? 1,
   };
 }
 
@@ -110,6 +113,11 @@ export async function authenticate(db: D1Database, email: string, password: stri
 
 export async function touchLastSeen(db: D1Database, id: string, now = new Date().toISOString()) {
   await db.prepare('UPDATE users SET last_seen_at = ? WHERE id = ?').bind(now, id).run();
+}
+
+/** Raises the epoch so every cookie already issued to this account stops working. */
+export async function revokeSessions(db: D1Database, userId: string) {
+  await db.prepare('UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?').bind(userId).run();
 }
 
 export async function listUsers(db: D1Database) {

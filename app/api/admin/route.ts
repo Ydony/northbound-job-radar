@@ -3,13 +3,19 @@ import { authSecrets, ensureSchema } from '@/db/runtime';
 import { hashPassword } from '@/lib/auth';
 import { readDailyVisits } from '@/lib/analytics';
 import { requireSession } from '@/lib/guard';
-import { listUsers, type UserRecord } from '@/lib/users';
+import { listUsers, revokeSessions, type UserRecord } from '@/lib/users';
 
 export interface AdminOverview {
   users: (UserRecord & { jobCount: number; cvCount: number })[];
   visits: { day: string; totalVisits: number; uniqueVisitors: number }[];
   totals: { users: number; admins: number; jobs: number };
   signupsOpen: boolean;
+}
+
+/** Administrative actions are recorded so account changes are attributable after the fact. */
+async function recordAdminAction(db: D1Database, actorEmail: string, targetEmail: string, action: string) {
+  await db.prepare('INSERT INTO auth_events (id, email, ip, kind, created_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(crypto.randomUUID(), targetEmail, '', `admin:${action} by ${actorEmail}`, new Date().toISOString()).run();
 }
 
 async function activeAdminCount(db: D1Database) {
@@ -79,19 +85,24 @@ export async function PATCH(request: Request) {
     if (target.id === actor.id) return NextResponse.json({ error: 'You cannot disable your own account.' }, { status: 409 });
     if (wouldRemoveLastAdmin) return NextResponse.json({ error: 'That is the only active administrator.' }, { status: 409 });
     await db.prepare("UPDATE users SET status = 'disabled' WHERE id = ?").bind(userId).run();
+    await revokeSessions(db, userId);
+    await recordAdminAction(db, actor.email, target.email, 'disable');
     return NextResponse.json({ ok: true });
   }
   if (action === 'enable') {
     await db.prepare("UPDATE users SET status = 'active' WHERE id = ?").bind(userId).run();
+    await recordAdminAction(db, actor.email, target.email, 'enable');
     return NextResponse.json({ ok: true });
   }
   if (action === 'promote') {
     await db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").bind(userId).run();
+    await recordAdminAction(db, actor.email, target.email, 'promote');
     return NextResponse.json({ ok: true });
   }
   if (action === 'demote') {
     if (wouldRemoveLastAdmin) return NextResponse.json({ error: 'That is the only active administrator.' }, { status: 409 });
     await db.prepare("UPDATE users SET role = 'user' WHERE id = ?").bind(userId).run();
+    await recordAdminAction(db, actor.email, target.email, 'demote');
     return NextResponse.json({ ok: true });
   }
   if (action === 'set-password') {
@@ -103,6 +114,8 @@ export async function PATCH(request: Request) {
       db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(await hashPassword(newPassword), userId),
       db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(userId),
     ]);
+    await revokeSessions(db, userId);
+    await recordAdminAction(db, actor.email, target.email, 'set-password');
     return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ error: 'Unknown action.' }, { status: 400 });
@@ -145,5 +158,6 @@ export async function DELETE(request: Request) {
     db.prepare('DELETE FROM auth_events WHERE email = ?').bind(target.email),
     db.prepare('DELETE FROM users WHERE id = ?').bind(userId),
   ]);
+  await recordAdminAction(db, actor.email, target.email, 'delete-account');
   return NextResponse.json({ ok: true });
 }

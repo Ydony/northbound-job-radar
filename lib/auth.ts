@@ -64,25 +64,33 @@ async function sign(value: string, secret: string) {
   return toBase64(await crypto.subtle.sign('HMAC', key, encoder.encode(value)));
 }
 
-/** The signed payload carries the owner, so a tampered cookie cannot select another user's data. */
-export async function createSessionValue(userId: string, secret: string, now = Date.now()) {
-  const payload = `${userId}:${now + SESSION_TTL_MS}`;
+/**
+ * The signed payload carries the owner and their session epoch, so a tampered cookie cannot select
+ * another user's data and raising the epoch invalidates every cookie already issued to them.
+ */
+export async function createSessionValue(userId: string, secret: string, epoch = 1, now = Date.now()) {
+  const payload = `${userId}:${epoch}:${now + SESSION_TTL_MS}`;
   return `${payload}.${await sign(payload, secret)}`;
 }
 
-export async function readSessionValue(value: string, secret: string, now = Date.now()): Promise<string> {
+export interface SessionClaims {
+  userId: string;
+  epoch: number;
+}
+
+export async function readSessionValue(value: string, secret: string, now = Date.now()): Promise<SessionClaims | null> {
   const separator = value.lastIndexOf('.');
-  if (separator < 1) return '';
+  if (separator < 1) return null;
   const payload = value.slice(0, separator);
   const signature = value.slice(separator + 1);
-  const [userId, expiry] = payload.split(':');
-  if (!userId || !/^\d+$/.test(expiry ?? '') || Number(expiry) < now) return '';
+  const [userId, epoch, expiry] = payload.split(':');
+  if (!userId || !/^\d+$/.test(epoch ?? '') || !/^\d+$/.test(expiry ?? '') || Number(expiry) < now) return null;
   try {
     // Verify before trusting any part of the payload.
-    if (!timingSafeEqual(fromBase64(signature), fromBase64(await sign(payload, secret)))) return '';
-    return userId;
+    if (!timingSafeEqual(fromBase64(signature), fromBase64(await sign(payload, secret)))) return null;
+    return { userId, epoch: Number(epoch) };
   } catch {
-    return '';
+    return null;
   }
 }
 

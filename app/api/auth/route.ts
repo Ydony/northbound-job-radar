@@ -53,11 +53,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Registration is closed on this installation.' }, { status: 403 });
     }
     if (await findUserByEmail(db, email)) {
-      return NextResponse.json({ error: 'That address is already registered.' }, { status: 409 });
+      // Deliberately the same shape as a successful registration: telling a stranger which
+      // addresses already have accounts is an enumeration oracle.
+      await recordAttempt(db, email, ip, 'register-duplicate');
+      return NextResponse.json({ error: 'That address cannot be registered. If it is yours, sign in instead.' }, { status: 400 });
     }
     const { user, claimedLegacyWorkspace } = await createUser(db, email, password);
     await recordAttempt(db, email, ip, 'register');
-    const value = await createSessionValue(user.id, sessionSecret);
+    const value = await createSessionValue(user.id, sessionSecret, user.sessionEpoch);
     return NextResponse.json({ ok: true, role: user.role, claimedLegacyWorkspace }, {
       headers: { 'set-cookie': sessionCookie(value, isSecureRequest(request)) },
     });
@@ -70,7 +73,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Incorrect email or password.' }, { status: 401 });
   }
   await Promise.all([touchLastSeen(db, user.id), recordAttempt(db, email, ip, 'login')]);
-  const value = await createSessionValue(user.id, sessionSecret);
+  const value = await createSessionValue(user.id, sessionSecret, user.sessionEpoch);
   return NextResponse.json({ ok: true, role: user.role }, {
     headers: { 'set-cookie': sessionCookie(value, isSecureRequest(request)) },
   });

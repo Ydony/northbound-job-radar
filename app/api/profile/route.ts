@@ -10,6 +10,14 @@ const maxCvBytes = 10 * 1024 * 1024;
 const allowedExtensions = new Set(['pdf', 'docx', 'txt']);
 const slots = new Set<CvSlot>(['a', 'b']);
 
+/** PDF starts with %PDF-, DOCX is a zip (PK). Text is accepted as-is; it cannot carry a payload we execute. */
+function looksLikeDeclaredType(extension: string, bytes: Uint8Array) {
+  const header = String.fromCharCode(...bytes.slice(0, 4));
+  if (extension === 'pdf') return header.startsWith('%PDF');
+  if (extension === 'docx') return header.startsWith('PK');
+  return true;
+}
+
 function safeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-100) || 'cv';
 }
@@ -33,19 +41,23 @@ export async function POST(request: Request) {
   if (cvText.length < 80) return NextResponse.json({ error: 'I could not read enough text from this CV. Try another file or a text-based PDF.' }, { status: 400 });
 
   const derivedRole = deriveRoleFromCv(cvText);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!looksLikeDeclaredType(extension, bytes)) {
+    return NextResponse.json({ error: 'That file does not look like a real PDF, DOCX or TXT file.' }, { status: 400 });
+  }
   const { files } = session;
   const previous = await db.prepare('SELECT object_key FROM cvs WHERE user_id = ? AND slot = ?').bind(user.id, slot).first<{ object_key: string }>();
-  const objectKey = `cv/${slot}/${Date.now()}-${safeFileName(file.name)}`;
-  await files.put(objectKey, await file.arrayBuffer(), {
+  const objectKey = `cv/${user.id}/${slot}/${Date.now()}-${safeFileName(file.name)}`;
+  await files.put(objectKey, bytes, {
     httpMetadata: { contentType: file.type || 'application/octet-stream' },
     customMetadata: { originalName: file.name },
   });
   const now = new Date().toISOString();
-  await db.prepare(`INSERT INTO cvs (id, slot, file_name, object_key, cv_text, derived_role, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(slot) DO UPDATE SET file_name = excluded.file_name, object_key = excluded.object_key,
+  await db.prepare(`INSERT INTO cvs (id, user_id, slot, file_name, object_key, cv_text, derived_role, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, slot) DO UPDATE SET file_name = excluded.file_name, object_key = excluded.object_key,
       cv_text = excluded.cv_text, derived_role = excluded.derived_role, updated_at = excluded.updated_at`)
-    .bind(crypto.randomUUID(), slot, file.name, objectKey, cvText, derivedRole, now).run();
+    .bind(crypto.randomUUID(), user.id, slot, file.name, objectKey, cvText, derivedRole, now).run();
   if (previous?.object_key && previous.object_key !== objectKey) await files.delete(previous.object_key);
 
   const [allCvs, criteriaRow] = await Promise.all([

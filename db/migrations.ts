@@ -275,13 +275,21 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE INDEX IF NOT EXISTS password_resets_user_idx ON password_resets(user_id)',
     ],
   },
-  {
+    {
     version: 9,
     name: 'expire_auth_events',
     statements: [
       // auth_events holds IP addresses for abuse prevention. That is personal data, so it is kept
       // to a short window rather than indefinitely; the runtime purge enforces it from here on.
       "DELETE FROM auth_events WHERE created_at < datetime('now', '-30 days')",
+    ],
+  },
+{
+    version: 10,
+    name: 'session_epoch_for_revocation',
+    statements: [
+      // Bumping a user's epoch invalidates every cookie already issued to them.
+      'ALTER TABLE users ADD COLUMN session_epoch INTEGER NOT NULL DEFAULT 1',
     ],
   },
 ];

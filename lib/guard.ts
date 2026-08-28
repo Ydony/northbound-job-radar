@@ -25,11 +25,16 @@ export async function requireSession(request: Request, options: { adminOnly?: bo
     return { response: NextResponse.json({ error: 'Cross-origin request refused.' }, { status: 403 }) };
   }
 
-  const userId = await readSessionValue(readCookie(request), sessionSecret);
-  if (!userId) return { response: NextResponse.json({ error: 'Sign in to continue.' }, { status: 401 }) };
+  const claims = await readSessionValue(readCookie(request), sessionSecret);
+  if (!claims) return { response: NextResponse.json({ error: 'Sign in to continue.' }, { status: 401 }) };
 
   const { db, files } = bindings();
-  const row = await findUserById(db, userId);
+  const row = await findUserById(db, claims.userId);
+  // A cookie issued before the account's epoch was raised is refused, which is what makes
+  // "sign out everywhere" and a post-breach revocation actually take effect.
+  if (row && (row.session_epoch ?? 1) !== claims.epoch) {
+    return { response: NextResponse.json({ error: 'This session has been signed out.' }, { status: 401 }) };
+  }
   // Re-read the account on every request so disabling someone takes effect immediately rather than
   // waiting for their cookie to expire.
   if (!row || row.status !== 'active') {
