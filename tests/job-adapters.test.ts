@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { descriptionMatchesRoles, jobSourceAdapters, sourceStatusForAvailability } from '../lib/job-adapters';
+import {
+  candidateUrlMatchesRoles,
+  descriptionMatchesRoles,
+  jobSourceAdapters,
+  postingToParsed,
+  sourceStatusForAvailability,
+} from '../lib/job-adapters';
 
 test('configures Swiss and Netherlands adapters without LinkedIn', () => {
   assert.equal(jobSourceAdapters.some((source) => /linkedin/i.test(`${source.key} ${source.name}`)), false);
@@ -31,6 +37,34 @@ test('screens public listing candidates against the requested roles', () => {
   };
   assert.equal(descriptionMatchesRoles(job, ['Master Data']), true);
   assert.equal(descriptionMatchesRoles(job, ['Supply Chain']), false);
+  assert.equal(descriptionMatchesRoles({ ...job, title: 'Recruitment Consultant' }, ['Master Data', 'Data Analyst']), false);
+  assert.equal(candidateUrlMatchesRoles('https://example.test/vacancies/recruitment-consultant', ['Master Data', 'Data Analyst']), false);
+  assert.equal(candidateUrlMatchesRoles('https://example.test/vacancies/senior-inventory-analyst', ['Data Analyst']), true);
+});
+
+test('keeps relaxed JobPosting extraction inside its JSON-LD block', () => {
+  const html = `
+    <script>window.page = {"title":"Unrelated page title","content":"${'x'.repeat(800)}"}</script>
+    <script type="application/ld+json">
+      {
+        "@context":"https://schema.org",
+        "@type":"JobPosting",
+        "title":"Master Data Analyst",
+        "description":"<p>Own the product \"golden record\" and data governance across our English-speaking team.</p>",
+        "datePosted":"27-08-2026",
+        "hiringOrganization":{"@type":"Organization","name":"Example BV"},
+        "jobLocation":{"address":{"addressLocality":"Amsterdam","addressCountry":"Netherlands"}}
+      }
+    </script>`;
+
+  const parsed = postingToParsed('https://undutchables.nl/vacancies/master-data-analyst', html, 'Netherlands');
+  assert.ok(parsed);
+  assert.equal(parsed.title, 'Master Data Analyst');
+  assert.equal(parsed.company, 'Example BV');
+  assert.equal(parsed.location, 'Amsterdam Netherlands');
+  assert.equal(parsed.postedAt, '2026-08-27');
+  assert.match(parsed.descriptionHtml, /golden record/);
+  assert.equal(parsed.title.length < 500, true);
 });
 
 test('extracts normalized candidates through the enabled source adapters', async (context) => {

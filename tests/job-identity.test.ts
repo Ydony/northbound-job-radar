@@ -14,6 +14,12 @@ test('derives stable source identity and country', () => {
   assert.deepEqual(sourceInfoForUrl('https://www.iamexpat.nl/career/jobs-netherlands/example/id'), {
     key: 'iamexpat.nl', name: 'IamExpat', country: 'netherlands',
   });
+  assert.deepEqual(sourceInfoForUrl('https://undutchables.nl/vacancies/example', 'Essen, Germany'), {
+    key: 'undutchables.nl', name: 'Undutchables', country: 'unknown',
+  });
+  assert.deepEqual(sourceInfoForUrl('https://undutchables.nl/vacancies/example', 'Amsterdam, Netherlands'), {
+    key: 'undutchables.nl', name: 'Undutchables', country: 'netherlands',
+  });
 });
 
 test('uses company, title, location and posting day for cross-source fingerprints', () => {

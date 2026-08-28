@@ -34,6 +34,7 @@ const sources: Record<string, SourceInfo> = {
 const trackingParameters = new Set(['fbclid', 'gclid', 'trk', 'trackingid']);
 const swissLocations = /\b(?:switzerland|swiss|zürich|zurich|geneva|genève|basel|bern|lausanne|zug|lucerne|luzern|winterthur)\b/i;
 const netherlandsLocations = /\b(?:netherlands|nederland|amsterdam|rotterdam|utrecht|eindhoven|den haag|the hague|haarlem|leiden|delft|breda)\b/i;
+const outsideSupportedLocations = /\b(?:germany|deutschland|essen|belgium|belgie|belgique|france|luxembourg|austria|osterreich)\b/i;
 
 function normalizedHost(hostname: string) {
   return hostname.toLowerCase().replace(/^www\./, '');
@@ -79,7 +80,12 @@ export function sourceInfoForUrl(value: string, location = ''): SourceInfo {
   try {
     const host = new URL(value).hostname.toLowerCase();
     const known = sources[host];
-    if (known) return known;
+    if (known) {
+      if (known.country === 'netherlands' && outsideSupportedLocations.test(location)) {
+        return { ...known, country: 'unknown' };
+      }
+      return known;
+    }
     const key = normalizedHost(host);
     const country: JobCountry = host.endsWith('.ch')
       ? 'switzerland'

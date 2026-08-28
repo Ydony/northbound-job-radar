@@ -138,7 +138,8 @@ export async function POST() {
         continue;
       }
       const description = stripHtml(parsed.descriptionHtml);
-      if (description.length < 160 || !descriptionMatchesRoles(parsed, searchTerms)) {
+      const parsedCountry = sourceInfoForUrl(parsed.sourceUrl, parsed.location).country;
+      if (description.length < 160 || parsedCountry !== adapter.country || !descriptionMatchesRoles(parsed, searchTerms)) {
         skippedCount += 1;
         continue;
       }

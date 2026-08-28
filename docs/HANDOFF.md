@@ -1,6 +1,6 @@
 # Handover
 
-Last updated: 2026-08-27 after implementing and locally verifying the automatic multi-source iteration.
+Last updated: 2026-08-28 after live-verifying and correcting the automatic multi-source iteration.
 
 Read this first, use `docs/TASKS.md` for current execution status, then read `README.md`, `docs/ARCHITECTURE.md`, and `AGENTS.md`.
 
@@ -27,12 +27,13 @@ permission/availability record.
 
 The old `.wrangler/` state was preserved under ignored `work/wrangler-before-two-cv-verification/`, then a fresh local database was created.
 
-The current local database contains both user-provided CV profiles and 48 distinct jobs.ch ads. The multi-source upgrade was applied in place after copying all 18 `.wrangler` files (680,925 bytes) to ignored `work/wrangler-before-multisource/`. Verification completed without exposing CV text:
+The current local database contains both user-provided CV profiles and 69 distinct Swiss/Netherlands ads. The multi-source upgrade was applied in place after copying all 18 `.wrangler` files (680,925 bytes) to ignored `work/wrangler-before-multisource/`. Verification completed without exposing CV text:
 
 - Both PDFs parsed through the browser UI (4,049 and 4,885 extracted characters) and saved to separate slots.
 - Improved role detection derived `Data Analyst` and `Data Governance Analyst`; saved overrides refine these to `Supply Chain Data Analyst` and `Master Data Governance Analyst`.
 - Role overrides persisted after reload and shaped jobs.ch URLs, new-job fit scoring, rescoring, and UI labels.
-- Earlier capped searches eventually expanded the workspace to 48 ads. The current raw language split is seven `pass`, one `review`, and 40 `blocked`; 44 are active and four dismissed.
+- Capped searches expanded the workspace to 69 ads. The current raw language split is 12 `pass`, three `review`, and 54 `blocked`; 65 are active and four dismissed.
+- The first VPN-protected multi-source run exposed an Undutchables relaxed-parser overreach and over-broad Netherlands listing selection. The four affected imports were removed, the parser was restricted to its JobPosting JSON-LD block, foreign locations and irrelevant role URLs were rejected, and a clean rerun added five Netherlands jobs: two `pass`, one `review`, and two correctly blocked for Dutch/German requirements.
 - Live findings added regression rules for `German ... advantageous` (optional/pass) and `English and French advanced level` (mandatory/block).
 - Every stored job has numeric per-CV scores and a valid winning slot.
 - Five additional roles are saved: Supply Chain, Data Analyst, Data Governance, Master Data, and Business Analyst.
@@ -44,7 +45,7 @@ The current local database contains both user-provided CV profiles and 48 distin
 
 Quality checks:
 
-- `npm test`: 45 passing tests.
+- `npm test`: 46 passing tests.
 - `npm run typecheck`: clean.
 - `npm run lint`: clean.
 - `npm run build`: clean after the current changes.
@@ -88,10 +89,8 @@ Quality checks:
 
 ## 4. Remaining work and risks
 
-- **Only the external multi-source smoke run is still pending.** `npm run dev:private`
-  correctly refused to start because no full VPN route was active. Connect Windscribe or
-  Proton with split tunnelling disabled, start `npm run dev:private`, press **Search all job
-  sites**, and confirm that a run report is stored even when individual sources fail.
+- The external multi-source smoke run passed on 2026-08-28 through Windscribe's Netherlands
+  exit. Keep using `npm run dev:private`; it refuses to start without a full VPN route.
 
 - The language corpus has focused tests, a 24-ad live review, and persisted correction controls, but the user has not yet labeled a representative set. Do that before relying on unattended alerts.
 - The role detector remains a small heuristic and needs more real CV layouts.
