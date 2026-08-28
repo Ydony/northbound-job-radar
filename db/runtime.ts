@@ -110,7 +110,7 @@ export function aggregatorCredentials() {
   return {
     adzunaAppId: env.ADZUNA_APP_ID ?? '',
     adzunaAppKey: env.ADZUNA_APP_KEY ?? '',
-    careerjetAffiliateId: env.CAREERJET_AFFID ?? '',
+    careerjetApiKey: env.CAREERJET_API_KEY ?? '',
   };
 }
 

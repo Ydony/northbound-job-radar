@@ -15,7 +15,8 @@ const RESULTS_PER_PAGE = 50;
 export interface AggregatorCredentials {
   adzunaAppId?: string;
   adzunaAppKey?: string;
-  careerjetAffiliateId?: string;
+  /** Careerjet v4 API key, sent as the HTTP Basic Auth username with an empty password. */
+  careerjetApiKey?: string;
 }
 
 interface AdzunaResult {
@@ -86,20 +87,23 @@ export async function searchCareerjet(
   credentials: AggregatorCredentials,
   pages = 1,
 ): Promise<ParsedJob[]> {
-  if (!credentials.careerjetAffiliateId) return [];
+  if (!credentials.careerjetApiKey) return [];
+  // v4 takes the API key as the Basic Auth username with an empty password; the legacy affid endpoint is gone.
+  const authorization = `Basic ${btoa(`${credentials.careerjetApiKey}:`)}`;
   const byUrl = new Map<string, ParsedJob>();
   for (const term of terms.length ? terms : ['']) {
     for (let page = 1; page <= pages; page += 1) {
-      const url = new URL('https://public.api.careerjet.net/search');
-      url.searchParams.set('affid', credentials.careerjetAffiliateId);
+      const url = new URL('https://search.api.careerjet.net/v4/query');
       url.searchParams.set('locale_code', CAREERJET_LOCALE[country]);
       url.searchParams.set('pagesize', String(RESULTS_PER_PAGE));
       url.searchParams.set('page', String(page));
-      url.searchParams.set('contracttype', 'p');
       if (term.trim()) url.searchParams.set('keywords', term.trim());
       if (location.trim()) url.searchParams.set('location', location.trim());
-      const response = await fetch(url.toString(), { headers: { accept: 'application/json' } });
-      if (!response.ok) throw new Error(`Careerjet request failed (${response.status}).`);
+      const response = await fetch(url.toString(), { headers: { accept: 'application/json', authorization } });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(`Careerjet request failed (${response.status}${detail?.error ? `: ${detail.error}` : ''}).`);
+      }
       const payload = await response.json() as { jobs?: CareerjetResult[] };
       const jobs = payload.jobs ?? [];
       for (const entry of jobs) {

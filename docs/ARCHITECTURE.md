@@ -226,10 +226,23 @@ requirement passes; anything else goes to review. Listed languages with null lev
 treated as requirements, so those ads fall back to prose analysis.
 
 **Adzuna and Careerjet** are authorized aggregator APIs covering both Switzerland and the
-Netherlands. Both need free credentials (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`, `CAREERJET_AFFID`) and
+Netherlands. Both need free credentials (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`, `CAREERJET_API_KEY`) and
 report themselves `unavailable` with setup instructions until those are set — a missing key never
 fails a run. Note their APIs return short teaser descriptions, so their jobs will usually land in
 review rather than pass; they are best understood as discovery breadth, not language evidence.
+
+Careerjet's legacy `public.api.careerjet.net/search` endpoint with an `affid` query parameter is
+dead. The current API is `https://search.api.careerjet.net/v4/query`, authenticated with HTTP
+Basic where the API key is the username and the password is empty.
+
+**Open licensing question on Careerjet (2026-08-28).** Careerjet issues its key against one
+registered publisher website and states the key is "provided exclusively for integration on the
+registered website". Northbound is a local single-user tool with no public site, and the key in
+use was registered against a placeholder domain, so this usage sits outside the registered scope —
+this is a licensing question, not a technical one, and it is unresolved. Adzuna carries no
+equivalent per-site restriction and is the safer default of the two. If Careerjet's scope matters,
+either register the real deployment through their "add another website" flow or leave
+`CAREERJET_API_KEY` unset, which cleanly disables both Careerjet sources.
 
 Two dead ends were confirmed and should not be re-investigated without new information: werk.nl /
 UWV (the Dutch public employment service) publishes only aggregated open data and has no vacancy

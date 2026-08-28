@@ -12,6 +12,8 @@
 ADZUNA_APP_ID=
 ADZUNA_APP_KEY=
 
-# Careerjet - https://www.careerjet.com/partners/api/  (free partner account)
+# Careerjet - https://www.careerjet.com/partners/api/ (free publisher account)
+#   v4 API: key is sent as HTTP Basic Auth username. Key is licensed to the
+#   website you registered - see docs/ARCHITECTURE.md 7b.
 #   Free tier: ~1000 requests/hour. Covers Switzerland and Netherlands.
-CAREERJET_AFFID=
+CAREERJET_API_KEY=

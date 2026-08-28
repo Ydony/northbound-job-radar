@@ -201,15 +201,15 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   },
   {
     key: 'careerjet-ch', name: 'Careerjet Switzerland', country: 'switzerland', availability: 'enabled',
-    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_AFFID to enable it.',
+    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'switzerland', credentials),
-    hasCredentials: (credentials) => Boolean(credentials.careerjetAffiliateId),
+    hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
   },
   {
     key: 'careerjet-nl', name: 'Careerjet Netherlands', country: 'netherlands', availability: 'enabled',
-    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_AFFID to enable it.',
+    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'netherlands', credentials),
-    hasCredentials: (credentials) => Boolean(credentials.careerjetAffiliateId),
+    hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
   },
   {
     key: 'jobs.ch', name: 'jobs.ch', country: 'switzerland', availability: 'enabled',
