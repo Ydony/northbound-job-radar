@@ -130,6 +130,15 @@ export function aggregatorCredentials() {
   };
 }
 
+/** Auth secrets. Absent values keep the app closed rather than open. */
+export function authSecrets() {
+  return {
+    passwordHash: env.APP_PASSWORD_HASH ?? '',
+    sessionSecret: env.SESSION_SECRET ?? '',
+    allowSignups: env.ALLOW_SIGNUPS ?? '',
+  };
+}
+
 export function ensureSchema() {
   if (!schemaReady) {
     const { db } = bindings();

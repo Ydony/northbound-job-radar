@@ -9,5 +9,11 @@ declare namespace Cloudflare {
     /** Must match the website registered with Careerjet; they enforce it via the Referer header. */
     CAREERJET_REFERER?: string;
     CAREERJET_USER_IP?: string;
+    /** PBKDF2 hash from . Without it every route refuses to serve. */
+    APP_PASSWORD_HASH?: string;
+    /** Random secret signing session cookies. Rotating it signs everyone out. */
+    SESSION_SECRET?: string;
+    /** 'true' opens registration beyond the first account. Closed by default so a public deployment cannot be signed up to by strangers. */
+    ALLOW_SIGNUPS?: string;
   }
 }

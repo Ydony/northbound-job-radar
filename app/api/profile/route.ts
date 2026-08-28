@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { bindings, ensureSchema } from '@/db/runtime';
+import { ensureSchema } from '@/db/runtime';
+import { requireSession } from '@/lib/guard';
 import { roleForSlot } from '@/lib/criteria';
 import { deriveRoleFromCv } from '@/lib/role-detection';
 import { criteriaFromRow, cvFromRow, rescoreAllJobs, type CriteriaRow, type CvRow } from '@/lib/server-data';
@@ -15,6 +16,9 @@ function safeFileName(name: string) {
 
 export async function POST(request: Request) {
   await ensureSchema();
+  const { session, response } = await requireSession(request);
+  if (response) return response;
+  const { db, user } = session;
   const form = await request.formData();
   const slot = String(form.get('slot') ?? '') as CvSlot;
   const cvText = String(form.get('cvText') ?? '').trim().slice(0, 250_000);
@@ -29,8 +33,8 @@ export async function POST(request: Request) {
   if (cvText.length < 80) return NextResponse.json({ error: 'I could not read enough text from this CV. Try another file or a text-based PDF.' }, { status: 400 });
 
   const derivedRole = deriveRoleFromCv(cvText);
-  const { db, files } = bindings();
-  const previous = await db.prepare('SELECT object_key FROM cvs WHERE slot = ?').bind(slot).first<{ object_key: string }>();
+  const { files } = session;
+  const previous = await db.prepare('SELECT object_key FROM cvs WHERE user_id = ? AND slot = ?').bind(user.id, slot).first<{ object_key: string }>();
   const objectKey = `cv/${slot}/${Date.now()}-${safeFileName(file.name)}`;
   await files.put(objectKey, await file.arrayBuffer(), {
     httpMetadata: { contentType: file.type || 'application/octet-stream' },
@@ -45,48 +49,51 @@ export async function POST(request: Request) {
   if (previous?.object_key && previous.object_key !== objectKey) await files.delete(previous.object_key);
 
   const [allCvs, criteriaRow] = await Promise.all([
-    db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
+    db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id)
       .all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
-    db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
+    db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
   ]);
   const criteria = criteriaFromRow(criteriaRow);
-  const rescoredJobs = await rescoreAllJobs(db, allCvs.results.map((saved) => ({
+  const rescoredJobs = await rescoreAllJobs(db, user.id, allCvs.results.map((saved) => ({
     slot: saved.slot,
     cvText: saved.cv_text,
     derivedRole: roleForSlot(saved.slot, saved.derived_role, criteria),
   })));
 
-  const row = await db.prepare('SELECT * FROM cvs WHERE slot = ?').bind(slot).first<CvRow>();
+  const row = await db.prepare('SELECT * FROM cvs WHERE user_id = ? AND slot = ?').bind(user.id, slot).first<CvRow>();
   return NextResponse.json({ cv: cvFromRow(row!), rescoredJobs });
 }
 
 export async function DELETE(request: Request) {
   await ensureSchema();
+  const { session, response } = await requireSession(request);
+  if (response) return response;
+  const { db, user } = session;
   const slot = new URL(request.url).searchParams.get('slot') as CvSlot;
   if (!slots.has(slot)) return NextResponse.json({ error: 'Invalid CV slot.' }, { status: 400 });
 
-  const { db, files } = bindings();
-  const saved = await db.prepare('SELECT object_key FROM cvs WHERE slot = ?')
-    .bind(slot).first<{ object_key: string }>();
+  const { files } = session;
+  const saved = await db.prepare('SELECT object_key FROM cvs WHERE user_id = ? AND slot = ?')
+    .bind(user.id, slot).first<{ object_key: string }>();
   if (!saved) return NextResponse.json({ error: 'CV not found.' }, { status: 404 });
   if (saved.object_key) await files.delete(saved.object_key);
 
   const now = new Date().toISOString();
   const clearOverrideSql = slot === 'a'
-    ? 'UPDATE search_settings SET role_override_a = ?, updated_at = ? WHERE id = ?'
-    : 'UPDATE search_settings SET role_override_b = ?, updated_at = ? WHERE id = ?';
+    ? 'UPDATE search_settings SET role_override_a = ?, updated_at = ? WHERE user_id = ?'
+    : 'UPDATE search_settings SET role_override_b = ?, updated_at = ? WHERE user_id = ?';
   await db.batch([
-    db.prepare('DELETE FROM cvs WHERE slot = ?').bind(slot),
-    db.prepare(clearOverrideSql).bind('', now, 'default'),
+    db.prepare('DELETE FROM cvs WHERE user_id = ? AND slot = ?').bind(user.id, slot),
+    db.prepare(clearOverrideSql).bind('', now, user.id),
   ]);
 
   const [allCvs, criteriaRow] = await Promise.all([
-    db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
+    db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id)
       .all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
-    db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
+    db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
   ]);
   const criteria = criteriaFromRow(criteriaRow);
-  const rescoredJobs = await rescoreAllJobs(db, allCvs.results.map((remaining) => ({
+  const rescoredJobs = await rescoreAllJobs(db, user.id, allCvs.results.map((remaining) => ({
     slot: remaining.slot,
     cvText: remaining.cv_text,
     derivedRole: roleForSlot(remaining.slot, remaining.derived_role, criteria),

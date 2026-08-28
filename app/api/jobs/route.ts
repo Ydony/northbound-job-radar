@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { bindings, ensureSchema } from '@/db/runtime';
+import { ensureSchema } from '@/db/runtime';
+import { requireSession } from '@/lib/guard';
 import { analyzeLanguage, scoreFitAcrossCvs } from '@/lib/analysis';
 import { roleForSlot } from '@/lib/criteria';
 import { isSafeManualJobUrl } from '@/lib/job-sources';
@@ -13,6 +14,9 @@ function clean(value: unknown, max: number) {
 
 export async function POST(request: Request) {
   await ensureSchema();
+  const { session, response } = await requireSession(request);
+  if (response) return response;
+  const { db, user } = session;
   const payload = await request.json() as Record<string, unknown>;
   const sourceUrl = canonicalJobUrl(clean(payload.sourceUrl, 1000));
   const title = clean(payload.title, 240);
@@ -25,11 +29,10 @@ export async function POST(request: Request) {
   if (!title) return NextResponse.json({ error: 'Add the job title.' }, { status: 400 });
   if (description.length < 160) return NextResponse.json({ error: 'Paste the full job advertisement so the language gate has enough evidence.' }, { status: 400 });
 
-  const { db } = bindings();
   const [cvRows, criteriaRow] = await Promise.all([
-    db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
+    db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id)
       .all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
-    db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
+    db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
   ]);
   if (!cvRows.results.length) return NextResponse.json({ error: 'Upload at least one CV before analyzing jobs.' }, { status: 400 });
   const criteria = criteriaFromRow(criteriaRow);
@@ -41,7 +44,7 @@ export async function POST(request: Request) {
 
   const language = analyzeLanguage(description);
   const fit = scoreFitAcrossCvs(description, title, cvs);
-  const result = await upsertJob(db, {
+  const result = await upsertJob(db, user.id, {
     sourceUrl, title, company, location, description,
     languageStatus: language.status, languageSummary: language.summary, languageSignals: language.signals,
     postedAt,
@@ -52,6 +55,9 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   await ensureSchema();
+  const { session, response } = await requireSession(request);
+  if (response) return response;
+  const { db, user } = session;
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const all = body.all === true;
   const ids = Array.isArray(body.ids)
@@ -59,19 +65,18 @@ export async function DELETE(request: Request) {
     : [];
   if (!all && !ids.length) return NextResponse.json({ error: 'Choose at least one job to delete.' }, { status: 400 });
 
-  const { db } = bindings();
   if (all) {
     const results = await db.batch([
-      db.prepare('DELETE FROM language_feedback'),
-      db.prepare('DELETE FROM jobs'),
+      db.prepare('DELETE FROM language_feedback WHERE user_id = ?').bind(user.id),
+      db.prepare('DELETE FROM jobs WHERE user_id = ?').bind(user.id),
     ]);
     return NextResponse.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
   }
 
   const placeholders = ids.map(() => '?').join(',');
   const results = await db.batch([
-    db.prepare(`DELETE FROM language_feedback WHERE job_id IN (${placeholders})`).bind(...ids),
-    db.prepare(`DELETE FROM jobs WHERE id IN (${placeholders})`).bind(...ids),
+    db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (${placeholders})`).bind(user.id, ...ids),
+    db.prepare(`DELETE FROM jobs WHERE user_id = ? AND id IN (${placeholders})`).bind(user.id, ...ids),
   ]);
   return NextResponse.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
 }

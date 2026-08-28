@@ -3,7 +3,7 @@ import test from 'node:test';
 import { runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
@@ -39,4 +39,21 @@ test('workplace migration separates "not yet detected" from a detected "unknown"
   assert.match(added, /DEFAULT ''/);
   const reset = runtimeMigrations[4].statements.join('\n');
   assert.match(reset, /workplace_type = '' WHERE workplace_type = 'unknown'/);
+});
+
+test('tenancy migration adds an owner to every table holding user data', () => {
+  const sql = runtimeMigrations[5].statements.join('\n');
+  for (const table of ['cvs', 'jobs', 'search_settings', 'search_roles', 'language_feedback',
+    'dismissed_jobs', 'search_runs']) {
+    assert.match(sql, new RegExp(`ALTER TABLE ${table} ADD COLUMN user_id`), `${table} has no owner column`);
+  }
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS users/);
+});
+
+test('uniqueness is scoped per owner so one account cannot block another', () => {
+  const sql = runtimeMigrations[6].statements.join('\n');
+  // A global UNIQUE on source_url would let the first user to import a vacancy block everyone else.
+  assert.match(sql, /CREATE UNIQUE INDEX IF NOT EXISTS jobs_user_source_url_idx ON jobs\(user_id, source_url\)/);
+  assert.match(sql, /CREATE UNIQUE INDEX IF NOT EXISTS cvs_user_slot_idx ON cvs\(user_id, slot\)/);
+  assert.match(sql, /INSERT INTO jobs_rebuilt SELECT/, 'the old UNIQUE constraint needs a table rebuild');
 });

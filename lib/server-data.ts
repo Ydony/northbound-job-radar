@@ -239,7 +239,7 @@ interface ExistingJobIdentity {
   first_seen_at: string;
 }
 
-export async function upsertJob(db: D1Database, input: UpsertJobInput): Promise<UpsertJobResult> {
+export async function upsertJob(db: D1Database, userId: string, input: UpsertJobInput): Promise<UpsertJobResult> {
   const now = new Date().toISOString();
   const canonicalUrl = canonicalJobUrl(input.sourceUrl);
   const source = sourceInfoForUrl(canonicalUrl, input.location);
@@ -250,49 +250,49 @@ export async function upsertJob(db: D1Database, input: UpsertJobInput): Promise<
   const identityFingerprint = jobIdentityFingerprint({ ...input, sourceUrl: canonicalUrl, postedAt });
   const exact = await db.prepare(`SELECT id, source_url, source_key, status, is_saved, application_status,
       visibility_status, created_at, first_seen_at FROM jobs
-    WHERE rtrim(source_url, '/') = rtrim(?, '/') OR rtrim(canonical_url, '/') = rtrim(?, '/')
-      OR (? != '' AND source_job_id = ? AND (source_key = ? OR ? = 1))
+    WHERE user_id = ? AND (rtrim(source_url, '/') = rtrim(?, '/') OR rtrim(canonical_url, '/') = rtrim(?, '/')
+      OR (? != '' AND source_job_id = ? AND (source_key = ? OR ? = 1)))
     ORDER BY updated_at DESC LIMIT 1`)
-    .bind(canonicalUrl, canonicalUrl, sourceJobId, sourceJobId, source.key, globallyStableSourceJobId ? 1 : 0)
+    .bind(userId, canonicalUrl, canonicalUrl, sourceJobId, sourceJobId, source.key, globallyStableSourceJobId ? 1 : 0)
     .first<ExistingJobIdentity>();
   const fingerprintMatch = !exact && identityFingerprint
     ? await db.prepare(`SELECT id, source_url, source_key, status, is_saved, application_status,
         visibility_status, created_at, first_seen_at FROM jobs
-      WHERE identity_fingerprint = ? ORDER BY updated_at DESC LIMIT 1`)
-      .bind(identityFingerprint).first<ExistingJobIdentity>()
+      WHERE user_id = ? AND identity_fingerprint = ? ORDER BY updated_at DESC LIMIT 1`)
+      .bind(userId, identityFingerprint).first<ExistingJobIdentity>()
     : null;
   const existing = exact ?? fingerprintMatch;
   const wasDuplicate = Boolean(fingerprintMatch && fingerprintMatch.source_key !== source.key);
 
   const tombstone = await db.prepare(`SELECT id FROM dismissed_jobs
-    WHERE (? != '' AND source_job_id = ? AND (source_key = ? OR ? = 1))
+    WHERE user_id = ? AND ((? != '' AND source_job_id = ? AND (source_key = ? OR ? = 1))
       OR (? != '' AND canonical_url = ?)
-      OR (? != '' AND identity_fingerprint = ?)
+      OR (? != '' AND identity_fingerprint = ?))
     LIMIT 1`)
-    .bind(sourceJobId, sourceJobId, source.key, globallyStableSourceJobId ? 1 : 0,
+    .bind(userId, sourceJobId, sourceJobId, source.key, globallyStableSourceJobId ? 1 : 0,
       canonicalUrl, canonicalUrl, identityFingerprint, identityFingerprint)
     .first<{ id: string }>();
   const visibilityStatus = existing?.visibility_status === 'dismissed' || tombstone ? 'dismissed' : 'active';
   const id = existing?.id ?? crypto.randomUUID();
   if (wasDuplicate && existing) {
-    await db.prepare('UPDATE jobs SET last_seen_at = ?, updated_at = ? WHERE id = ?').bind(now, now, id).run();
+    await db.prepare('UPDATE jobs SET last_seen_at = ?, updated_at = ? WHERE id = ? AND user_id = ?').bind(now, now, id, userId).run();
   } else if (existing) {
     await db.prepare(`UPDATE jobs SET canonical_url = ?, source_key = ?, source_name = ?, source_job_id = ?,
       country = ?, title = ?, company = ?, location = ?, description = ?, language_status = ?, language_summary = ?,
       language_signals = ?, fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
       identity_fingerprint = ?, visibility_status = ?, posted_at = CASE WHEN ? = '' THEN posted_at ELSE ? END,
-      last_seen_at = ?, updated_at = ? WHERE id = ?`)
+      last_seen_at = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
       .bind(canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company, input.location,
         input.description, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals), input.fitScoreA,
         input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords), JSON.stringify(input.missingKeywords),
-        identityFingerprint, visibilityStatus, postedAt, postedAt, now, now, id).run();
+        identityFingerprint, visibilityStatus, postedAt, postedAt, now, now, id, userId).run();
   } else {
-    await db.prepare(`INSERT INTO jobs (id, source_url, canonical_url, source_key, source_name, source_job_id, country,
+    await db.prepare(`INSERT INTO jobs (id, user_id, source_url, canonical_url, source_key, source_name, source_job_id, country,
       title, company, location, description, language_status, language_summary, language_signals, fit_score_a, fit_score_b,
       best_cv_slot, workplace_type, matched_keywords, missing_keywords, identity_fingerprint, is_saved, application_status,
       visibility_status, posted_at, first_seen_at, last_seen_at, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(id, canonicalUrl, canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(id, userId, canonicalUrl, canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company,
         input.location, input.description, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals),
         input.fitScoreA, input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords),
         JSON.stringify(input.missingKeywords), identityFingerprint, 0, 'not_applied', visibilityStatus, postedAt, now, now,
@@ -301,14 +301,15 @@ export async function upsertJob(db: D1Database, input: UpsertJobInput): Promise<
   const row = await db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,
     language_feedback.corrected_status AS feedback_corrected_status,
     language_feedback.reason AS feedback_reason, language_feedback.updated_at AS feedback_updated_at
-    FROM jobs LEFT JOIN language_feedback ON language_feedback.job_id = jobs.id WHERE jobs.id = ?`)
-    .bind(id).first<JobRow>();
+    FROM jobs LEFT JOIN language_feedback ON language_feedback.job_id = jobs.id
+    WHERE jobs.id = ? AND jobs.user_id = ?`)
+    .bind(id, userId).first<JobRow>();
   const job = jobFromRow(row!);
   return { job, wasKnown: Boolean(existing), wasDuplicate, wasDismissed: job.visibilityStatus === 'dismissed' };
 }
 
-export async function rescoreAllJobs(db: D1Database, cvs: CvInput[]) {
-  const jobs = await db.prepare('SELECT id, title, description FROM jobs')
+export async function rescoreAllJobs(db: D1Database, userId: string, cvs: CvInput[]) {
+  const jobs = await db.prepare('SELECT id, title, description FROM jobs WHERE user_id = ?').bind(userId)
     .all<{ id: string; title: string; description: string }>();
   if (!jobs.results.length) return 0;
 
@@ -317,10 +318,10 @@ export async function rescoreAllJobs(db: D1Database, cvs: CvInput[]) {
     const fit = scoreFitAcrossCvs(job.description, job.title, cvs);
     return db.prepare(`UPDATE jobs SET language_status = ?, language_summary = ?, language_signals = ?,
       fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, matched_keywords = ?, missing_keywords = ?,
-      updated_at = ? WHERE id = ?`)
+      updated_at = ? WHERE id = ? AND user_id = ?`)
       .bind(language.status, language.summary, JSON.stringify(language.signals), fit.fitScoreA, fit.fitScoreB,
         fit.bestCvSlot, JSON.stringify(fit.matchedKeywords), JSON.stringify(fit.missingKeywords),
-        new Date().toISOString(), job.id);
+        new Date().toISOString(), job.id, userId);
   });
   for (let start = 0; start < updates.length; start += 50) {
     await db.batch(updates.slice(start, start + 50));

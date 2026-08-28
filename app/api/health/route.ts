@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aggregatorCredentials } from '@/db/runtime';
+import { requireSession } from '@/lib/guard';
 import { searchAdzuna, searchCareerjet } from '@/lib/job-aggregators';
 
 export interface SourceHealth {
@@ -38,7 +39,10 @@ async function probe(key: string, name: string, configured: boolean, run: () => 
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Reveals the server's public IP and which integrations are configured, so it is not public.
+  const { response } = await requireSession(request);
+  if (response) return response;
   const credentials = aggregatorCredentials();
   const [publicIp, ...sources] = await Promise.all([
     currentPublicIp(),

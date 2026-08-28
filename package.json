@@ -18,7 +18,8 @@
     "vpn:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-vpn.ps1",
     "vpn:setup:mac": "bash scripts/setup-vpn-macos.sh",
     "vpn:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-vpn.ps1 -ShowPublicIp",
-    "vpn:check:mac": "bash scripts/check-vpn-macos.sh --show-public-ip"
+    "vpn:check:mac": "bash scripts/check-vpn-macos.sh --show-public-ip",
+    "init-secrets": "node scripts/init-secrets.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

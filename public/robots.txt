@@ -1,0 +1,5 @@
+# Ik Engels is a private job workspace. Nothing here is intended for indexing,
+# and every route except the sign-in and transparency pages requires an account.
+User-agent: *
+Disallow: /
+Allow: /sources

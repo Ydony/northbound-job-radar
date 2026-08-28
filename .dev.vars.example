@@ -24,3 +24,9 @@ CAREERJET_REFERER=
 # Careerjet also requires the end user's IP on every query, and must match a
 # declared "Server IP address" in your partner account.
 CAREERJET_USER_IP=
+
+# Session cookie signing key. Generate with `npm run init-secrets`.
+SESSION_SECRET=
+# 'true' lets anyone register. Closed by default: the first account is created on a fresh
+# install, and after that a public deployment cannot be signed up to by strangers.
+ALLOW_SIGNUPS=false

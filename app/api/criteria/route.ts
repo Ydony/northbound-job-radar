@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { bindings, ensureSchema } from '@/db/runtime';
+import { ensureSchema } from '@/db/runtime';
+import { requireSession } from '@/lib/guard';
 import { normalizeRoleKeywords, roleForSlot } from '@/lib/criteria';
 import { criteriaFromRow, rescoreAllJobs, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
 import type { ContractType, CvSlot, Seniority, WorkplaceMode } from '@/lib/types';
@@ -19,6 +20,9 @@ function cleanKeywords(value: unknown) {
 
 export async function PUT(request: Request) {
   await ensureSchema();
+  const { session, response } = await requireSession(request);
+  if (response) return response;
+  const { db, user } = session;
   const body = await request.json() as Record<string, unknown>;
   const workplace = cleanText(body.workplace) as WorkplaceMode;
   const seniority = cleanText(body.seniority) as Seniority;
@@ -39,30 +43,29 @@ export async function PUT(request: Request) {
     excludedKeywords: cleanKeywords(body.excludedKeywords),
   };
   const now = new Date().toISOString();
-  const { db } = bindings();
-  const statements = [db.prepare(`INSERT INTO search_settings (id, role_override_a, role_override_b, location, workplace,
+  const statements = [db.prepare(`INSERT INTO search_settings (id, user_id, role_override_a, role_override_b, location, workplace,
       seniority, contract_type, required_keywords, excluded_keywords, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET role_override_a = excluded.role_override_a,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET role_override_a = excluded.role_override_a,
       role_override_b = excluded.role_override_b, location = excluded.location, workplace = excluded.workplace,
       seniority = excluded.seniority, contract_type = excluded.contract_type,
       required_keywords = excluded.required_keywords, excluded_keywords = excluded.excluded_keywords,
       updated_at = excluded.updated_at`)
-    .bind('default', input.roleOverrideA, input.roleOverrideB, input.location, input.workplace, input.seniority,
+    .bind(`settings:${user.id}`, user.id, input.roleOverrideA, input.roleOverrideB, input.location, input.workplace, input.seniority,
       input.contractType, JSON.stringify(input.requiredKeywords), JSON.stringify(input.excludedKeywords), now),
-    db.prepare('DELETE FROM search_roles')];
+    db.prepare('DELETE FROM search_roles WHERE user_id = ?').bind(user.id)];
   input.roleKeywords.forEach((role, position) => statements.push(db.prepare(
-    'INSERT INTO search_roles (id, position, role, updated_at) VALUES (?, ?, ?, ?)',
-  ).bind(`default:${position}`, position, role, now)));
+    'INSERT INTO search_roles (id, user_id, position, role, updated_at) VALUES (?, ?, ?, ?, ?)',
+  ).bind(`${user.id}:${position}`, user.id, position, role, now)));
   await db.batch(statements);
   const [row, roles] = await Promise.all([
-    db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
-    db.prepare('SELECT position, role FROM search_roles ORDER BY position').all<SearchRoleRow>(),
+    db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
+    db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
   const criteria = criteriaFromRow(row, roles.results);
-  const cvRows = await db.prepare('SELECT slot, cv_text, derived_role FROM cvs')
+  const cvRows = await db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id)
     .all<{ slot: CvSlot; cv_text: string; derived_role: string }>();
-  const rescoredJobs = await rescoreAllJobs(db, cvRows.results.map((saved) => ({
+  const rescoredJobs = await rescoreAllJobs(db, user.id, cvRows.results.map((saved) => ({
     slot: saved.slot,
     cvText: saved.cv_text,
     derivedRole: roleForSlot(saved.slot, saved.derived_role, criteria),

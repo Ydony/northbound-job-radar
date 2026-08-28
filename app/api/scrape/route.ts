@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { aggregatorCredentials, bindings, ensureSchema } from '@/db/runtime';
+import { aggregatorCredentials, ensureSchema } from '@/db/runtime';
+import { rateLimit, requireSession } from '@/lib/guard';
 import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
 import { descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS, sourceStatusForAvailability,
   type SearchMode } from '@/lib/job-adapters';
@@ -48,15 +49,21 @@ function runSourceRow(runId: string, source: SearchRunSource) {
 
 export async function POST(request: Request) {
   await ensureSchema();
+  const { session, response } = await requireSession(request);
+  if (response) return response;
+  const { db, user } = session;
+  // A search fans out to every source, so it is capped per account to protect third-party quotas.
+  const limited = rateLimit(`scrape:${user.id}`, 6, 10 * 60_000);
+  if (limited) return limited;
+
   // 'authorized' runs only official/keyed APIs and needs no VPN; 'all' adds the page-fetching sources.
   const body = await request.json().catch(() => ({})) as { mode?: SearchMode };
   const mode: SearchMode = body.mode === 'all' ? 'all' : 'authorized';
   const activeAdapters = jobSourceAdapters.filter((adapter) => mode === 'all' || adapter.access === 'authorized-api');
-  const { db } = bindings();
   const [cvRows, criteriaRow, roleRows] = await Promise.all([
-    db.prepare('SELECT slot, cv_text, derived_role FROM cvs').all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
-    db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
-    db.prepare('SELECT position, role FROM search_roles ORDER BY position').all<SearchRoleRow>(),
+    db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id).all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
+    db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
+    db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
   if (!cvRows.results.length) return NextResponse.json({ error: 'Upload at least one CV first.' }, { status: 400 });
 
@@ -76,12 +83,12 @@ export async function POST(request: Request) {
   }));
   const runId = crypto.randomUUID();
   const startedAt = new Date().toISOString();
-  await db.prepare('INSERT INTO search_runs (id, status, started_at, completed_at) VALUES (?, ?, ?, ?)')
-    .bind(runId, 'partial', startedAt, '').run();
+  await db.prepare('INSERT INTO search_runs (id, user_id, status, started_at, completed_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(runId, user.id, 'partial', startedAt, '').run();
 
   const [jobIdentities, dismissedIdentities] = await Promise.all([
-    db.prepare('SELECT source_key, source_job_id, canonical_url FROM jobs').all<KnownIdentity>(),
-    db.prepare('SELECT source_key, source_job_id, canonical_url FROM dismissed_jobs').all<KnownIdentity>(),
+    db.prepare('SELECT source_key, source_job_id, canonical_url FROM jobs WHERE user_id = ?').bind(user.id).all<KnownIdentity>(),
+    db.prepare('SELECT source_key, source_job_id, canonical_url FROM dismissed_jobs WHERE user_id = ?').bind(user.id).all<KnownIdentity>(),
   ]);
   const known = [...jobIdentities.results, ...dismissedIdentities.results];
 
@@ -193,7 +200,7 @@ export async function POST(request: Request) {
       }
       const language = languageForParsedJob(parsed, description);
       const fit = scoreFitAcrossCvs(description, parsed.title, cvs);
-      const stored = await upsertJob(db, {
+      const stored = await upsertJob(db, user.id, {
         sourceUrl: parsed.sourceUrl,
         title: parsed.title,
         company: parsed.company,
@@ -250,8 +257,8 @@ export async function POST(request: Request) {
     const row = runSourceRow(runId, source);
     return db.prepare(row.statement).bind(...row.bindings);
   });
-  statements.push(db.prepare('UPDATE search_runs SET status = ?, completed_at = ? WHERE id = ?')
-    .bind(overallStatus, completedAt, runId));
+  statements.push(db.prepare('UPDATE search_runs SET status = ?, completed_at = ? WHERE id = ? AND user_id = ?')
+    .bind(overallStatus, completedAt, runId, user.id));
   await db.batch(statements);
 
   const run: SearchRun = { id: runId, status: overallStatus, startedAt, completedAt, sources: sourceReports };

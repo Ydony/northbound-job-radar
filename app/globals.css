@@ -99,3 +99,17 @@ footer { align-items:center; background:var(--ink); color:#b9c7c0; display:flex;
 .company-grid b { font-size:12px; }
 .company-grid span { color:var(--muted); font-size:9px; text-transform:uppercase; }
 @media(max-width:700px){.policy-card dl{grid-template-columns:1fr}.policy-card dt{margin-top:6px}}
+.login-wrap { align-items:center; display:flex; flex-direction:column; justify-content:center; min-height:100vh; padding:40px 24px; }
+.login-card { background:var(--cream); border:1px solid var(--line); box-shadow:16px 16px 0 #dce2d7; max-width:400px; padding:34px; width:100%; }
+.login-card .brand-mark { margin-bottom:16px; }
+.login-card h1 { font-size:38px; letter-spacing:-.04em; margin:0 0 6px; }
+.login-sub { color:var(--muted); font-size:12px; line-height:1.6; margin:0 0 22px; }
+.login-card form { display:grid; gap:14px; }
+.login-card .field input { background:white; border:1px solid #bfc6bc; min-height:48px; padding:12px; width:100%; }
+.login-card .field span { color:var(--ink); }
+.login-card .search-button { width:100%; }
+.login-card .form-message { color:var(--danger); font-size:11px; min-height:16px; }
+.login-hint { color:var(--muted); font-size:10px; margin:-6px 0 0; }
+.login-switch { background:transparent; border:0; color:var(--green); cursor:pointer; font-size:11px; font-weight:700; margin-top:16px; padding:0; text-decoration:underline; }
+.login-foot { color:var(--muted); font-size:11px; margin-top:22px; max-width:400px; text-align:center; }
+.login-foot a { border-bottom:1px solid var(--muted); }
