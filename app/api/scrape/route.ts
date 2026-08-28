@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { aggregatorCredentials, bindings, ensureSchema } from '@/db/runtime';
 import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
-import { descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS, sourceStatusForAvailability } from '@/lib/job-adapters';
+import { descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS, sourceStatusForAvailability,
+  type SearchMode } from '@/lib/job-adapters';
 import { canonicalJobUrl, isGloballyStableSourceJobId, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { delay, stripHtml, type ParsedJob } from '@/lib/jobsch';
 import { roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
@@ -45,8 +46,12 @@ function runSourceRow(runId: string, source: SearchRunSource) {
   };
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   await ensureSchema();
+  // 'authorized' runs only official/keyed APIs and needs no VPN; 'all' adds the page-fetching sources.
+  const body = await request.json().catch(() => ({})) as { mode?: SearchMode };
+  const mode: SearchMode = body.mode === 'all' ? 'all' : 'authorized';
+  const activeAdapters = jobSourceAdapters.filter((adapter) => mode === 'all' || adapter.access === 'authorized-api');
   const { db } = bindings();
   const [cvRows, criteriaRow, roleRows] = await Promise.all([
     db.prepare('SELECT slot, cv_text, derived_role FROM cvs').all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
@@ -81,7 +86,7 @@ export async function POST() {
   const known = [...jobIdentities.results, ...dismissedIdentities.results];
 
   const credentials = aggregatorCredentials();
-  const searchResults = await Promise.all(jobSourceAdapters.map(async (adapter) => {
+  const searchResults = await Promise.all(activeAdapters.map(async (adapter) => {
     const empty = { adapter, candidates: [] as string[], bulk: [] as ParsedJob[], error: '', missingCredentials: false };
     if (adapter.availability !== 'enabled') return empty;
     if (adapter.hasCredentials && !adapter.hasCredentials(credentials)) {
@@ -233,7 +238,7 @@ export async function POST() {
     });
   }
 
-  const enabledReports = sourceReports.filter((source) => jobSourceAdapters
+  const enabledReports = sourceReports.filter((source) => activeAdapters
     .find((adapter) => adapter.key === source.sourceKey)?.availability === 'enabled');
   const overallStatus: SearchRun['status'] = enabledReports.every((source) => source.status === 'failed')
     ? 'failed'

@@ -6,10 +6,20 @@ import type { JobCountry, SourceRunStatus } from './types';
 const USER_AGENT = 'Northbound/0.1 personal job-search companion';
 const REQUEST_DELAY_MS = 1200;
 
+/**
+ * `authorized-api` sources are keyed or officially public APIs used as intended, so they need no
+ * VPN and carry no terms risk. `page-fetch` sources read public web pages against site terms and
+ * are only run in the explicit VPN-on mode.
+ */
+export type SourceAccess = 'authorized-api' | 'page-fetch';
+
+export type SearchMode = 'authorized' | 'all';
+
 export interface JobSourceAdapter {
   key: string;
   name: string;
   country: JobCountry;
+  access: SourceAccess;
   availability: 'enabled' | 'blocked' | 'disabled' | 'unavailable';
   availabilityMessage: string;
   search?: (terms: string[], location: string) => Promise<string[]>;
@@ -183,54 +193,63 @@ const jobScoutSearch = jobCloudSearchAdapter({
 
 export const jobSourceAdapters: JobSourceAdapter[] = [
   {
-    key: 'job-room.ch', name: 'Job-Room (arbeit.swiss)', country: 'switzerland', availability: 'enabled',
+    key: 'job-room.ch', name: 'Job-Room (arbeit.swiss)', country: 'switzerland',
+    access: 'authorized-api', availability: 'enabled',
     availabilityMessage: 'Official Swiss public employment service; unauthenticated public search API with employer-declared language requirements.',
     searchDetailed: (terms) => searchJobRoom(terms),
   },
   {
-    key: 'adzuna-ch', name: 'Adzuna Switzerland', country: 'switzerland', availability: 'enabled',
+    key: 'adzuna-ch', name: 'Adzuna Switzerland', country: 'switzerland',
+    access: 'authorized-api', availability: 'enabled',
     availabilityMessage: 'Authorized aggregator API. Add a free ADZUNA_APP_ID and ADZUNA_APP_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchAdzuna(terms, location, 'switzerland', credentials),
     hasCredentials: (credentials) => Boolean(credentials.adzunaAppId && credentials.adzunaAppKey),
   },
   {
-    key: 'adzuna-nl', name: 'Adzuna Netherlands', country: 'netherlands', availability: 'enabled',
+    key: 'adzuna-nl', name: 'Adzuna Netherlands', country: 'netherlands',
+    access: 'authorized-api', availability: 'enabled',
     availabilityMessage: 'Authorized aggregator API. Add a free ADZUNA_APP_ID and ADZUNA_APP_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchAdzuna(terms, location, 'netherlands', credentials),
     hasCredentials: (credentials) => Boolean(credentials.adzunaAppId && credentials.adzunaAppKey),
   },
   {
-    key: 'careerjet-ch', name: 'Careerjet Switzerland', country: 'switzerland', availability: 'enabled',
+    key: 'careerjet-ch', name: 'Careerjet Switzerland', country: 'switzerland',
+    access: 'authorized-api', availability: 'enabled',
     availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'switzerland', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
   },
   {
-    key: 'careerjet-nl', name: 'Careerjet Netherlands', country: 'netherlands', availability: 'enabled',
+    key: 'careerjet-nl', name: 'Careerjet Netherlands', country: 'netherlands',
+    access: 'authorized-api', availability: 'enabled',
     availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'netherlands', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
   },
   {
-    key: 'jobs.ch', name: 'jobs.ch', country: 'switzerland', availability: 'enabled',
+    key: 'jobs.ch', name: 'jobs.ch', country: 'switzerland',
+    access: 'page-fetch', availability: 'enabled',
     availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
     search: jobsChSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'jobs.ch', 'Switzerland'),
   },
   {
-    key: 'jobup.ch', name: 'jobup.ch', country: 'switzerland', availability: 'enabled',
+    key: 'jobup.ch', name: 'jobup.ch', country: 'switzerland',
+    access: 'page-fetch', availability: 'enabled',
     availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
     search: jobupSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'jobup.ch', 'Switzerland'),
   },
   {
-    key: 'jobscout24.ch', name: 'JobScout24', country: 'switzerland', availability: 'enabled',
+    key: 'jobscout24.ch', name: 'JobScout24', country: 'switzerland',
+    access: 'page-fetch', availability: 'enabled',
     availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
     search: jobScoutSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'JobScout24', 'Switzerland'),
   },
   {
-    key: 'iamexpat.nl', name: 'IamExpat', country: 'netherlands', availability: 'enabled',
+    key: 'iamexpat.nl', name: 'IamExpat', country: 'netherlands',
+    access: 'page-fetch', availability: 'enabled',
     availabilityMessage: 'Capped public-page adapter; current public listings only.',
     search: async (terms) => (await listingLinks('https://www.iamexpat.nl/career/jobs-netherlands', 'IamExpat',
       /href=["']([^"']*\/career\/jobs-netherlands\/[^"'?]+\/[^"'?]+)["']/gi, 'https://www.iamexpat.nl'))
@@ -238,7 +257,8 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     fetchDetail: (url) => fetchStructuredDetail(url, 'IamExpat', 'Netherlands'),
   },
   {
-    key: 'undutchables.nl', name: 'Undutchables', country: 'netherlands', availability: 'enabled',
+    key: 'undutchables.nl', name: 'Undutchables', country: 'netherlands',
+    access: 'page-fetch', availability: 'enabled',
     availabilityMessage: 'Capped public listing adapter; query-string search is not used.',
     search: async (terms) => (await listingLinks('https://undutchables.nl/vacancies', 'Undutchables',
       /href=["'](https:\/\/undutchables\.nl\/vacancies\/[^"'?]+)["']/gi, 'https://undutchables.nl'))
@@ -246,19 +266,23 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     fetchDetail: (url) => fetchStructuredDetail(url, 'Undutchables', 'Netherlands'),
   },
   {
-    key: 'indeed-ch', name: 'Indeed Switzerland', country: 'switzerland', availability: 'blocked',
+    key: 'indeed-ch', name: 'Indeed Switzerland', country: 'switzerland',
+    access: 'page-fetch', availability: 'blocked',
     availabilityMessage: 'Not searched: Indeed prohibits automated access without written permission and returned HTTP 403.',
   },
   {
-    key: 'indeed-nl', name: 'Indeed Netherlands', country: 'netherlands', availability: 'blocked',
+    key: 'indeed-nl', name: 'Indeed Netherlands', country: 'netherlands',
+    access: 'page-fetch', availability: 'blocked',
     availabilityMessage: 'Not searched: Indeed prohibits automated access without written permission and returned HTTP 403.',
   },
   {
-    key: 'nationalevacaturebank.nl', name: 'Nationale Vacaturebank', country: 'netherlands', availability: 'unavailable',
+    key: 'nationalevacaturebank.nl', name: 'Nationale Vacaturebank', country: 'netherlands',
+    access: 'page-fetch', availability: 'unavailable',
     availabilityMessage: 'Not searched: automated access returned HTTP 403; no authorized feed is configured.',
   },
   {
-    key: 'iamsterdam.com', name: 'I amsterdam', country: 'netherlands', availability: 'disabled',
+    key: 'iamsterdam.com', name: 'I amsterdam', country: 'netherlands',
+    access: 'page-fetch', availability: 'disabled',
     availabilityMessage: 'Not searched: this is a job-search guide, not a vacancy feed.',
   },
 ];

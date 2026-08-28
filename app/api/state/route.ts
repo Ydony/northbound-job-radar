@@ -12,7 +12,7 @@ export async function GET() {
       language_feedback.corrected_status AS feedback_corrected_status,
       language_feedback.reason AS feedback_reason, language_feedback.updated_at AS feedback_updated_at
       FROM jobs LEFT JOIN language_feedback ON language_feedback.job_id = jobs.id
-      ORDER BY jobs.updated_at DESC LIMIT 250`).all<JobRow>(),
+      ORDER BY jobs.updated_at DESC LIMIT 1000`).all<JobRow>(),
     db.prepare('SELECT * FROM search_settings WHERE id = ?').bind('default').first<CriteriaRow>(),
     db.prepare('SELECT position, role FROM search_roles ORDER BY position').all<SearchRoleRow>(),
     db.prepare('SELECT * FROM search_runs ORDER BY started_at DESC LIMIT 12').all<SearchRunRow>(),

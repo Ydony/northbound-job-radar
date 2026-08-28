@@ -125,7 +125,7 @@ export default function JobRadar() {
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [showImport, setShowImport] = useState(false);
-  const [scrapeBusy, setScrapeBusy] = useState(false);
+  const [scrapeBusy, setScrapeBusy] = useState<'' | 'authorized' | 'all'>('');
   const [scrapeMessage, setScrapeMessage] = useState('');
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(criteriaToDraft(defaultSearchCriteria));
   const [criteriaBusy, setCriteriaBusy] = useState(false);
@@ -320,12 +320,18 @@ export default function JobRadar() {
     }
   }
 
-  async function findJobs() {
-    setScrapeBusy(true);
-    setScrapeMessage('Searching every configured job source…');
+  async function findJobs(mode: 'authorized' | 'all') {
+    setScrapeBusy(mode);
+    setScrapeMessage(mode === 'all'
+      ? 'Searching every source, including the page-fetching ones. Keep the VPN connected…'
+      : 'Searching the official and keyed APIs only. No VPN needed…');
     try {
       const result = await responseJson<{ added: JobRecord[]; run: SearchRun; scanned: number; alreadyKnown: number }>(
-        await fetch('/api/scrape', { method: 'POST' }),
+        await fetch('/api/scrape', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ mode }),
+        }),
       );
       setState((current) => ({
         ...current,
@@ -337,7 +343,7 @@ export default function JobRadar() {
     } catch (error) {
       setScrapeMessage(error instanceof Error ? error.message : 'Could not search the configured job sources.');
     } finally {
-      setScrapeBusy(false);
+      setScrapeBusy('');
     }
   }
 
@@ -590,7 +596,12 @@ export default function JobRadar() {
       <section className="workflow">
         <div className="workflow-copy"><span className="section-label coral">Step two</span><h2>Search and screen everywhere</h2><p>One search runs every enabled Swiss and Netherlands adapter, records source failures, removes duplicates, and applies the strict English gate.</p></div>
         <div className="workflow-steps"><span><b>1</b> Search configured sites</span><span><b>2</b> Deduplicate and screen</span><span><b>3</b> Compare source results</span></div>
-        <button className="jobs-button" type="button" disabled={!hasAnyCv || scrapeBusy} onClick={findJobs}>{scrapeBusy ? 'Searching all sites…' : 'Search all job sites'} <span>⟳</span></button>
+        <button className="jobs-button" type="button" disabled={!hasAnyCv || Boolean(scrapeBusy)} onClick={() => findJobs('authorized')} title="Official and keyed APIs only (Job-Room, Adzuna, Careerjet). No VPN needed.">
+          {scrapeBusy === 'authorized' ? 'Searching APIs…' : 'Search — VPN off'} <span>⚡</span>
+        </button>
+        <button className="jobs-button" type="button" disabled={!hasAnyCv || Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Adds the page-fetching sources (jobs.ch, jobup.ch, JobScout24, IamExpat, Undutchables). Connect the VPN first.">
+          {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
+        </button>
         <a className={`jobs-button ${!hasAnyCv ? 'disabled' : ''}`} href={jobsSearchUrl(primaryRole, state.criteria.location)} target={hasAnyCv ? '_blank' : undefined} rel="noreferrer">Open jobs.ch <span>↗</span></a>
         <button className="import-button" type="button" disabled={!hasAnyCv} onClick={openImport}>Analyze a job <span>＋</span></button>
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>

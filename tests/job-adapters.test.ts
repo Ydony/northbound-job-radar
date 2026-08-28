@@ -99,3 +99,21 @@ test('enabled adapters can either fetch details per job or return them in bulk',
       `${adapter.key} is enabled but cannot produce jobs`);
   }
 });
+
+test('every adapter declares whether it is an authorized API or a page fetch', () => {
+  for (const adapter of jobSourceAdapters) {
+    assert.ok(adapter.access === 'authorized-api' || adapter.access === 'page-fetch',
+      `${adapter.key} has no access classification`);
+  }
+});
+
+test('VPN-off mode selects only authorized APIs and excludes every page-fetch source', () => {
+  const authorized = jobSourceAdapters.filter((adapter) => adapter.access === 'authorized-api');
+  assert.ok(authorized.length > 0);
+  assert.ok(authorized.every((adapter) => !adapter.search),
+    'authorized-API sources must not use the page-fetching search path');
+  for (const key of ['jobs.ch', 'jobup.ch', 'jobscout24.ch', 'iamexpat.nl', 'undutchables.nl']) {
+    assert.equal(jobSourceAdapters.find((adapter) => adapter.key === key)?.access, 'page-fetch',
+      `${key} must stay behind the VPN-on mode`);
+  }
+});
