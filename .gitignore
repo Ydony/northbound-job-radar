@@ -28,6 +28,10 @@ yarn-error.log*
 
 # local environment
 .env*
+# Cloudflare local secrets (aggregator API keys) - never commit the real file
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 
 # deployment and generated files
 .vercel

@@ -1,0 +1,17 @@
+# Optional free aggregator credentials for Adzuna and Careerjet.
+#
+# Copy this file to `.dev.vars` and fill in the values, then restart `npm run dev`.
+# `.dev.vars` is gitignored; never commit real keys.
+#
+# Without these, the Adzuna and Careerjet sources simply report themselves
+# "unavailable" in the search report. Nothing else breaks, and every other
+# source keeps working.
+#
+# Adzuna - https://developer.adzuna.com/  (free, instant, no card)
+#   Free tier: 250 requests/day, 25/minute. Covers Switzerland and Netherlands.
+ADZUNA_APP_ID=
+ADZUNA_APP_KEY=
+
+# Careerjet - https://www.careerjet.com/partners/api/  (free partner account)
+#   Free tier: ~1000 requests/hour. Covers Switzerland and Netherlands.
+CAREERJET_AFFID=
