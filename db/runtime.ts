@@ -160,6 +160,8 @@ export function ensureSchema() {
       }
       await backfillIncompleteJobIdentities(db);
       await backfillWorkplaceTypes(db);
+      // Retention: sign-in records hold IPs for abuse prevention only and expire after 30 days.
+      await db.prepare("DELETE FROM auth_events WHERE created_at < datetime('now', '-30 days')").run();
       await db.prepare('PRAGMA optimize').run();
     })().catch((error) => {
       schemaReady = undefined;

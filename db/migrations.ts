@@ -248,4 +248,40 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE UNIQUE INDEX IF NOT EXISTS search_settings_user_idx ON search_settings(user_id)',
     ],
   },
+  {
+    version: 8,
+    name: 'privacy_preserving_visit_counts',
+    statements: [
+      // Aggregate counters only. Nothing here identifies a person or survives as a profile.
+      `CREATE TABLE IF NOT EXISTS daily_visits (
+        day TEXT PRIMARY KEY NOT NULL,
+        total_visits INTEGER NOT NULL DEFAULT 0,
+        unique_visitors INTEGER NOT NULL DEFAULT 0
+      )`,
+      // Same-day de-duplication only. The marker is a salted hash that changes every day and is
+      // deleted once the day rolls over, so visits cannot be linked across days or back to anyone.
+      `CREATE TABLE IF NOT EXISTS visit_markers (
+        day TEXT NOT NULL,
+        marker TEXT NOT NULL,
+        PRIMARY KEY (day, marker)
+      )`,
+      'CREATE INDEX IF NOT EXISTS visit_markers_day_idx ON visit_markers(day)',
+      `CREATE TABLE IF NOT EXISTS password_resets (
+        token_hash TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used_at TEXT NOT NULL DEFAULT ''
+      )`,
+      'CREATE INDEX IF NOT EXISTS password_resets_user_idx ON password_resets(user_id)',
+    ],
+  },
+  {
+    version: 9,
+    name: 'expire_auth_events',
+    statements: [
+      // auth_events holds IP addresses for abuse prevention. That is personal data, so it is kept
+      // to a short window rather than indefinitely; the runtime purge enforces it from here on.
+      "DELETE FROM auth_events WHERE created_at < datetime('now', '-30 days')",
+    ],
+  },
 ];

@@ -794,7 +794,7 @@ export default function JobRadar() {
         </div>
       </section>
 
-      <footer><b>Ik Engels</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#sources">Source report ↑</a><Link href="/sources">Where the jobs come from →</Link></footer>
+      <footer><b>Ik Engels</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#sources">Source report ↑</a><Link href="/sources">Where the jobs come from →</Link><Link href="/privacy">Privacy</Link></footer>
     </main>
   );
 }
