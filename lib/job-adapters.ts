@@ -1,3 +1,4 @@
+import { searchAtsBoards } from './ats-feeds';
 import { searchAdzuna, searchCareerjet, type AggregatorCredentials } from './job-aggregators';
 import { searchJobRoom } from './job-room';
 import { delay, extractJobPosting, interleaveUnique, stripHtml, type ParsedJob } from './jobsch';
@@ -192,6 +193,18 @@ const jobScoutSearch = jobCloudSearchAdapter({
 });
 
 export const jobSourceAdapters: JobSourceAdapter[] = [
+  {
+    key: 'ats-ch', name: 'Company career boards (CH)', country: 'switzerland',
+    access: 'authorized-api', availability: 'enabled',
+    availabilityMessage: 'Public ATS job boards published for aggregators; no key or VPN needed.',
+    searchDetailed: () => searchAtsBoards('switzerland'),
+  },
+  {
+    key: 'ats-nl', name: 'Company career boards (NL)', country: 'netherlands',
+    access: 'authorized-api', availability: 'enabled',
+    availabilityMessage: 'Public ATS job boards published for aggregators; no key or VPN needed.',
+    searchDetailed: () => searchAtsBoards('netherlands'),
+  },
   {
     key: 'job-room.ch', name: 'Job-Room (arbeit.swiss)', country: 'switzerland',
     access: 'authorized-api', availability: 'enabled',
