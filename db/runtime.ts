@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
+import { detectWorkplaceType } from '../lib/workplace';
 import { runtimeMigrations } from './migrations';
 
 const schemaStatements = [
@@ -99,6 +100,19 @@ async function backfillIncompleteJobIdentities(db: D1Database) {
   }
 }
 
+/** Detects the work type for jobs stored before the column existed. Empty means never analysed; 'unknown' means analysed with no signal found, so this runs once per row. */
+async function backfillWorkplaceTypes(db: D1Database) {
+  const rows = await db.prepare(`SELECT id, title, location, description FROM jobs
+    WHERE workplace_type = '' LIMIT 2000`)
+    .all<{ id: string; title: string; location: string; description: string }>();
+  if (!rows.results.length) return;
+  const statements = rows.results.map((row) => db.prepare('UPDATE jobs SET workplace_type = ? WHERE id = ?')
+    .bind(detectWorkplaceType(`${row.title} ${row.location} ${row.description}`), row.id));
+  for (let index = 0; index < statements.length; index += 80) {
+    await db.batch(statements.slice(index, index + 80));
+  }
+}
+
 export function bindings() {
   if (!env.DB) throw new Error('D1 binding DB is unavailable.');
   if (!env.CV_FILES) throw new Error('R2 binding CV_FILES is unavailable.');
@@ -136,6 +150,7 @@ export function ensureSchema() {
         await db.batch(statements);
       }
       await backfillIncompleteJobIdentities(db);
+      await backfillWorkplaceTypes(db);
       await db.prepare('PRAGMA optimize').run();
     })().catch((error) => {
       schemaReady = undefined;

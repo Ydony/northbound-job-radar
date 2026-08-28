@@ -1,6 +1,7 @@
 import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
 import { canonicalJobUrl, isGloballyStableSourceJobId, jobIdentityFingerprint, sourceInfoForUrl,
   sourceJobIdFromUrl } from './job-identity';
+import { detectWorkplaceType } from './workplace';
 import type { CvProfile, CvSlot, JobRecord, SearchCriteria, SearchRun, SearchRunSource } from './types';
 
 interface CvRow {
@@ -33,6 +34,7 @@ interface JobRow {
   fit_score_a: number;
   fit_score_b: number;
   best_cv_slot: JobRecord['bestCvSlot'];
+  workplace_type: JobRecord['workplaceType'];
   matched_keywords: string;
   missing_keywords: string;
   identity_fingerprint: string;
@@ -136,6 +138,7 @@ export function jobFromRow(row: JobRow): JobRecord {
     fitScoreA: row.fit_score_a,
     fitScoreB: row.fit_score_b,
     bestCvSlot: row.best_cv_slot,
+    workplaceType: row.workplace_type || 'unknown',
     matchedKeywords: stringArray(row.matched_keywords),
     missingKeywords: stringArray(row.missing_keywords),
     identityFingerprint: row.identity_fingerprint || jobIdentityFingerprint({
@@ -243,6 +246,7 @@ export async function upsertJob(db: D1Database, input: UpsertJobInput): Promise<
   const sourceJobId = sourceJobIdFromUrl(canonicalUrl);
   const globallyStableSourceJobId = isGloballyStableSourceJobId(sourceJobId);
   const postedAt = input.postedAt?.trim() ?? '';
+  const workplaceType = detectWorkplaceType(`${input.title} ${input.location} ${input.description}`);
   const identityFingerprint = jobIdentityFingerprint({ ...input, sourceUrl: canonicalUrl, postedAt });
   const exact = await db.prepare(`SELECT id, source_url, source_key, status, is_saved, application_status,
       visibility_status, created_at, first_seen_at FROM jobs
@@ -275,22 +279,22 @@ export async function upsertJob(db: D1Database, input: UpsertJobInput): Promise<
   } else if (existing) {
     await db.prepare(`UPDATE jobs SET canonical_url = ?, source_key = ?, source_name = ?, source_job_id = ?,
       country = ?, title = ?, company = ?, location = ?, description = ?, language_status = ?, language_summary = ?,
-      language_signals = ?, fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, matched_keywords = ?, missing_keywords = ?,
+      language_signals = ?, fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
       identity_fingerprint = ?, visibility_status = ?, posted_at = CASE WHEN ? = '' THEN posted_at ELSE ? END,
       last_seen_at = ?, updated_at = ? WHERE id = ?`)
       .bind(canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company, input.location,
         input.description, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals), input.fitScoreA,
-        input.fitScoreB, input.bestCvSlot, JSON.stringify(input.matchedKeywords), JSON.stringify(input.missingKeywords),
+        input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords), JSON.stringify(input.missingKeywords),
         identityFingerprint, visibilityStatus, postedAt, postedAt, now, now, id).run();
   } else {
     await db.prepare(`INSERT INTO jobs (id, source_url, canonical_url, source_key, source_name, source_job_id, country,
       title, company, location, description, language_status, language_summary, language_signals, fit_score_a, fit_score_b,
-      best_cv_slot, matched_keywords, missing_keywords, identity_fingerprint, is_saved, application_status,
+      best_cv_slot, workplace_type, matched_keywords, missing_keywords, identity_fingerprint, is_saved, application_status,
       visibility_status, posted_at, first_seen_at, last_seen_at, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(id, canonicalUrl, canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company,
         input.location, input.description, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals),
-        input.fitScoreA, input.fitScoreB, input.bestCvSlot, JSON.stringify(input.matchedKeywords),
+        input.fitScoreA, input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords),
         JSON.stringify(input.missingKeywords), identityFingerprint, 0, 'not_applied', visibilityStatus, postedAt, now, now,
         visibilityStatus === 'dismissed' ? 'ignored' : 'new', now, now).run();
   }

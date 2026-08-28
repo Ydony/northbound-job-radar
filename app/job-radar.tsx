@@ -6,6 +6,8 @@ import { jobsToCsv, workspaceToJson } from '@/lib/export';
 import { countryLabel } from '@/lib/job-identity';
 import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
+import { workplaceLabel } from '@/lib/workplace';
+import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, ApplicationStatus, CvSlot, JobCountry, JobRecord, SearchCriteria,
   SearchRun } from '@/lib/types';
@@ -137,6 +139,8 @@ export default function JobRadar() {
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   const [dataBusy, setDataBusy] = useState(false);
   const [dataMessage, setDataMessage] = useState('');
+  const [health, setHealth] = useState<HealthReport | null>(null);
+  const [healthBusy, setHealthBusy] = useState(false);
   const importRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -317,6 +321,17 @@ export default function JobRadar() {
       setImportMessage(error instanceof Error ? error.message : 'Could not analyze this job.');
     } finally {
       setImportBusy(false);
+    }
+  }
+
+  async function checkHealth() {
+    setHealthBusy(true);
+    try {
+      setHealth(await responseJson<HealthReport>(await fetch('/api/health')));
+    } catch {
+      setHealth(null);
+    } finally {
+      setHealthBusy(false);
     }
   }
 
@@ -605,6 +620,27 @@ export default function JobRadar() {
         <a className={`jobs-button ${!hasAnyCv ? 'disabled' : ''}`} href={jobsSearchUrl(primaryRole, state.criteria.location)} target={hasAnyCv ? '_blank' : undefined} rel="noreferrer">Open jobs.ch <span>↗</span></a>
         <button className="import-button" type="button" disabled={!hasAnyCv} onClick={openImport}>Analyze a job <span>＋</span></button>
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
+        <div className="health-panel">
+          <div className="health-head">
+            <b>Source health</b>
+            <button type="button" onClick={checkHealth} disabled={healthBusy}>{healthBusy ? 'Checking…' : 'Check now'}</button>
+          </div>
+          {!health && <p>{healthBusy ? 'Contacting each keyed source…' : 'Run a check to confirm your IP still matches what Careerjet expects.'}</p>}
+          {health && <>
+            <p className={health.ipMatches ? 'health-ok' : 'health-warn'}>
+              {health.ipMatches
+                ? `Your IP ${health.publicIp} matches the one declared to Careerjet.`
+                : `Your IP is now ${health.publicIp || 'unknown'}, but Careerjet expects ${health.declaredIp || 'none declared'}. Update CAREERJET_USER_IP and the declared IP in your Careerjet account.`}
+            </p>
+            <ul>
+              {health.sources.map((source) => <li key={source.key}>
+                <span className={`health-dot ${source.status}`} />
+                <b>{source.name}</b>
+                <span>{source.status === 'ok' ? 'Working' : source.status === 'failing' ? 'Failing' : 'Not configured'} — {source.detail}</span>
+              </li>)}
+            </ul>
+          </>}
+        </div>
       </section>
 
       <section className="source-dashboard" id="sources">
@@ -686,7 +722,7 @@ export default function JobRadar() {
                 <div className="job-body">
                   <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span></div>
                   <h3>{job.title}</h3>
-                  <p className="source-date"><b>{job.sourceName}</b><span>{countryLabel(job.country)}</span><span>{formatDate(job.postedAt)}</span></p>
+                  <p className="source-date"><b>{job.sourceName}</b><span>{countryLabel(job.country)}</span><span>{formatDate(job.postedAt)}</span><span className={`work-type ${job.workplaceType}`}>{workplaceLabel(job.workplaceType)}</span></p>
                   {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
                   <p className="language-summary">{hasCorrection ? `Detector note: ${job.languageSummary}` : job.languageSummary}</p>
                   {bothCvsSaved && <p className="fit-breakdown">

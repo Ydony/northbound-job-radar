@@ -68,12 +68,9 @@ export function matchesSearchCriteria(job: JobRecord, criteria: SearchCriteria) 
   if (criteria.requiredKeywords.some((keyword) => !text.includes(normalized(keyword)))) return false;
   if (criteria.excludedKeywords.some((keyword) => text.includes(normalized(keyword)))) return false;
 
-  const workplacePatterns: Record<string, RegExp> = {
-    remote: /\b(?:fully remote|remote work|work from home|home[- ]office)\b/i,
-    hybrid: /\b(?:hybrid|flexible working|home[- ]office|remote work)\b/i,
-    onsite: /\b(?:on[- ]site|onsite|office[- ]based|at our (?:office|location))\b/i,
-  };
-  if (!matchesPattern(text, workplacePatterns, criteria.workplace)) return false;
+  // Uses the value detected at import time rather than re-matching prose, so the filter and the
+  // badge on the card can never disagree.
+  if (criteria.workplace !== 'any' && job.workplaceType !== criteria.workplace) return false;
 
   const seniorityPatterns: Record<string, RegExp> = {
     internship: /\b(?:intern|internship|trainee|apprentice)\b/i,

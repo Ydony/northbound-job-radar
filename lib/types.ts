@@ -1,4 +1,5 @@
 import type { LanguageStatus } from './analysis';
+import type { WorkplaceType } from './workplace';
 
 export type CvSlot = 'a' | 'b';
 export type WorkplaceMode = 'any' | 'remote' | 'hybrid' | 'onsite';
@@ -59,6 +60,7 @@ export interface JobRecord {
   isSaved: boolean;
   applicationStatus: ApplicationStatus;
   visibilityStatus: VisibilityStatus;
+  workplaceType: WorkplaceType;
   postedAt: string;
   firstSeenAt: string;
   lastSeenAt: string;

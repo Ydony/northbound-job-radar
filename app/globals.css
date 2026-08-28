@@ -47,3 +47,23 @@ footer { align-items:center; background:var(--ink); color:#b9c7c0; display:flex;
 @media(max-width:1100px){.role-keywords>div{grid-template-columns:repeat(3,1fr)}.source-report-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:850px){.source-performance{grid-template-columns:1fr}.performance-table{overflow-x:auto}.performance-row{min-width:620px}.filters>b.filter-group,.source-filter{grid-column:1/-1}}
 @media(max-width:580px){.role-keywords>div,.source-report-grid{grid-template-columns:1fr}.source-dashboard-heading{align-items:flex-start;flex-direction:column}}
+.health-panel { background:var(--cream); border:1px solid var(--line); grid-column:1/-1; margin-top:14px; padding:14px 16px; }
+.health-head { align-items:center; display:flex; justify-content:space-between; margin-bottom:8px; }
+.health-head b { font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+.health-head button { background:transparent; border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:10px; font-weight:800; padding:6px 12px; }
+.health-head button:disabled { cursor:wait; opacity:.6; }
+.health-panel p { color:var(--muted); font-size:11px; line-height:1.5; margin:0 0 8px; }
+.health-panel p.health-ok { color:var(--green); }
+.health-panel p.health-warn { color:var(--danger); font-weight:700; }
+.health-panel ul { display:grid; gap:6px; list-style:none; margin:0; padding:0; }
+.health-panel li { align-items:center; color:var(--muted); display:flex; flex-wrap:wrap; font-size:11px; gap:8px; }
+.health-panel li b { color:var(--ink); font-size:11px; min-width:78px; }
+.health-dot { border-radius:50%; flex:0 0 auto; height:8px; width:8px; }
+.health-dot.ok { background:#4f9967; }
+.health-dot.failing { background:var(--danger); }
+.health-dot.not_configured { background:#b9c1b7; }
+.work-type { border-radius:999px; font-size:8px; font-weight:800; letter-spacing:.04em; padding:3px 7px; text-transform:uppercase; }
+.work-type.remote { background:#dfe9f2; color:#26557d; }
+.work-type.hybrid { background:#e6e5f4; color:#453f8c; }
+.work-type.onsite { background:#f1e6da; color:#7d5326; }
+.work-type.unknown { background:#e9ebe7; color:var(--muted); }

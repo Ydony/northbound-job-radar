@@ -16,6 +16,7 @@ export interface AtsCompany {
   slug: string;
   name: string;
   platform: AtsPlatform;
+  /** Home market. Postings are still routed by their own location, so an international company feeds both countries. */
   country: Exclude<JobCountry, 'unknown'>;
 }
 
@@ -48,6 +49,44 @@ export const atsCompanies: AtsCompany[] = [
   { slug: 'elca', name: 'ELCA', platform: 'recruitee', country: 'switzerland' },
   { slug: 'sika', name: 'Sika', platform: 'personio', country: 'switzerland' },
   { slug: 'swisslinx', name: 'Swisslinx', platform: 'personio', country: 'switzerland' },
+  // International scale-ups and mid-size firms hiring across NL/CH
+  { slug: 'elastic', name: 'Elastic', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'conclusion', name: 'Conclusion', platform: 'recruitee', country: 'netherlands' },
+  { slug: 'valtech', name: 'Valtech', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'centric', name: 'Centric', platform: 'recruitee', country: 'netherlands' },
+  { slug: 'greenchoice', name: 'Greenchoice', platform: 'recruitee', country: 'netherlands' },
+  { slug: 'miro', name: 'Miro', platform: 'ashby', country: 'netherlands' },
+  { slug: 'bird', name: 'Bird (MessageBird)', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'hackerone', name: 'HackerOne', platform: 'ashby', country: 'netherlands' },
+  { slug: 'crisp', name: 'Crisp', platform: 'ashby', country: 'netherlands' },
+  { slug: 'leapsome', name: 'Leapsome', platform: 'ashby', country: 'netherlands' },
+  { slug: 'typeform', name: 'Typeform', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'fairphone', name: 'Fairphone', platform: 'personio', country: 'netherlands' },
+  { slug: 'trivago', name: 'Trivago', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'dashmote', name: 'Dashmote', platform: 'recruitee', country: 'netherlands' },
+  { slug: 'flink', name: 'Flink', platform: 'ashby', country: 'netherlands' },
+  { slug: 'contentful', name: 'Contentful', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'seenons', name: 'Seenons', platform: 'recruitee', country: 'netherlands' },
+  { slug: 'xebia', name: 'Xebia', platform: 'personio', country: 'netherlands' },
+  // Master-data and data-governance vendors: closest match to the derived CV roles
+  { slug: 'collibra', name: 'Collibra', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'reltio', name: 'Reltio', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'atlan', name: 'Atlan', platform: 'ashby', country: 'netherlands' },
+  { slug: 'starburst', name: 'Starburst', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'montecarlodata', name: 'Monte Carlo', platform: 'ashby', country: 'netherlands' },
+  { slug: 'xomnia', name: 'Xomnia', platform: 'recruitee', country: 'netherlands' },
+  { slug: 'bearingpoint', name: 'BearingPoint', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'statworx', name: 'statworx', platform: 'personio', country: 'switzerland' },
+  // Supply chain and freight technology
+  { slug: 'flexport', name: 'Flexport', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'project44', name: 'project44', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'fourkites', name: 'FourKites', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'forto', name: 'Forto', platform: 'ashby', country: 'netherlands' },
+  // Swiss corporates and telecom
+  { slug: 'swisscom', name: 'Swisscom', platform: 'recruitee', country: 'switzerland' },
+  { slug: 'sunrise', name: 'Sunrise', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'comet', name: 'Comet Group', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'basilea', name: 'Basilea Pharmaceutica', platform: 'personio', country: 'switzerland' },
 ];
 
 export function feedUrl(company: AtsCompany) {
@@ -154,11 +193,21 @@ async function fetchCompany(company: AtsCompany): Promise<ParsedJob[]> {
   }
 }
 
-/** Reads every configured board for one country. Boards are independent, so failures are isolated per company. */
-export async function searchAtsBoards(country: Exclude<JobCountry, 'unknown'>): Promise<ParsedJob[]> {
-  const companies = atsCompanies.filter((company) => company.country === country);
-  const results = await Promise.all(companies.map(fetchCompany));
+let cached: { at: number; jobs: ParsedJob[] } | undefined;
+const CACHE_MS = 60_000;
+
+/**
+ * Reads every configured board once and serves both country adapters from that result, so an
+ * international company contributes its Swiss and its Dutch roles rather than only its home
+ * market. Boards are independent, so a failure is isolated to one company. The scrape route
+ * assigns each posting a country from its own location, which is what filters this list.
+ */
+export async function searchAtsBoards(): Promise<ParsedJob[]> {
+  if (cached && Date.now() - cached.at < CACHE_MS) return cached.jobs;
+  const results = await Promise.all(atsCompanies.map(fetchCompany));
   const byUrl = new Map<string, ParsedJob>();
   for (const job of results.flat()) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
-  return [...byUrl.values()];
+  const jobs = [...byUrl.values()];
+  cached = { at: Date.now(), jobs };
+  return jobs;
 }

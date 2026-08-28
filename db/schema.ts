@@ -30,6 +30,7 @@ export const jobs = sqliteTable(
     fitScoreA: integer('fit_score_a').notNull().default(0),
     fitScoreB: integer('fit_score_b').notNull().default(0),
     bestCvSlot: text('best_cv_slot').notNull().default(''),
+    workplaceType: text('workplace_type').notNull().default('unknown'),
     matchedKeywords: text('matched_keywords').notNull().default('[]'),
     missingKeywords: text('missing_keywords').notNull().default('[]'),
     identityFingerprint: text('identity_fingerprint').notNull().default(''),

@@ -117,4 +117,21 @@ export const runtimeMigrations: RuntimeMigration[] = [
       "UPDATE dismissed_jobs SET identity_fingerprint = '' WHERE id IN (SELECT id FROM jobs WHERE posted_at = '')",
     ],
   },
+  {
+    version: 4,
+    name: 'store_detected_workplace_type',
+    statements: [
+      // Empty means "not yet detected"; 'unknown' is a real verdict meaning the ad gave no signal.
+      // Keeping them distinct is what lets the backfill find rows that still need analysing.
+      "ALTER TABLE jobs ADD COLUMN workplace_type TEXT NOT NULL DEFAULT ''",
+      'CREATE INDEX IF NOT EXISTS jobs_workplace_type_idx ON jobs(workplace_type)',
+    ],
+  },
+  {
+    version: 5,
+    name: 'reset_workplace_type_for_backfill',
+    statements: [
+      "UPDATE jobs SET workplace_type = '' WHERE workplace_type = 'unknown'",
+    ],
+  },
 ];

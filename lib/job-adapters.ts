@@ -197,13 +197,13 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     key: 'ats-ch', name: 'Company career boards (CH)', country: 'switzerland',
     access: 'authorized-api', availability: 'enabled',
     availabilityMessage: 'Public ATS job boards published for aggregators; no key or VPN needed.',
-    searchDetailed: () => searchAtsBoards('switzerland'),
+    searchDetailed: () => searchAtsBoards(),
   },
   {
     key: 'ats-nl', name: 'Company career boards (NL)', country: 'netherlands',
     access: 'authorized-api', availability: 'enabled',
     availabilityMessage: 'Public ATS job boards published for aggregators; no key or VPN needed.',
-    searchDetailed: () => searchAtsBoards('netherlands'),
+    searchDetailed: () => searchAtsBoards(),
   },
   {
     key: 'job-room.ch', name: 'Job-Room (arbeit.swiss)', country: 'switzerland',

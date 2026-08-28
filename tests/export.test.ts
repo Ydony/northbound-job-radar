@@ -6,6 +6,7 @@ import type { JobRecord } from '../lib/types';
 
 const job: JobRecord = {
   id: 'job-1',
+  workplaceType: 'unknown',
   sourceUrl: 'https://www.jobs.ch/en/vacancies/detail/00000000-0000-0000-0000-000000000000/',
   canonicalUrl: 'https://www.jobs.ch/en/vacancies/detail/00000000-0000-0000-0000-000000000000',
   sourceKey: 'jobs.ch',
