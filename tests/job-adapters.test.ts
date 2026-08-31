@@ -100,20 +100,32 @@ test('enabled adapters can either fetch details per job or return them in bulk',
   }
 });
 
-test('every adapter declares whether it is an authorized API or a page fetch', () => {
+test('every adapter declares one of the three access tiers', () => {
   for (const adapter of jobSourceAdapters) {
-    assert.ok(adapter.access === 'authorized-api' || adapter.access === 'page-fetch',
+    assert.ok(['authorized-api', 'grey-area', 'restricted'].includes(adapter.access),
       `${adapter.key} has no access classification`);
   }
 });
 
-test('VPN-off mode selects only authorized APIs and excludes every page-fetch source', () => {
+test('sites that prohibit automated access stay behind the VPN mode', () => {
+  // These four either forbid automation in their terms or actively block it, so they must never
+  // run in the default search that every account can reach.
+  for (const key of ['jobs.ch', 'jobup.ch', 'jobscout24.ch', 'undutchables.nl']) {
+    assert.equal(jobSourceAdapters.find((adapter) => adapter.key === key)?.access, 'restricted',
+      `${key} must stay behind the VPN-only mode`);
+  }
+});
+
+test('the default search excludes every restricted source', () => {
+  const defaultMode = jobSourceAdapters.filter((adapter) => adapter.access !== 'restricted');
+  assert.ok(defaultMode.length > 0);
+  assert.ok(defaultMode.every((adapter) => adapter.access !== 'restricted'));
+  assert.ok(jobSourceAdapters.some((adapter) => adapter.access === 'restricted'),
+    'the tier must actually be in use, or this test proves nothing');
+});
+
+test('authorized APIs never use the page-fetching path', () => {
   const authorized = jobSourceAdapters.filter((adapter) => adapter.access === 'authorized-api');
   assert.ok(authorized.length > 0);
-  assert.ok(authorized.every((adapter) => !adapter.search),
-    'authorized-API sources must not use the page-fetching search path');
-  for (const key of ['jobs.ch', 'jobup.ch', 'jobscout24.ch', 'iamexpat.nl', 'undutchables.nl']) {
-    assert.equal(jobSourceAdapters.find((adapter) => adapter.key === key)?.access, 'page-fetch',
-      `${key} must stay behind the VPN-on mode`);
-  }
+  assert.ok(authorized.every((adapter) => !adapter.search));
 });

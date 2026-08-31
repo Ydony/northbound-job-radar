@@ -45,7 +45,14 @@ empty database can be created. That is deliberate. To add a second account for t
 `user_id = 'legacy'` and are adopted by the first account registered. On an empty database this
 does nothing.
 
-**Page-fetching is administrator-only, and that is enforced server-side.** A non-admin calling
+**Sources sit in three tiers, and the tier decides who can run them.** `authorized-api` (keyed or
+official APIs) and `grey-area` (public pages whose robots.txt permits the paths read and whose terms
+say nothing) run for everyone. `restricted` means the site explicitly prohibits automated access or
+actively blocks it: administrator only, and refused unless the process was started through
+`npm run dev:private`, which verifies a full VPN route and sets `VPN_ENFORCED`. The button label is
+not the enforcement; that env marker is.
+
+**Page-fetching of restricted sites is administrator-only, and that is enforced server-side.** A non-admin calling
 `/api/scrape` with `mode=all` is refused, and the names of those sources are filtered out of both
 the live report and the stored history so ordinary accounts never learn they exist. The `/sources`
 page hides that section from non-administrators too. Do not "simplify" this into a UI-only check.

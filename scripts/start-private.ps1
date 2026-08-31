@@ -38,5 +38,8 @@ if (-not (Test-VpnRoute)) {
 
 & $checkScript -ShowPublicIp
 Set-Location -LiteralPath $projectDirectory
+# Only this launcher sets it, and only after a full tunnel route was verified above. The server
+# refuses the restricted sources without it, so the VPN requirement is enforced rather than implied.
+$env:VPN_ENFORCED = 'true'
 & npm run dev
 exit $LASTEXITCODE

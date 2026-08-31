@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { aggregatorCredentials, ensureSchema } from '@/db/runtime';
+import { aggregatorCredentials, authSecrets, ensureSchema } from '@/db/runtime';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
 import { descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS, sourceStatusForAvailability,
@@ -64,8 +64,17 @@ export async function POST(request: Request) {
   if (requestedAll && user.role !== 'admin') {
     return NextResponse.json({ error: 'That search mode is not available on this account.' }, { status: 403 });
   }
+  // Restricted sources need the VPN, and the button label is not evidence of one. Only the
+  // launcher that verifies a full tunnel route sets this, so without it the mode is refused.
+  if (requestedAll && !authSecrets().vpnEnforced) {
+    return NextResponse.json({
+      error: 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.',
+    }, { status: 409 });
+  }
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';
-  const activeAdapters = jobSourceAdapters.filter((adapter) => mode === 'all' || adapter.access === 'authorized-api');
+  // Everyone gets the authorized APIs and the grey-area sources, whose robots.txt permits the
+  // paths read. Only the explicit VPN mode adds the sources that prohibit automated access.
+  const activeAdapters = jobSourceAdapters.filter((adapter) => mode === 'all' || adapter.access !== 'restricted');
   const [cvRows, criteriaRow, roleRows] = await Promise.all([
     db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id).all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
     db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
@@ -270,7 +279,7 @@ export async function POST(request: Request) {
   const visibleSources = user.role === 'admin'
     ? sourceReports
     : sourceReports.filter((source) => jobSourceAdapters
-      .find((adapter) => adapter.key === source.sourceKey)?.access === 'authorized-api');
+      .find((adapter) => adapter.key === source.sourceKey)?.access !== 'restricted');
   const run: SearchRun = { id: runId, status: overallStatus, startedAt, completedAt, sources: visibleSources };
   const added = [...addedById.values()];
   return NextResponse.json({

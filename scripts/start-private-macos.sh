@@ -24,7 +24,7 @@ if ! vpn_is_ready; then
 fi
 
 if ! vpn_is_ready; then
-  echo "Northbound was not started because no full VPN route is active. Connect the VPN, disable split tunnelling, and run npm run dev:private:mac again." >&2
+  echo "Northbound was not started because no full VPN route is active. Connect the VPN, disable split tunnelling, and run VPN_ENFORCED=true npm run dev:private:mac again." >&2
   exit 1
 fi
 

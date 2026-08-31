@@ -10,7 +10,7 @@ export type PolicyStance = 'intended-use' | 'permitted' | 'unresolved' | 'agains
 
 export interface SourcePolicy {
   name: string;
-  group: 'Authorized APIs' | 'Page-fetched sites' | 'Not used';
+  group: 'Authorized APIs' | 'Open public pages' | 'Restricted sites' | 'Not used';
   stance: PolicyStance;
   collected: string;
   theirRules: string;
@@ -67,7 +67,7 @@ export const sourcePolicies: SourcePolicy[] = [
   },
   {
     name: 'jobs.ch',
-    group: 'Page-fetched sites',
+    group: 'Restricted sites',
     stance: 'against-terms',
     collected: 'Search-result pages and job detail pages, read as HTML. The schema.org JobPosting block on each detail page is parsed.',
     theirRules: 'JobCloud\'s terms prohibit crawlers, scrapers, bots, scripting and other automation. robots.txt additionally disallows the job detail pages specifically - the exact pages this reads.',
@@ -76,7 +76,7 @@ export const sourcePolicies: SourcePolicy[] = [
   },
   {
     name: 'jobup.ch and JobScout24',
-    group: 'Page-fetched sites',
+    group: 'Restricted sites',
     stance: 'against-terms',
     collected: 'Search-result pages and job detail pages, read as HTML.',
     theirRules: 'Both are JobCloud properties, so the same terms prohibiting automation apply. Unlike jobs.ch, neither robots.txt disallows the detail pages this reads.',
@@ -85,7 +85,7 @@ export const sourcePolicies: SourcePolicy[] = [
   },
   {
     name: 'IamExpat',
-    group: 'Page-fetched sites',
+    group: 'Open public pages',
     stance: 'unresolved',
     collected: 'The public Netherlands job listing index and the linked job pages.',
     theirRules: 'robots.txt disallows /job/, /jobProvider/ and /jobs-iframe/, and sets Crawl-delay: 1. The /career/jobs-netherlands/ paths this reads are not disallowed.',
@@ -94,7 +94,7 @@ export const sourcePolicies: SourcePolicy[] = [
   },
   {
     name: 'Undutchables',
-    group: 'Page-fetched sites',
+    group: 'Restricted sites',
     stance: 'against-terms',
     collected: 'The public vacancy listing index and linked vacancy pages.',
     theirRules: 'robots.txt could not be read: the site answers automated requests for it with HTTP 403, which indicates active blocking of non-browser traffic.',

@@ -136,6 +136,7 @@ export function authSecrets() {
     passwordHash: env.APP_PASSWORD_HASH ?? '',
     sessionSecret: env.SESSION_SECRET ?? '',
     allowSignups: env.ALLOW_SIGNUPS ?? '',
+    vpnEnforced: env.VPN_ENFORCED === 'true',
   };
 }
 

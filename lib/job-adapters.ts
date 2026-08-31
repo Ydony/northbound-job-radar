@@ -8,11 +8,16 @@ const USER_AGENT = 'Northbound/0.1 personal job-search companion';
 const REQUEST_DELAY_MS = 1200;
 
 /**
- * `authorized-api` sources are keyed or officially public APIs used as intended, so they need no
- * VPN and carry no terms risk. `page-fetch` sources read public web pages against site terms and
- * are only run in the explicit VPN-on mode.
+ * Three tiers, by what the site itself says:
+ *
+ * - `authorized-api`: a keyed or officially public API used as published. No terms risk.
+ * - `grey-area`: a public page whose robots.txt does not disallow the paths read and whose terms
+ *   say nothing either way. Not an explicit permission, but nothing forbids it, and any stated
+ *   crawl-delay is honoured. Runs for everyone.
+ * - `restricted`: the site explicitly prohibits automated access, or actively blocks it. Runs only
+ *   for an administrator, and only when the process was started through the VPN-enforced launcher.
  */
-export type SourceAccess = 'authorized-api' | 'page-fetch';
+export type SourceAccess = 'authorized-api' | 'grey-area' | 'restricted';
 
 export type SearchMode = 'authorized' | 'all';
 
@@ -241,28 +246,28 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   },
   {
     key: 'jobs.ch', name: 'jobs.ch', country: 'switzerland',
-    access: 'page-fetch', availability: 'enabled',
+    access: 'restricted', availability: 'enabled',
     availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
     search: jobsChSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'jobs.ch', 'Switzerland'),
   },
   {
     key: 'jobup.ch', name: 'jobup.ch', country: 'switzerland',
-    access: 'page-fetch', availability: 'enabled',
+    access: 'restricted', availability: 'enabled',
     availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
     search: jobupSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'jobup.ch', 'Switzerland'),
   },
   {
     key: 'jobscout24.ch', name: 'JobScout24', country: 'switzerland',
-    access: 'page-fetch', availability: 'enabled',
+    access: 'restricted', availability: 'enabled',
     availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
     search: jobScoutSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'JobScout24', 'Switzerland'),
   },
   {
     key: 'iamexpat.nl', name: 'IamExpat', country: 'netherlands',
-    access: 'page-fetch', availability: 'enabled',
+    access: 'grey-area', availability: 'enabled',
     availabilityMessage: 'Capped public-page adapter; current public listings only.',
     search: async (terms) => (await listingLinks('https://www.iamexpat.nl/career/jobs-netherlands', 'IamExpat',
       /href=["']([^"']*\/career\/jobs-netherlands\/[^"'?]+\/[^"'?]+)["']/gi, 'https://www.iamexpat.nl'))
@@ -271,7 +276,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   },
   {
     key: 'undutchables.nl', name: 'Undutchables', country: 'netherlands',
-    access: 'page-fetch', availability: 'enabled',
+    access: 'restricted', availability: 'enabled',
     availabilityMessage: 'Capped public listing adapter; query-string search is not used.',
     search: async (terms) => (await listingLinks('https://undutchables.nl/vacancies', 'Undutchables',
       /href=["'](https:\/\/undutchables\.nl\/vacancies\/[^"'?]+)["']/gi, 'https://undutchables.nl'))
@@ -280,22 +285,22 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   },
   {
     key: 'indeed-ch', name: 'Indeed Switzerland', country: 'switzerland',
-    access: 'page-fetch', availability: 'blocked',
+    access: 'restricted', availability: 'blocked',
     availabilityMessage: 'Not searched: Indeed prohibits automated access without written permission and returned HTTP 403.',
   },
   {
     key: 'indeed-nl', name: 'Indeed Netherlands', country: 'netherlands',
-    access: 'page-fetch', availability: 'blocked',
+    access: 'restricted', availability: 'blocked',
     availabilityMessage: 'Not searched: Indeed prohibits automated access without written permission and returned HTTP 403.',
   },
   {
     key: 'nationalevacaturebank.nl', name: 'Nationale Vacaturebank', country: 'netherlands',
-    access: 'page-fetch', availability: 'unavailable',
+    access: 'restricted', availability: 'unavailable',
     availabilityMessage: 'Not searched: automated access returned HTTP 403; no authorized feed is configured.',
   },
   {
     key: 'iamsterdam.com', name: 'I amsterdam', country: 'netherlands',
-    access: 'page-fetch', availability: 'disabled',
+    access: 'restricted', availability: 'disabled',
     availabilityMessage: 'Not searched: this is a job-search guide, not a vacancy feed.',
   },
 ];

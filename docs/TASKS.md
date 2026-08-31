@@ -69,8 +69,10 @@ appearing. Needs pagination or server-side filtering before any account grows be
 current owner account is at 831.
 
 ### B5. Undutchables should probably be removed
-It is the weakest source in use: its `robots.txt` answers automated requests with HTTP 403, meaning
-the site actively blocks this kind of traffic, and it yields 3 jobs. See `/sources`.
+It is the weakest source in the project: its `robots.txt` answers automated requests with HTTP 403,
+meaning the site actively blocks this kind of traffic, and it yields 3 jobs. It is now classified
+`restricted` so it only runs for an administrator under the VPN launcher, but blocking is a clearer
+refusal than a terms clause and deleting the adapter would cost almost nothing.
 
 ### B6. No backups
 D1 has no automatic backup on the free tier. A `wrangler d1 export` on a schedule would cover it.

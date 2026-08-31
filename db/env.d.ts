@@ -15,5 +15,7 @@ declare namespace Cloudflare {
     SESSION_SECRET?: string;
     /** 'true' opens registration beyond the first account. Closed by default so a public deployment cannot be signed up to by strangers. */
     ALLOW_SIGNUPS?: string;
+    /** Set only by the VPN-enforced launcher, after it verifies a full tunnel route. Without it the restricted sources refuse to run. */
+    VPN_ENFORCED?: string;
   }
 }

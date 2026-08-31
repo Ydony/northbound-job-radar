@@ -11,7 +11,7 @@ export const metadata = {
   description: 'Every site this app reads, what it collects, and how that sits against each site\'s own rules.',
 };
 
-const groups = ['Authorized APIs', 'Page-fetched sites', 'Not used'] as const;
+const groups = ['Authorized APIs', 'Open public pages', 'Restricted sites', 'Not used'] as const;
 
 /**
  * Page fetching is an administrator-only capability, so its section is shown only to a signed-in
@@ -36,13 +36,14 @@ async function viewerIsAdmin() {
 
 const groupBlurb: Record<(typeof groups)[number], string> = {
   'Authorized APIs': 'Official or keyed interfaces, used the way they are published. These run in the default search and need no VPN.',
-  'Page-fetched sites': 'Public web pages read as HTML. These run only under the explicit "Search all" action, and the position on each one is stated plainly below.',
+  'Open public pages': 'Public pages whose robots.txt does not disallow what is read here, and whose terms say nothing about automated access. Not an explicit permission, but nothing forbids it, and any stated crawl-delay is honoured. These run for everyone.',
+  'Restricted sites': 'Sites that explicitly prohibit automated access or actively block it. Administrator only, and only when the app was started through the VPN-checked launcher.',
   'Not used': 'Sources deliberately left alone, and why. They appear in the app marked blocked or unavailable so an empty result is never mistaken for "no jobs found".',
 };
 
 export default async function SourcesPage() {
   const isAdmin = await viewerIsAdmin();
-  const visibleGroups = groups.filter((group) => group !== 'Page-fetched sites' || isAdmin);
+  const visibleGroups = groups.filter((group) => group !== 'Restricted sites' || isAdmin);
   return (
     <main className="shell">
       <header className="topbar">

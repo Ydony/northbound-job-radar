@@ -42,6 +42,6 @@ export async function GET(request: Request) {
     searchRuns: searchRunsFromRows(runs.results, user.role === 'admin'
       ? runSources.results
       : runSources.results.filter((row) => jobSourceAdapters
-        .find((adapter) => adapter.key === row.source_key)?.access === 'authorized-api')),
+        .find((adapter) => adapter.key === row.source_key)?.access !== 'restricted')),
   });
 }
