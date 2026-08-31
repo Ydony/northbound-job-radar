@@ -890,8 +890,27 @@ export default function JobRadar() {
             <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><span>All matching</span><i>{criteriaFilteredJobs.filter((job) => job.visibilityStatus === 'active').length}</i></button>
             <b className="filter-group">Country</b>
             <button className={countryFilter === 'all' ? 'active' : ''} onClick={() => chooseCountry('all')}><span>All countries</span><i>{facets.country.all}</i></button>
-            <button className={countryFilter === 'switzerland' ? 'active' : ''} onClick={() => chooseCountry('switzerland')}><span>Switzerland</span><i>{facets.country.get('switzerland')}</i></button>
-            <button className={countryFilter === 'netherlands' ? 'active' : ''} onClick={() => chooseCountry('netherlands')}><span>Netherlands</span><i>{facets.country.get('netherlands')}</i></button>
+            {/* Places unfold under the country they belong to, rather than sitting in a separate
+                dropdown where the two could disagree. Selecting a country opens its list; the
+                places shown are the ones jobs actually came back from. */}
+            {(['switzerland', 'netherlands'] as const).map((country) => {
+              const group = cityOptions.find((entry) => entry.country === country);
+              const open = countryFilter === country;
+              return <div className="country-group" key={country}>
+                <button className={open ? 'active' : ''} onClick={() => chooseCountry(country)}>
+                  <span>{countryLabel(country)}</span><i>{facets.country.get(country)}</i>
+                </button>
+                {open && group && group.cities.length > 1 && <div className="place-list">
+                  <button className={cityFilter === 'all' ? 'active' : ''} onClick={() => setCityFilter('all')}>
+                    <span>Everywhere</span><i>{facets.city.all}</i>
+                  </button>
+                  {group.cities.filter(([city]) => facets.city.get(city) > 0 || city === cityFilter)
+                    .map(([city]) => <button className={cityFilter === city ? 'active' : ''} key={city} onClick={() => setCityFilter(city)}>
+                      <span>{city}</span><i>{facets.city.get(city)}</i>
+                    </button>)}
+                </div>}
+              </div>;
+            })}
             <b className="filter-group">Work type</b>
             <button className={workTypeFilter === 'all' ? 'active' : ''} onClick={() => setWorkTypeFilter('all')}><span>Any work type</span><i>{facets.workType.all}</i></button>
             <button className={workTypeFilter === 'remote' ? 'active' : ''} onClick={() => setWorkTypeFilter('remote')}><span>Remote</span><i>{facets.workType.get('remote')}</i></button>
@@ -906,7 +925,6 @@ export default function JobRadar() {
                 sites; it meant fourteen jobs. A site with nothing in the current view is dropped
                 rather than listed at zero - offering a filter that can only empty the list is not
                 a filter. The selected one always stays, so choosing it never makes it vanish. */}
-            {cityOptions.some((group) => group.cities.length > 1) && <label className="source-filter"><span>Place</span><select value={cityFilter} onChange={(event) => setCityFilter(event.target.value)}><option value="all">Everywhere — {facets.city.all} job{facets.city.all === 1 ? '' : 's'}</option>{cityOptions.map((group) => <optgroup label={group.label} key={group.country}>{group.cities.filter(([city]) => facets.city.get(city) > 0 || city === cityFilter).map(([city]) => <option value={city} key={city}>{city} ({facets.city.get(city)})</option>)}</optgroup>)}</select></label>}
             {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites — {facets.source.all} job{facets.source.all === 1 ? '' : 's'}</option>{sourceOptions.filter(([key]) => facets.source.get(key) > 0 || key === sourceFilter).map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
           </aside>
           <div className="job-list">

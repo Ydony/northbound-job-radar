@@ -13,6 +13,13 @@
  *
  * It became possible at all only once ingest stopped flattening HTML: a requirements list is
  * recognisable because it is a list, and `<ul><li>` used to arrive as one unbroken paragraph.
+ *
+ * Widening it was tried and abandoned. 331 stored advertisements are long enough to state
+ * requirements without using a heading found here, and 91 of those appeared to carry a bullet list
+ * — but on inspection those bullets are Job-Room's markdown metadata (`**Seniority Level**`,
+ * `**Jobtyp**`), not anything an employer wrote. A fallback that picked them up would have
+ * presented "Temporär" as a requirement. There is no second seam to mine here; the coverage is
+ * what the advertisements support.
  */
 
 /**

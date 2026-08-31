@@ -42,6 +42,11 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .login-tagline { color:#9eb3a8; font-size:11px; line-height:1.5; margin:6px 0 0; }
 .card-flash { color:var(--green); font-size:10px; font-weight:750; margin:8px 0 0; }
 .scrape-progress { grid-column:1/-1; margin-top:4px; max-width:520px; }
+.country-group { display:contents; }
+.place-list { border-left:2px solid var(--line); display:grid; margin:2px 0 6px 10px; padding-left:10px; }
+.place-list button { font-size:10px; min-height:30px; opacity:.85; }
+.place-list button.active { opacity:1; }
+
 .scrape-bar { background:#d7ded6; border-radius:999px; height:5px; overflow:hidden; }
 .scrape-bar i { background:var(--green); border-radius:999px; display:block; height:100%; transition:width .35s ease; }
 .scrape-progress p { align-items:baseline; color:var(--muted); display:flex; font-size:10px; gap:12px; justify-content:space-between; margin:6px 0 0; }
