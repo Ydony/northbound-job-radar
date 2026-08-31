@@ -58,9 +58,12 @@ The CV feature is **hidden from everyone, administrators included** — not dele
 code to be switched back on later once there is a clearer idea of what it is for.
 
 - [ ] Hide CV upload, both CV slots, the fit-score circle, and the per-slot score breakdown.
-- [ ] Decide what the card shows where the score circle was. **Open question** — the circle, the
-      matched-keyword tags and the "no clear CV overlap yet" line are all CV-derived, so hiding the
-      CV leaves a visible hole in the card layout that needs a deliberate answer, not a blank.
+- [x] **Decided:** the score circle goes entirely and the text runs full-width. The circle, the
+      matched-keyword tags and the "no clear CV overlap yet" line are all CV-derived, so with the CV
+      hidden there is nothing left for that column to say. Putting the source or the date there
+      instead would be decoration filling a hole. The card gets cleaner, and it matches the MVP
+      being one thing: a language filter, not a matcher. The language badge already carries the
+      verdict, which is the signal that matters.
 - [ ] Keep the tables, the routes and the scoring code intact behind the flag so re-enabling is a
       switch rather than a rebuild.
 
