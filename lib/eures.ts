@@ -45,7 +45,19 @@ interface EuresJob {
   employer?: EuresEmployer;
   /** Country code to NUTS region codes, e.g. `{ "CH": ["CH031"] }` for Basel. */
   locationMap?: Record<string, (string | null)[]>;
-  /** Languages the advertisement itself is published in — not the languages it requires. */
+  /**
+   * Which translations of the advertisement exist — **not** the languages the job requires.
+   *
+   * The portal renders this as "Working languages: Dutch", which reads like a requirement and is
+   * not one. Measured on 50 Netherlands listings: all 50 carried `["nl"]`, and 22 of them (44%)
+   * contained no Dutch requirement anywhere in the text. One of those was a full 1,955-character
+   * advertisement that never uses the word "Dutch" at all, and is a genuine English-only match.
+   *
+   * Treating this as a requirement would therefore discard almost half of the Dutch results,
+   * including the ones worth having. It is carried through as `adLanguages` for display and
+   * debugging only, and deliberately never reaches the language gate. See the test in
+   * tests/eures.test.ts, which exists to keep it that way.
+   */
   availableLanguages?: string[];
 }
 

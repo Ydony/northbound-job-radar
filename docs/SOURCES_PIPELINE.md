@@ -86,6 +86,24 @@ fetching needed, and 287,000 jobs across both countries against the 1,023 curren
 
 ---
 
+## A trap in the EURES metadata
+
+The EURES portal shows **"Working languages: Dutch"** on Netherlands listings, and it is not a
+requirement. The underlying field (`availableLanguages`) records which translations of the
+advertisement exist.
+
+Measured on 50 live Netherlands listings:
+
+- **50 of 50** carried `["nl"]` — it is set on everything, so it distinguishes nothing.
+- **22 of them (44%)** contain no Dutch requirement anywhere in the advertisement text.
+
+One of those is a full 1,955-character ad titled *Data Analyst Operations* that never uses the word
+"Dutch" at all, and screens as English-confirmed. Trusting the portal's label would have thrown it
+away along with almost half the Dutch results.
+
+The field is carried through as `adLanguages` for display and debugging, and never reaches the
+language gate. `tests/eures.test.ts` exists to keep it that way.
+
 ## Access tiers
 
 | Tier | Meaning | Sources |
