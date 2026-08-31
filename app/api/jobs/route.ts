@@ -7,6 +7,7 @@ import { isSafeManualJobUrl } from '@/lib/job-sources';
 import { canonicalJobUrl } from '@/lib/job-identity';
 import { criteriaFromRow, upsertJob, type CriteriaRow } from '@/lib/server-data';
 import type { CvSlot } from '@/lib/types';
+import { CV_MATCHING_ENABLED } from '@/lib/features';
 
 function clean(value: unknown, max: number) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -34,7 +35,9 @@ export async function POST(request: Request) {
       .all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
     db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
   ]);
-  if (!cvRows.results.length) return NextResponse.json({ error: 'Upload at least one CV before analyzing jobs.' }, { status: 400 });
+  if (CV_MATCHING_ENABLED && !cvRows.results.length) {
+    return NextResponse.json({ error: 'Upload at least one CV before analyzing jobs.' }, { status: 400 });
+  }
   const criteria = criteriaFromRow(criteriaRow);
   const cvs = cvRows.results.map((row) => ({
     slot: row.slot,

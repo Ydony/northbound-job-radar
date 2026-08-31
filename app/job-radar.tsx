@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { CV_MATCHING_ENABLED } from '@/lib/features';
 import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
 import { jobsToCsv, workspaceToJson } from '@/lib/export';
 import { countryLabel } from '@/lib/job-identity';
@@ -172,7 +173,6 @@ export default function JobRadar() {
    */
   const [viewAsUser, setViewAsUser] = useState(false);
   const isAdmin = accountIsAdmin && !viewAsUser;
-  const hasAnyCv = state.profiles.some((profile) => profile.hasCvText);
   const primaryProfile = state.profiles.find((profile) => profile.derivedRole);
   const primaryRole = state.criteria.roleKeywords[0]
     || (primaryProfile ? roleForProfile(primaryProfile, state.criteria) : '');
@@ -600,7 +600,7 @@ export default function JobRadar() {
       <header className="topbar">
         <a className="brand" href="#top"><span className="brand-mark">I</span><span><b>Ik ben een appel</b><small>English job filter</small></span></a>
         <nav aria-label="Main navigation">
-          <a className="active" href="#jobs">Matches</a><a href="#profile">My CVs</a>
+          <a className="active" href="#jobs">Matches</a>{CV_MATCHING_ENABLED && <a href="#profile">My CVs</a>}
           <a href="/settings">Settings</a>
           {isAdmin && <a href="/admin">Admin</a>}
           {accountIsAdmin && <button
@@ -637,7 +637,7 @@ export default function JobRadar() {
         </aside>
       </section>
 
-      <section className="profile-section" id="profile">
+      {CV_MATCHING_ENABLED && <section className="profile-section" id="profile">
         <div className="profile-intro"><span className="section-label">Step one</span><h2>Upload up to two CVs</h2><p>Each CV is stored privately. We detect a likely target role and use it to shape your Swiss and Netherlands searches.</p></div>
         <div className="cv-slots">
           {slots.map((slot) => {
@@ -657,7 +657,7 @@ export default function JobRadar() {
             );
           })}
         </div>
-      </section>
+      </section>}
 
       <section className="criteria-section" id="criteria">
         <div className="criteria-intro">
@@ -692,13 +692,13 @@ export default function JobRadar() {
       <section className="workflow">
         <div className="workflow-copy"><span className="section-label coral">Step two</span><h2>Search and screen everywhere</h2><p>One search runs every enabled Swiss and Netherlands adapter, records source failures, removes duplicates, and applies the strict English gate.</p></div>
         <div className="workflow-steps"><span><b>1</b> Search configured sites</span><span><b>2</b> Deduplicate and screen</span><span><b>3</b> Compare source results</span></div>
-        <button className="jobs-button" type="button" disabled={!hasAnyCv || Boolean(scrapeBusy)} onClick={() => findJobs('authorized')} title="Official and keyed APIs only (Job-Room, Adzuna, Careerjet). No VPN needed.">
+        <button className="jobs-button" type="button" disabled={Boolean(scrapeBusy)} onClick={() => findJobs('authorized')} title="Official and keyed APIs only (Job-Room, Adzuna, Careerjet). No VPN needed.">
           {scrapeBusy === 'authorized' ? 'Searching…' : isAdmin ? 'Search — VPN off' : 'Find new jobs'} <span>⚡</span>
         </button>
-        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={!hasAnyCv || Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
+        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
-        <a className={`jobs-button ${!hasAnyCv ? 'disabled' : ''}`} href={jobsSearchUrl(primaryRole, state.criteria.location)} target={hasAnyCv ? '_blank' : undefined} rel="noreferrer">Open jobs.ch <span>↗</span></a>
+        <a className="jobs-button" href={jobsSearchUrl(primaryRole, state.criteria.location)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
         <div className="health-panel">
           <div className="health-head">
@@ -792,9 +792,9 @@ export default function JobRadar() {
             {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites ({facets.source.all})</option>{sourceOptions.map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
           </aside>
           <div className="job-list">
-            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Run a search, or widen the filters.' : 'Upload a CV to unlock search, screening and match scores.'}</p></div>}
+            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>No jobs in this view yet</h3><p>Add a role keyword in Search settings, run a search, or widen the filters.</p></div>}
             {visibleJobs.map((job) => {
-              const bothCvsSaved = state.profiles.filter((profile) => profile.hasCvText).length > 1;
+              const bothCvsSaved = CV_MATCHING_ENABLED && state.profiles.filter((profile) => profile.hasCvText).length > 1;
               const displayedLanguageStatus = effectiveLanguageStatus(job);
               const hasCorrection = job.languageFeedback === 'incorrect' && Boolean(job.correctedLanguageStatus);
               const feedbackDraft = feedbackDrafts[job.id] ?? {
@@ -802,7 +802,7 @@ export default function JobRadar() {
                 reason: job.languageFeedbackReason,
               };
               return <article className={`job-card ${displayedLanguageStatus}`} key={job.id}>
-                <div className="score-column"><label className="job-select"><input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /><span>Select</span></label><div className="score"><strong>{bestFitScore(job)}</strong><span>CV fit</span></div></div>
+                <div className="score-column"><label className="job-select"><input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /><span>Select</span></label>{CV_MATCHING_ENABLED && <div className="score"><strong>{bestFitScore(job)}</strong><span>CV fit</span></div>}</div>
                 <div className="job-body">
                   <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span></div>
                   <h3>{job.title}</h3>

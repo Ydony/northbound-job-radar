@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { aggregatorCredentials, authSecrets, ensureSchema } from '@/db/runtime';
 import { rateLimit, requireSession } from '@/lib/guard';
+import { CV_MATCHING_ENABLED } from '@/lib/features';
 import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
 import { adminOnlySourceKeys, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
   sourceStatusForAvailability,
@@ -93,7 +94,12 @@ export async function POST(request: Request) {
     db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
     db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
-  if (!cvRows.results.length) return NextResponse.json({ error: 'Upload at least one CV first.' }, { status: 400 });
+  // A CV is no longer a precondition for searching. It used to be, because search terms were
+  // derived from one, which made an optional feature block the product's only job. Roles come from
+  // the role keywords now; a CV, when the feature is switched back on, only adds to them.
+  if (CV_MATCHING_ENABLED && !cvRows.results.length) {
+    return NextResponse.json({ error: 'Upload at least one CV first.' }, { status: 400 });
+  }
 
   const criteria = criteriaFromRow(criteriaRow, roleRows.results);
   const searchTerms = searchTermsForProfiles(cvRows.results.map((row) => ({
@@ -101,7 +107,11 @@ export async function POST(request: Request) {
     derivedRole: row.derived_role,
   })), criteria);
   if (!searchTerms.length) {
-    return NextResponse.json({ error: 'Add at least one role keyword or use a CV with a detectable target role.' }, { status: 400 });
+    return NextResponse.json({
+      error: CV_MATCHING_ENABLED
+        ? 'Add at least one role keyword or use a CV with a detectable target role.'
+        : 'Add at least one role keyword in Search settings, then search again.',
+    }, { status: 400 });
   }
 
   const cvs = cvRows.results.map((row) => ({
