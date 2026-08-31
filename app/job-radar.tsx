@@ -117,6 +117,19 @@ export default function JobRadar() {
   const [applicationFilter, setApplicationFilter] = useState<ApplicationFilter>('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [workTypeFilter, setWorkTypeFilter] = useState<'all' | WorkplaceType>('all');
+  const [cityFilter, setCityFilter] = useState('all');
+
+  /**
+   * Switching country clears the chosen place.
+   *
+   * A place belongs to one country, so keeping "Zürich" selected while switching to the
+   * Netherlands empties the list with nothing on screen to explain why. Clearing it is the
+   * behaviour someone would expect without having to work it out.
+   */
+  function chooseCountry(next: CountryFilter) {
+    setCountryFilter(next);
+    setCityFilter('all');
+  }
   const [cvSlots, setCvSlots] = useState<Record<CvSlot, SlotState>>({ a: { ...emptySlotState }, b: { ...emptySlotState } });
   const [scrapeBusy, setScrapeBusy] = useState<'' | 'authorized' | 'all'>('');
   const [scrapeMessage, setScrapeMessage] = useState('');
@@ -208,11 +221,13 @@ export default function JobRadar() {
     const byApplication = (job: JobRecord) => applicationFilter === 'all' || job.applicationStatus === applicationFilter;
     const bySource = (job: JobRecord) => sourceFilter === 'all' || job.sourceKey === sourceFilter;
     const byWorkType = (job: JobRecord) => workTypeFilter === 'all' || job.workplaceType === workTypeFilter;
-    const except = (skip: 'country' | 'application' | 'source' | 'workType') => inView.filter((job) =>
+    const byCity = (job: JobRecord) => cityFilter === 'all' || job.location === cityFilter;
+    const except = (skip: 'country' | 'application' | 'source' | 'workType' | 'city') => inView.filter((job) =>
       (skip === 'country' || byCountry(job))
       && (skip === 'application' || byApplication(job))
       && (skip === 'source' || bySource(job))
-      && (skip === 'workType' || byWorkType(job)));
+      && (skip === 'workType' || byWorkType(job))
+      && (skip === 'city' || byCity(job)));
     const tally = <T extends string>(jobs: JobRecord[], pick: (job: JobRecord) => T) => {
       const counts = new Map<string, number>();
       for (const job of jobs) counts.set(pick(job), (counts.get(pick(job)) ?? 0) + 1);
@@ -223,9 +238,10 @@ export default function JobRadar() {
       application: tally(except('application'), (job) => job.applicationStatus),
       source: tally(except('source'), (job) => job.sourceKey),
       workType: tally(except('workType'), (job) => job.workplaceType),
-      visible: inView.filter((job) => byCountry(job) && byApplication(job) && bySource(job) && byWorkType(job)),
+      city: tally(except('city'), (job) => job.location),
+      visible: inView.filter((job) => byCountry(job) && byApplication(job) && bySource(job) && byWorkType(job) && byCity(job)),
     };
-  }, [applicationFilter, countryFilter, passesView, sourceFilter, visibleToRole, workTypeFilter]);
+  }, [applicationFilter, cityFilter, countryFilter, passesView, sourceFilter, visibleToRole, workTypeFilter]);
 
   const visibleJobs = useMemo(
     () => [...facets.visible].sort((a, b) => bestFitScore(b) - bestFitScore(a)),
@@ -234,6 +250,35 @@ export default function JobRadar() {
 
   const sourceOptions = useMemo(() => [...new Map(visibleToRole.map((job) => [job.sourceKey, job.sourceName])).entries()]
     .sort((a, b) => a[1].localeCompare(b[1])), [visibleToRole]);
+
+  /**
+   * Places to narrow by, grouped under their country.
+   *
+   * A facet rather than a search field, because a location typed before the search only ever hides
+   * results you have not seen yet. Here the choices are the places that actually came back, each
+   * with how many jobs are in it.
+   *
+   * Only possible now that EURES locations resolve to names — this listed "NL32B" until the NUTS
+   * codes were mapped, on the source that supplies the most jobs.
+   */
+  const cityOptions = useMemo(() => {
+    const byCountry = new Map<JobCountry, Map<string, number>>();
+    for (const job of visibleToRole) {
+      const place = job.location.trim();
+      if (!place) continue;
+      const cities = byCountry.get(job.country) ?? new Map<string, number>();
+      cities.set(place, (cities.get(place) ?? 0) + 1);
+      byCountry.set(job.country, cities);
+    }
+    return [...byCountry.entries()]
+      .sort((a, b) => countryLabel(a[0]).localeCompare(countryLabel(b[0])))
+      .map(([country, cities]) => ({
+        country,
+        label: countryLabel(country),
+        // Busiest first: with a few hundred places, alphabetical buries the ones worth seeing.
+        cities: [...cities.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])),
+      }));
+  }, [visibleToRole]);
 
   const sourceMetrics = useMemo(() => {
     const metrics = new Map<string, { key: string; name: string; country: JobCountry; analyzed: number; passing: number; saved: number; applied: number; dismissed: number }>();
@@ -769,9 +814,9 @@ export default function JobRadar() {
             <button className={view === 'dismissed' ? 'active' : ''} onClick={() => setView('dismissed')}><span>Dismissed</span><i>{counts.dismissed}</i></button>
             <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><span>All matching</span><i>{criteriaFilteredJobs.filter((job) => job.visibilityStatus === 'active').length}</i></button>
             <b className="filter-group">Country</b>
-            <button className={countryFilter === 'all' ? 'active' : ''} onClick={() => setCountryFilter('all')}><span>All countries</span><i>{facets.country.all}</i></button>
-            <button className={countryFilter === 'switzerland' ? 'active' : ''} onClick={() => setCountryFilter('switzerland')}><span>Switzerland</span><i>{facets.country.get('switzerland')}</i></button>
-            <button className={countryFilter === 'netherlands' ? 'active' : ''} onClick={() => setCountryFilter('netherlands')}><span>Netherlands</span><i>{facets.country.get('netherlands')}</i></button>
+            <button className={countryFilter === 'all' ? 'active' : ''} onClick={() => chooseCountry('all')}><span>All countries</span><i>{facets.country.all}</i></button>
+            <button className={countryFilter === 'switzerland' ? 'active' : ''} onClick={() => chooseCountry('switzerland')}><span>Switzerland</span><i>{facets.country.get('switzerland')}</i></button>
+            <button className={countryFilter === 'netherlands' ? 'active' : ''} onClick={() => chooseCountry('netherlands')}><span>Netherlands</span><i>{facets.country.get('netherlands')}</i></button>
             <b className="filter-group">Work type</b>
             <button className={workTypeFilter === 'all' ? 'active' : ''} onClick={() => setWorkTypeFilter('all')}><span>Any work type</span><i>{facets.workType.all}</i></button>
             <button className={workTypeFilter === 'remote' ? 'active' : ''} onClick={() => setWorkTypeFilter('remote')}><span>Remote</span><i>{facets.workType.get('remote')}</i></button>
@@ -786,6 +831,7 @@ export default function JobRadar() {
                 sites; it meant fourteen jobs. A site with nothing in the current view is dropped
                 rather than listed at zero - offering a filter that can only empty the list is not
                 a filter. The selected one always stays, so choosing it never makes it vanish. */}
+            {cityOptions.some((group) => group.cities.length > 1) && <label className="source-filter"><span>Place</span><select value={cityFilter} onChange={(event) => setCityFilter(event.target.value)}><option value="all">Everywhere — {facets.city.all} job{facets.city.all === 1 ? '' : 's'}</option>{cityOptions.map((group) => <optgroup label={group.label} key={group.country}>{group.cities.filter(([city]) => facets.city.get(city) > 0 || city === cityFilter).map(([city]) => <option value={city} key={city}>{city} ({facets.city.get(city)})</option>)}</optgroup>)}</select></label>}
             {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites — {facets.source.all} job{facets.source.all === 1 ? '' : 's'}</option>{sourceOptions.filter(([key]) => facets.source.get(key) > 0 || key === sourceFilter).map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
           </aside>
           <div className="job-list">
