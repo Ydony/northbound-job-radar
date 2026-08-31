@@ -82,14 +82,6 @@ async function extractCvText(file: File) {
   throw new Error('Use a PDF, DOCX, or TXT file.');
 }
 
-function jobsSearchUrl(role: string) {
-  const term = [role.trim(), 'English'].filter(Boolean).join(' ');
-  const url = new URL('https://www.jobs.ch/en/vacancies/');
-  url.searchParams.set('advanced', '1');
-  url.searchParams.set('term', term);
-  return url.toString();
-}
-
 function statusLabel(job: JobRecord) {
   if (job.visibilityStatus === 'dismissed') return 'Dismissed';
   if (job.applicationStatus === 'applied') return 'Applied';
@@ -172,9 +164,6 @@ export default function JobRadar() {
    */
   const [viewAsUser, setViewAsUser] = useState(false);
   const isAdmin = accountIsAdmin && !viewAsUser;
-  const primaryProfile = state.profiles.find((profile) => profile.derivedRole);
-  const primaryRole = state.criteria.roleKeywords[0]
-    || (primaryProfile ? roleForProfile(primaryProfile, state.criteria) : '');
 
   // In the user preview, drop the rows the server would never have sent to an ordinary account.
   // The server is what enforces this; hiding here is only what makes the preview truthful.
@@ -263,7 +252,20 @@ export default function JobRadar() {
     return [...metrics.values()].sort((a, b) => b.applied - a.applied || b.passing - a.passing || b.analyzed - a.analyzed);
   }, [visibleToRole]);
 
-  const latestRun = state.searchRuns[0];
+  /**
+   * The most recent run, with admin-only sources dropped while previewing as a user.
+   *
+   * The server already withholds these rows from an ordinary account. An administrator is sent
+   * everything, though, so without this the coverage panel kept naming Careerjet and IamExpat in a
+   * preview that is supposed to show what somebody else sees — which makes the preview useless for
+   * the one thing it exists to check.
+   */
+  const latestRun = useMemo(() => {
+    const run = state.searchRuns[0];
+    if (!run || !viewAsUser) return run;
+    const hidden = new Set(state.adminOnlySources ?? []);
+    return { ...run, sources: run.sources.filter((source) => !hidden.has(source.sourceKey)) };
+  }, [state.searchRuns, state.adminOnlySources, viewAsUser]);
 
   async function persistCriteria(draft: CriteriaDraft) {
     return responseJson<{ criteria: SearchCriteria }>(await fetch('/api/criteria', {
@@ -619,10 +621,9 @@ export default function JobRadar() {
         <div className="hero-copy">
           <span className="eyebrow">English-only roles · Switzerland + Amsterdam</span>
           <h1>Less searching.<br /><em>More fitting.</em></h1>
-          <p>Search Swiss and Netherlands job sites, then let this private workspace reject ads that require German, French, Italian or Dutch and rank the rest against your CVs.</p>
+          <p>Search Swiss and Netherlands job sites, then let this private workspace reject any that require German, French, Italian or Dutch.</p>
           <div className="hero-actions">
-            <a className="primary" href="#profile">Add your CVs <span>↓</span></a>
-            <a className="secondary" href={jobsSearchUrl(primaryRole)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
+            <a className="primary" href="#jobs">See your matches <span>↓</span></a>
           </div>
         </div>
         <aside className="promise-card">
@@ -691,9 +692,8 @@ export default function JobRadar() {
         {isAdmin && <button className="jobs-button admin-only" type="button" disabled={Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
-        <a className="jobs-button" href={jobsSearchUrl(primaryRole)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
-        <div className="health-panel">
+        {isAdmin && <div className="health-panel">
           <div className="health-head">
             <b>Source health</b>
             <button type="button" onClick={checkHealth} disabled={healthBusy}>{healthBusy ? 'Checking…' : 'Check now'}</button>
@@ -719,7 +719,7 @@ export default function JobRadar() {
               </li>)}
             </ul>
           </>}
-        </div>
+        </div>}
       </section>
 
       <section className="source-dashboard" id="sources">
