@@ -57,35 +57,21 @@ function normalized(value: string) {
   return value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
 }
 
-function matchesPattern(text: string, patterns: Record<string, RegExp>, selection: string) {
-  return selection === 'any' || Boolean(patterns[selection]?.test(text));
-}
-
+/**
+ * Does this job survive the search criteria?
+ *
+ * Three rules, and deliberately only three. Location, workplace, seniority and contract type were
+ * all filters here and are gone: each asked someone to guess in advance at something they can see
+ * on the results, and every one of them silently hid jobs. Location in particular is now a facet
+ * beside the results, where narrowing is a choice made against what actually came back.
+ *
+ * The criteria columns for the removed filters still exist in the database and are simply not read.
+ * They cost nothing there, and dropping columns is the sort of migration worth avoiding when the
+ * only benefit is tidiness.
+ */
 export function matchesSearchCriteria(job: JobRecord, criteria: SearchCriteria) {
-  const title = normalized(job.title);
   const text = normalized(`${job.title} ${job.location} ${job.description}`);
-  if (criteria.location && !normalized(job.location).includes(normalized(criteria.location))) return false;
   if (criteria.requiredKeywords.some((keyword) => !text.includes(normalized(keyword)))) return false;
   if (criteria.excludedKeywords.some((keyword) => text.includes(normalized(keyword)))) return false;
-
-  // Uses the value detected at import time rather than re-matching prose, so the filter and the
-  // badge on the card can never disagree.
-  if (criteria.workplace !== 'any' && job.workplaceType !== criteria.workplace) return false;
-
-  const seniorityPatterns: Record<string, RegExp> = {
-    internship: /\b(?:intern|internship|trainee|apprentice)\b/i,
-    entry: /\b(?:junior|entry[- ]level|graduate|associate)\b/i,
-    mid: /\b(?:mid[- ]level|professional|specialist)\b/i,
-    senior: /\b(?:senior|sr\.)\b/i,
-    lead: /\b(?:lead|principal|staff|head|director|chief)\b/i,
-  };
-  if (!matchesPattern(title, seniorityPatterns, criteria.seniority)) return false;
-
-  const contractPatterns: Record<string, RegExp> = {
-    permanent: /\b(?:permanent|unlimited|full[- ]time|indefinite)\b/i,
-    temporary: /\b(?:temporary|fixed[- ]term|limited contract)\b/i,
-    contract: /\b(?:contractor|freelance|freelancer|consulting contract)\b/i,
-    internship: /\b(?:intern|internship|trainee)\b/i,
-  };
-  return matchesPattern(text, contractPatterns, criteria.contractType);
+  return true;
 }

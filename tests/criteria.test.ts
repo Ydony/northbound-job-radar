@@ -67,16 +67,21 @@ test('stores five distinct role keywords and combines them with CV roles', () =>
   ], configured), ['Data Governance', 'Business Analyst', 'Master Data', 'Supply Chain']);
 });
 
-test('applies accent-insensitive location plus required and excluded keywords', () => {
-  assert.equal(matchesSearchCriteria(job, criteria({ location: 'Zurich', requiredKeywords: ['sap', 'power bi'] })), true);
+test('applies required and excluded keywords, accent-insensitively', () => {
+  assert.equal(matchesSearchCriteria(job, criteria({ requiredKeywords: ['sap', 'power bi'] })), true);
   assert.equal(matchesSearchCriteria(job, criteria({ requiredKeywords: ['python'] })), false);
   assert.equal(matchesSearchCriteria(job, criteria({ excludedKeywords: ['power bi'] })), false);
-  assert.equal(matchesSearchCriteria(job, criteria({ location: 'Geneva' })), false);
+  // Matched against title, location and description together, with accents folded.
+  assert.equal(matchesSearchCriteria(job, criteria({ requiredKeywords: ['zurich'] })), true);
 });
 
-test('applies workplace, seniority and contract filters', () => {
-  assert.equal(matchesSearchCriteria(job, criteria({ workplace: 'hybrid', seniority: 'senior', contractType: 'permanent' })), true);
-  assert.equal(matchesSearchCriteria(job, criteria({ workplace: 'onsite' })), false);
-  assert.equal(matchesSearchCriteria(job, criteria({ seniority: 'entry' })), false);
-  assert.equal(matchesSearchCriteria(job, criteria({ contractType: 'temporary' })), false);
+test('no longer filters on location, workplace, seniority or contract type', () => {
+  // All four were removed: each asked someone to guess in advance at something they can see in the
+  // results, and every one of them silently hid jobs. Location is a facet beside the results now.
+  // The criteria columns still exist in the database and are simply not read, so a stored value
+  // from before the change must not quietly keep filtering.
+  assert.equal(matchesSearchCriteria(job, criteria({ location: 'Geneva' })), true);
+  assert.equal(matchesSearchCriteria(job, criteria({ workplace: 'onsite' })), true);
+  assert.equal(matchesSearchCriteria(job, criteria({ seniority: 'entry' })), true);
+  assert.equal(matchesSearchCriteria(job, criteria({ contractType: 'temporary' })), true);
 });

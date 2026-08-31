@@ -82,12 +82,11 @@ async function extractCvText(file: File) {
   throw new Error('Use a PDF, DOCX, or TXT file.');
 }
 
-function jobsSearchUrl(role: string, location = '') {
+function jobsSearchUrl(role: string) {
   const term = [role.trim(), 'English'].filter(Boolean).join(' ');
   const url = new URL('https://www.jobs.ch/en/vacancies/');
   url.searchParams.set('advanced', '1');
   url.searchParams.set('term', term);
-  if (location.trim()) url.searchParams.set('location', location.trim());
   return url.toString();
 }
 
@@ -623,7 +622,7 @@ export default function JobRadar() {
           <p>Search Swiss and Netherlands job sites, then let this private workspace reject ads that require German, French, Italian or Dutch and rank the rest against your CVs.</p>
           <div className="hero-actions">
             <a className="primary" href="#profile">Add your CVs <span>↓</span></a>
-            <a className="secondary" href={jobsSearchUrl(primaryRole, state.criteria.location)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
+            <a className="secondary" href={jobsSearchUrl(primaryRole)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
           </div>
         </div>
         <aside className="promise-card">
@@ -663,11 +662,9 @@ export default function JobRadar() {
         <div className="criteria-intro">
           <span className="section-label coral">Search criteria</span>
           <h2>Define what fits</h2>
-          <p>CV overrides and five extra role keywords shape automatic searches. The remaining fields filter your combined local results.</p>
+          <p>Role keywords are what get searched. Required and excluded keywords then narrow what comes back — an ad must contain every required word, and is dropped if it contains an excluded one.</p>
         </div>
         <form className="criteria-form" onSubmit={saveCriteria}>
-          <label className="field"><span>CV 1 role override</span><input value={criteriaDraft.roleOverrideA} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, roleOverrideA: event.target.value })} placeholder={state.profiles.find((profile) => profile.slot === 'a')?.derivedRole || 'Use detected role'} /></label>
-          <label className="field"><span>CV 2 role override</span><input value={criteriaDraft.roleOverrideB} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, roleOverrideB: event.target.value })} placeholder={state.profiles.find((profile) => profile.slot === 'b')?.derivedRole || 'Use detected role'} /></label>
           <div className="role-keywords">
             <span>Additional search roles · up to five</span>
             <div>{Array.from({ length: 5 }, (_, index) => <label className="field" key={index}>
@@ -679,10 +676,6 @@ export default function JobRadar() {
               }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
             </label>)}</div>
           </div>
-          <label className="field"><span>Location / canton</span><input value={criteriaDraft.location} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, location: event.target.value })} placeholder="e.g. Zürich" /></label>
-          <label className="field"><span>Workplace</span><select value={criteriaDraft.workplace} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, workplace: event.target.value as SearchCriteria['workplace'] })}><option value="any">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option></select></label>
-          <label className="field"><span>Seniority</span><select value={criteriaDraft.seniority} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, seniority: event.target.value as SearchCriteria['seniority'] })}><option value="any">Any</option><option value="internship">Internship</option><option value="entry">Entry / junior</option><option value="mid">Mid-level</option><option value="senior">Senior</option><option value="lead">Lead / principal</option></select></label>
-          <label className="field"><span>Contract type</span><select value={criteriaDraft.contractType} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, contractType: event.target.value as SearchCriteria['contractType'] })}><option value="any">Any</option><option value="permanent">Permanent / full-time</option><option value="temporary">Temporary / fixed-term</option><option value="contract">Contract / freelance</option><option value="internship">Internship</option></select></label>
           <label className="field keywords"><span>Required keywords (all)</span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
           <label className="field keywords"><span>Exclude if ad contains</span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
           <div className="criteria-actions"><button className="search-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button><button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button><p aria-live="polite">{criteriaMessage || `${criteriaFilteredJobs.length} of ${state.jobs.length} analyzed jobs match the saved criteria.`}</p></div>
@@ -698,7 +691,7 @@ export default function JobRadar() {
         {isAdmin && <button className="jobs-button admin-only" type="button" disabled={Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
-        <a className="jobs-button" href={jobsSearchUrl(primaryRole, state.criteria.location)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
+        <a className="jobs-button" href={jobsSearchUrl(primaryRole)} target="_blank" rel="noreferrer">Open jobs.ch <span>↗</span></a>
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
         <div className="health-panel">
           <div className="health-head">
