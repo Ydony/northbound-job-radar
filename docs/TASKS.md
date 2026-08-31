@@ -285,6 +285,60 @@ sources", then "I meant europa.eu".
 - [ ] **Open decision:** split `pass` into "English confirmed" and "unknown", so a pass is
       impossible on a truncated ad. This is what makes the good bucket trustworthy.
 
+### E9. Jooble — check the description length before wiring anything — WAITING ON A KEY
+
+Raised by the owner 2026-08-31, along with Arbeitnow and an Apify scraper.
+
+**Blocked, and it needs the owner to act first**: every Jooble route sits behind Cloudflare bot
+protection (`jooble.org`, `us.jooble.org`, `nl.jooble.org` all 403, and the docs page never gets
+past "Performing security verification"). Using their API with a registered free key is a front
+door and entirely legitimate; getting past that wall is not, and was not attempted. No public
+client library documents the response either - the only npm package, `@pipedream/jooble`, is a
+3 KB stub with no implementation.
+
+- [ ] Owner registers for a free API key at the Jooble partner page.
+- [ ] **Then run one call and measure the median description length.** This is the whole decision,
+      and it takes ten minutes:
+
+      POST https://jooble.org/api/{KEY}
+      {"keywords": "data analyst", "location": "Amsterdam"}
+
+      Read the field carrying the advertisement body. There is an unverified recollection that it
+      is called `snippet`, which would say everything - but it is unverified, so measure rather
+      than assume.
+
+- [ ] Decide on the measurement, not on the volume:
+      - Median **>= 1500 chars** -> worth an adapter; it joins EURES as a screenable source.
+      - Teaser-length (a few hundred, or a hard cap like Adzuna's 500 or Careerjet's 279) ->
+        **do not add it.** It would pile on volume while producing exactly the untrustworthy
+        "English sufficient" verdicts that `docs/SOURCES_PIPELINE.md` documents. More jobs we
+        cannot screen is a step backwards, not forwards.
+
+### E10. Arbeitnow — measured and rejected, keep on file
+
+Free, no key, and the best text quality measured anywhere: median 6,059 characters, against
+EURES at 1,955-3,191 and Adzuna at 500. It also publishes a real `remote` boolean and tags.
+
+Wrong countries, though. Scanned 950 jobs across 8 pages: **one** touched the Netherlands or
+Switzerland, and that one was a German advertisement naming "Deutschland, Osterreich, Schweiz und
+Italien" as its region. Top locations were London, Berlin, Munich, Hamburg, Dusseldorf.
+
+- [x] Measured; not added.
+- [ ] Revisit only if the product ever covers Germany or the UK, where it would be a strong source.
+
+### E11. Apify EU Jobs Scraper — declined
+
+Offered as a tool that "circumvents anti-scraping walls for you". That is the one line this project
+has held throughout and which `AGENTS.md` records: no detection evasion, no getting past anti-bot
+measures. Declined on that basis rather than on capability.
+
+Two practical points reinforce it: it is a paid middleman for data now obtained directly and free
+from EURES, and the wall it would be used against is exactly the kind Jooble has put up
+deliberately.
+
+Apify itself is a legitimate platform and many of its actors only call documented public endpoints.
+A specific actor of that kind is a different question and can be looked at on its own merits.
+
 ## C. Product improvements, in value order
 
 - [ ] **C1.** Build and label a representative real-ad language corpus.
