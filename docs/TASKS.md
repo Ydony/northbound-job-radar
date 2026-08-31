@@ -174,7 +174,7 @@ touches several pages later.
 The user reviewed the live list and reported four defects and two changes. Recorded verbatim in
 intent so nothing is lost if this is picked up by someone else.
 
-### E1. Language screening misses obvious requirements — IN PROGRESS
+### E1. Language screening misses obvious requirements — DONE
 
 Reported: *"language filtration does not work too well"*, with a card titled "Online Data Analyst -
 German Language" marked ENGLISH SUFFICIENT.
@@ -194,10 +194,12 @@ Requested design, in the user's words:
   filter too long to run."
 
 - [x] Read the job title, not only the description.
-- [ ] Build the phrase table and the two-stage exclude → review decision.
-- [ ] Add Spanish to the languages that are recognised at all (currently absent).
+- [x] Build the phrase table and the two-stage exclude → review decision (`lib/language-rules.ts`).
+- [x] Add Spanish to the languages that are recognised at all.
+- [x] Backfill jobs stored under the old rules (`normalizeStoredJobs`, versioned so future rule
+      changes re-run automatically). In the test workspace: pass 191→179, blocked 233→249.
 
-### E2. The same job appears several times — IN PROGRESS
+### E2. The same job appears several times — DONE
 
 Reported with a screenshot of one advertisement listed twice.
 
@@ -211,18 +213,20 @@ Measured: **207 of 993 active jobs (21%) are redundant copies**, across 129 grou
 more than one board.
 
 - [x] Cluster key, near-duplicate comparison, `duplicate_of`, and a backfill for existing jobs.
-- [ ] Show "also on X, Y" on the job that is kept, and a count of what was folded away.
+- [x] Show "also posted on X, Y" on the job that is kept, with a count of what was folded away.
+      105 copies folded in the test workspace, 81 cards carry the line.
 
-### E3. Remove the manual "Analyze & add" dialogue
+### E3. Remove the manual "Analyze & add" dialogue — DONE
 
 Reported: *"no need for analyse job section"*, with a screenshot of the paste-an-advertisement modal.
 
 Superseded by automated search across the configured sources; keeping it costs a route, a modal, and
 a validation surface for a workflow nobody uses now.
 
-- [ ] Remove the dialogue and its trigger; decide whether `POST /api/jobs` stays for tests.
+- [x] Dialogue and both triggers removed. `POST /api/jobs` kept: it is the only non-search import
+      path and is covered by tests.
 
-### E4. Confirm every list action with one line of text
+### E4. Confirm every list action with one line of text — DONE
 
 Reported: *"when pressed saved and when moved to pipeline, there should be a tiny one line text
 saying saved to pipeline. same for other actions, like dismissed"*.
@@ -230,7 +234,8 @@ saying saved to pipeline. same for other actions, like dismissed"*.
 Today save / applied / not-applied / dismiss change the card silently, so on a long list it is not
 obvious the click registered.
 
-- [ ] Add a short, polite, self-clearing confirmation line for each list action.
+- [x] Added, self-clearing after 3.2s. A failed write rolls the confirmation back too, rather than
+      claiming a save that did not happen.
 
 ### E5. HTML entities are shown raw in titles — DONE
 
@@ -253,6 +258,32 @@ jobs.ch descriptions averaged 3,173 characters with 0% surviving list markup.
 - [ ] Extract a requirements section by heading and show the first few bullets, collapsed.
 - [ ] For teaser-length ads, link out instead of showing a fake excerpt.
 - [ ] Re-fetch existing jobs, which were stored before structure was preserved.
+
+### E7. Source health showed a red IP alert above "Careerjet — Working" — DONE
+
+The panel compared the live IP against CAREERJET_USER_IP, which is only the value configured
+locally. On a dynamic home connection those drift apart while Careerjet keeps answering.
+
+- [x] The verdict now follows the probe. A mismatch while Careerjet answers is reported as a stale
+      local note, not an outage.
+
+### E8. Sources research — DONE
+
+Requested: "look for more links, maybe european union job website ... search for more possible
+sources", then "I meant europa.eu".
+
+- [x] **EURES added** — 245,007 NL and 41,896 CH jobs, full advertisements (median 1,955 / 3,191
+      chars), public endpoint, no key, CC BY 4.0. Now the best source in the project by a distance.
+- [x] **Job-Room full-text fetch** — detail endpoint returns 4,193 chars against 316 in search.
+      18 of 20 test advertisements changed verdict once the whole text was read.
+- [x] Rejected and recorded so it is not researched twice: `data.europa.eu` (a dataset catalogue;
+      the Dutch entries are CBS vacancy *statistics*), `werk.nl`/UWV (no public API, and reached
+      through EURES anyway).
+- [ ] **Open decision:** Adzuna produces 148 "English sufficient" verdicts and none rests on a full
+      advertisement. Either fetch through its redirect link (a licensing question) or reclassify
+      short ads as *unknown*. See `docs/SOURCES_PIPELINE.md`.
+- [ ] **Open decision:** split `pass` into "English confirmed" and "unknown", so a pass is
+      impossible on a truncated ad. This is what makes the good bucket trustworthy.
 
 ## C. Product improvements, in value order
 

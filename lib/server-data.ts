@@ -346,6 +346,56 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
   return { job, wasKnown: Boolean(existing), wasDuplicate, wasDismissed: job.visibilityStatus === 'dismissed' };
 }
 
+/**
+ * Bump this whenever the ingest rules change — entity decoding, or anything that decides a language
+ * verdict. Stored rows carry the revision they were written under and are rewritten on next read.
+ *
+ * 1: titles entity-decoded; language gate reads the job title and the phrase rules.
+ */
+export const NORMALIZATION_VERSION = 1;
+
+interface StoredJobForNormalization {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  description: string;
+}
+
+/**
+ * Bring already-stored jobs up to the current ingest rules.
+ *
+ * Without this, every rule improvement only ever applies to jobs imported afterwards, which is
+ * exactly what happened here: 32 titles kept showing "Head of Finance &amp; Energy Data", and the
+ * verdicts on screen were still those of a gate that had never been shown the job title. Neither is
+ * something a person should have to trigger, or even know about.
+ *
+ * Language is recomputed but fit is not — fit depends on the CVs, which rescoreAllJobs already
+ * handles whenever a CV or the criteria change.
+ */
+export async function normalizeStoredJobs(db: D1Database, userId: string) {
+  const rows = await db.prepare(`SELECT id, title, company, location, description FROM jobs
+    WHERE user_id = ? AND normalized_version < ?`)
+    .bind(userId, NORMALIZATION_VERSION).all<StoredJobForNormalization>();
+  if (!rows.results.length) return 0;
+
+  const now = new Date().toISOString();
+  const statements = rows.results.map((row) => {
+    const title = decodeEntities(row.title);
+    const language = analyzeLanguage(row.description, title);
+    return db.prepare(`UPDATE jobs SET title = ?, company = ?, location = ?,
+        language_status = ?, language_summary = ?, language_signals = ?,
+        normalized_version = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
+      .bind(title, decodeEntities(row.company), decodeEntities(row.location),
+        language.status, language.summary, JSON.stringify(language.signals),
+        NORMALIZATION_VERSION, now, row.id, userId);
+  });
+  for (let index = 0; index < statements.length; index += 50) {
+    await db.batch(statements.slice(index, index + 50));
+  }
+  return rows.results.length;
+}
+
 interface ClusterableJob {
   id: string;
   title: string;

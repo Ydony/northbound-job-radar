@@ -341,4 +341,17 @@ export const runtimeMigrations: RuntimeMigration[] = [
       // reclusterJobs() the next time the workspace is read.
     ],
   },
+  {
+    version: 14,
+    name: 'track_normalization_version',
+    statements: [
+      // Jobs are stored with the title cleaned and the language decided at the moment they were
+      // imported, so a change to either rule leaves everything already saved on the old behaviour -
+      // titles still showing "&amp;", verdicts still reflecting a gate that never read the title.
+      // Recording which revision of those rules a row was written under makes the fix routine:
+      // bump NORMALIZATION_VERSION in lib/server-data.ts and stale rows are rewritten on next read.
+      'ALTER TABLE jobs ADD COLUMN normalized_version INTEGER NOT NULL DEFAULT 0',
+      'CREATE INDEX IF NOT EXISTS jobs_normalized_version_idx ON jobs(user_id, normalized_version)',
+    ],
+  },
 ];

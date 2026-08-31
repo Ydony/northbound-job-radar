@@ -40,6 +40,8 @@ export const jobs = sqliteTable(
     clusterKey: text('cluster_key').notNull().default(''),
     // Set to the id of the job kept on screen when this row is the same posting from another board.
     duplicateOf: text('duplicate_of').notNull().default(''),
+    // Revision of the ingest rules this row was written under; see NORMALIZATION_VERSION.
+    normalizedVersion: integer('normalized_version').notNull().default(0),
     isSaved: integer('is_saved', { mode: 'boolean' }).notNull().default(false),
     applicationStatus: text('application_status').notNull().default('not_applied'),
     visibilityStatus: text('visibility_status').notNull().default('active'),

@@ -3,7 +3,7 @@ import { authSecrets, ensureSchema } from '@/db/runtime';
 import { recordVisit } from '@/lib/analytics';
 import { clientIp, requireSession } from '@/lib/guard';
 import { jobSourceAdapters } from '@/lib/job-adapters';
-import { criteriaFromRow, cvFromRow, jobFromRow, reclusterJobs, searchRunsFromRows, type CriteriaRow, type CvRow,
+import { criteriaFromRow, cvFromRow, jobFromRow, normalizeStoredJobs, reclusterJobs, searchRunsFromRows, type CriteriaRow, type CvRow,
   type JobRow, type SearchRoleRow, type SearchRunRow, type SearchRunSourceRow } from '@/lib/server-data';
 
 /**
@@ -27,6 +27,9 @@ export async function GET(request: Request) {
   // Jobs stored before duplicate detection existed carry no cluster key, and the column had to be
   // left blank by the migration because the key is normalized in TypeScript. Backfill once, on the
   // first read after upgrading, rather than asking anyone to run a script.
+  // Order matters: decoding entities first means "Cost &amp; Inventory Analyst" and
+  // "Cost & Inventory Analyst" produce the same cluster key and are recognised as one job.
+  await normalizeStoredJobs(db, user.id);
   const unclustered = await db.prepare("SELECT COUNT(*) AS total FROM jobs WHERE user_id = ? AND cluster_key = ''")
     .bind(user.id).first<{ total: number }>();
   if (unclustered?.total) await reclusterJobs(db, user.id);
