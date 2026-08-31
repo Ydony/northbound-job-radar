@@ -725,7 +725,11 @@ export default function JobRadar() {
       </section>}
 
       <section className="results" id="jobs">
-        <div className="section-heading"><div><span className="section-label coral">Your workspace</span><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…' : `${state.jobs.length} analyzed`}</span></div>
+        <div className="section-heading"><div><span className="section-label coral">Your workspace</span><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…'
+          : (state.totalJobs ?? state.jobs.length) > state.jobs.length
+            // Say so rather than quietly showing a subset: the oldest jobs fall off the end.
+            ? `Showing the ${state.jobs.length} most recent of ${state.totalJobs} analyzed`
+            : `${state.jobs.length} analyzed`}</span></div>
         <div className="data-toolbar">
           <span>{selectedJobIds.length ? `${selectedJobIds.length} selected` : 'Data controls'}</span>
           <button type="button" disabled={!selectedJobIds.length || dataBusy} onClick={() => deleteJobs(selectedJobIds)}>Delete selected</button>

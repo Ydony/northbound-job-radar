@@ -99,6 +99,9 @@ export interface AccountSummary {
 }
 
 export interface AppState {
+  /** Total jobs owned, which may exceed the number returned; see jobLimit. */
+  totalJobs?: number;
+  jobLimit?: number;
   account: AccountSummary | null;
   profiles: CvProfile[];
   jobs: JobRecord[];

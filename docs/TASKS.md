@@ -110,10 +110,18 @@ they do not own.
 `lib/guard.ts` counters reset with the process. This is acceptable for loopback-only use but must
 be replaced before any future public hosting.
 
-### B4. The dashboard caps state at 1,000 jobs
+### B4. The dashboard still loads every job in one response
 
-`GET /api/state` returns at most 1,000 rows. The populated test account has 916, so pagination or
-server-side filtering is the next capacity requirement.
+Partly addressed 2026-08-31. The test workspace had reached 1,004 jobs against a 1,000-row cap, so
+four were silently missing from the interface with nothing to indicate it. The limit is now 2,000,
+the true total is returned, and the header says "Showing the N most recent of M" whenever the
+response is truncated — hiding jobs without saying so was the actual defect.
+
+This buys headroom rather than solving it. The response is ~2 MB at 1,000 jobs and descriptions are
+about a third of that, carried only so the client can match required/excluded keywords.
+
+- [ ] Move keyword filtering server-side, or stop sending full descriptions, then paginate.
+- [ ] Revisit before any account approaches 2,000 jobs.
 
 ### B5. Undutchables is a weak, restricted source
 
