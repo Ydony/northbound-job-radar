@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { cp, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -75,4 +75,31 @@ const manifest = {
   totalBytes: files.reduce((sum, file) => sum + file.bytes, 0),
 };
 await writeFile(join(backupRoot, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-console.log(backupRoot);
+
+/**
+ * Retention. A backup is only useful if taking one is cheap enough to do routinely, which means old
+ * copies have to be cleared or they grow without bound - the test state is about 4 MB each time.
+ * Keeps the newest few and removes the rest. Only ever prunes this environment's own folder, and
+ * never the backup just written.
+ */
+const KEEP = 10;
+const environmentRoot = join(projectRoot, 'local-backups', environment);
+const existing = (await readdir(environmentRoot, { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort()
+  .reverse();
+const pruned = [];
+for (const name of existing.slice(KEEP)) {
+  if (name === timestamp) continue;
+  await rm(join(environmentRoot, name), { recursive: true, force: true });
+  pruned.push(name);
+}
+
+console.log(JSON.stringify({
+  created: relative(projectRoot, backupRoot).replaceAll('\\', '/'),
+  files: files.length,
+  totalBytes: manifest.totalBytes,
+  kept: Math.min(existing.length, KEEP),
+  pruned: pruned.length,
+}, null, 2));

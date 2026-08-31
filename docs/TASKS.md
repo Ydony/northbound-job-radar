@@ -50,29 +50,34 @@ false.
 - [x] Confirmed test now has one account, `admin-test@ikengels.test`, owning all 1,004 jobs and
   both real CVs.
 
-### A5. Coordinate restarts of the test environment
+### A5. The reported test failure — root cause found 2026-08-31
 
-Reported 2026-08-31: saving criteria in test failed with "NetworkError when attempting to fetch
-resource", and settings and admin appeared broken. The failure did not reproduce afterwards. Every
-endpoint and page was re-checked and all returned 200 — `/api/account`, `/api/admin`,
-`/api/criteria` with five roles, `/settings`, `/admin`, `/sources`, `/privacy`, admin
-disable/enable, last-admin protection, and a second account saving its own criteria.
+Saving criteria in test failed with "NetworkError when attempting to fetch resource", and settings
+and admin appeared broken. This was first recorded as a probable restart interrupting an open tab.
+**That diagnosis was wrong.**
 
-The likely cause is the test Worker being rebuilt or restarted while a browser tab had it open.
-`test:local` serves a fixed build, so a restart drops in-flight requests, and a dropped fetch is
-exactly what that browser message reports. It is not a code fault, but it will keep happening while
-one person uses test and another restarts it.
+The real cause was the Content-Security-Policy blocking React's inline hydration scripts (A7). With
+hydration dead, no form could complete its request and no button responded, while server-rendered
+pages and direct URLs looked perfectly healthy — which is exactly what was reported. It also
+explains why every curl check passed: curl does not execute JavaScript, so the server appeared
+fine and only the browser was broken.
 
-- [ ] Agree that whoever restarts test says so first, since it interrupts the person using it.
-- [ ] If it recurs, capture the browser network tab and the `test:local` terminal output at that
-  moment — a status code or a server-side stack trace would distinguish a real fault from a
-  restart, and neither was available this time.
+- [x] Fixed in A7; both environments verified interactive in a real browser.
+- [x] Lesson recorded: an endpoint returning 200 to curl is not evidence the page works. Check the
+  browser console before concluding a client-side report is environmental.
 
-### A6. Protect the local test workspace
+### A6. Protect the local test workspace — done 2026-08-31
 
-- [ ] Add a documented, repeatable backup command for the test D1 and R2 state.
-- [ ] Verify a restore into a disposable directory without touching test.
-- [ ] Decide retention for old backups and make the operation recoverable by default.
+- [x] `npm run backup:test` and `npm run backup:dev` copy that environment's D1 and R2 state with a
+  manifest. Both refuse to run while their server is up, since a live SQLite copy would be
+  inconsistent.
+- [x] `npm run backup:verify <path>` re-walks a backup and checks every file against the manifest.
+  Verified against a real 4 MB, 14-file backup of the populated test workspace.
+- [x] Retention: the ten newest backups per environment are kept and older ones pruned
+  automatically, so taking one routinely cannot fill the disk. The backup just written is never
+  pruned.
+
+Take one before any migration that touches a populated workspace.
 
 ### A7. Replace the inline-script CSP allowance with nonces before any public deployment
 
