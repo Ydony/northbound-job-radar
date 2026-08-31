@@ -74,6 +74,21 @@ Local execution avoids the former Cloudflare static-egress problem, but the API 
 to registered publisher/IP terms. Keep Careerjet disabled when its key or permission is absent and
 never describe an unavailable source as searched.
 
+**Registering the real domain closes most of this.** The intended domain is **ikbeneenappel.nl**,
+confirmed free (no DNS records as of 2026-08-31). Careerjet binds a key to one registered publisher
+website, and the key in use currently names a placeholder domain nobody here owns — that is the
+"open question" shown on `/sources`. Registering the real domain with Careerjet, and setting
+`CAREERJET_REFERER` to match, moves the integration inside its licensed scope. The declared IP
+still has to match wherever the app actually runs, which is fine while it stays local on a stable
+connection.
+
+### B7. Product name and domain do not match
+
+The product is called **Ik Engels** throughout the code, the dashboard header, the login page,
+`/sources`, `/privacy`, and both READMEs. The intended domain is `ikbeneenappel.nl`. If the name
+changes with the domain, decide before writing more user-facing copy — the rename is cheap now and
+touches several pages later.
+
 ## C. Product improvements, in value order
 
 - [ ] **C1.** Build and label a representative real-ad language corpus.
