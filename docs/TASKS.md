@@ -5,20 +5,16 @@ session can continue without reconstructing the state.
 
 ## A. Current work — complete in order
 
-### A1. Owner changes BOTH administrator logins (exposed, not merely temporary)
+### A1. Rotate both administrator logins before any live environment — deferred by decision
 
-The populated test workspace is owned by `admin-test@ikengels.test`; dev is owned by
-`admin-dev@ikengels.test`. **Both generated passwords were posted in plain text into a chat
-transcript**, so they are exposed rather than merely temporary, and both need replacing — not just
-test.
+Both generated passwords were posted in plain text into a chat transcript. The owner has accepted
+that risk for now (2026-08-31) on the grounds that both environments are local-only, bound to
+loopback, and hold no third party's data. Work continues using them.
 
-- [ ] Change the email and password at `http://localhost:3001/settings` (test).
-- [ ] Change the email and password at `http://localhost:3000/settings` (dev).
+This becomes blocking the moment anything is reachable beyond this machine.
 
-Changing a password revokes that account's other sessions. Never write these into a file, a commit,
-or a chat message.
-
-This is the only step that requires the owner. Coding and testing may continue while it is pending.
+- [ ] Rotate both logins as part of creating the first live environment, before it accepts traffic.
+- [ ] Rotate `SESSION_SECRET` for the live environment rather than copying a local one.
 
 ### A2. Local environments — done 2026-08-31
 
@@ -29,29 +25,30 @@ This is the only step that requires the owner. Coding and testing may continue w
 - [x] The legacy workspace was copied into test; its original state remains as recovery data.
 - [x] Both login pages return HTTP 200 while the two processes run concurrently.
 
-### A3. Exercise the existing app as a new second user
+### A3. Exercise the app as a new second user — done 2026-08-31
 
-Dev's database is empty, which is the point: exercising freshly created data is what surfaces the
-write paths that adopted data never touches. That is how a completely broken CV upload went
-unnoticed before. Set `ALLOW_SIGNUPS=true` in `.dev.vars.dev` to create the second account.
+Both halves are now scripted and repeatable rather than done by hand once.
 
-- [ ] Create a non-admin account in dev and upload a new CV.
-- [ ] Save criteria and exercise default and VPN/restricted search modes.
-- [ ] Save, apply, dismiss, restore, correct a verdict, export, delete, and reset.
-- [ ] Attempt to read and change another account's jobs by id and confirm isolation.
-- [ ] Exercise settings and every admin action, including last-admin protection.
-- [ ] Render `/`, `/login`, `/settings`, `/admin`, `/sources`, and `/privacy` and reconcile their
-  claims with the code.
-- [ ] Report findings before making Phase 2 bug fixes; add regression tests for every fix.
+- [x] `npm run verify:dev` — 14 checks covering registration, CV upload, criteria, authorized
+  search and the refusal of restricted mode, pipeline states, language correction, tenant
+  isolation, export shape, credential change, session revocation, page rendering, workspace reset,
+  and account deletion.
+- [x] `npm run verify:admin` — 9 checks covering the administrator half that was previously
+  deferred: the overview being counts-only, administration refused to non-admins, promote and
+  demote, disable ending a live session immediately, enable restoring access, a password reset
+  invalidating the old password, the last-administrator and self-action guards, and deletion.
 
-### A4. Remove leftover test debris from the test workspace
+Each asserts the effect rather than a 200: disabling must end that account's session, a reset must
+kill the previous password, and a deleted account must not be able to sign in.
 
-The test workspace still contains `second@example.test`, an account created during an earlier
-isolation check. It holds one synthetic CV and no jobs. Test is the environment used as a real
-user, so it should not carry debris from development.
+Dev keeps `ALLOW_SIGNUPS=true` because both verifiers create disposable accounts. Test keeps it
+false.
 
-- [ ] Delete `second@example.test` from `http://localhost:3001/admin`.
-- [ ] Confirm the remaining account is the owner's and holds the 916-job workspace.
+### A4. Remove leftover test debris from the test workspace — done 2026-08-31
+
+- [x] Deleted `second@example.test` from test. It held one synthetic CV and no jobs.
+- [x] Confirmed test now has one account, `admin-test@ikengels.test`, owning all 1,004 jobs and
+  both real CVs.
 
 ### A5. Coordinate restarts of the test environment
 

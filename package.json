@@ -26,7 +26,8 @@
     "vpn:setup:mac": "bash scripts/setup-vpn-macos.sh",
     "vpn:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-vpn.ps1 -ShowPublicIp",
     "vpn:check:mac": "bash scripts/check-vpn-macos.sh --show-public-ip",
-    "init-secrets": "node scripts/init-secrets.mjs dev && node scripts/init-secrets.mjs test"
+    "init-secrets": "node scripts/init-secrets.mjs dev && node scripts/init-secrets.mjs test",
+    "verify:admin": "node scripts/verify-admin-actions.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
