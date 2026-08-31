@@ -1,70 +1,83 @@
-# Environments
+# Local environments
 
-Three environments, added as they are needed. The rule that matters: **each one owns its own
-database and its own bucket.** Sharing storage between them means a development mistake destroys
-the data you were testing against, and a test reset destroys real work.
+Ik Engels is local-only. It has two named environments and no hosted or public environment.
+Both use Cloudflare's local Miniflare/Workers runtime, so D1 and R2 behaviour remains realistic
+without sending CVs or job data to a hosted service.
 
-| | Purpose | Who uses it | Data |
+| Environment | URL | Purpose | Storage |
 |---|---|---|---|
-| **development** | Where changes are made | The person or agent working on the code | Disposable. Reset freely. |
-| **testing** | A stable build to use while development continues | You, as a real user | Realistic and worth keeping, but not irreplaceable |
-| **production** | The public site | Real users | Real. Never reset. |
+| **dev** | `http://localhost:3000` | Hot-reload coding and disposable experiments | `.wrangler/dev/state` |
+| **test** | `http://localhost:3001` | Stable built release used as a real user | `.wrangler/test/state` |
 
-Development runs locally against Miniflare (`npm run dev`); it needs no Cloudflare resources at
-all. Testing and production are deployed Workers.
+The paths are intentionally different. A dev reset cannot delete test jobs or CV files.
 
-## Creating an environment
+## First setup
 
-Each needs its own D1 database and R2 bucket:
-
-```bash
-npx wrangler d1 create ikengels-testing --location weur
-npx wrangler r2 bucket create ikengels-testing-cvs --location weur
+```text
+npm install
+npm run init-secrets
 ```
 
-`--location weur` keeps the data in Western Europe and **cannot be changed after creation**.
+`npm run init-secrets` creates ignored `.dev.vars.dev` and `.dev.vars.test` files with different
+session-signing secrets. When a legacy `.dev.vars` exists, non-session source credentials are
+copied into both files; the session secret is never copied.
 
-Repeat with `ikengels-production` when production is needed. Put the returned `database_id` values
-into the environment's config; do not reuse one id across environments.
+Do not commit `.dev.vars*` or `.wrangler/`. The checked-in `.dev.vars.example` documents the
+supported values without containing credentials.
 
-## Secrets per environment
+## Start the environments
 
-Every environment gets its **own** `SESSION_SECRET`:
+In one terminal:
 
-```bash
-npx wrangler secret put SESSION_SECRET --env testing
+```text
+npm run dev
 ```
 
-Never copy one between environments. If the development machine is compromised, that secret must
-not be able to forge a session anywhere else. The same applies to the aggregator keys — testing can
-share the Adzuna key with development if you accept the shared daily quota, but be aware they draw
-from the same 250 requests per day.
+In another terminal:
 
-`ALLOW_SIGNUPS` should stay unset on testing and production until you want strangers registering.
+```text
+npm run test:local
+```
 
-## Which environment gets which sources
+`dev` uses Vinext/Vite hot reload. `test:local` first builds the current source, then runs that
+fixed build through `wrangler dev` on port 3001. Wrangler receives an explicit `--persist-to`
+path, so test D1 and R2 data stay under `.wrangler/test/state`.
 
-- **development and testing**: all sources, including the administrator-only page-fetching mode, so
-  behaviour can be exercised end to end.
-- **production**: consider leaving Careerjet unset (it cannot work from a Worker — see
-  `docs/TASKS.md` A2), and think carefully before running page-fetching from a public deployment.
-  It is administrator-only and manually triggered, but it runs from Cloudflare's IPs rather than
-  yours, which changes who appears to be making the requests.
+Both may run at the same time. Restart `test:local` only when a validated change is ready for real
+use; source edits do not hot-reload into the running test release.
 
-## Promoting a change
+## VPN-enforced variants
 
-1. Build and test locally against development.
-2. `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` — all four must pass.
-3. Deploy to testing and use it as a real user for a while.
-4. Only then deploy to production.
+Windows:
 
-Migrations apply themselves on the first request after deploying, in order, recorded in
-`schema_migrations`. They are additive and safe to run against a populated database — migration 7
-rebuilds two tables and was verified against the 831-job workspace without loss — but take a
-`wrangler d1 export` of production before deploying a migration anyway.
+```text
+npm run dev:private
+npm run test:private
+```
 
-## A caution about the shared local database
+macOS:
 
-Development currently uses `.wrangler/` in the project directory. `npm run dev` from two different
-checkouts of this project will share it. If two agents or two copies of the repo are running at
-once, they are writing to the same database.
+```text
+npm run dev:private:mac
+npm run test:private:mac
+```
+
+These launchers verify a full VPN route before setting `VPN_ENFORCED=true`. They do not store VPN
+credentials. Restricted page-fetch adapters remain unavailable without this verified marker.
+
+## Promote a change from dev to test
+
+1. Exercise the change at `http://localhost:3000`.
+2. Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
+3. Stop and restart `npm run test:local` to build the stable test release.
+4. Exercise the change at `http://localhost:3001` as a real user.
+
+Migrations apply on first request and are recorded in `schema_migrations`. Before a schema change,
+copy `.wrangler/test/state` to a dated local backup. Never reset test state merely to make a
+migration pass.
+
+## Legacy state
+
+The former single-environment workspace under `.wrangler/state` is retained as a recovery copy.
+Its populated workspace was copied—not moved—into `.wrangler/test/state` when the two local
+environments were introduced. New work must use only the named `dev` and `test` paths.

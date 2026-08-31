@@ -64,6 +64,6 @@ Write-Host 'One-time private setup required:' -ForegroundColor Yellow
 Write-Host "1. $($selected.SetupNote)"
 Write-Host '2. Leave auto-connect enabled so the private launcher can reconnect on later runs.'
 Write-Host '3. Run: npm run vpn:check'
-Write-Host '4. Start Northbound with: npm run dev:private'
+Write-Host '4. Start Ik Engels dev with: npm run dev:private'
 Write-Host ''
-Write-Host 'Northbound never stores or reads your VPN username or password.'
+Write-Host 'Ik Engels never stores or reads your VPN username or password.'

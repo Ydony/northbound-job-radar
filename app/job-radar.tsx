@@ -571,7 +571,7 @@ export default function JobRadar() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="#top"><span className="brand-mark">N</span><span><b>Northbound</b><small>English job radar</small></span></a>
+        <a className="brand" href="#top"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>English job radar</small></span></a>
         <nav aria-label="Main navigation">
           <a className="active" href="#jobs">Matches</a><a href="#profile">My CVs</a>
           <Link href="/settings">Settings</Link>

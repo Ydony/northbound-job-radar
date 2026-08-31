@@ -1,6 +1,6 @@
-# Optional external VPN setup (Windows)
+# Optional external VPN setup
 
-Northbound can run locally while Windows sends its network traffic through an external
+Ik Engels can run locally while Windows sends its network traffic through an external
 VPN. This is an optional privacy layer, not permission to automate a website and not an
 anonymity guarantee.
 
@@ -19,7 +19,7 @@ npm run vpn:setup
 This installs the official Windscribe package through Windows Package Manager and opens
 the application. Account creation, sign-in, Netherlands selection, Firewall/Kill Switch,
 and split-tunnel settings require one visible setup because the providers do not publish a
-supported Windows automation interface for those account and security settings. Northbound
+supported Windows automation interface for those account and security settings. Ik Engels
 does not request or store VPN credentials.
 
 To install Proton VPN instead:
@@ -37,7 +37,7 @@ npm run dev:private
 ```
 
 The launcher starts an installed VPN client when necessary, waits briefly for auto-connect,
-and refuses to start Northbound unless it detects a supported active adapter with a full
+and refuses to start Ik Engels unless it detects a supported active adapter with a full
 IPv4 tunnel route. It then shows the exit IP and country using Cloudflare's trace endpoint.
 
 Run only the check with:
@@ -47,7 +47,7 @@ npm run vpn:check
 ```
 
 The check intentionally fails when it sees split tunneling without a full IPv4 route. VPN
-browser extensions do not protect Northbound's server-side requests and are not accepted by
+browser extensions do not protect Ik Engels' server-side requests and are not accepted by
 the launcher.
 
 ## Boundaries
@@ -69,6 +69,9 @@ npm run vpn:setup:mac
 npm run vpn:check:mac
 npm run dev:private:mac
 ```
+
+The private launchers default to dev. Use the corresponding `test:private` command when the stable
+test environment needs the same VPN guard.
 
 Homebrew must already be installed; if it is missing, the setup script opens the official
 Homebrew page and stops instead of downloading and executing an unreviewed bootstrap script.

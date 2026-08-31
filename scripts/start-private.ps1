@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+  [ValidateSet('dev', 'test')]
+  [string]$Environment = 'dev'
+)
 
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path -Parent $PSScriptRoot
@@ -33,7 +36,7 @@ if (-not (Test-VpnRoute)) {
 }
 
 if (-not (Test-VpnRoute)) {
-  throw 'Northbound was not started because no full VPN route is active. Connect the VPN, disable split tunneling, and run npm run dev:private again.'
+  throw "Ik Engels $Environment was not started because no full VPN route is active. Connect the VPN, disable split tunneling, and retry the private launcher."
 }
 
 & $checkScript -ShowPublicIp
@@ -41,5 +44,5 @@ Set-Location -LiteralPath $projectDirectory
 # Only this launcher sets it, and only after a full tunnel route was verified above. The server
 # refuses the restricted sources without it, so the VPN requirement is enforced rather than implied.
 $env:VPN_ENFORCED = 'true'
-& npm run dev
+if ($Environment -eq 'test') { & npm run test:local } else { & npm run dev }
 exit $LASTEXITCODE

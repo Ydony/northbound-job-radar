@@ -40,6 +40,6 @@ echo "1. $setup_note"
 echo "2. Allow the VPN configuration when macOS asks."
 echo "3. Leave auto-connect enabled for later private launches."
 echo "4. Run: npm run vpn:check:mac"
-echo "5. Start Northbound with: npm run dev:private:mac"
+echo "5. Start Ik Engels dev with: npm run dev:private:mac"
 echo
-echo "Northbound never stores or reads your VPN username or password."
+echo "Ik Engels never stores or reads your VPN username or password."

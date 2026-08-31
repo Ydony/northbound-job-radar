@@ -1,7 +1,9 @@
 # Optional free aggregator credentials for Adzuna and Careerjet.
 #
-# Copy this file to `.dev.vars` and fill in the values, then restart `npm run dev`.
-# `.dev.vars` is gitignored; never commit real keys.
+# `npm run init-secrets` creates `.dev.vars.dev` and `.dev.vars.test` and copies
+# non-session values from a legacy `.dev.vars` when one exists. Fill in either
+# environment file as needed, then restart that local environment.
+# All `.dev.vars*` files except this example are gitignored; never commit real keys.
 #
 # Without these, the Adzuna and Careerjet sources simply report themselves
 # "unavailable" in the search report. Nothing else breaks, and every other
@@ -25,8 +27,8 @@ CAREERJET_REFERER=
 # declared "Server IP address" in your partner account.
 CAREERJET_USER_IP=
 
-# Session cookie signing key. Generate with `npm run init-secrets`.
+# Each local environment gets a different value from `npm run init-secrets`.
 SESSION_SECRET=
-# 'true' lets anyone register. Closed by default: the first account is created on a fresh
-# install, and after that a public deployment cannot be signed up to by strangers.
+# 'true' lets additional local accounts register. The first account on a fresh
+# environment is always allowed and becomes the administrator.
 ALLOW_SIGNUPS=false

@@ -1,16 +1,19 @@
 {
-  "name": "sites-project",
+  "name": "ik-engels",
   "version": "0.1.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev",
-    "dev:private": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-private.ps1",
-    "dev:private:mac": "bash scripts/start-private-macos.sh",
+    "dev": "node scripts/run-local.mjs dev",
+    "test:local": "node scripts/run-local.mjs test",
+    "dev:private": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-private.ps1 -Environment dev",
+    "test:private": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-private.ps1 -Environment test",
+    "dev:private:mac": "bash scripts/start-private-macos.sh dev",
+    "test:private:mac": "bash scripts/start-private-macos.sh test",
     "build": "vinext build",
-    "start": "vinext start",
+    "start": "node scripts/run-local.mjs test",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test": "tsx --test tests/**/*.test.ts",
     "typecheck": "tsc --noEmit",
@@ -19,7 +22,7 @@
     "vpn:setup:mac": "bash scripts/setup-vpn-macos.sh",
     "vpn:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-vpn.ps1 -ShowPublicIp",
     "vpn:check:mac": "bash scripts/check-vpn-macos.sh --show-public-ip",
-    "init-secrets": "node scripts/init-secrets.mjs"
+    "init-secrets": "node scripts/init-secrets.mjs dev && node scripts/init-secrets.mjs test"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

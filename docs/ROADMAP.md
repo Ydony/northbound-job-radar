@@ -23,9 +23,10 @@ This document describes the overall product, including capabilities that are int
   dashboards.
 - Delete either CV or selected/all jobs, reset the workspace, and export safe JSON/CSV data.
 - Optional VPN-enforced local launchers for Windows and macOS.
-- Ordered local D1 migrations, R2 persistence, two real CV profiles, 48 preserved ads, and
-  a focused 45-test regression set. The first live multi-source external run still requires
-  the VPN to be reconnected.
+- Ordered local D1 migrations, R2 persistence, multi-user ownership, two real CV profiles, 916
+  jobs in the stable test workspace, and a 90-test regression suite.
+- Isolated local environments: hot-reload dev on port 3000 and a separately built test Worker on
+  port 3001, with different D1, R2, and session state. No hosted environment is supported.
 
 Exit criterion: the user can screen real jobs without a false “English sufficient” result in the agreed regression examples.
 
@@ -96,9 +97,10 @@ commute/remote rules, and Netherlands-specific work-authorization fields.
 - Track application stages, interviews, follow-ups, contacts, and reminders.
 - Do not auto-submit applications, answer legal eligibility questions, or impersonate the user.
 
-## Platform and business requirements before a public product
+## Platform and business requirements before any future public product
 
-- Authentication, tenant isolation, secrets management, encryption, audit trails, deletion/export, backups, incident response, and a privacy policy.
+- Revalidate authentication and tenant isolation under deployment conditions; add managed secrets,
+  encryption policy, backups, incident response, and production privacy controls.
 - DPIA/GDPR review for CV and behavioral data; processor agreements for model, email, hosting, and analytics providers.
 - Source-specific legal review, written permissions, rate limits, attribution, and takedown handling.
 - Observability, retry/idempotency design, cost controls, source-adapter tests, and a feature flag that can disable a source immediately.

@@ -1,7 +1,7 @@
 # Handover
 
-Last updated: 2026-08-28, after multi-user accounts, an administrator panel, privacy work, and a
-pre-deployment review.
+Last updated: 2026-08-31, after the project was converted to isolated local-only dev and test
+environments.
 
 **Read `docs/TASKS.md` first** — it is the ordered list of what still needs doing, with the
 blocking items at the top. This file explains where the project is and the things that will
@@ -13,33 +13,41 @@ A private job-search tool for Switzerland and the Netherlands, for someone whose
 language is English. It gathers public job advertisements, screens each one for whether English
 alone is enough, and scores it against the user's CVs.
 
-Product name is **Ik Engels**. The code still says "Northbound" in places; that rename is
-incomplete and harmless.
+Product name is **Ik Engels**. Active interface and setup references use that name.
 
 ## 2. State right now
 
-Working and verified live:
+Working and verified locally:
 
 - Multi-user accounts with per-account isolation. Every table has an owner column and all queries
   are scoped. A second account genuinely cannot see or touch the first's data — tested.
 - Sign-in, sign-out, account settings, account deletion, and an administrator panel.
 - Seven job sources: Job-Room (67k Swiss vacancies, no key), Adzuna (CH + NL), Careerjet (CH + NL),
   61 public company career boards, and three page-fetching sources restricted to administrators.
-- A workspace of 831 jobs and 2 real CVs belonging to the first account.
-- 88 tests, and `lint`, `typecheck`, `build` all clean.
+- `dev` at `http://localhost:3000` with disposable state under `.wrangler/dev/state`.
+- `test` at `http://localhost:3001` with a stable built Worker and separate state under
+  `.wrangler/test/state`.
+- The populated test workspace contains 916 jobs, 2 real CVs, and 12 recorded search runs.
+- The local-environment change passed `lint`, all 90 tests, `typecheck`, and `build` on 2026-08-31.
+  The built test Worker was then restarted and `/login`, `/privacy`, and `/sources` returned 200.
 
 Not built yet: self-service password reset, email verification, pagination past 1,000 jobs, and
 backups. All listed with context in `docs/TASKS.md`.
 
 ## 3. Things that will surprise you
 
-**The admin account is a throwaway.** The real workspace is owned by `owner@example.test` with the
-password `a-long-test-password`, created during testing. Task A1 is changing it. Until then, that
-is how you sign in.
+**The local administrator credentials are temporary.** Test currently uses
+`admin-test@ikengels.test`; dev uses `admin-dev@ikengels.test`. The owner was given the temporary
+passwords in the task that created the environments and must change the test email and password in
+`/settings` immediately. Never put the passwords in this file or Git.
 
-**Registration is closed by default.** `ALLOW_SIGNUPS` is unset, so only the first account on an
-empty database can be created. That is deliberate. To add a second account for testing, set
-`ALLOW_SIGNUPS=true` in `.dev.vars` and restart.
+**Registration is closed by default.** `ALLOW_SIGNUPS=false`, so only the first account on an
+empty database can be created. To add a second account in dev, set `ALLOW_SIGNUPS=true` in
+`.dev.vars.dev` and restart dev. Test has its own `.dev.vars.test`; do not open it casually.
+
+**There is no supported hosted environment.** A short-lived hosted test was removed from public
+access on 2026-08-31. Do not deploy again without a new explicit owner decision; see
+`docs/DEPLOY.md`.
 
 **The first account created claims any ownerless data.** Rows left from the single-user era carry
 `user_id = 'legacy'` and are adopted by the first account registered. On an empty database this
@@ -102,19 +110,25 @@ From `AGENTS.md`, repeated because they are easy to erode:
 ## 6. Working on it
 
 ```bash
-npm run dev          # http://localhost:3000 (3000/3001 may be taken; it will say)
-npm test             # 88 tests
+npm run dev          # hot-reload dev at http://localhost:3000
+npm run test:local   # stable local build at http://localhost:3001
+npm test             # 90 tests
 npm run lint
 npm run typecheck
 npm run build
-npm run init-secrets # generates SESSION_SECRET into .dev.vars
+npm run init-secrets # creates separate .dev.vars.dev and .dev.vars.test secrets
 ```
 
-All four checks must pass before a commit. `.dev.vars` holds local secrets and is gitignored;
-`.dev.vars.example` documents every variable.
+All four checks must pass before a commit. `.dev.vars.dev` and `.dev.vars.test` hold local secrets
+and are gitignored; `.dev.vars.example` documents every variable.
 
-Environment notes: only one `vinext dev` can run per machine, and it prints the PID of an existing
-one. On Windows, Git Bash needs `taskkill //PID <pid> //F` with doubled slashes.
+The test launcher intentionally runs the emitted Cloudflare Worker with Wrangler rather than a
+second hot-reload Vinext server. This makes the test instance both production-build-equivalent and
+independent of dev while keeping all traffic and data on loopback/local disk.
+
+Environment notes: only one hot-reload `vinext dev` can run per project. `test:local` runs the
+built Worker through Wrangler, so dev and test can run together. On Windows, Git Bash needs
+`taskkill //PID <pid> //F` with doubled slashes.
 
 ## 7. A caution from experience
 
@@ -126,3 +140,10 @@ account's jobs.
 None of that showed up in ordinary use, because the existing data had been adopted rather than
 freshly created. When you change anything touching tenancy, exercise the whole flow as a **second**
 account with **new** data, not just the account that already has rows.
+
+## 8. Next action
+
+The environment conversion is complete. Continue at `docs/TASKS.md` A3: exercise the entire dev
+workflow as a fresh second account, report findings before fixing them, and verify cross-account
+access fails. A1 remains a personal owner action: replace the temporary test administrator email
+and password in `http://localhost:3001/settings`.

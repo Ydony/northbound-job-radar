@@ -1,76 +1,29 @@
-# Deploying to Cloudflare
+# Hosting status
 
-The app runs on Cloudflare Workers with D1 (database) and R2 (CV files). The free tier covers it:
-100,000 requests/day, 5 GB of D1, 10 GB of R2.
+Ik Engels is intentionally local-only. Do not deploy it to OpenAI Sites, `chatgpt.site`,
+Cloudflare Workers, or another public host unless the owner makes a new explicit decision.
 
-## 1. Create the storage
+The supported environments are documented in `docs/ENVIRONMENTS.md`:
 
-```bash
-npx wrangler d1 create ikengels --location weur
-npx wrangler r2 bucket create ikengels-cvs --location weur
-```
+- `dev` at `http://localhost:3000`
+- `test` at `http://localhost:3001`
 
-`--location weur` places the data in Western Europe. **It cannot be changed after creation**, so set
-it now if GDPR residency matters to you.
+Both use local D1 and R2 emulation with separate storage. CV files, extracted CV text, jobs,
+accounts, and search history remain on this computer under ignored `.wrangler/` state.
 
-Put the returned `database_id` into `vite.config.ts` in place of
-`SITE_CREATOR_PLACEHOLDER_DATABASE_ID`, and set the bucket name alongside it.
+The short-lived hosted test created on 2026-08-31 was removed from public access and is not a
+supported environment. `.openai/hosting.json` contains logical local binding names only and no
+hosted project identifier.
 
-## 2. Set the secrets
+## If hosting is reconsidered later
 
-Never deploy `.dev.vars`; it is a local file and is gitignored. Secrets go to Cloudflare separately:
+Treat that as a new security and product project. Before any deployment:
 
-```bash
-npx wrangler secret put SESSION_SECRET
-npx wrangler secret put ADZUNA_APP_ID
-npx wrangler secret put ADZUNA_APP_KEY
-npx wrangler secret put CAREERJET_API_KEY
-npx wrangler secret put CAREERJET_REFERER
-npx wrangler secret put CAREERJET_USER_IP
-```
+1. Get explicit owner approval for the hosting provider and public URL.
+2. Create independent remote D1 and R2 resources; never point a deployment at local test data.
+3. Generate a new remote `SESSION_SECRET`.
+4. Add durable edge rate limits, backups, email verification/reset, and pagination.
+5. Revisit every source policy and Careerjet's fixed-IP restriction.
+6. Complete a privacy/GDPR review for CV and behavioural data.
 
-Generate a fresh `SESSION_SECRET` for production rather than reusing the local one — a leaked local
-file should not be able to forge production sessions. Rotating it signs everyone out.
-
-`ALLOW_SIGNUPS` is a plain variable, not a secret. Leave it unset (closed) until you are ready for
-other people to register; the first account you create becomes the administrator regardless.
-
-**Careerjet after deploying:** its key is bound to a registered site and a declared IP. A Worker's
-outbound IP is Cloudflare's, not yours, so the declared IP will no longer match and Careerjet will
-start refusing calls. Either declare Cloudflare's egress range with them, register the real domain,
-or accept that Careerjet only works locally. Adzuna has no such restriction.
-
-## 3. Deploy
-
-```bash
-npm run build
-npx wrangler deploy
-```
-
-The schema builds itself on first request: `ensureSchema()` creates the tables and applies every
-migration in order. Register the first account immediately after deploying — until an account
-exists, registration is open, and the first one created becomes the administrator.
-
-## 4. Turn on the edge protections
-
-In the Cloudflare dashboard, for this zone:
-
-- **Bot Fight Mode** (Security → Bots). Free, and blocks automated traffic before it reaches the
-  Worker.
-- **Rate limiting rule** on `/api/auth`: 10 requests per minute per IP. The app rate-limits in
-  memory, which resets whenever an instance restarts, so this is the durable layer.
-- **Always Use HTTPS** and **HSTS**. The session cookie is only marked `Secure` over HTTPS.
-
-## 5. Custom domain
-
-Add the domain in Workers → Settings → Domains & Routes. If the domain is registered elsewhere,
-point its nameservers at Cloudflare first.
-
-## Known limits at launch
-
-- No email sending, so password reset is an administrator setting a new password and handing it
-  over. There is no self-service "forgot password".
-- No email verification on registration.
-- In-app rate limiting is per instance and resets on redeploy; the Cloudflare rules above cover it.
-- The dashboard loads up to 1,000 jobs in one response. Beyond that the oldest stop being returned,
-  and the API would need pagination.
+Until then, no deploy command is part of the supported workflow.

@@ -1,8 +1,7 @@
-# Install and use Northbound
+# Install and use Ik Engels
 
-Northbound is a private, local job-screening application. It stores CV files and analyzed
-jobs only in the local development environment. Do not deploy it publicly without adding
-authentication and reviewing its privacy model.
+Ik Engels is a private, local job-screening application. It stores CV files and analyzed jobs in
+one of two isolated local environments. Do not deploy it without a new explicit owner decision.
 
 ## Give the repository to Codex
 
@@ -16,7 +15,7 @@ Suggested prompt for Codex on a new computer:
 
 ```text
 Clone https://github.com/Ydony/northbound-job-radar, read AGENTS.md, README.md,
-docs/GETTING_STARTED.md, and docs/VPN.md completely, then install and run Northbound
+docs/GETTING_STARTED.md, and docs/VPN.md completely, then install and run Ik Engels
 locally. Do not deploy it publicly. I use macOS; identify whether this Mac is Apple
 Silicon or Intel, install the appropriate prerequisites, help me complete the visible
 Windscribe setup without reading or storing my credentials, verify the VPN, and start
@@ -51,12 +50,18 @@ For a currently supported Homebrew installation, use macOS 14 Sonoma or newer.
    Homebrew marks versioned Node packages as keg-only. Follow the `brew info node@24`
    instruction to add it to the shell path, then confirm `node --version` reports 24.x and
    both `npm --version` and `git --version` work.
-6. Clone and install Northbound:
+6. Clone and install Ik Engels:
 
    ```text
    git clone https://github.com/Ydony/northbound-job-radar.git
    cd northbound-job-radar
    npm install
+   ```
+
+   Create the two independent local session-secret files:
+
+   ```text
+   npm run init-secrets
    ```
 
 7. Install and open the free Windscribe application:
@@ -79,14 +84,14 @@ For a currently supported Homebrew installation, use macOS 14 Sonoma or newer.
 
    The result must show a VPN route and an external country. If it fails, reconnect
    Windscribe and confirm split tunnelling is disabled.
-11. Start Northbound through the enforced launcher:
+11. Start Ik Engels through the enforced launcher:
 
     ```text
     npm run dev:private:mac
     ```
 
-12. Open the local URL printed in Terminal, normally `http://localhost:3000`. If that port
-    is busy, use the different local port printed by the application.
+12. Open `http://localhost:3000`. The port is fixed so another process cannot silently become the
+    environment you use.
 
 The macOS launcher checks for a full IPv4 route through an active `utun` interface. A
 browser-only VPN extension is insufficient because it does not protect server-side job
@@ -109,9 +114,9 @@ npm run dev:private
 
 The setup command installs the official Windscribe package. Complete account creation and
 sign-in visibly, select Netherlands, enable Firewall, disable split tunnelling, and leave
-auto-connect enabled. Northbound never reads or stores the VPN credentials.
+auto-connect enabled. Ik Engels never reads or stores the VPN credentials.
 
-## Using Northbound
+## Using Ik Engels
 
 1. Upload one or two text-based PDF, DOCX, or TXT CVs. Scanned image-only PDFs need OCR and
    are not supported yet.
@@ -131,7 +136,7 @@ auto-connect enabled. Northbound never reads or stores the VPN credentials.
 7. Mark language decisions accurate or correct them with a reason. Save jobs, mark them
    Applied or Not applied, and dismiss/restore unsuitable roles. Dismissed adverts are
    suppressed during future searches.
-8. Open the original source to apply personally. Northbound does not log in or submit an
+8. Open the original source to apply personally. Ik Engels does not log in or submit an
    application for the user.
 9. Use JSON/CSV export and deletion controls to manage local data.
 
@@ -146,8 +151,10 @@ user should read `docs/ARCHITECTURE.md` §2 and disable adapters they do not acc
 
 ## Local data and troubleshooting
 
-- CVs, jobs, and search settings live under the ignored `.wrangler/` directory. A fresh
-  clone starts with an empty workspace.
+- Dev data lives under `.wrangler/dev/state`; stable test data lives under
+  `.wrangler/test/state`. Never copy one over the other while either server is running.
+- Use `npm run dev` for hot-reload development on port 3000. Use `npm run test:local` to build and
+  run the stable local test Worker on port 3001.
 - Never share or commit `.wrangler/`, `.env`, `tmp/`, `work/`, VPN configurations, or CVs.
 - Only one `vinext dev` server can run on a computer. Stop the existing server before
   starting another checkout.

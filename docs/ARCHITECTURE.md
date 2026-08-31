@@ -1,10 +1,10 @@
 # Architecture and decision record
 
-Last updated: 2026-08-27.
+Last updated: 2026-08-31.
 
 The accepted Swiss + Netherlands multi-source architecture in
-`docs/MULTI_SOURCE_PLAN.md` is implemented. The only remaining verification gap is one
-external end-to-end run while a full VPN route is active.
+`docs/MULTI_SOURCE_PLAN.md` is implemented. The supported runtime is now local-only with isolated
+`dev` and `test` environments.
 
 ## 1. Goal and acceptance rule
 
@@ -31,13 +31,13 @@ source-specific review, the user explicitly requested the same manually triggere
 for other Swiss and Netherlands sources. The current flow is:
 
 ```text
-Northbound builds role searches for every enabled adapter
+Ik Engels builds role searches for every enabled adapter
         ↓
 POST /api/scrape fetches capped public result pages (no login)
         ↓
 For a few new listings per source, reads schema.org JobPosting data
         ↓
-Northbound canonicalizes/deduplicates, verifies language, and scores CV fit
+Ik Engels canonicalizes/deduplicates, verifies language, and scores CV fit
         ↓
 Every source records an honest run report; the user opens the source and applies personally
 ```
@@ -95,13 +95,17 @@ Next-compatible API routes on Vinext/Cloudflare
   └─ R2 original CV file storage (`CV_FILES`)
 ```
 
-The MVP is single-user. Authentication and tenant isolation are post-MVP requirements before public hosting.
+The application is multi-user. Every API route except authentication requires a signed session,
+and every user-data query is scoped to the session account. The supported environments are local
+`dev` and local `test`; hosting is intentionally disabled.
 
 ## 4. Data model
 
-`cvs` holds up to two rows, keyed by a unique `slot` (`a` or `b`) for one person's two CV versions: CV filename, private R2 object key, extracted CV text, the role derived from that CV's content (§6a), and an update timestamp.
+`cvs` holds up to two rows per account, keyed by `user_id` plus `slot` (`a` or `b`): CV filename,
+private R2 object key, extracted CV text, the role derived from that CV's content (§6a), and an
+update timestamp.
 
-`search_settings` holds the single-user filters and the optional role override for each CV.
+`search_settings` holds each account's filters and optional role override for each CV.
 `search_roles` holds up to five ordered general role keywords. Normalized CV roles and
 general roles are deduplicated before adapter searches.
 
@@ -237,7 +241,7 @@ Basic where the API key is the username and the password is empty.
 
 **Open licensing question on Careerjet (2026-08-28).** Careerjet issues its key against one
 registered publisher website and states the key is "provided exclusively for integration on the
-registered website". Northbound is a local single-user tool with no public site, and the key in
+registered website". Ik Engels is a local private tool with no public site, and the key in
 use was registered against a placeholder domain, so this usage sits outside the registered scope —
 this is a licensing question, not a technical one, and it is unresolved. Adzuna carries no
 equivalent per-site restriction and is the safer default of the two. If Careerjet's scope matters,
@@ -266,7 +270,8 @@ CRMs. The same ATS endpoints are rich for direct employers.
   `drizzle/0002_cultured_squadron_supreme.sql` adds language feedback, and
   `drizzle/0003_cloudy_toro.sql` represents the multi-source schema. Runtime migrations
   are separately applied and versioned as described in §7a.
-- No authentication or multi-user isolation.
+- Authentication and tenant scoping exist, but the complete second-user regression exercise in
+  `docs/TASKS.md` A3 must be rerun after the environment split.
 - Deterministic language detection has focused regression tests, a reviewed 24-ad live
   sample, and persisted correction controls. The user still needs to label a representative
   set before it can be treated as an evaluation corpus.
@@ -289,7 +294,7 @@ unless `check-vpn.ps1` finds a supported active adapter carrying a full IPv4 rou
 
 Provider account creation, sign-in, country selection, and Firewall/Kill Switch settings
 remain a one-time visible provider step. The free Windows clients do not publish a
-supported interface for automating those settings, and Northbound must never capture VPN
+supported interface for automating those settings, and Ik Engels must never capture VPN
 credentials or manipulate undocumented provider state. The route check is a guardrail,
 not proof of anonymity; its optional exit-IP display calls Cloudflare's trace endpoint.
 

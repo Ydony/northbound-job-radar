@@ -1,11 +1,21 @@
-# Northbound: instructions for coding agents
+# Ik Engels: instructions for coding agents
 
 **Read `docs/TASKS.md` first** — the ordered list of what needs doing, blocking items at the top.
 Then `docs/HANDOFF.md` for the state of the project and the things that will surprise you. Read
 `docs/MULTI_SOURCE_PLAN.md` before changing discovery, job identity, filters, pipeline state, or
 source adapters. Then `README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making
-product or integration changes. Environments and deployment: `docs/ENVIRONMENTS.md`,
-`docs/DEPLOY.md`.
+product or integration changes. Local environments and the no-hosting decision:
+`docs/ENVIRONMENTS.md`, `docs/DEPLOY.md`.
+
+## Local-only boundary
+
+- The supported environments are `dev` (`http://localhost:3000`) and `test`
+  (`http://localhost:3001`). There is no production or hosted environment.
+- Dev and test must keep separate D1 and R2 state under `.wrangler/dev/state` and
+  `.wrangler/test/state`. Never point one environment at the other's state.
+- Do not deploy to OpenAI Sites, `chatgpt.site`, Cloudflare Workers, or another host without a new
+  explicit owner decision. `.openai/hosting.json` contains logical local bindings only.
+- Keep `.dev.vars.dev`, `.dev.vars.test`, `.wrangler/`, CVs, and credentials out of Git and prompts.
 
 ## Multi-user rules
 
@@ -77,17 +87,18 @@ Build a private job-search companion for a user seeking roles where English alon
 - CV text is extracted in the browser from PDF, DOCX, or TXT, then submitted with the file.
 - API routes live under `app/api`; deterministic analysis lives in `lib/analysis.ts` and
   `lib/role-detection.ts`.
-- The app is single-user for the MVP. It holds up to two CV versions for that one person,
-  keyed by `slot` (`a`/`b`) in the `cvs` table. Each search role is derived locally from
-  its CV, with an optional persisted override in `search_settings`; every job is scored
-  against both CVs. Explicit language-result feedback lives separately in
-  `language_feedback` so rescoring never overwrites the user's judgment.
+- The app is multi-user. Every account can hold up to two CV versions keyed by `slot` (`a`/`b`),
+  and every user-data query must be scoped by `user_id`. Each search role is derived locally from
+  its CV, with an optional persisted override in `search_settings`; every job is scored against
+  both CVs. Explicit language-result feedback lives separately in `language_feedback` so
+  rescoring never overwrites the user's judgment.
 
 ## Commands
 
 ```text
 npm install
 npm run dev
+npm run test:local
 npm run lint
 npm test
 npm run typecheck
@@ -95,7 +106,9 @@ npm run build
 npm run db:generate
 ```
 
-On Windows, `@rolldown/binding-win32-x64-msvc` is an explicit dev dependency because npm can omit the optional native binding. Local Sites/Miniflare state is under `.wrangler/` and is intentionally ignored by Git.
+On Windows, `@rolldown/binding-win32-x64-msvc` is an explicit dev dependency because npm can omit
+the optional native binding. Local Miniflare/Workers state is under the environment-specific
+`.wrangler/dev` and `.wrangler/test` paths and is intentionally ignored by Git.
 
 ## Engineering rules
 
@@ -112,7 +125,7 @@ On Windows, `@rolldown/binding-win32-x64-msvc` is an explicit dev dependency bec
 - Keep one SQL statement per D1 `prepare()` call. Add indexes for new recurring queries.
 - The schema lives in three hand-synced places: base creation in `db/runtime.ts`, ordered
   applied upgrades in `db/migrations.ts`, and Drizzle's generation model in `db/schema.ts`.
-  Add a new migration version for every deployed schema change; never edit an applied
+  Add a new migration version for every schema change; never edit an applied
   migration or reset `.wrangler/` as a shortcut. Back up local state and test both existing
   and fresh databases. See `docs/ARCHITECTURE.md` §7a.
 - Do not expose `cv_text` or the R2 object key in API responses.
@@ -121,7 +134,8 @@ On Windows, `@rolldown/binding-win32-x64-msvc` is an explicit dev dependency bec
 
 ## Definition of done for changes
 
-Run lint and production build, exercise the affected API or UI flow, update the relevant documentation, and record any unresolved platform-permission or privacy issue.
+Run lint and the stable local build, exercise the affected API or UI flow in dev and test, update
+the relevant documentation, and record any unresolved platform-permission or privacy issue.
 
 Lint and build passing is not the same as working. If a flow was not actually exercised —
 or was exercised and failed — say so plainly in the summary and record it under "Known

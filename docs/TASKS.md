@@ -1,107 +1,96 @@
 # Task list
 
-Ordered by what blocks launch. Everything here was identified from the code as it stands on
-2026-08-28; tick items off in this file as they are done so the next session can see the state.
+Ordered by what blocks dependable local use. Tick items off as they are completed so another
+session can continue without reconstructing the state.
 
----
+## A. Current work — complete in order
 
-## A. Blocking — must be done before the first public deployment
+### A1. Owner changes the temporary test administrator login
 
-### A1. Take ownership of the admin account
-The workspace (831 jobs, 2 real CVs) is currently owned by a throwaway account created during
-testing: `owner@example.test` / `a-long-test-password`. Sign in, go to `/settings`, change both the
-email and the password. Changing the password now also signs out every other session.
+The populated test workspace is now owned by `admin-test@ikengels.test`. The temporary password
+was given directly to the owner and is not stored in Git. The owner must sign in at
+`http://localhost:3001/settings` and immediately change both the email and password. Changing the
+password revokes every other session.
 
-Then delete the second test account (`second@example.test`) from `/admin`; it exists only to prove
-tenant isolation.
+This is the only step that requires the owner. Coding and testing may continue while it is pending.
 
-### A2. Decide what happens to Careerjet in production
-**Cloudflare Workers have no static outbound IP on the free or paid Workers plans.** A Worker's
-`fetch()` egresses from Cloudflare's shared pool. Dedicated egress IPs exist but are a Cloudflare
-One / Smart Shield add-on, not part of Workers.
+### A2. Local environments — done 2026-08-31
 
-Careerjet binds its API key to **at most 8 declared IP addresses**, so Cloudflare's shared range
-cannot be declared. Careerjet will therefore stop working the moment it runs from a Worker. Pick one:
+- [x] `dev` runs at `http://localhost:3000` with hot reload.
+- [x] `test` runs the built Cloudflare Worker locally at `http://localhost:3001`.
+- [x] D1 and R2 state are isolated under `.wrangler/dev/state` and `.wrangler/test/state`.
+- [x] Session secrets are isolated in `.dev.vars.dev` and `.dev.vars.test`.
+- [x] The legacy workspace was copied into test; its original state remains as recovery data.
+- [x] Both login pages return HTTP 200 while the two processes run concurrently.
 
-- **Drop Careerjet in production.** Adzuna covers both countries with no IP restriction, and
-  Job-Room plus the 61 company boards need no key at all. This is the cheapest option and loses
-  roughly 160 jobs per run.
-- **Keep Careerjet local only.** Leave `CAREERJET_API_KEY` unset in production. It keeps working on
-  the development machine where the IP is stable.
-- **Proxy it.** Run the Careerjet call from a small fixed-IP host and have the Worker call that.
-  Adds a component to run and secure.
+### A3. Exercise the existing app as a new second user
 
-Whatever is chosen, the source must report itself honestly rather than failing silently — it
-already does, but confirm after deploying.
+- [ ] Create a non-admin account in dev and upload a new CV.
+- [ ] Save criteria and exercise default and VPN/restricted search modes.
+- [ ] Save, apply, dismiss, restore, correct a verdict, export, delete, and reset.
+- [ ] Attempt to read and change another account's jobs by id and confirm isolation.
+- [ ] Exercise settings and every admin action, including last-admin protection.
+- [ ] Render `/`, `/login`, `/settings`, `/admin`, `/sources`, and `/privacy` and reconcile their
+  claims with the code.
+- [ ] Report findings before making Phase 2 bug fixes; add regression tests for every fix.
 
-### A3. Create the two environments (see `docs/ENVIRONMENTS.md`)
-Development and testing must not share a database, or testing will destroy the real workspace.
+### A4. Protect the local test workspace
 
-### A4. Set production secrets
-Generate a **new** `SESSION_SECRET` for each environment rather than copying the local one. A
-leaked development file must not be able to forge testing or production sessions.
+- [ ] Add a documented, repeatable backup command for the test D1 and R2 state.
+- [ ] Verify a restore into a disposable directory without touching test.
+- [ ] Decide retention for old backups and make the operation recoverable by default.
 
-### A5. Decide on registration
-`ALLOW_SIGNUPS` is unset (closed) by default. Leave it closed until the app is meant to be public.
-The first account created on a fresh database becomes the administrator regardless.
-
----
-
-## B. Known gaps — the app works without these, but they matter for real users
+## B. Known gaps
 
 ### B1. No self-service password reset
-There is no mail sender, so a locked-out user must ask an administrator to set a new password from
-`/admin`. The `password_resets` table and token columns already exist, unused. Wiring this needs an
-email provider (Resend, Postmark, MailChannels) and a `/reset` page.
+
+There is no mail sender. A locked-out user needs an administrator to set a new password from
+`/admin`. The existing unused reset schema should not be exposed until an email provider and a
+complete reset flow exist.
 
 ### B2. No email verification
-Anyone can register with an address they do not own. Matters as soon as registration opens.
 
-### B3. Rate limiting is per instance
-`lib/guard.ts` holds counters in memory, so they reset whenever a Worker instance recycles. The
-Cloudflare dashboard rules in `docs/DEPLOY.md` are the durable layer and should be configured
-before opening registration. Moving the counters into D1 would make them survive, at the cost of a
-write per request.
+Registration is closed by default. If it is opened later, users can currently register an address
+they do not own.
 
-### B4. The dashboard loads up to 1,000 jobs in one response
-`app/api/state/route.ts` caps at 1,000 rows, about 1.7 MB. Past that the oldest jobs silently stop
-appearing. Needs pagination or server-side filtering before any account grows beyond it. The
-current owner account is at 831.
+### B3. Rate limiting is process-local
 
-### B5. Undutchables should probably be removed
-It is the weakest source in the project: its `robots.txt` answers automated requests with HTTP 403,
-meaning the site actively blocks this kind of traffic, and it yields 3 jobs. It is now classified
-`restricted` so it only runs for an administrator under the VPN launcher, but blocking is a clearer
-refusal than a terms clause and deleting the adapter would cost almost nothing.
+`lib/guard.ts` counters reset with the process. This is acceptable for loopback-only use but must
+be replaced before any future public hosting.
 
-### B6. No backups
-D1 has no automatic backup on the free tier. A `wrangler d1 export` on a schedule would cover it.
+### B4. The dashboard caps state at 1,000 jobs
 
----
+`GET /api/state` returns at most 1,000 rows. The populated test account has 916, so pagination or
+server-side filtering is the next capacity requirement.
 
-## C. Product improvements, in rough value order
+### B5. Undutchables is a weak, restricted source
 
-- **C1.** Wire the language corpus properly: the gate has 88 tests but no labelled corpus of real
-  ads. `docs/ROADMAP.md` makes this the Phase 0 exit criterion and it is still open.
-- **C2.** Expand the company boards. `lib/ats-feeds.ts` holds 61 verified boards and documents how
-  to add more; the probe pattern is in the git history. Direct employers are far higher yield than
-  staffing agencies (measured: On 309 postings, Adecco 2).
-- **C3.** Job alerts or a digest, so a user does not have to press the button.
-- **C4.** Deduplicate across sources more aggressively; the fingerprint currently requires a
-  posting date, so ads without one are never cross-matched.
-- **C5.** Netherlands coverage is still thinner than Switzerland (163 vs 466 jobs). Job-Room has no
-  Dutch equivalent — werk.nl is behind an SSO gateway and has no API.
+Its `robots.txt` rejects automated requests and it yields very few jobs. Keep the adapter truthful
+and administrator/VPN-only; removal remains a reasonable product decision.
 
----
+### B6. Careerjet licensing and IP scope remain unresolved
 
-## D. Done — for context, do not redo
+Local execution avoids the former Cloudflare static-egress problem, but the API key is still tied
+to registered publisher/IP terms. Keep Careerjet disabled when its key or permission is absent and
+never describe an unavailable source as searched.
 
-- Multi-user accounts, per-account isolation of every table, verified live.
-- Session cookies with revocation (epoch), CSRF origin checks, security headers, robots.txt.
-- Admin panel: disable, enable, promote, demote, reset password, delete, with audit records.
-- Account settings: change email, change password, delete account and all data.
-- Cookieless visit counting (daily total and unique), with the privacy properties under test.
-- Privacy/GDPR page and a sources/transparency page, both written from the code.
-- Page-fetching restricted to administrators, enforced server-side, with source names withheld
-  from everyone else.
-- 61 public company career boards, Job-Room, Adzuna, Careerjet.
+## C. Product improvements, in value order
+
+- [ ] **C1.** Build and label a representative real-ad language corpus.
+- [ ] **C2.** Add pagination/server-side job filtering before the test account exceeds 1,000 jobs.
+- [ ] **C3.** Expand authorized direct-employer and public ATS feeds.
+- [ ] **C4.** Improve cross-source deduplication when posting dates are absent.
+- [ ] **C5.** Add alerts/digests only for sources that authorize scheduled discovery.
+- [ ] **C6.** Improve Netherlands coverage without LinkedIn or access-control bypasses.
+
+## D. Completed product capabilities
+
+- [x] Multi-user accounts and per-account ownership across user-data tables.
+- [x] Session revocation, CSRF checks, security headers, and closed-by-default registration.
+- [x] Admin and account settings, including deletion and password changes.
+- [x] Two CVs, derived/overridden roles, five general roles, filters, dual fit scoring.
+- [x] Saved/applied/dismissed states and durable dismissal tombstones.
+- [x] Country/source/result filters and per-source search-run statistics.
+- [x] Language corrections preserved separately from detector output.
+- [x] JSON/CSV export, job deletion, CV replacement/deletion, and workspace reset.
+- [x] Local-only dev/test environment split with no supported hosted environment.

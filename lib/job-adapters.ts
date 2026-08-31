@@ -4,7 +4,7 @@ import { searchJobRoom } from './job-room';
 import { delay, extractJobPosting, interleaveUnique, stripHtml, type ParsedJob } from './jobsch';
 import type { JobCountry, SourceRunStatus } from './types';
 
-const USER_AGENT = 'Northbound/0.1 personal job-search companion';
+const USER_AGENT = 'IkEngels/0.1 personal job-search companion';
 const REQUEST_DELAY_MS = 1200;
 
 /**
