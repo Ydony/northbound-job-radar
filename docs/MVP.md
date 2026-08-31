@@ -52,7 +52,7 @@ Mostly built. Search, then work the results: dismiss, add to pipeline, mark appl
 - [ ] **Job requirements shown on the card** (TASKS E6). Still open, and now worth doing: EURES and
       Job-Room supply full advertisements, which they did not when this was first raised.
 
-### P4. Shelve the CV upload and the CV-fit score
+### P4. Shelve the CV upload and the CV-fit score — DONE
 
 **Shelved, not cancelled.** In the owner's words: *"CV score and CV add — shelve it, but we will
 come back to it later. It is a feature which will be developed in future."*
@@ -61,17 +61,20 @@ Hidden from everyone, administrators included, and left intact in the code behin
 of shelving rather than deleting is that turning it back on should be a switch, not a rebuild — so
 the tables, routes and scoring stay, and stay working.
 
-- [ ] Hide CV upload, both CV slots, the fit-score circle, and the per-slot score breakdown.
+- [x] Hidden behind `CV_MATCHING_ENABLED` in `lib/features.ts`.
+- [x] Search no longer requires a CV. It used to refuse to run without one, because terms were
+      partly derived from it — an optional feature was blocking the product's only job. Measured
+      first: the CV contributed one job title per file, both already overridden by typed roles, so
+      the search terms are byte-identical without it.
 - [x] **Decided:** the score circle goes entirely and the text runs full-width. The circle, the
       matched-keyword tags and the "no clear CV overlap yet" line are all CV-derived, so with the CV
       hidden there is nothing left for that column to say. Putting the source or the date there
       instead would be decoration filling a hole. The card gets cleaner, and it matches the MVP
       being one thing: a language filter, not a matcher. The language badge already carries the
       verdict, which is the signal that matters.
-- [ ] Keep the tables, the routes and the scoring code intact behind the flag so re-enabling is a
-      switch rather than a rebuild.
+- [x] Tables, routes and scoring left intact and still running; they score zero with no CV stored.
 
-### P5. Simplify the filters down to what defines the search
+### P5. Simplify the filters down to what defines the search — DONE
 
 **Keep:**
 
@@ -93,7 +96,8 @@ Also considered and explicitly rejected: repurposing required-keywords as a loca
 ("Amsterdam, Hoofddorp"). *"Actually, ignore that. Don't do that."* — people can type a city into
 required keywords themselves if they want that behaviour.
 
-- [ ] Remove the four filters above from the form, the criteria model and the matching logic.
+- [x] Removed from the form and the matching logic. The criteria columns stay in the database and
+      are simply not read, with a test asserting a stored value cannot quietly keep filtering.
 - [x] Role keywords unchanged at 5.
 
 ### P5b. Location as a results facet, not a search filter
@@ -112,21 +116,23 @@ shows counts.
 - [ ] Other sources give free text of varying shape — "Pfaeffikon · Schweiz", "Zürich",
       "Amsterdam" — so the city needs normalising before it can be counted.
 
-### P6. Sources that only an administrator may use
+### P6. Sources that only an administrator may use — DONE
 
 Some sources cannot be offered to ordinary users. Careerjet and IamExpat join the existing
 `restricted` set in being administrator-only, but for a different reason and without the VPN
 requirement — so this needs a flag of its own rather than reusing `access: 'restricted'`.
 
-- [ ] Add an `adminOnly` flag, separate from `access`, and set it on **Careerjet** and **IamExpat**.
-- [ ] Non-administrators must not see those results, those source names, or those run rows. Enforce
-      server-side, as `restricted` already is — not merely hidden in the interface.
-- [ ] **Retroactive.** Jobs already stored from those sources are administrator-only too, not just
-      newly imported ones. In the test workspace that is 213 Careerjet and 4 IamExpat jobs.
+- [x] `adminOnly` added, separate from `access`, and set on both.
+- [x] Excluded in SQL in the jobs read path, dropped before a run starts in the search path, and
+      filtered from run rows — all from one derived list, so it cannot drift.
+- [x] Retroactive by construction: the rule is on the source key, so stored jobs are covered.
+- [ ] **Still to verify end-to-end with a second account** — the enforcement is unit-tested and the
+      SQL is right, but nobody has yet signed in as a non-administrator and confirmed the rows are
+      absent. `npm run verify:dev` creates disposable accounts and is the tool for it. Do this in P8.
 - [x] A new account starts empty and inherits nothing — jobs are already owned per account, so
       there is no path by which a second user could see another account's stored results.
 
-### P7. Switch between administrator and ordinary-user views
+### P7. Switch between administrator and ordinary-user views — DONE
 
 A control in the top bar toggling the administrator between the full view and exactly what an
 ordinary user sees.
@@ -135,11 +141,9 @@ ordinary user sees.
 the stuff as an admin."* It is both a working mode and the fastest way to check that the P6
 restrictions actually hold.
 
-- [ ] Add the toggle. While in user view, hide admin-only sources, their results and the admin
-      panels.
-- [ ] **This is a display mode, not a privilege drop.** The account is still an administrator and
-      the server still knows it. Do not let the toggle become the thing that enforces P6 — the
-      server-side checks must hold regardless of which view is selected.
+- [x] Added to the top bar. In user view the admin-only rows, sources and panels are hidden.
+- [x] Kept a display mode. The server enforces P6 regardless of the toggle, and the code says so
+      where someone might later be tempted to rely on it.
 
 ### P8b. Security, verified after deployment
 
