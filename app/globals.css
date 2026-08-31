@@ -30,6 +30,15 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .cv-slots { display:grid; gap:20px; grid-template-columns:1fr 1fr; }.cv-slot-label { color:var(--acid); font-size:9px; font-weight:750; grid-column:1/-1; letter-spacing:.08em; text-transform:uppercase; }
 .fit-breakdown { color:var(--muted); font-size:10px; margin:0 0 12px; }
 .duplicate-note { color:var(--coral); font-size:10px; margin:0 0 10px; }
+.requirements { border-top:1px solid var(--line); margin:0 0 12px; padding-top:9px; }
+.requirements summary { color:var(--green); cursor:pointer; font-size:10px; font-weight:800; letter-spacing:.03em; list-style:none; min-height:24px; text-transform:uppercase; }
+.requirements summary::-webkit-details-marker { display:none; }
+.requirements summary::before { content:"+ "; }
+.requirements[open] summary::before { content:"2 "; }
+.requirements summary i { color:var(--muted); font-style:normal; font-weight:400; }
+.requirements ul { color:var(--muted); font-size:11px; line-height:1.5; margin:8px 0 0; padding-left:16px; }
+.requirements li { margin-bottom:4px; }
+
 .login-tagline { color:#9eb3a8; font-size:11px; line-height:1.5; margin:6px 0 0; }
 .card-flash { color:var(--green); font-size:10px; font-weight:750; margin:8px 0 0; }
 .performance-row span small { color:var(--muted); display:block; font-size:8px; margin-top:2px; }

@@ -17,7 +17,7 @@ control. The interface keeps showing what each run scanned and added, as it does
 - [x] EURES ×2, Job-Room, Adzuna ×2, Careerjet, and the public ATS boards.
 - [x] Per-run counts: found, known, new, imported, duplicate, skipped.
 
-### P2. Admin: a conversion report per source
+### P2. Admin: a conversion report per source — DONE
 
 **New.** For each source, what came in and what survived:
 
@@ -40,7 +40,10 @@ That total then breaks down into:
 make sure we do not miss any jobs."* This is the instrument for improving the filter — it shows
 where jobs are being lost and whether a source is worth keeping. It is admin-only.
 
-- [ ] Build the report. Group by source, over a chosen run or all time.
+- [x] Built, administrator-only. Per source: found, then English confirmed / review / too short /
+      blocked, each with its share. Sorted by usable jobs rather than volume, and the "too short"
+      share is highlighted past half — that is the number saying a source is not publishing enough
+      of its advertisements to judge.
 
 ### P3. The list is easy to use
 
@@ -49,8 +52,11 @@ Mostly built. Search, then work the results: dismiss, add to pipeline, mark appl
 - [x] Search, dismiss, save, applied / not applied.
 - [x] Duplicates collapsed, with the other boards named.
 - [x] Every action confirms itself in one line.
-- [ ] **Job requirements shown on the card** (TASKS E6). Still open, and now worth doing: EURES and
-      Job-Room supply full advertisements, which they did not when this was first raised.
+- [x] **Job requirements shown on the card.** Extracted only where the employer stated them under
+      a heading — 109 jobs, about a quarter of full-length ads. Everything else shows nothing
+      rather than an excerpt of marketing copy, which would read as an answer without being one.
+      Possible only because ingest stopped flattening HTML: a requirements list is recognisable
+      because it is a list.
 
 ### P4. Shelve the CV upload and the CV-fit score — DONE
 
@@ -100,21 +106,21 @@ required keywords themselves if they want that behaviour.
       are simply not read, with a test asserting a stored value cannot quietly keep filtering.
 - [x] Role keywords unchanged at 5.
 
-### P5b. Location as a results facet, not a search filter
+### P5b. Location as a results facet, not a search filter — DONE
 
 Location stops being something to guess at up front and becomes something to narrow down after the
 results are in. In the filter column beside the results, **under each country, list its cities with
 the number of jobs found in each** — the same shape as the existing website filter, which already
 shows counts.
 
-- [ ] Group by country, then city, each with a count. Selecting a city filters the visible list.
-- [ ] **Blocker to solve first: EURES locations are not city names.** They arrive as NUTS region
+- [x] Grouped by country, busiest first, each with a count. Switching country clears the place.
+- [x] **Solved: EURES locations are not city names.** They arrive as NUTS region
       codes — `NL32B NL`, `CH031 CH` — so a naive facet would list "NL32B" as if it were a place.
       `CH031` is Basel and `NL32B` is part of North Holland, but nothing in the app resolves them.
       Either map the NUTS codes to names (a fixed public list, ~2,000 entries for the two countries,
       no lookups at runtime) or the facet is unusable for the largest source we have.
-- [ ] Other sources give free text of varying shape — "Pfaeffikon · Schweiz", "Zürich",
-      "Amsterdam" — so the city needs normalising before it can be counted.
+- [ ] Free text from other sources is still uneven: "Zürich" and "Zürich 8000 ZH" count as two
+      places, and "Nederland" appears as though it were a city. Cosmetic, worth a pass later.
 
 ### P6. Sources that only an administrator may use — DONE
 

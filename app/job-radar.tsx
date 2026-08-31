@@ -7,6 +7,7 @@ import { jobsToCsv, workspaceToJson } from '@/lib/export';
 import { countryLabel } from '@/lib/job-identity';
 import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
+import { extractRequirements } from '@/lib/requirements';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
@@ -877,6 +878,7 @@ export default function JobRadar() {
             {visibleJobs.map((job) => {
               const bothCvsSaved = CV_MATCHING_ENABLED && state.profiles.filter((profile) => profile.hasCvText).length > 1;
               const displayedLanguageStatus = effectiveLanguageStatus(job);
+              const requirements = extractRequirements(job.description);
               const hasCorrection = job.languageFeedback === 'incorrect' && Boolean(job.correctedLanguageStatus);
               const feedbackDraft = feedbackDrafts[job.id] ?? {
                 correctedStatus: job.correctedLanguageStatus || (job.languageStatus === 'pass' ? 'review' : 'pass'),
@@ -898,7 +900,14 @@ export default function JobRadar() {
                   {bothCvsSaved && <p className="fit-breakdown">
                     {state.profiles.filter((profile) => profile.hasCvText).map((profile) => `${roleForProfile(profile, state.criteria) || slotLabels[profile.slot]}: ${profile.slot === 'a' ? job.fitScoreA : job.fitScoreB}`).join(' · ')}
                   </p>}
-                  <div className="tags">{job.matchedKeywords.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}{!job.matchedKeywords.length && <span>No clear CV overlap yet</span>}</div>
+                  {/* Only where the employer actually stated requirements under a heading. Roughly
+                      a quarter of full-length ads do; the rest show nothing rather than an excerpt
+                      of marketing copy, which would read as an answer without being one. */}
+                  {requirements && <details className="requirements">
+                    <summary>{requirements.heading} <i>{requirements.items.length}</i></summary>
+                    <ul>{requirements.items.map((item) => <li key={item}>{item}</li>)}</ul>
+                  </details>}
+                  {CV_MATCHING_ENABLED && <div className="tags">{job.matchedKeywords.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}{!job.matchedKeywords.length && <span>No clear CV overlap yet</span>}</div>}
                   <div className="language-feedback">
                     <span>Was the language result right?</span>
                     <button type="button" className={job.languageFeedback === 'correct' ? 'selected' : ''} disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'correct')}>✓ Accurate</button>
