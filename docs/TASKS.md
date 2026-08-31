@@ -3,6 +3,16 @@
 Ordered by what blocks dependable local use. Tick items off as they are completed so another
 session can continue without reconstructing the state.
 
+## Scope
+
+`docs/MVP.md` is the scope document, dictated by the owner on 2026-08-31: what must be true before
+launch (P1-P8) and what comes after. Read it before picking work up. The sections below track the
+state of the codebase; MVP.md decides what is actually wanted.
+
+**Pre-launch work not yet started:** P2 (admin conversion report), P4 (hide the CV feature),
+P5 (simplify filters, roles 3 up to 10), P6 (Careerjet and IamExpat administrator-only),
+P7 (administrator / user view toggle), plus E6 (requirements on the card) which P3 depends on.
+
 ## A. Current work — complete in order
 
 ### A1. Rotate both administrator logins before any live environment — deferred by decision
