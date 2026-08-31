@@ -291,11 +291,19 @@ sources", then "I meant europa.eu".
 - [x] Rejected and recorded so it is not researched twice: `data.europa.eu` (a dataset catalogue;
       the Dutch entries are CBS vacancy *statistics*), `werk.nl`/UWV (no public API, and reached
       through EURES anyway).
-- [ ] **Open decision:** Adzuna produces 148 "English sufficient" verdicts and none rests on a full
-      advertisement. Either fetch through its redirect link (a licensing question) or reclassify
-      short ads as *unknown*. See `docs/SOURCES_PIPELINE.md`.
-- [ ] **Open decision:** split `pass` into "English confirmed" and "unknown", so a pass is
-      impossible on a truncated ad. This is what makes the good bucket trustworthy.
+- [x] **Split `pass` into "English confirmed" and "unknown"** - done. A pass now requires at least
+      900 characters of advertisement; below that the verdict is `unknown`, which says the ad was
+      too short to judge rather than that it looked fine. The gate applies to `pass` only: a finding
+      still stands on a teaser, because German spotted in one is still German.
+
+      Live in test: pass 179 -> 31, and **none of the 31 rests on under 900 characters**. They come
+      only from sources that publish whole advertisements. 626 moved to `unknown`, every one of them
+      from the three teaser sources. Blocked unchanged at 249.
+
+- [x] **Adzuna's unbacked passes** - resolved by the above rather than by a licensing decision. Not
+      one Adzuna or Careerjet job now reaches the English-confirmed bucket. Fetching their full text
+      through the aggregator's redirect link stays available as a future option, but it is no longer
+      urgent: those jobs are visibly in `unknown` instead of silently claiming to be fine.
 
 ### E9. Jooble — check the description length before wiring anything — OWNER TODO
 
@@ -401,11 +409,16 @@ it, and both countries are already covered by EURES with full advertisement text
 ## C. Product improvements, in value order
 
 - [ ] **C1.** Build and label a representative real-ad language corpus.
-- [ ] **C2.** Add pagination/server-side job filtering before the test account exceeds 1,000 jobs.
-- [ ] **C3.** Expand authorized direct-employer and public ATS feeds.
+- [x] ~~**C2.** Add pagination before the test account exceeds 1,000 jobs.~~ **Stale as written** -
+  the account passed 1,000 some time ago and now holds 1,023. The cap was raised to 2,000 as a
+  stopgap and the interface now says when it is truncating. The real work is tracked as B4.
+- [x] ~~**C3.** Expand authorized direct-employer and public ATS feeds.~~ **Largely superseded** by
+  EURES, which supplies 287,000 Netherlands and Switzerland jobs with full text. Adding boards one
+  at a time is no longer the way to grow coverage; see `docs/SOURCES_PIPELINE.md`.
 - [ ] **C4.** Improve cross-source deduplication when posting dates are absent.
 - [ ] **C5.** Add alerts/digests only for sources that authorize scheduled discovery.
-- [ ] **C6.** Improve Netherlands coverage without LinkedIn or access-control bypasses.
+- [x] ~~**C6.** Improve Netherlands coverage without LinkedIn or access-control bypasses.~~ **Done**
+  - EURES Netherlands supplies 245,007 jobs through a public endpoint, no key, CC BY 4.0.
 
 ## D. Completed product capabilities
 
