@@ -354,4 +354,22 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE INDEX IF NOT EXISTS jobs_normalized_version_idx ON jobs(user_id, normalized_version)',
     ],
   },
+  {
+    version: 15,
+    name: 'durable_rate_limits',
+    statements: [
+      // Rate limiting lived in a process-local map, so every counter reset whenever the worker
+      // recycled - which on Cloudflare is often, and is not something an attacker has to arrange.
+      // Against the single account this app has, on a URL that is about to be posted publicly,
+      // a counter that forgets is close to no counter at all.
+      `CREATE TABLE IF NOT EXISTS rate_limits (
+        bucket TEXT PRIMARY KEY NOT NULL,
+        count INTEGER NOT NULL DEFAULT 0,
+        reset_at INTEGER NOT NULL
+      )`,
+      // Expired rows are cleared opportunistically rather than on a schedule; the index keeps that
+      // sweep cheap enough to run inline.
+      'CREATE INDEX IF NOT EXISTS rate_limits_reset_idx ON rate_limits(reset_at)',
+    ],
+  },
 ];

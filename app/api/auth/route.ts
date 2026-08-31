@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authSecrets, bindings, ensureSchema } from '@/db/runtime';
 import { clearedSessionCookie, createSessionValue, isSameOrigin, sessionCookie } from '@/lib/auth';
-import { clientIp, rateLimit } from '@/lib/guard';
+import { clientIp, durableRateLimit } from '@/lib/guard';
 import { authenticate, countUsers, createUser, findUserByEmail, isValidEmail, normalizeEmail,
   passwordProblem, touchLastSeen } from '@/lib/users';
 
@@ -34,8 +34,11 @@ export async function POST(request: Request) {
 
   // Two limits: per address slows a targeted attack on one account, per IP slows spraying across
   // many. Registration is capped hardest because it is the only endpoint that creates state.
-  const limited = rateLimit(`auth:ip:${ip}`, action === 'register' ? 5 : 20, 15 * 60_000)
-    ?? rateLimit(`auth:email:${email}`, 10, 15 * 60_000);
+  // Held in the database rather than in memory. These counters used to reset whenever the worker
+  // recycled, which on Cloudflare is routine and needs no help from an attacker - so an attempt
+  // spread over restarts would never have reached the limit at all.
+  const limited = await durableRateLimit(db, `auth:ip:${ip}`, action === 'register' ? 5 : 20, 15 * 60_000)
+    ?? await durableRateLimit(db, `auth:email:${email}`, 10, 15 * 60_000);
   if (limited) {
     await recordAttempt(db, email, ip, 'throttled');
     return limited;
