@@ -2,15 +2,39 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { analyzeLanguage, scoreFitAcrossCvs } from '../lib/analysis';
 
+// Deliberately past MIN_CHARS_TO_CONFIRM_ENGLISH. The test below has always claimed this ad was
+// "sufficiently long" while it was in fact 411 characters - shorter than a single Adzuna preview -
+// so it was asserting a pass on exactly the evidence that is no longer good enough for one.
 const englishAd = `
   This is a business role in our international company. You will work with our team and our customers.
   The position is for a candidate with experience in project management. Your responsibilities include
   business analysis, customer communication, planning and delivery. We are looking for skills and knowledge
   in management. You will have responsibility for the role and work with people across the company.
+  You will report to the head of the business unit and work with stakeholders in several countries.
+  The team is distributed and the working language for all meetings and documentation is English.
+  We offer a permanent position, flexible hours, and a budget for training and conferences each year.
+  Applications are reviewed weekly and we aim to respond to every candidate within ten working days.
+  Our customers are international businesses and the role involves regular contact with them.
 `;
+
+// A short advertisement with nothing found against it is not a pass; there was not enough of it to
+// say so. Keeping those two apart is the whole point of the 'unknown' bucket.
+const teaserAd = 'Business analyst wanted for an international company. Apply on our website.';
 
 test('passes a sufficiently long English advertisement with no local-language requirement', () => {
   assert.equal(analyzeLanguage(englishAd).status, 'pass');
+});
+
+test('will not confirm English on an advertisement too short to judge', () => {
+  const result = analyzeLanguage(teaserAd);
+  assert.equal(result.status, 'unknown');
+  assert.match(result.summary, /not enough of the advertisement/i);
+});
+
+test('a finding still stands on a short advertisement', () => {
+  // Absence of evidence invalidates a clean bill of health, but German spotted in a teaser is
+  // still German - blocking must not be downgraded for lack of length.
+  assert.equal(analyzeLanguage(`${teaserAd} Fluent German is required.`).status, 'blocked');
 });
 
 // These three used to expect `pass`. A local language named anywhere now goes to review instead,

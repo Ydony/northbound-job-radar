@@ -1,6 +1,28 @@
 import { matchLanguagePhrases } from './language-rules';
 
-export type LanguageStatus = 'pass' | 'review' | 'blocked';
+/**
+ * `pass` means English was *confirmed* sufficient on a complete advertisement.
+ * `unknown` means the advertisement was too short to tell — not that it looked fine.
+ *
+ * Those two used to be the same value, and conflating them is what made the good bucket
+ * untrustworthy: 84% of everything marked English-sufficient rested on a 500-character Adzuna
+ * preview, and a language requirement lives near the end of an ad, past that cut. The gate was
+ * reporting "no requirement found" when it had never been shown the part that has one.
+ */
+export type LanguageStatus = 'pass' | 'unknown' | 'review' | 'blocked';
+
+/**
+ * Below this, a description is a preview rather than an advertisement, and cannot support a pass.
+ *
+ * Measured across the stored corpus: Adzuna hard-caps at exactly 500 characters and Careerjet at
+ * 279, while real advertisements from jobs.ch, EURES and the ATS boards run to a few thousand.
+ * 900 sits clear of both caps without demanding that every short-but-complete posting be doubted.
+ *
+ * This gate applies to `pass` only. Absence of evidence invalidates a clean bill of health, but it
+ * does not invalidate a finding: German spotted in a teaser is still German, so `blocked` and
+ * `review` stand on however much text produced them.
+ */
+export const MIN_CHARS_TO_CONFIRM_ENGLISH = 900;
 
 export interface LanguageResult {
   status: LanguageStatus;
@@ -193,6 +215,18 @@ export function analyzeLanguage(description: string, title = ''): LanguageResult
       signals,
     };
   }
+  // Checked before the prose test, because it is the more precise account of the same doubt: a
+  // 500-character preview does not fail an English check, there simply was not an advertisement
+  // there to check. Saying "needs review" invites a person to go and read text that was never
+  // published, while "not enough of the ad" tells them the truth and points at the source.
+  if (description.trim().length < MIN_CHARS_TO_CONFIRM_ENGLISH) {
+    return {
+      status: 'unknown' as const,
+      summary: 'Not enough of the advertisement was published to confirm English is sufficient. Open the original to check.',
+      signals: [...signals, `Only ${description.trim().length} characters were available`],
+    };
+  }
+  // Long enough to judge, but the prose does not read as English.
   if (!clearlyEnglish) {
     return {
       status: 'review' as const,

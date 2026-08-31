@@ -33,7 +33,10 @@ test('normalizes valid feedback and limits its reason', () => {
 });
 
 test('rejects invalid corrections and supports clearing feedback', () => {
-  assert.equal(normalizeLanguageFeedback('incorrect', 'unknown', ''), null);
+  // 'unknown' used to stand in for an invalid status here; it is a real status now, so the
+  // rejection case needs a value that genuinely is not one.
+  assert.equal(normalizeLanguageFeedback('incorrect', 'maybe', ''), null);
+  assert.equal(normalizeLanguageFeedback('incorrect', 'unknown', '')?.correctedStatus, 'unknown');
   assert.equal(normalizeLanguageFeedback('wrong', 'pass', ''), null);
   assert.deepEqual(normalizeLanguageFeedback('', 'blocked', 'ignored'), {
     verdict: '',

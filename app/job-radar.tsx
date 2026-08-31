@@ -12,7 +12,7 @@ import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, ApplicationStatus, CvSlot, JobCountry, JobRecord, SearchCriteria,
   SearchRun } from '@/lib/types';
 
-type View = 'matches' | 'review' | 'pipeline' | 'dismissed' | 'all';
+type View = 'matches' | 'unknown' | 'review' | 'pipeline' | 'dismissed' | 'all';
 type CountryFilter = 'all' | Exclude<JobCountry, 'unknown'>;
 type ApplicationFilter = 'all' | ApplicationStatus;
 
@@ -102,7 +102,10 @@ function bestFitScore(job: JobRecord) {
 }
 
 function languageStatusLabel(status: LanguageStatus) {
-  if (status === 'pass') return 'English sufficient';
+  if (status === 'pass') return 'English confirmed';
+  // Deliberately not phrased as a near-miss. The advertisement was too short to judge, which is a
+  // different thing from looking acceptable, and the old wording claimed the latter.
+  if (status === 'unknown') return 'Not enough of the ad';
   if (status === 'review') return 'Review language';
   return 'Local language required';
 }
@@ -168,6 +171,7 @@ export default function JobRadar() {
 
   const counts = useMemo(() => ({
     matches: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'pass' && job.visibilityStatus === 'active').length,
+    unknown: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'unknown' && job.visibilityStatus === 'active').length,
     review: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'review' && job.visibilityStatus === 'active').length,
     pipeline: state.jobs.filter((job) => job.visibilityStatus === 'active' && (job.isSaved || job.applicationStatus === 'applied')).length,
     dismissed: state.jobs.filter((job) => job.visibilityStatus === 'dismissed').length,
@@ -179,6 +183,7 @@ export default function JobRadar() {
     if (view === 'dismissed') return job.visibilityStatus === 'dismissed';
     if (job.visibilityStatus !== 'active') return false;
     if (view === 'matches') return matchesCriteria && languageStatus === 'pass';
+    if (view === 'unknown') return matchesCriteria && languageStatus === 'unknown';
     if (view === 'review') return matchesCriteria && languageStatus === 'review';
     if (view === 'pipeline') return job.isSaved || job.applicationStatus === 'applied';
     return matchesCriteria;
@@ -735,7 +740,8 @@ export default function JobRadar() {
         <div className="result-layout">
           <aside className="filters" id="pipeline">
             <b>Views</b>
-            <button className={view === 'matches' ? 'active' : ''} onClick={() => setView('matches')}><span>English matches</span><i>{counts.matches}</i></button>
+            <button className={view === 'matches' ? 'active' : ''} onClick={() => setView('matches')} title="English confirmed against the full advertisement."><span>English confirmed</span><i>{counts.matches}</i></button>
+            <button className={view === 'unknown' ? 'active' : ''} onClick={() => setView('unknown')} title="The advertisement was too short to judge - usually an aggregator preview rather than the full ad."><span>Not enough of the ad</span><i>{counts.unknown}</i></button>
             <button className={view === 'review' ? 'active' : ''} onClick={() => setView('review')}><span>Needs review</span><i>{counts.review}</i></button>
             <button className={view === 'pipeline' ? 'active' : ''} onClick={() => setView('pipeline')}><span>Pipeline</span><i>{counts.pipeline}</i></button>
             <button className={view === 'dismissed' ? 'active' : ''} onClick={() => setView('dismissed')}><span>Dismissed</span><i>{counts.dismissed}</i></button>
@@ -791,7 +797,7 @@ export default function JobRadar() {
                     {feedbackMessages[job.id] && <small aria-live="polite">{feedbackMessages[job.id]}</small>}
                   </div>
                   {feedbackOpen[job.id] && <div className="feedback-form">
-                    <label><span>Correct result</span><select value={feedbackDraft.correctedStatus} onChange={(event) => updateFeedbackDraft(job.id, { correctedStatus: event.target.value as LanguageStatus })}><option value="pass">English sufficient</option><option value="review">Needs review</option><option value="blocked">Local language required</option></select></label>
+                    <label><span>Correct result</span><select value={feedbackDraft.correctedStatus} onChange={(event) => updateFeedbackDraft(job.id, { correctedStatus: event.target.value as LanguageStatus })}><option value="pass">English confirmed</option><option value="unknown">Not enough of the ad</option><option value="review">Needs review</option><option value="blocked">Local language required</option></select></label>
                     <label><span>Reason (optional)</span><input maxLength={500} value={feedbackDraft.reason} onChange={(event) => updateFeedbackDraft(job.id, { reason: event.target.value })} placeholder="e.g. German is only a plus" /></label>
                     <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'incorrect', feedbackDraft.correctedStatus, feedbackDraft.reason)}>Save correction</button>
                   </div>}

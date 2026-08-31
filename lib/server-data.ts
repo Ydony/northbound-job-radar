@@ -115,6 +115,7 @@ export function jobFromRow(row: JobRow): JobRecord {
     ? row.feedback_verdict
     : '';
   const correctedLanguageStatus = row.feedback_corrected_status === 'pass'
+    || row.feedback_corrected_status === 'unknown'
     || row.feedback_corrected_status === 'review'
     || row.feedback_corrected_status === 'blocked'
     ? row.feedback_corrected_status
@@ -351,8 +352,9 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
  * verdict. Stored rows carry the revision they were written under and are rewritten on next read.
  *
  * 1: titles entity-decoded; language gate reads the job title and the phrase rules.
+ * 2: a pass requires enough text to justify it; short ads become 'unknown' instead.
  */
-export const NORMALIZATION_VERSION = 1;
+export const NORMALIZATION_VERSION = 2;
 
 interface StoredJobForNormalization {
   id: string;

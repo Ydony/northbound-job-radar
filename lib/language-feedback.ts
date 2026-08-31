@@ -1,7 +1,7 @@
 import type { LanguageStatus } from './analysis';
 import type { JobRecord, LanguageFeedbackVerdict } from './types';
 
-const languageStatuses = new Set<LanguageStatus>(['pass', 'review', 'blocked']);
+const languageStatuses = new Set<LanguageStatus>(['pass', 'unknown', 'review', 'blocked']);
 const feedbackVerdicts = new Set<LanguageFeedbackVerdict>(['', 'correct', 'incorrect']);
 
 export interface LanguageFeedbackUpdate {
