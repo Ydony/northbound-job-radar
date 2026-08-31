@@ -31,3 +31,27 @@ test('the sources an ordinary account may use are the ones we intend', () => {
     'adzuna-ch', 'adzuna-nl', 'ats-ch', 'ats-nl', 'eures-ch', 'eures-nl', 'job-room.ch',
   ]);
 });
+
+test('covers the domains results are actually stored under, not just adapter keys', () => {
+  const keys = adminOnlySourceKeys();
+  // The bug this exists to prevent: Careerjet returns jobviewtrack.com links, and a job's source
+  // key comes from the result URL rather than the adapter that fetched it. 218 Careerjet jobs sat
+  // under "jobviewtrack.com" while the hidden list named careerjet-ch and careerjet-nl, so every
+  // one of them was reachable by an ordinary account despite the source being administrator-only.
+  assert.ok(keys.has('jobviewtrack.com'), 'Careerjet results are stored under jobviewtrack.com');
+  assert.ok(keys.has('careerjet'), 'and under a plain careerjet key');
+});
+
+test('every administrator-only adapter that redirects declares where its results land', () => {
+  // A source whose links point at its own domain needs no alias. One that hands back a different
+  // host does, and forgetting it is silent: the source looks hidden and its jobs are not.
+  const redirecting = jobSourceAdapters.filter((adapter) =>
+    (adapter.adminOnly || adapter.access === 'restricted') && adapter.key.includes('-'));
+  for (const adapter of redirecting) {
+    const declared = [adapter.key, ...(adapter.resultSourceKeys ?? [])];
+    assert.ok(
+      declared.length > 1 || adapter.key.startsWith('indeed'),
+      `${adapter.key} has a country-suffixed key, so its results are stored under something else - declare resultSourceKeys`,
+    );
+  }
+});

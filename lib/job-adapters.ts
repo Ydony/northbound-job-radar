@@ -48,13 +48,25 @@ export interface JobSourceAdapter {
    * account cannot reach these results by calling the API directly.
    */
   adminOnly?: boolean;
+  /**
+   * Source keys that jobs from this adapter are actually *stored* under, when they differ from
+   * `key`.
+   *
+   * They differ whenever a source hands back a link on a different domain. Careerjet returns
+   * `jobviewtrack.com` URLs, and the stored key comes from the result URL rather than the adapter
+   * that fetched it, so 218 Careerjet jobs sat under `jobviewtrack.com` while the hidden list named
+   * `careerjet-ch` and `careerjet-nl` — and every one of them would have been visible to an ordinary
+   * account. Declared here, next to the adapter, so the mapping cannot drift away from the thing it
+   * describes.
+   */
+  resultSourceKeys?: string[];
 }
 
 /** Source keys an ordinary account may never see results from. Derived, so the list cannot drift. */
 export function adminOnlySourceKeys() {
   return new Set(jobSourceAdapters
     .filter((adapter) => adapter.adminOnly || adapter.access === 'restricted')
-    .map((adapter) => adapter.key));
+    .flatMap((adapter) => [adapter.key, ...(adapter.resultSourceKeys ?? [])]));
 }
 
 async function fetchHtml(url: string, sourceName: string) {
@@ -267,6 +279,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     key: 'careerjet-ch', name: 'Careerjet Switzerland', country: 'switzerland',
     access: 'authorized-api', availability: 'enabled',
     adminOnly: true,
+    resultSourceKeys: ['careerjet', 'jobviewtrack.com'],
     availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'switzerland', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
@@ -275,6 +288,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     key: 'careerjet-nl', name: 'Careerjet Netherlands', country: 'netherlands',
     access: 'authorized-api', availability: 'enabled',
     adminOnly: true,
+    resultSourceKeys: ['careerjet', 'jobviewtrack.com'],
     availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'netherlands', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),

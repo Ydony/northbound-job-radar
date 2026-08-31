@@ -629,11 +629,11 @@ export default function JobRadar() {
         <aside className="promise-card">
           <span className="label">A role reaches your match list when</span>
           <ol>
-            <li><b>01</b><span>The full advertisement is predominantly English</span></li>
-            <li><b>02</b><span>No local language is marked as mandatory</span></li>
-            <li><b>03</b><span>Your best-fitting CV is scored with visible evidence</span></li>
+            <li><b>01</b><span>Enough of the advertisement was published to judge it</span></li>
+            <li><b>02</b><span>The text is predominantly English</span></li>
+            <li><b>03</b><span>No local language is named as required</span></li>
           </ol>
-          <p>Unclear ads go to Review. Applications stay on the original job site, where you sign in yourself.</p>
+          <p>An ad too short to judge goes to <b>Not enough of the ad</b>, not to your matches. Anything that names a language without clearly requiring it goes to <b>Review</b>. You apply on the original job site yourself.</p>
         </aside>
       </section>
 
@@ -782,7 +782,11 @@ export default function JobRadar() {
             <button className={applicationFilter === 'all' ? 'active' : ''} onClick={() => setApplicationFilter('all')}><span>All states</span><i>{facets.application.all}</i></button>
             <button className={applicationFilter === 'applied' ? 'active' : ''} onClick={() => setApplicationFilter('applied')}><span>Applied</span><i>{facets.application.get('applied')}</i></button>
             <button className={applicationFilter === 'not_applied' ? 'active' : ''} onClick={() => setApplicationFilter('not_applied')}><span>Not applied</span><i>{facets.application.get('not_applied')}</i></button>
-            {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites ({facets.source.all})</option>{sourceOptions.map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
+            {/* Counts are jobs, not websites. "All websites (14)" read as though there were fourteen
+                sites; it meant fourteen jobs. A site with nothing in the current view is dropped
+                rather than listed at zero - offering a filter that can only empty the list is not
+                a filter. The selected one always stays, so choosing it never makes it vanish. */}
+            {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites — {facets.source.all} job{facets.source.all === 1 ? '' : 's'}</option>{sourceOptions.filter(([key]) => facets.source.get(key) > 0 || key === sourceFilter).map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
           </aside>
           <div className="job-list">
             {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>No jobs in this view yet</h3><p>Add a role keyword in Search settings, run a search, or widen the filters.</p></div>}

@@ -40,7 +40,7 @@ export default function LoginPage() {
           <p className="login-sub">
             {mode === 'login'
               ? 'Sign in to your job workspace.'
-              : 'Create an account. Your CVs, saved jobs and search settings are kept privately for you and are not visible to other users.'}
+              : 'Create an account. Your saved jobs and search settings are kept privately for you and are not visible to other users.'}
           </p>
           <form onSubmit={submit}>
             <label className="field">
@@ -59,9 +59,10 @@ export default function LoginPage() {
               <label className="consent">
                 <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
                 <span>
-                  I understand that I upload my CV at my own risk. This service is provided as is,
-                  with no warranty and no liability for any loss, disclosure or misuse of the data I
-                  choose to share, including in the event of a security breach. I have read the{' '}
+                  I understand that anything I put into this service is at my own risk. It is
+                  provided as is, with no warranty and no liability for any loss, disclosure or
+                  misuse of the data I choose to share, including in the event of a security
+                  breach. I have read the{' '}
                   <a href="/privacy" target="_blank" rel="noreferrer">privacy notice</a>.
                 </span>
               </label>
@@ -77,7 +78,7 @@ export default function LoginPage() {
           </button>
         </div>
         <p className="login-foot">
-          Your CV stays on this server and is never sent to any job site.{' '}
+          Your searches and saved jobs stay on this server and are never sent to any job site.{' '}
           <a href="/sources">Where the jobs come from →</a>
         </p>
       </section>
