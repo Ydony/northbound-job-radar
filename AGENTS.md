@@ -1,9 +1,30 @@
 # Northbound: instructions for coding agents
 
-**Read `docs/HANDOFF.md` first** — current state, what is unfinished or broken, and the next
-action. Use `docs/TASKS.md` for execution status. Read `docs/MULTI_SOURCE_PLAN.md` before
-changing discovery, job identity, filters, pipeline state, or source adapters. Then read
-`README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making product or integration changes.
+**Read `docs/TASKS.md` first** — the ordered list of what needs doing, blocking items at the top.
+Then `docs/HANDOFF.md` for the state of the project and the things that will surprise you. Read
+`docs/MULTI_SOURCE_PLAN.md` before changing discovery, job identity, filters, pipeline state, or
+source adapters. Then `README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making
+product or integration changes. Environments and deployment: `docs/ENVIRONMENTS.md`,
+`docs/DEPLOY.md`.
+
+## Multi-user rules
+
+The app has accounts and roles. Every table holding user data has a `user_id`, and **every query
+must be scoped to the session user**. A missing `WHERE user_id = ?` is a cross-account data leak.
+Four such defects were found in review immediately after the tenancy change — including a workspace
+reset that would have deleted *every* account's jobs, and a CV upload that was silently broken for
+everyone. None appeared in ordinary use, because the existing data had been adopted rather than
+freshly created. **When you touch anything tenancy-related, exercise the whole flow as a second
+account with new data**, not the account that already has rows.
+
+Uniqueness on user data is scoped per owner, never global.
+
+Page-fetching is administrator-only and enforced server-side, not in the interface. Ordinary
+accounts must never learn which page-fetched sources exist — that filtering applies to the live
+search report, the stored run history, and the `/sources` page.
+
+`/sources` and `/privacy` describe what the code actually does. Change them in the same commit as
+any change to data handling, or they become untrue.
 
 ## Product objective
 
