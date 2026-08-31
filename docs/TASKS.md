@@ -285,7 +285,7 @@ sources", then "I meant europa.eu".
 - [ ] **Open decision:** split `pass` into "English confirmed" and "unknown", so a pass is
       impossible on a truncated ad. This is what makes the good bucket trustworthy.
 
-### E9. Jooble — check the description length before wiring anything — WAITING ON A KEY
+### E9. Jooble — check the description length before wiring anything — OWNER TODO
 
 Raised by the owner 2026-08-31, along with Arbeitnow and an Apify scraper.
 
@@ -354,7 +354,7 @@ it, and both countries are already covered by EURES with full advertisement text
 
 - [x] Checked; not added, and not to be revisited without written permission from the operator.
 
-### E11. Apify EU Jobs Scraper — declined
+### E11. Apify EU Jobs Scraper — PARKED, owner to revisit
 
 Offered as a tool that "circumvents anti-scraping walls for you". That is the one line this project
 has held throughout and which `AGENTS.md` records: no detection evasion, no getting past anti-bot
@@ -366,6 +366,25 @@ deliberately.
 
 Apify itself is a legitimate platform and many of its actors only call documented public endpoints.
 A specific actor of that kind is a different question and can be looked at on its own merits.
+
+Parked by the owner on 2026-08-31 as their own item, alongside E9, rather than closed.
+
+**What would make this buildable**, so the next session does not have to relitigate it: a specific
+Apify actor that reads only documented public endpoints. That is an ordinary API client with a
+billing layer in front, and there is no objection to it - send the actor and it can be wired up
+like any other adapter. What will not be built is an actor whose function is getting past an
+anti-bot wall, and commissioning that from a third party is the same act as doing it here.
+
+**The practical case is weaker than the principled one anyway.** The sites behind those walls are
+aggregators, and every aggregator measured so far returns teasers - Adzuna caps at 500 characters,
+Careerjet at 279. The likely outcome is a paid subscription that supplies more jobs which still
+cannot be screened, which is the precise failure `docs/SOURCES_PIPELINE.md` documents. EURES
+already supplies 287,000 Netherlands and Switzerland jobs, with full text, free. Those sites also
+syndicate from the same employers EURES carries, so the content is not unique.
+
+- [ ] **Owner:** decide whether to pursue, and if so identify a specific actor and what it calls.
+- [ ] If that actor only reads public documented endpoints, evaluate it on description length the
+      same way as everything else - the measurement in E9 is the template.
 
 ## C. Product improvements, in value order
 
