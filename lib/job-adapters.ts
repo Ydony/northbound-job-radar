@@ -213,7 +213,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'job-room.ch', name: 'Job-Room (arbeit.swiss)', country: 'switzerland',
     access: 'authorized-api', availability: 'enabled',
-    availabilityMessage: 'Official Swiss public employment service; unauthenticated public search API with employer-declared language requirements.',
+    availabilityMessage: 'Official Swiss public employment service; unauthenticated public search API. Search returns previews, so each advertisement is then fetched in full from the same API - without that step almost every listing is too short to screen.',
     searchDetailed: (terms) => searchJobRoom(terms),
   },
   {

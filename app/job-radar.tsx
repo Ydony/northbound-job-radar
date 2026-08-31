@@ -34,7 +34,6 @@ interface FeedbackDraft {
 }
 
 const emptySlotState: SlotState = { file: null, text: '', busy: false, message: '' };
-const emptyImport = { sourceUrl: '', title: '', company: '', location: '', postedAt: '', description: '' };
 const slots: CvSlot[] = ['a', 'b'];
 const slotLabels: Record<CvSlot, string> = { a: 'CV 1', b: 'CV 2' };
 
@@ -124,10 +123,6 @@ export default function JobRadar() {
   const [sourceFilter, setSourceFilter] = useState('all');
   const [workTypeFilter, setWorkTypeFilter] = useState<'all' | WorkplaceType>('all');
   const [cvSlots, setCvSlots] = useState<Record<CvSlot, SlotState>>({ a: { ...emptySlotState }, b: { ...emptySlotState } });
-  const [importData, setImportData] = useState(emptyImport);
-  const [importBusy, setImportBusy] = useState(false);
-  const [importMessage, setImportMessage] = useState('');
-  const [showImport, setShowImport] = useState(false);
   const [scrapeBusy, setScrapeBusy] = useState<'' | 'authorized' | 'all'>('');
   const [scrapeMessage, setScrapeMessage] = useState('');
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(criteriaToDraft(defaultSearchCriteria));
@@ -142,7 +137,8 @@ export default function JobRadar() {
   const [dataMessage, setDataMessage] = useState('');
   const [health, setHealth] = useState<HealthReport | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
-  const importRef = useRef<HTMLElement>(null);
+  const [jobFlash, setJobFlash] = useState<Record<string, string>>({});
+  const flashTimers = useRef<Record<string, number>>({});
 
   useEffect(() => {
     fetch('/api/state')
@@ -329,36 +325,6 @@ export default function JobRadar() {
     }
   }
 
-  function openImport() {
-    setShowImport(true);
-    requestAnimationFrame(() => importRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  }
-
-  async function addJob(event: FormEvent) {
-    event.preventDefault();
-    setImportBusy(true);
-    setImportMessage('Checking the ad language and CV fit…');
-    try {
-      const result = await responseJson<{ job: JobRecord; duplicate: boolean; dismissed: boolean }>(await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(importData),
-      }));
-      setState((current) => ({ ...current, jobs: [result.job, ...current.jobs.filter((job) => job.id !== result.job.id)] }));
-      setImportData(emptyImport);
-      setImportMessage(result.dismissed
-        ? 'This vacancy matches a previously dismissed job and remains in Dismissed.'
-        : result.duplicate
-          ? `Already known. ${result.job.languageSummary}`
-          : result.job.languageSummary);
-      setView(result.job.languageStatus === 'pass' ? 'matches' : result.job.languageStatus === 'review' ? 'review' : 'all');
-    } catch (error) {
-      setImportMessage(error instanceof Error ? error.message : 'Could not analyze this job.');
-    } finally {
-      setImportBusy(false);
-    }
-  }
-
   async function signOut() {
     await fetch('/api/auth', { method: 'DELETE' }).catch(() => undefined);
     window.location.href = '/login';
@@ -402,17 +368,53 @@ export default function JobRadar() {
     }
   }
 
+  /**
+   * Say what just happened, on the card it happened to, then get out of the way.
+   *
+   * Save, applied and dismiss all used to change the list silently. On a list this long that reads
+   * as a click that did not register, and dismissing removes the card from the current view
+   * entirely, so the only feedback was something vanishing.
+   */
+  function flash(id: string, message: string) {
+    setJobFlash((current) => ({ ...current, [id]: message }));
+    window.clearTimeout(flashTimers.current[id]);
+    flashTimers.current[id] = window.setTimeout(() => {
+      setJobFlash((current) => Object.fromEntries(
+        Object.entries(current).filter(([key]) => key !== id)));
+    }, 3200);
+  }
+
+  // Cleared on unmount so a pending timer cannot set state on a component that has gone away.
+  useEffect(() => {
+    const timers = flashTimers.current;
+    return () => { for (const timer of Object.values(timers)) window.clearTimeout(timer); };
+  }, []);
+
+  function actionMessage(patch: Partial<Pick<JobRecord, 'isSaved' | 'applicationStatus' | 'visibilityStatus'>>) {
+    if (patch.visibilityStatus === 'dismissed') return 'Dismissed — moved to Dismissed.';
+    if (patch.visibilityStatus === 'active') return 'Restored to the list.';
+    if (patch.applicationStatus === 'applied') return 'Marked applied — moved to Pipeline.';
+    if (patch.applicationStatus === 'not_applied') return 'Marked not applied.';
+    if (patch.isSaved === true) return 'Saved to Pipeline.';
+    if (patch.isSaved === false) return 'Removed from saved.';
+    return 'Updated.';
+  }
+
   async function updateJobState(id: string, patch: Partial<Pick<JobRecord, 'isSaved' | 'applicationStatus' | 'visibilityStatus'>>) {
     const previous = state.jobs;
     setState((current) => ({ ...current, jobs: current.jobs.map((job) => job.id === id ? { ...job, ...patch } : job) }));
+    flash(id, actionMessage(patch));
     try {
       await responseJson(await fetch(`/api/jobs/${id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(patch),
       }));
-    } catch {
+    } catch (error) {
       setState((current) => ({ ...current, jobs: previous }));
+      // The optimistic update has been rolled back, so the confirmation must be too - saying
+      // "Saved" next to a card that quietly reverted is worse than saying nothing.
+      flash(id, error instanceof Error ? `Not saved: ${error.message}` : 'Not saved — the change was undone.');
     }
   }
 
@@ -663,7 +665,6 @@ export default function JobRadar() {
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
         <a className={`jobs-button ${!hasAnyCv ? 'disabled' : ''}`} href={jobsSearchUrl(primaryRole, state.criteria.location)} target={hasAnyCv ? '_blank' : undefined} rel="noreferrer">Open jobs.ch <span>↗</span></a>
-        <button className="import-button" type="button" disabled={!hasAnyCv} onClick={openImport}>Analyze a job <span>＋</span></button>
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
         <div className="health-panel">
           <div className="health-head">
@@ -716,19 +717,6 @@ export default function JobRadar() {
         </div>
       </section>
 
-      {showImport && <section className="import-panel" ref={importRef}>
-        <div className="import-heading"><div><span className="section-label">Strict screening</span><h2>Paste one complete job advertisement</h2></div><button type="button" onClick={() => setShowImport(false)} aria-label="Close import form">×</button></div>
-        <form onSubmit={addJob}>
-          <label className="field wide"><span>Public HTTPS job-ad URL</span><input type="url" value={importData.sourceUrl} onChange={(event) => setImportData({ ...importData, sourceUrl: event.target.value })} placeholder="https://job-site.example/vacancy/…" required /></label>
-          <label className="field"><span>Job title</span><input value={importData.title} onChange={(event) => setImportData({ ...importData, title: event.target.value })} required /></label>
-          <label className="field"><span>Company</span><input value={importData.company} onChange={(event) => setImportData({ ...importData, company: event.target.value })} /></label>
-          <label className="field"><span>Location</span><input value={importData.location} onChange={(event) => setImportData({ ...importData, location: event.target.value })} placeholder="e.g. Zürich / Remote" /></label>
-          <label className="field"><span>Original posted date (optional)</span><input type="date" value={importData.postedAt} onChange={(event) => setImportData({ ...importData, postedAt: event.target.value })} /></label>
-          <label className="field wide"><span>Full job advertisement</span><textarea value={importData.description} onChange={(event) => setImportData({ ...importData, description: event.target.value })} placeholder="Copy the title, responsibilities, requirements and language section from the open ad…" rows={11} required /></label>
-          <div className="import-footer"><p aria-live="polite">{importMessage || 'The complete text is needed to distinguish “required” from “nice to have.”'}</p><button className="primary" type="submit" disabled={importBusy}>{importBusy ? 'Analyzing…' : 'Analyze & add'}</button></div>
-        </form>
-      </section>}
-
       <section className="results" id="jobs">
         <div className="section-heading"><div><span className="section-label coral">Your workspace</span><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…'
           : (state.totalJobs ?? state.jobs.length) > state.jobs.length
@@ -769,7 +757,7 @@ export default function JobRadar() {
             {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites ({facets.source.all})</option>{sourceOptions.map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
           </aside>
           <div className="job-list">
-            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Run Search all job sites, change the filters, or analyze a public advert manually.' : 'Upload a CV to unlock search, screening and match scores.'}</p>{hasAnyCv && <button type="button" onClick={openImport}>Analyze a job</button>}</div>}
+            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>{hasAnyCv ? 'No jobs in this view yet' : 'Start with your CV'}</h3><p>{hasAnyCv ? 'Run a search, or widen the filters.' : 'Upload a CV to unlock search, screening and match scores.'}</p></div>}
             {visibleJobs.map((job) => {
               const bothCvsSaved = state.profiles.filter((profile) => profile.hasCvText).length > 1;
               const displayedLanguageStatus = effectiveLanguageStatus(job);
@@ -784,6 +772,11 @@ export default function JobRadar() {
                   <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span></div>
                   <h3>{job.title}</h3>
                   <p className="source-date"><b>{job.sourceName}</b><span>{countryLabel(job.country)}</span><span>{formatDate(job.postedAt)}</span><span className={`work-type ${job.workplaceType}`}>{workplaceLabel(job.workplaceType)}</span></p>
+                  {/* The copies are kept, not deleted, so the boards they came from stay named -
+                      one of them may be the one worth applying through. */}
+                  {Boolean(job.duplicateCount) && <p className="duplicate-note">
+                    Also posted on {job.duplicateSources?.join(', ')} — {job.duplicateCount} duplicate{job.duplicateCount === 1 ? '' : 's'} hidden
+                  </p>}
                   {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
                   <p className="language-summary">{hasCorrection ? `Detector note: ${job.languageSummary}` : job.languageSummary}</p>
                   {bothCvsSaved && <p className="fit-breakdown">
@@ -808,6 +801,7 @@ export default function JobRadar() {
                     <button type="button" className={job.applicationStatus === 'not_applied' ? 'selected' : ''} onClick={() => updateJobState(job.id, { applicationStatus: 'not_applied' })}>○ Not applied</button>
                     <button type="button" onClick={() => updateJobState(job.id, { visibilityStatus: job.visibilityStatus === 'dismissed' ? 'active' : 'dismissed' })}>{job.visibilityStatus === 'dismissed' ? 'Restore' : 'Dismiss'}</button>
                   </div>
+                  {jobFlash[job.id] && <p className="card-flash" role="status">{jobFlash[job.id]}</p>}
                 </div>
                 <a className="apply-link" href={job.sourceUrl} target="_blank" rel="noreferrer">Apply on {job.sourceName || sourceNameForUrl(job.sourceUrl)} ↗</a>
                 <span className="status-chip">{statusLabel(job)}</span>

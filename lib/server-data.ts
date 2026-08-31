@@ -1,6 +1,7 @@
 import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
 import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
   sourceInfoForUrl, sourceJobIdFromUrl } from './job-identity';
+import { decodeEntities } from './jobsch';
 import { detectWorkplaceType } from './workplace';
 import type { CvProfile, CvSlot, JobRecord, SearchCriteria, SearchRun, SearchRunSource } from './types';
 
@@ -250,7 +251,17 @@ interface ExistingJobIdentity {
   first_seen_at: string;
 }
 
-export async function upsertJob(db: D1Database, userId: string, input: UpsertJobInput): Promise<UpsertJobResult> {
+export async function upsertJob(db: D1Database, userId: string, rawInput: UpsertJobInput): Promise<UpsertJobResult> {
+  // Feeds hand over titles and company names with the tags already stripped but the entities still
+  // encoded. Decoding here rather than in each adapter means every source is covered by one rule,
+  // and it matters for more than looks: "Senior Cost &amp; Inventory Analyst" never matched its own
+  // duplicate spelled with a real ampersand.
+  const input: UpsertJobInput = {
+    ...rawInput,
+    title: decodeEntities(rawInput.title),
+    company: decodeEntities(rawInput.company),
+    location: decodeEntities(rawInput.location),
+  };
   const now = new Date().toISOString();
   const canonicalUrl = canonicalJobUrl(input.sourceUrl);
   const source = sourceInfoForUrl(canonicalUrl, input.location);
