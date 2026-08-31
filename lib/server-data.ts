@@ -2,6 +2,7 @@ import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus }
 import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
   sourceInfoForUrl, sourceJobIdFromUrl } from './job-identity';
 import { decodeEntities } from './jobsch';
+import { readableLocation } from './nuts';
 import { detectWorkplaceType } from './workplace';
 import type { CvProfile, CvSlot, JobRecord, SearchCriteria, SearchRun, SearchRunSource } from './types';
 
@@ -353,8 +354,10 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
  *
  * 1: titles entity-decoded; language gate reads the job title and the phrase rules.
  * 2: a pass requires enough text to justify it; short ads become 'unknown' instead.
+ * 3: NUTS region codes resolved to place names, so EURES rows stored before the resolver existed
+ *    stop reading as "NL32B NL" and can be grouped by somewhere a person recognises.
  */
-export const NORMALIZATION_VERSION = 2;
+export const NORMALIZATION_VERSION = 3;
 
 interface StoredJobForNormalization {
   id: string;
@@ -388,7 +391,7 @@ export async function normalizeStoredJobs(db: D1Database, userId: string) {
     return db.prepare(`UPDATE jobs SET title = ?, company = ?, location = ?,
         language_status = ?, language_summary = ?, language_signals = ?,
         normalized_version = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
-      .bind(title, decodeEntities(row.company), decodeEntities(row.location),
+      .bind(title, decodeEntities(row.company), readableLocation(decodeEntities(row.location)),
         language.status, language.summary, JSON.stringify(language.signals),
         NORMALIZATION_VERSION, now, row.id, userId);
   });
