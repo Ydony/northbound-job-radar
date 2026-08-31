@@ -280,22 +280,46 @@ export default function JobRadar() {
       }));
   }, [visibleToRole]);
 
+  /**
+   * What each source is actually worth: how many jobs it brought in, and what became of them.
+   *
+   * Found is the total matching the current filter — what the search returned, which is measurable
+   * for every source. Not what a source holds in total: the ATS boards do not report that, so a
+   * column mixing the two would be worse than useless.
+   *
+   * The question it exists to answer is which jobs are being lost and where. A source with a large
+   * `unknown` share is not returning enough of its advertisements to screen, which is a fixable
+   * problem with the source rather than with the filter — and the reverse of what a raw count of
+   * jobs would tell you.
+   */
   const sourceMetrics = useMemo(() => {
-    const metrics = new Map<string, { key: string; name: string; country: JobCountry; analyzed: number; passing: number; saved: number; applied: number; dismissed: number }>();
+    interface SourceRow {
+      key: string; name: string; country: JobCountry;
+      found: number; confirmed: number; review: number; unknown: number; blocked: number;
+      saved: number; applied: number;
+    }
+    const metrics = new Map<string, SourceRow>();
     for (const job of visibleToRole) {
       const current = metrics.get(job.sourceKey) ?? {
         key: job.sourceKey, name: job.sourceName, country: job.country,
-        analyzed: 0, passing: 0, saved: 0, applied: 0, dismissed: 0,
+        found: 0, confirmed: 0, review: 0, unknown: 0, blocked: 0, saved: 0, applied: 0,
       };
-      current.analyzed += 1;
-      if (effectiveLanguageStatus(job) === 'pass') current.passing += 1;
+      current.found += 1;
+      const status = effectiveLanguageStatus(job);
+      if (status === 'pass') current.confirmed += 1;
+      else if (status === 'review') current.review += 1;
+      else if (status === 'unknown') current.unknown += 1;
+      else current.blocked += 1;
       if (job.isSaved) current.saved += 1;
       if (job.applicationStatus === 'applied') current.applied += 1;
-      if (job.visibilityStatus === 'dismissed') current.dismissed += 1;
       metrics.set(job.sourceKey, current);
     }
-    return [...metrics.values()].sort((a, b) => b.applied - a.applied || b.passing - a.passing || b.analyzed - a.analyzed);
+    // Sorted by how many usable jobs a source produced, which is the whole point of the report -
+    // a source returning a thousand unscreenable listings ranks below one returning ten good ones.
+    return [...metrics.values()].sort((a, b) => b.confirmed - a.confirmed || b.found - a.found);
   }, [visibleToRole]);
+
+  const share = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : '—');
 
   /**
    * The most recent run, with admin-only sources dropped while previewing as a user.
@@ -780,13 +804,27 @@ export default function JobRadar() {
             <p>{source.message}</p>
           </article>)}
         </div>}
-        <div className="source-performance">
-          <div><span className="section-label">Workspace performance</span><h3>Applications by website</h3><p>Sorted by applications, then English-sufficient opportunities.</p></div>
-          {sourceMetrics.length ? <div className="performance-table" role="table" aria-label="Source performance">
-            <div className="performance-row heading" role="row"><span>Website</span><span>Analyzed</span><span>English</span><span>Saved</span><span>Applied</span><span>Dismissed</span></div>
-            {sourceMetrics.map((source) => <div className="performance-row" role="row" key={source.key}><b>{source.name}<small>{countryLabel(source.country)}</small></b><span>{source.analyzed}</span><span>{source.passing}</span><span>{source.saved}</span><span>{source.applied}</span><span>{source.dismissed}</span></div>)}
-          </div> : <p className="no-source-data">No analyzed jobs yet.</p>}
-        </div>
+        {/* Administrator only: it is a tool for judging the sources and the filter, not something
+            a person looking for work needs to read. */}
+        {isAdmin && <div className="source-performance">
+          <div>
+            <span className="section-label">Conversion by source</span>
+            <h3>What each website is actually worth</h3>
+            <p>Of everything a source returned, how much could be screened and how much survived. A large <b>too short</b> share means the source is not publishing enough of its advertisements to judge — a problem with the source, not the filter.</p>
+          </div>
+          {sourceMetrics.length ? <div className="performance-table" role="table" aria-label="Conversion by source">
+            <div className="performance-row heading" role="row"><span>Website</span><span>Found</span><span>English</span><span>Review</span><span>Too short</span><span>Blocked</span><span>Applied</span></div>
+            {sourceMetrics.map((source) => <div className="performance-row" role="row" key={source.key}>
+              <b>{source.name}<small>{countryLabel(source.country)}</small></b>
+              <span>{source.found}</span>
+              <span className="metric-good">{source.confirmed}<small>{share(source.confirmed, source.found)}</small></span>
+              <span>{source.review}<small>{share(source.review, source.found)}</small></span>
+              <span className={source.unknown / Math.max(1, source.found) > 0.5 ? 'metric-warn' : ''}>{source.unknown}<small>{share(source.unknown, source.found)}</small></span>
+              <span>{source.blocked}<small>{share(source.blocked, source.found)}</small></span>
+              <span>{source.applied}</span>
+            </div>)}
+          </div> : <p className="no-source-data">No jobs yet. Run a search to fill this in.</p>}
+        </div>}
       </section>
 
       <section className="results" id="jobs">
