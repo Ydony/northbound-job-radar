@@ -356,11 +356,14 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
  * 2: a pass requires enough text to justify it; short ads become 'unknown' instead.
  * 3: NUTS region codes resolved to place names, so EURES rows stored before the resolver existed
  *    stop reading as "NL32B NL" and can be grouped by somewhere a person recognises.
+ * 4: country re-derived, because resolving those codes removed the prefix the country was being
+ *    read from and left every EURES job filed under 'unknown'.
  */
-export const NORMALIZATION_VERSION = 3;
+export const NORMALIZATION_VERSION = 4;
 
 interface StoredJobForNormalization {
   id: string;
+  source_url: string;
   title: string;
   company: string;
   location: string;
@@ -379,7 +382,7 @@ interface StoredJobForNormalization {
  * handles whenever a CV or the criteria change.
  */
 export async function normalizeStoredJobs(db: D1Database, userId: string) {
-  const rows = await db.prepare(`SELECT id, title, company, location, description FROM jobs
+  const rows = await db.prepare(`SELECT id, source_url, title, company, location, description FROM jobs
     WHERE user_id = ? AND normalized_version < ?`)
     .bind(userId, NORMALIZATION_VERSION).all<StoredJobForNormalization>();
   if (!rows.results.length) return 0;
@@ -387,11 +390,15 @@ export async function normalizeStoredJobs(db: D1Database, userId: string) {
   const now = new Date().toISOString();
   const statements = rows.results.map((row) => {
     const title = decodeEntities(row.title);
+    const location = readableLocation(decodeEntities(row.location));
     const language = analyzeLanguage(row.description, title);
-    return db.prepare(`UPDATE jobs SET title = ?, company = ?, location = ?,
+    // Re-derived from the resolved location, not carried over: the country stored at ingest is
+    // wrong for any EURES row written between the NUTS resolver landing and this fix.
+    const { country } = sourceInfoForUrl(row.source_url, location);
+    return db.prepare(`UPDATE jobs SET title = ?, company = ?, location = ?, country = ?,
         language_status = ?, language_summary = ?, language_signals = ?,
         normalized_version = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
-      .bind(title, decodeEntities(row.company), readableLocation(decodeEntities(row.location)),
+      .bind(title, decodeEntities(row.company), location, country,
         language.status, language.summary, JSON.stringify(language.signals),
         NORMALIZATION_VERSION, now, row.id, userId);
   });

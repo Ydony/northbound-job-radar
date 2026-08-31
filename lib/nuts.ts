@@ -152,3 +152,22 @@ export function readableLocation(location: string): string {
     : named;
   return trimmed.join(' ').trim() || location.trim();
 }
+
+/**
+ * Which country a resolved place name belongs to.
+ *
+ * Needed because resolving the code removes the very thing the country was being read from.
+ * EURES locations arrive as "NL32B NL", and the country used to be recovered from that prefix;
+ * once it becomes "Groot-Amsterdam" there is no country left in the string, and every EURES job
+ * silently became country-unknown. Built from the same table, so it cannot disagree with it.
+ */
+const countryByPlaceName = new Map<string, 'netherlands' | 'switzerland'>();
+for (const [code, name] of Object.entries(nutsRegionNames)) {
+  // Skip the two bare country rows: "Schweiz/Suisse/Svizzera" is not a place anyone is hired into.
+  if (code.length <= 2) continue;
+  countryByPlaceName.set(name.toLowerCase(), code.startsWith('NL') ? 'netherlands' : 'switzerland');
+}
+
+export function countryForPlaceName(place: string) {
+  return countryByPlaceName.get(place.trim().toLowerCase()) ?? '';
+}

@@ -1,3 +1,4 @@
+import { countryForPlaceName } from './nuts';
 import type { JobCountry } from './types';
 
 export interface JobIdentityInput {
@@ -85,13 +86,18 @@ export function sourceInfoForUrl(value: string, location = ''): SourceInfo {
   try {
     const host = new URL(value).hostname.toLowerCase();
     // EURES is one host serving both countries, so the country has to come from the advertisement
-    // rather than the domain. Locations arrive as a NUTS code plus its country ("CH031 CH").
+    // rather than the domain. Two spellings have to be read, because the location may or may not
+    // have been resolved yet: a raw NUTS code carries its country as a prefix ("CH031 CH"), while
+    // a resolved name carries no country at all. Reading only the code was correct until the codes
+    // started being resolved at ingest, at which point every EURES job silently became
+    // country-unknown — the resolution removed the very thing the country was being read from.
     if (normalizedHost(host) === 'europa.eu') {
-      const country: JobCountry = /\bCH\d*\b/.test(location)
-        ? 'switzerland'
-        : /\bNL\d*\b/.test(location)
-          ? 'netherlands'
-          : 'unknown';
+      const country: JobCountry = countryForPlaceName(location)
+        || (/\bCH\d*\b/.test(location)
+          ? 'switzerland'
+          : /\bNL\d*\b/.test(location)
+            ? 'netherlands'
+            : 'unknown');
       const name = country === 'switzerland'
         ? 'EURES Switzerland'
         : country === 'netherlands' ? 'EURES Netherlands' : 'EURES';
