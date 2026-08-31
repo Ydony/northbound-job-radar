@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
 import { jobsToCsv, workspaceToJson } from '@/lib/export';
@@ -574,8 +573,8 @@ export default function JobRadar() {
         <a className="brand" href="#top"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>English job radar</small></span></a>
         <nav aria-label="Main navigation">
           <a className="active" href="#jobs">Matches</a><a href="#profile">My CVs</a>
-          <Link href="/settings">Settings</Link>
-          {isAdmin && <Link href="/admin">Admin</Link>}
+          <a href="/settings">Settings</a>
+          {isAdmin && <a href="/admin">Admin</a>}
           <button className="nav-signout" type="button" onClick={signOut}>Sign out</button>
         </nav>
         <span className="source-pill"><i /> Switzerland + Netherlands</span>
@@ -812,7 +811,7 @@ export default function JobRadar() {
         </div>
       </section>
 
-      <footer><b>Ik Engels</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#sources">Source report ↑</a><Link href="/sources">Where the jobs come from →</Link><Link href="/privacy">Privacy</Link></footer>
+      <footer><b>Ik Engels</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#sources">Source report ↑</a><a href="/sources">Where the jobs come from →</a><a href="/privacy">Privacy</a></footer>
     </main>
   );
 }

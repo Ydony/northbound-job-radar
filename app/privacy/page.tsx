@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { cookieNotice, dataWeHold, notCollected, PRIVACY_UPDATED_ON, visitCounting, yourRights } from '@/lib/privacy-policy';
 
 export const metadata = {
@@ -10,8 +9,8 @@ export default function PrivacyPage() {
   return (
     <main className="shell">
       <header className="topbar">
-        <Link className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>Privacy</small></span></Link>
-        <nav aria-label="Main navigation"><Link href="/sources">Sources</Link><Link href="/">Back to the radar</Link></nav>
+        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>Privacy</small></span></a>
+        <nav aria-label="Main navigation"><a href="/sources">Sources</a><a href="/">Back to the radar</a></nav>
         <span className="source-pill"><i /> Updated {PRIVACY_UPDATED_ON}</span>
       </header>
 
@@ -102,7 +101,7 @@ export default function PrivacyPage() {
         <ul className="plain-list">
           <li>Data is stored in Cloudflare D1 (database) and R2 (your CV file). Cloudflare acts as a processor and is the only third party involved in hosting.</li>
           <li>Administrators of this installation can see that an account exists, its email address, and how many jobs and CVs it holds. They cannot read your CV text or your job list.</li>
-          <li>Job searches send only your role keywords and location to the job sources listed on the <Link href="/sources">sources page</Link>. They never receive your CV, your email, or anything identifying you.</li>
+          <li>Job searches send only your role keywords and location to the job sources listed on the <a href="/sources">sources page</a>. They never receive your CV, your email, or anything identifying you.</li>
           <li>There is no automated decision-making that produces legal or similarly significant effects. The language and fit scores are suggestions for you to review, and you can correct any of them.</li>
         </ul>
       </section>
@@ -110,7 +109,7 @@ export default function PrivacyPage() {
       <footer>
         <b>Ik Engels</b>
         <span>No tracking · no profiling · no data sold</span>
-        <Link href="/sources">Where the jobs come from →</Link>
+        <a href="/sources">Where the jobs come from →</a>
       </footer>
     </main>
   );

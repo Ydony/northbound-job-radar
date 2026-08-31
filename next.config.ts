@@ -36,7 +36,13 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    // '/:path*' did not match the bare '/' in this runtime, which left the dashboard - the page
+    // holding every job and both CVs - with no security headers at all while every other route had
+    // them. Match the root explicitly rather than relying on the pattern.
+    return [
+      { source: '/', headers: securityHeaders },
+      { source: '/:path*', headers: securityHeaders },
+    ];
   },
 };
 

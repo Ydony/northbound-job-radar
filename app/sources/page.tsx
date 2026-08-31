@@ -1,5 +1,4 @@
 import { headers } from 'next/headers';
-import Link from 'next/link';
 import { authSecrets, bindings, ensureSchema } from '@/db/runtime';
 import { readSessionValue } from '@/lib/auth';
 import { findUserById } from '@/lib/users';
@@ -47,8 +46,8 @@ export default async function SourcesPage() {
   return (
     <main className="shell">
       <header className="topbar">
-        <Link className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>Where the jobs come from</small></span></Link>
-        <nav aria-label="Main navigation"><Link href="/">Back to the radar</Link></nav>
+        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>Where the jobs come from</small></span></a>
+        <nav aria-label="Main navigation"><a href="/">Back to the radar</a></nav>
         <span className="source-pill"><i /> Checked {POLICIES_VERIFIED_ON}</span>
       </header>
 
@@ -115,7 +114,7 @@ export default async function SourcesPage() {
       <footer>
         <b>Ik Engels</b>
         <span>Public advertisements only · no logins · no detection evasion</span>
-        <Link href="/">Back to the radar</Link>
+        <a href="/">Back to the radar</a>
       </footer>
     </main>
   );

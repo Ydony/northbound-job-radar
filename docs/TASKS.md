@@ -94,6 +94,24 @@ data renders through React's escaping and there is no `dangerouslySetInnerHTML` 
 - [ ] Note that a restart is required after changing `next.config.ts`; dev kept serving the old
   header until it was restarted, which briefly made the fix look ineffective.
 
+### A8. Navigation and the missing root CSP — fixed 2026-08-31
+
+Two separate faults, both found only by clicking in a real browser. Every endpoint returned 200 to
+curl throughout, which is why they survived earlier checks.
+
+**Navigation did nothing.** vinext 1.0.0-beta.3 ships a `next/link` shim whose client chunk throws
+`TypeError: e is not a function` the moment a link is clicked. The href looked correct on hover and
+the click was swallowed. Every `next/link` is now a plain anchor: each internal destination is a
+different page with its own data, so a full load costs nothing, and the eslint rule that wants
+`Link` is disabled with that reasoning recorded. Revisit if vinext fixes it.
+
+**The dashboard had no security headers.** The header rule used `source: '/:path*'`, which did not
+match the bare `/` in this runtime. Every other route carried the CSP while the one page holding
+every job and both CVs carried none. The root is now matched explicitly.
+
+- [x] Verified in the browser: Settings and Admin both open and render.
+- [x] Verified `/` and `/settings` both serve the CSP.
+
 ## B. Known gaps
 
 ### B1. No self-service password reset

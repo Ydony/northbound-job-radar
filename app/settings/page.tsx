@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
 
 interface Account { email: string; role: 'admin' | 'user' }
@@ -72,10 +71,10 @@ export default function SettingsPage() {
   return (
     <main className="shell">
       <header className="topbar">
-        <Link className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>Settings</small></span></Link>
+        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>Settings</small></span></a>
         <nav aria-label="Main navigation">
-          <Link href="/">Back to the radar</Link>
-          {account?.role === 'admin' && <Link href="/admin">Admin</Link>}
+          <a href="/">Back to the radar</a>
+          {account?.role === 'admin' && <a href="/admin">Admin</a>}
         </nav>
         <span className="source-pill"><i /> {account ? account.email : 'Loading…'}</span>
       </header>
@@ -128,7 +127,7 @@ export default function SettingsPage() {
       <footer>
         <b>Ik Engels</b>
         <span>Your CV is never sent to a job site</span>
-        <Link href="/privacy">Privacy</Link>
+        <a href="/privacy">Privacy</a>
       </footer>
     </main>
   );
