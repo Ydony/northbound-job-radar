@@ -166,12 +166,22 @@ That promotes three carried blockers from "before public traffic" to **actually 
 | | Why it blocks now |
 |---|---|
 | **A1** | Both administrator passwords were pasted into a chat transcript in plain text. The only account on a publicly reachable login page must not be one of them. Rotate both, and issue a fresh `SESSION_SECRET` rather than copying a local one. |
-| **A7** | The CSP allows `'unsafe-inline'` for React hydration. Acceptable while nothing is reachable; not once a URL is being handed to strangers. Move to nonces. |
-| **B3** | Rate limiting resets with the process, so it is close to useless against a distributed attempt on the one account that exists. Needs a durable store. |
+| **A7** | The CSP allows `'unsafe-inline'` for scripts. **Investigated 31 Aug and it cannot be fixed in this stack**: vinext 1.0.0-beta.3 ships no middleware module and the string `nonce` appears nowhere in its distribution, so there is no supported way to stamp a per-request nonce onto the inline scripts React streams for hydration. See the note below. |
+| ~~**B3**~~ | ~~Rate limiting resets with the process.~~ **Done.** Sign-in now counts in the database. Verified by killing the worker mid-attempt: the address stayed throttled across a full restart, while a different address was unaffected. |
 
 - [ ] Rotate both administrator logins and the session secret (A1).
 - [ ] Nonce-based CSP, drop `'unsafe-inline'` (A7).
-- [ ] Durable rate limiting on the login route (B3).
+- [x] Durable rate limiting on the login route (B3), verified across a worker restart.
+- [ ] **A7 needs a decision, not an implementation.** Nonces are unavailable in vinext
+      1.0.0-beta.3. The realistic options are: accept `'unsafe-inline'` for scripts and rely on the
+      mitigations below; pin a framework version that supports middleware; or move off vinext. The
+      first is defensible for now and should be a recorded choice rather than a lingering to-do.
+
+      What actually limits the exposure meanwhile: every value rendered goes through React's
+      escaping, there is no `dangerouslySetInnerHTML` anywhere in the app, registration is closed
+      so there is no attacker-supplied content on any page, and the only text a visitor can reach
+      is written by us. `'unsafe-inline'` matters when an attacker can get a string onto the page;
+      here there is no such path.
 - [ ] **Test the deployed site, not the local one.** Confirm security headers are actually served
       from the edge, that registration is genuinely closed, that an unauthenticated request to every
       API route is refused, and that admin-only sources stay invisible without a session.
