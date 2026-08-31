@@ -7,10 +7,16 @@ session can continue without reconstructing the state.
 
 ### A1. Owner changes BOTH administrator logins (exposed, not merely temporary)
 
-The populated test workspace is now owned by `admin-test@ikengels.test`. The temporary password
-was given directly to the owner and is not stored in Git. The owner must sign in at
-`http://localhost:3001/settings` and immediately change both the email and password. Changing the
-password revokes every other session.
+The populated test workspace is owned by `admin-test@ikengels.test`; dev is owned by
+`admin-dev@ikengels.test`. **Both generated passwords were posted in plain text into a chat
+transcript**, so they are exposed rather than merely temporary, and both need replacing — not just
+test.
+
+- [ ] Change the email and password at `http://localhost:3001/settings` (test).
+- [ ] Change the email and password at `http://localhost:3000/settings` (dev).
+
+Changing a password revokes that account's other sessions. Never write these into a file, a commit,
+or a chat message.
 
 This is the only step that requires the owner. Coding and testing may continue while it is pending.
 
@@ -24,6 +30,10 @@ This is the only step that requires the owner. Coding and testing may continue w
 - [x] Both login pages return HTTP 200 while the two processes run concurrently.
 
 ### A3. Exercise the existing app as a new second user
+
+Dev's database is empty, which is the point: exercising freshly created data is what surfaces the
+write paths that adopted data never touches. That is how a completely broken CV upload went
+unnoticed before. Set `ALLOW_SIGNUPS=true` in `.dev.vars.dev` to create the second account.
 
 - [ ] Create a non-admin account in dev and upload a new CV.
 - [ ] Save criteria and exercise default and VPN/restricted search modes.
