@@ -33,6 +33,9 @@ const sources: Record<string, SourceInfo> = {
   'www.nationalevacaturebank.nl': { key: 'nationalevacaturebank.nl', name: 'Nationale Vacaturebank', country: 'netherlands' },
 };
 
+/** Lowercase ISO-3166 alpha-2, matching the adapter keys `eures-ch` / `eures-nl`. */
+const countryCodes: Record<Exclude<JobCountry, 'unknown'>, string> = { switzerland: 'ch', netherlands: 'nl' };
+
 const trackingParameters = new Set(['fbclid', 'gclid', 'trk', 'trackingid']);
 const swissLocations = /\b(?:switzerland|swiss|zürich|zurich|geneva|genève|basel|bern|lausanne|zug|lucerne|luzern|winterthur)\b/i;
 const netherlandsLocations = /\b(?:netherlands|nederland|amsterdam|rotterdam|utrecht|eindhoven|den haag|the hague|haarlem|leiden|delft|breda)\b/i;
@@ -81,6 +84,19 @@ export function canonicalJobUrl(value: string) {
 export function sourceInfoForUrl(value: string, location = ''): SourceInfo {
   try {
     const host = new URL(value).hostname.toLowerCase();
+    // EURES is one host serving both countries, so the country has to come from the advertisement
+    // rather than the domain. Locations arrive as a NUTS code plus its country ("CH031 CH").
+    if (normalizedHost(host) === 'europa.eu') {
+      const country: JobCountry = /\bCH\d*\b/.test(location)
+        ? 'switzerland'
+        : /\bNL\d*\b/.test(location)
+          ? 'netherlands'
+          : 'unknown';
+      const name = country === 'switzerland'
+        ? 'EURES Switzerland'
+        : country === 'netherlands' ? 'EURES Netherlands' : 'EURES';
+      return { key: country === 'unknown' ? 'eures' : `eures-${countryCodes[country]}`, name, country };
+    }
     const known = sources[host];
     if (known) {
       if (known.country === 'netherlands' && outsideSupportedLocations.test(location)) {

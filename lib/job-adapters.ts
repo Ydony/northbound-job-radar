@@ -1,5 +1,6 @@
 import { searchAtsBoards } from './ats-feeds';
 import { searchAdzuna, searchCareerjet, type AggregatorCredentials } from './job-aggregators';
+import { searchEures } from './eures';
 import { searchJobRoom } from './job-room';
 import { delay, extractJobPosting, interleaveUnique, stripHtml, type ParsedJob } from './jobsch';
 import type { JobCountry, SourceRunStatus } from './types';
@@ -209,6 +210,18 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     access: 'authorized-api', availability: 'enabled',
     availabilityMessage: 'Public ATS job boards published for aggregators; no key or VPN needed.',
     searchDetailed: () => searchAtsBoards(),
+  },
+  {
+    key: 'eures-ch', name: 'EURES Switzerland', country: 'switzerland',
+    access: 'authorized-api', availability: 'enabled',
+    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. europa.eu content is CC BY 4.0 under the Commission reuse decision of 12 December 2011.',
+    searchDetailed: (terms) => searchEures(terms, 'switzerland'),
+  },
+  {
+    key: 'eures-nl', name: 'EURES Netherlands', country: 'netherlands',
+    access: 'authorized-api', availability: 'enabled',
+    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. europa.eu content is CC BY 4.0 under the Commission reuse decision of 12 December 2011.',
+    searchDetailed: (terms) => searchEures(terms, 'netherlands'),
   },
   {
     key: 'job-room.ch', name: 'Job-Room (arbeit.swiss)', country: 'switzerland',
