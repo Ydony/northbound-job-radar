@@ -302,4 +302,24 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE UNIQUE INDEX IF NOT EXISTS search_roles_user_position_idx ON search_roles(user_id, position)',
     ],
   },
+  {
+    version: 12,
+    name: 'record_what_the_detector_said_when_corrected',
+    statements: [
+      // A correction on its own cannot teach anything: to improve the gate you need the pair -
+      // what it decided, and what the person decided instead - frozen at the moment of feedback.
+      // Rescoring rewrites jobs.language_status, so reading it later tells you nothing about what
+      // was actually being corrected.
+      "ALTER TABLE language_feedback ADD COLUMN detected_status TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE language_feedback ADD COLUMN detected_summary TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE language_feedback ADD COLUMN detected_signals TEXT NOT NULL DEFAULT '[]'",
+      "ALTER TABLE language_feedback ADD COLUMN evidence TEXT NOT NULL DEFAULT ''",
+      // Backfill what is still knowable for corrections already collected.
+      `UPDATE language_feedback SET
+         detected_status = COALESCE((SELECT language_status FROM jobs WHERE jobs.id = language_feedback.job_id), ''),
+         detected_summary = COALESCE((SELECT language_summary FROM jobs WHERE jobs.id = language_feedback.job_id), ''),
+         detected_signals = COALESCE((SELECT language_signals FROM jobs WHERE jobs.id = language_feedback.job_id), '[]')
+       WHERE detected_status = ''`,
+    ],
+  },
 ];

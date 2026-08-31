@@ -33,8 +33,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (hasLanguageFeedback && !feedback) return NextResponse.json({ error: 'Invalid language feedback.' }, { status: 400 });
 
   const job = await db.prepare(`SELECT id, source_url, source_key, source_job_id, canonical_url, identity_fingerprint,
-      title, company, location, posted_at
+      title, company, location, posted_at, language_status, language_summary, language_signals, description
     FROM jobs WHERE id = ? AND user_id = ?`).bind(id, user.id).first<{
+      language_status: string;
+      language_summary: string;
+      language_signals: string;
+      description: string;
       id: string;
       source_url: string;
       source_key: string;
@@ -85,11 +89,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
   }
   if (feedback?.verdict) {
-    statements.push(db.prepare(`INSERT INTO language_feedback (job_id, user_id, verdict, corrected_status, reason, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+    // Store the detector's verdict as it stood right now. Rescoring rewrites jobs.language_status,
+    // so without this snapshot a correction cannot later be matched to what it was correcting.
+    statements.push(db.prepare(`INSERT INTO language_feedback
+        (job_id, user_id, verdict, corrected_status, reason, updated_at,
+         detected_status, detected_summary, detected_signals, evidence)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(job_id) DO UPDATE SET verdict = excluded.verdict, corrected_status = excluded.corrected_status,
-      reason = excluded.reason, updated_at = excluded.updated_at`)
-      .bind(id, user.id, feedback.verdict, feedback.correctedStatus, feedback.reason, now));
+      reason = excluded.reason, updated_at = excluded.updated_at, detected_status = excluded.detected_status,
+      detected_summary = excluded.detected_summary, detected_signals = excluded.detected_signals,
+      evidence = excluded.evidence`)
+      .bind(id, user.id, feedback.verdict, feedback.correctedStatus, feedback.reason, now,
+        job.language_status, job.language_summary, job.language_signals,
+        (job.description ?? '').slice(0, 1200)));
   } else if (hasLanguageFeedback) {
     statements.push(db.prepare('DELETE FROM language_feedback WHERE job_id = ? AND user_id = ?').bind(id, user.id));
   }
