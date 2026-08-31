@@ -35,6 +35,26 @@ export interface JobSourceAdapter {
   searchDetailed?: (terms: string[], location: string, credentials: AggregatorCredentials) => Promise<ParsedJob[]>;
   /** Keyed integrations report themselves unavailable until the user supplies free credentials. */
   hasCredentials?: (credentials: AggregatorCredentials) => boolean;
+  /**
+   * Only an administrator may search this source or see its results.
+   *
+   * Deliberately separate from `access: 'restricted'`, which means something narrower: page-fetching
+   * that additionally requires a VPN. A source can be perfectly ordinary to call and still not be
+   * something to put in front of other people — Careerjet is licensed to one declared IP, and
+   * IamExpat is read from public pages rather than an API. Both are fine for the owner and neither
+   * is fine to offer as a feature.
+   *
+   * Enforced server-side in the jobs read path, not merely hidden in the interface, so a second
+   * account cannot reach these results by calling the API directly.
+   */
+  adminOnly?: boolean;
+}
+
+/** Source keys an ordinary account may never see results from. Derived, so the list cannot drift. */
+export function adminOnlySourceKeys() {
+  return new Set(jobSourceAdapters
+    .filter((adapter) => adapter.adminOnly || adapter.access === 'restricted')
+    .map((adapter) => adapter.key));
 }
 
 async function fetchHtml(url: string, sourceName: string) {
@@ -246,6 +266,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'careerjet-ch', name: 'Careerjet Switzerland', country: 'switzerland',
     access: 'authorized-api', availability: 'enabled',
+    adminOnly: true,
     availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'switzerland', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
@@ -253,6 +274,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'careerjet-nl', name: 'Careerjet Netherlands', country: 'netherlands',
     access: 'authorized-api', availability: 'enabled',
+    adminOnly: true,
     availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'netherlands', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
@@ -281,6 +303,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'iamexpat.nl', name: 'IamExpat', country: 'netherlands',
     access: 'grey-area', availability: 'enabled',
+    adminOnly: true,
     availabilityMessage: 'Capped public-page adapter; current public listings only.',
     search: async (terms) => (await listingLinks('https://www.iamexpat.nl/career/jobs-netherlands', 'IamExpat',
       /href=["']([^"']*\/career\/jobs-netherlands\/[^"'?]+\/[^"'?]+)["']/gi, 'https://www.iamexpat.nl'))

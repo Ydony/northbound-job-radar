@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { authSecrets, ensureSchema } from '@/db/runtime';
 import { recordVisit } from '@/lib/analytics';
 import { clientIp, requireSession } from '@/lib/guard';
-import { jobSourceAdapters } from '@/lib/job-adapters';
+import { adminOnlySourceKeys } from '@/lib/job-adapters';
 import { criteriaFromRow, cvFromRow, jobFromRow, normalizeStoredJobs, reclusterJobs, searchRunsFromRows, type CriteriaRow, type CvRow,
   type JobRow, type SearchRoleRow, type SearchRunRow, type SearchRunSourceRow } from '@/lib/server-data';
 
@@ -34,18 +34,28 @@ export async function GET(request: Request) {
     .bind(user.id).first<{ total: number }>();
   if (unclustered?.total) await reclusterJobs(db, user.id);
 
+  // Careerjet and IamExpat are the owner's to use, not a feature to offer. Excluded in SQL rather
+  // than filtered after the fact, so an ordinary account cannot reach those rows by calling this
+  // endpoint directly, and so they never count towards the page limit either.
+  const hiddenSourceKeys = user.role === 'admin' ? [] : [...adminOnlySourceKeys()];
+  const hiddenClause = hiddenSourceKeys.length
+    ? ` AND jobs.source_key NOT IN (${hiddenSourceKeys.map(() => '?').join(',')})`
+    : '';
+
   const [cvs, jobs, criteria, roles, runs, jobTotal] = await Promise.all([
     db.prepare('SELECT * FROM cvs WHERE user_id = ? ORDER BY slot').bind(user.id).all<CvRow>(),
     db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,
       language_feedback.corrected_status AS feedback_corrected_status,
       language_feedback.reason AS feedback_reason, language_feedback.updated_at AS feedback_updated_at
       FROM jobs LEFT JOIN language_feedback ON language_feedback.job_id = jobs.id
-      WHERE jobs.user_id = ?
-      ORDER BY jobs.updated_at DESC LIMIT ?`).bind(user.id, JOB_PAGE_LIMIT).all<JobRow>(),
+      WHERE jobs.user_id = ?${hiddenClause}
+      ORDER BY jobs.updated_at DESC LIMIT ?`)
+      .bind(user.id, ...hiddenSourceKeys, JOB_PAGE_LIMIT).all<JobRow>(),
     db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
     db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
     db.prepare('SELECT * FROM search_runs WHERE user_id = ? ORDER BY started_at DESC LIMIT 12').bind(user.id).all<SearchRunRow>(),
-    db.prepare('SELECT COUNT(*) AS total FROM jobs WHERE user_id = ?').bind(user.id).first<{ total: number }>(),
+    db.prepare(`SELECT COUNT(*) AS total FROM jobs WHERE user_id = ?${hiddenClause.replace(/jobs\./g, '')}`)
+      .bind(user.id, ...hiddenSourceKeys).first<{ total: number }>(),
   ]);
   const runIds = runs.results.map((run) => run.id);
   const runSources = runIds.length
@@ -71,6 +81,10 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     account: { email: user.email, role: user.role },
+    // Sent so the administrator's "view as user" preview can hide the same sources the server
+    // already withholds from everyone else. The server is what enforces it; this is what makes the
+    // preview honest, and it is only ever non-empty for an administrator, who can see them anyway.
+    adminOnlySources: user.role === 'admin' ? [...adminOnlySourceKeys()] : [],
     profiles: cvs.results.map(cvFromRow),
     jobs: visibleJobs,
     hiddenDuplicates: allJobs.length - visibleJobs.length,
@@ -81,7 +95,8 @@ export async function GET(request: Request) {
     // everyone else rather than only hidden in the interface.
     searchRuns: searchRunsFromRows(runs.results, user.role === 'admin'
       ? runSources.results
-      : runSources.results.filter((row) => jobSourceAdapters
-        .find((adapter) => adapter.key === row.source_key)?.access !== 'restricted')),
+      // Same rule as the jobs above, from the same derived list: an ordinary account is not told
+      // that these sources were searched, let alone what they returned.
+      : runSources.results.filter((row) => !hiddenSourceKeys.includes(row.source_key))),
   });
 }

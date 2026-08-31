@@ -109,6 +109,10 @@ export interface AppState {
   totalJobs?: number;
   jobLimit?: number;
   account: AccountSummary | null;
+  /** Source keys an ordinary account never sees. Non-empty only for an administrator, who
+   *  can see them anyway - it exists so the "view as user" preview hides the same rows the
+   *  server already withholds from everyone else. */
+  adminOnlySources?: string[];
   profiles: CvProfile[];
   jobs: JobRecord[];
   criteria: SearchCriteria;

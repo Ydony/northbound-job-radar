@@ -158,24 +158,45 @@ export default function JobRadar() {
       .finally(() => setLoading(false));
   }, []);
 
-  const isAdmin = state.account?.role === 'admin';
+  const accountIsAdmin = state.account?.role === 'admin';
+  /**
+   * Preview the app as an ordinary account sees it.
+   *
+   * This is a **display mode, not a privilege drop**. The account is still an administrator and the
+   * server still knows it, so nothing here may be the thing that keeps admin-only sources away from
+   * other people — that is enforced in the jobs and search routes, and holds whatever this is set
+   * to. Treating a client-side toggle as a security boundary would be exactly the wrong shape.
+   *
+   * What it is for, in the owner's words: "I could easily search for a job as normal user … and see
+   * all the stuff as an admin." It is also the quickest way to confirm the real restrictions hold.
+   */
+  const [viewAsUser, setViewAsUser] = useState(false);
+  const isAdmin = accountIsAdmin && !viewAsUser;
   const hasAnyCv = state.profiles.some((profile) => profile.hasCvText);
   const primaryProfile = state.profiles.find((profile) => profile.derivedRole);
   const primaryRole = state.criteria.roleKeywords[0]
     || (primaryProfile ? roleForProfile(primaryProfile, state.criteria) : '');
 
+  // In the user preview, drop the rows the server would never have sent to an ordinary account.
+  // The server is what enforces this; hiding here is only what makes the preview truthful.
+  const visibleToRole = useMemo(() => {
+    if (!viewAsUser) return state.jobs;
+    const hidden = new Set(state.adminOnlySources ?? []);
+    return state.jobs.filter((job) => !hidden.has(job.sourceKey));
+  }, [state.jobs, state.adminOnlySources, viewAsUser]);
+
   const criteriaFilteredJobs = useMemo(
-    () => state.jobs.filter((job) => matchesSearchCriteria(job, state.criteria)),
-    [state.jobs, state.criteria],
+    () => visibleToRole.filter((job) => matchesSearchCriteria(job, state.criteria)),
+    [visibleToRole, state.criteria],
   );
 
   const counts = useMemo(() => ({
     matches: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'pass' && job.visibilityStatus === 'active').length,
     unknown: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'unknown' && job.visibilityStatus === 'active').length,
     review: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'review' && job.visibilityStatus === 'active').length,
-    pipeline: state.jobs.filter((job) => job.visibilityStatus === 'active' && (job.isSaved || job.applicationStatus === 'applied')).length,
-    dismissed: state.jobs.filter((job) => job.visibilityStatus === 'dismissed').length,
-  }), [criteriaFilteredJobs, state.jobs]);
+    pipeline: visibleToRole.filter((job) => job.visibilityStatus === 'active' && (job.isSaved || job.applicationStatus === 'applied')).length,
+    dismissed: visibleToRole.filter((job) => job.visibilityStatus === 'dismissed').length,
+  }), [criteriaFilteredJobs, visibleToRole]);
 
   const passesView = useMemo(() => (job: JobRecord) => {
     const matchesCriteria = matchesSearchCriteria(job, state.criteria);
@@ -194,7 +215,7 @@ export default function JobRadar() {
    * what selecting that option would actually return rather than a total that may be unreachable.
    */
   const facets = useMemo(() => {
-    const inView = state.jobs.filter(passesView);
+    const inView = visibleToRole.filter(passesView);
     const byCountry = (job: JobRecord) => countryFilter === 'all' || job.country === countryFilter;
     const byApplication = (job: JobRecord) => applicationFilter === 'all' || job.applicationStatus === applicationFilter;
     const bySource = (job: JobRecord) => sourceFilter === 'all' || job.sourceKey === sourceFilter;
@@ -216,19 +237,19 @@ export default function JobRadar() {
       workType: tally(except('workType'), (job) => job.workplaceType),
       visible: inView.filter((job) => byCountry(job) && byApplication(job) && bySource(job) && byWorkType(job)),
     };
-  }, [applicationFilter, countryFilter, passesView, sourceFilter, state.jobs, workTypeFilter]);
+  }, [applicationFilter, countryFilter, passesView, sourceFilter, visibleToRole, workTypeFilter]);
 
   const visibleJobs = useMemo(
     () => [...facets.visible].sort((a, b) => bestFitScore(b) - bestFitScore(a)),
     [facets.visible],
   );
 
-  const sourceOptions = useMemo(() => [...new Map(state.jobs.map((job) => [job.sourceKey, job.sourceName])).entries()]
-    .sort((a, b) => a[1].localeCompare(b[1])), [state.jobs]);
+  const sourceOptions = useMemo(() => [...new Map(visibleToRole.map((job) => [job.sourceKey, job.sourceName])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1])), [visibleToRole]);
 
   const sourceMetrics = useMemo(() => {
     const metrics = new Map<string, { key: string; name: string; country: JobCountry; analyzed: number; passing: number; saved: number; applied: number; dismissed: number }>();
-    for (const job of state.jobs) {
+    for (const job of visibleToRole) {
       const current = metrics.get(job.sourceKey) ?? {
         key: job.sourceKey, name: job.sourceName, country: job.country,
         analyzed: 0, passing: 0, saved: 0, applied: 0, dismissed: 0,
@@ -241,7 +262,7 @@ export default function JobRadar() {
       metrics.set(job.sourceKey, current);
     }
     return [...metrics.values()].sort((a, b) => b.applied - a.applied || b.passing - a.passing || b.analyzed - a.analyzed);
-  }, [state.jobs]);
+  }, [visibleToRole]);
 
   const latestRun = state.searchRuns[0];
 
@@ -544,8 +565,8 @@ export default function JobRadar() {
 
   function exportWorkspace(format: 'json' | 'csv') {
     const date = new Date().toISOString().slice(0, 10);
-    if (format === 'json') downloadText(`northbound-${date}.json`, 'application/json', workspaceToJson(state));
-    else downloadText(`northbound-jobs-${date}.csv`, 'text/csv;charset=utf-8', jobsToCsv(state.jobs));
+    if (format === 'json') downloadText(`ik-ben-een-appel-${date}.json`, 'application/json', workspaceToJson(state));
+    else downloadText(`ik-ben-een-appel-jobs-${date}.csv`, 'text/csv;charset=utf-8', jobsToCsv(state.jobs));
     setDataMessage(`Exported ${state.jobs.length} job${state.jobs.length === 1 ? '' : 's'} as ${format.toUpperCase()}.`);
   }
 
@@ -582,6 +603,14 @@ export default function JobRadar() {
           <a className="active" href="#jobs">Matches</a><a href="#profile">My CVs</a>
           <a href="/settings">Settings</a>
           {isAdmin && <a href="/admin">Admin</a>}
+          {accountIsAdmin && <button
+            className={`view-toggle ${viewAsUser ? 'as-user' : ''}`}
+            type="button"
+            onClick={() => setViewAsUser((current) => !current)}
+            title={viewAsUser
+              ? 'You are seeing what an ordinary account sees. Your admin access is unchanged.'
+              : 'Preview the app as an ordinary account sees it.'}
+          >{viewAsUser ? 'Viewing as user' : 'View as user'}</button>}
           <button className="nav-signout" type="button" onClick={signOut}>Sign out</button>
         </nav>
         <span className="source-pill"><i /> Switzerland + Netherlands</span>

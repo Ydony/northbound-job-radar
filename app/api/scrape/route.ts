@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { aggregatorCredentials, authSecrets, ensureSchema } from '@/db/runtime';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
-import { descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS, sourceStatusForAvailability,
+import { adminOnlySourceKeys, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
+  sourceStatusForAvailability,
   type SearchMode } from '@/lib/job-adapters';
 import { canonicalJobUrl, isGloballyStableSourceJobId, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { delay, stripHtml, type ParsedJob } from '@/lib/jobsch';
@@ -80,7 +81,13 @@ export async function POST(request: Request) {
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';
   // Everyone gets the authorized APIs and the grey-area sources, whose robots.txt permits the
   // paths read. Only the explicit VPN mode adds the sources that prohibit automated access.
-  const activeAdapters = jobSourceAdapters.filter((adapter) => mode === 'all' || adapter.access !== 'restricted');
+  // Two separate rules, and they are not the same rule. `restricted` means page-fetching that needs
+  // a verified VPN, so it is gated on the mode. `adminOnly` means a source the owner may use but
+  // that is not offered to anyone else - Careerjet is licensed to one declared IP, IamExpat is read
+  // from public pages - so it is gated on the account, in every mode.
+  const hiddenForAccount = user.role === 'admin' ? new Set<string>() : adminOnlySourceKeys();
+  const activeAdapters = jobSourceAdapters.filter((adapter) =>
+    (mode === 'all' || adapter.access !== 'restricted') && !hiddenForAccount.has(adapter.key));
   const [cvRows, criteriaRow, roleRows] = await Promise.all([
     db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id).all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
     db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
@@ -284,8 +291,7 @@ export async function POST(request: Request) {
 
   const visibleSources = user.role === 'admin'
     ? sourceReports
-    : sourceReports.filter((source) => jobSourceAdapters
-      .find((adapter) => adapter.key === source.sourceKey)?.access !== 'restricted');
+    : sourceReports.filter((source) => !hiddenForAccount.has(source.sourceKey));
   const run: SearchRun = { id: runId, status: overallStatus, startedAt, completedAt, sources: visibleSources };
   const added = [...addedById.values()];
   return NextResponse.json({
