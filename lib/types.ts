@@ -57,6 +57,12 @@ export interface JobRecord {
   matchedKeywords: string[];
   missingKeywords: string[];
   identityFingerprint: string;
+  /** Id of the job shown in this one's place when the same posting was found on another board. */
+  duplicateOf: string;
+  /** How many other boards carry this same posting. Set on the job that is actually displayed. */
+  duplicateCount?: number;
+  /** Names of the boards those copies came from, for the "also on" line. */
+  duplicateSources?: string[];
   isSaved: boolean;
   applicationStatus: ApplicationStatus;
   visibilityStatus: VisibilityStatus;

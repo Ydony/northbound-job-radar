@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     derivedRole: roleForSlot(row.slot, row.derived_role, criteria),
   }));
 
-  const language = analyzeLanguage(description);
+  const language = analyzeLanguage(description, title);
   const fit = scoreFitAcrossCvs(description, title, cvs);
   const result = await upsertJob(db, user.id, {
     sourceUrl, title, company, location, description,

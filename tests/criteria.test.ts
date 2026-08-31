@@ -30,6 +30,7 @@ const job: JobRecord = {
   matchedKeywords: ['sql'],
   missingKeywords: [],
   identityFingerprint: 'job-v1-example',
+  duplicateOf: '',
   isSaved: false,
   applicationStatus: 'not_applied',
   visibilityStatus: 'active',

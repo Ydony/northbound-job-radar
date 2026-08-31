@@ -169,6 +169,91 @@ The product is called **Ik Engels** throughout the code, the dashboard header, t
 changes with the domain, decide before writing more user-facing copy — the rename is cheap now and
 touches several pages later.
 
+## E. Requested 2026-08-31 — from screenshots of the test workspace
+
+The user reviewed the live list and reported four defects and two changes. Recorded verbatim in
+intent so nothing is lost if this is picked up by someone else.
+
+### E1. Language screening misses obvious requirements — IN PROGRESS
+
+Reported: *"language filtration does not work too well"*, with a card titled "Online Data Analyst -
+German Language" marked ENGLISH SUFFICIENT.
+
+Measured before changing anything: of 1,004 stored jobs, 13 name a language in the title and **9 of
+those were not blocked** (7 review, 2 pass). The gate only ever saw the description, and on
+aggregator teasers the description is a truncated blurb that never repeats what the headline says.
+
+Requested design, in the user's words:
+
+- A database of phrases such as "fluent in German", and common variations built from `mandatory`,
+  `fluent` + French / Italian / Dutch / German.
+- If the text matches one of those phrases → **exclude**, because "we do not want to see it".
+- After that filter, if a language word (French, Italian, Dutch, German, Spanish) is merely
+  mentioned → **review needed**.
+- Constraint: "a reasonable amount of key phrases … without overloading the server or making the
+  filter too long to run."
+
+- [x] Read the job title, not only the description.
+- [ ] Build the phrase table and the two-stage exclude → review decision.
+- [ ] Add Spanish to the languages that are recognised at all (currently absent).
+
+### E2. The same job appears several times — IN PROGRESS
+
+Reported with a screenshot of one advertisement listed twice.
+
+Root cause: `identity_fingerprint` hashes location and exact posting day, so "LGT Capital Partners
+AG, Pfaeffikon · Schweiz" and "LGT Capital Partners AG · Schweiz" hashed differently. A hash cannot
+express "within four days" or "one location contains the other".
+
+Requested rule: same or similar job title, same company, same city, posted within 4 days.
+
+Measured: **207 of 993 active jobs (21%) are redundant copies**, across 129 groups, 64 of which span
+more than one board.
+
+- [x] Cluster key, near-duplicate comparison, `duplicate_of`, and a backfill for existing jobs.
+- [ ] Show "also on X, Y" on the job that is kept, and a count of what was folded away.
+
+### E3. Remove the manual "Analyze & add" dialogue
+
+Reported: *"no need for analyse job section"*, with a screenshot of the paste-an-advertisement modal.
+
+Superseded by automated search across the configured sources; keeping it costs a route, a modal, and
+a validation surface for a workflow nobody uses now.
+
+- [ ] Remove the dialogue and its trigger; decide whether `POST /api/jobs` stays for tests.
+
+### E4. Confirm every list action with one line of text
+
+Reported: *"when pressed saved and when moved to pipeline, there should be a tiny one line text
+saying saved to pipeline. same for other actions, like dismissed"*.
+
+Today save / applied / not-applied / dismiss change the card silently, so on a long list it is not
+obvious the click registered.
+
+- [ ] Add a short, polite, self-clearing confirmation line for each list action.
+
+### E5. HTML entities are shown raw in titles — DONE
+
+Spotted while measuring E2: `Senior Cost &amp; Inventory Analyst` sat next to
+`Senior Cost & Inventory Analyst` — displayed wrongly, and never matched as a duplicate.
+
+- [x] Decode entities, and apply it to titles rather than only to description HTML.
+
+### E6. Requirements are not shown on a card
+
+Reported earlier the same day: *"each job should have requirements displayed, so it would be easier
+to decide if fits me or not"*.
+
+Measured: only 23% of stored jobs contain a detectable requirements heading, but 85% of full-length
+advertisements (≥1500 chars) do — and there are only 114 of those. 512 of 1,004 are teasers under
+400 characters with no requirements in them to find. Ingest was also destroying the structure:
+jobs.ch descriptions averaged 3,173 characters with 0% surviving list markup.
+
+- [x] Stop flattening `<ul>`/`<li>`/`<p>` at ingest so the structure survives.
+- [ ] Extract a requirements section by heading and show the first few bullets, collapsed.
+- [ ] For teaser-length ads, link out instead of showing a fake excerpt.
+- [ ] Re-fetch existing jobs, which were stored before structure was preserved.
+
 ## C. Product improvements, in value order
 
 - [ ] **C1.** Build and label a representative real-ad language corpus.

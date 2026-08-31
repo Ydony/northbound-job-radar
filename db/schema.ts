@@ -14,6 +14,7 @@ export const jobs = sqliteTable(
   'jobs',
   {
     id: text('id').primaryKey(),
+    userId: text('user_id').notNull().default('legacy'),
     sourceUrl: text('source_url').notNull().unique(),
     canonicalUrl: text('canonical_url').notNull().default(''),
     sourceKey: text('source_key').notNull().default(''),
@@ -34,6 +35,11 @@ export const jobs = sqliteTable(
     matchedKeywords: text('matched_keywords').notNull().default('[]'),
     missingKeywords: text('missing_keywords').notNull().default('[]'),
     identityFingerprint: text('identity_fingerprint').notNull().default(''),
+    // Coarse duplicate bucket (employer + role, noise removed); the day and the location are
+    // deliberately left out so the range comparison can happen in TypeScript.
+    clusterKey: text('cluster_key').notNull().default(''),
+    // Set to the id of the job kept on screen when this row is the same posting from another board.
+    duplicateOf: text('duplicate_of').notNull().default(''),
     isSaved: integer('is_saved', { mode: 'boolean' }).notNull().default(false),
     applicationStatus: text('application_status').notNull().default('not_applied'),
     visibilityStatus: text('visibility_status').notNull().default('active'),
@@ -51,6 +57,8 @@ export const jobs = sqliteTable(
     index('jobs_source_identity_idx').on(table.sourceKey, table.sourceJobId),
     index('jobs_canonical_url_idx').on(table.canonicalUrl),
     index('jobs_identity_fingerprint_idx').on(table.identityFingerprint),
+    index('jobs_cluster_idx').on(table.userId, table.clusterKey),
+    index('jobs_duplicate_of_idx').on(table.userId, table.duplicateOf),
   ],
 );
 

@@ -14,6 +14,12 @@ export interface HealthReport {
   publicIp: string;
   declaredIp: string;
   ipMatches: boolean;
+  /**
+   * Whether Careerjet actually answered. This, not the IP comparison, is what says the integration
+   * works: declaredIp is only the value configured locally, so a mismatch means the local note is
+   * stale, which is worth fixing but is not an outage.
+   */
+  careerjetWorking: boolean;
   checkedAt: string;
   sources: SourceHealth[];
 }
@@ -60,6 +66,7 @@ export async function GET(request: Request) {
     publicIp,
     declaredIp,
     ipMatches: Boolean(publicIp && declaredIp && publicIp === declaredIp),
+    careerjetWorking: sources.some((source) => source.key === 'careerjet' && source.status === 'ok'),
     checkedAt: new Date().toISOString(),
     sources,
   };

@@ -53,17 +53,52 @@ export function interleaveUnique(groups: string[][]) {
   return result;
 }
 
+const namedEntities: Record<string, string> = {
+  amp: '&', nbsp: ' ', quot: '"', apos: "'", lt: '<', gt: '>', ndash: '–', mdash: '—',
+  hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”',
+  eacute: 'é', egrave: 'è', agrave: 'à', ccedil: 'ç',
+  uuml: 'ü', ouml: 'ö', auml: 'ä', szlig: 'ß',
+};
+
+/**
+ * Turn HTML entities back into the characters they stand for.
+ *
+ * Feeds hand us titles with the tags already removed but the entities still encoded, so
+ * "Senior Cost &amp; Inventory Analyst" was displayed literally and — worse — did not match its
+ * own duplicate spelled with a real ampersand. Titles never went through stripHtml, which is why
+ * this decoding has to be callable on its own.
+ */
+export function decodeEntities(text: string) {
+  return text
+    .replace(/&#x([0-9a-f]+);/gi, (_match, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_match, decimal) => String.fromCodePoint(Number(decimal)))
+    .replace(/&([a-z]+);/gi, (match, name) => namedEntities[name.toLowerCase()] ?? match);
+}
+
+/**
+ * Flatten HTML to text while keeping the line structure that makes an advertisement readable.
+ *
+ * This used to collapse every run of whitespace, which meant a `<ul>` of requirements arrived as
+ * one unbroken paragraph — jobs.ch descriptions averaged 3,173 characters with no structure left
+ * at all. Keeping list items and block boundaries as newlines is what makes it possible to show
+ * requirements on a card, and it sharpens the language gate too: that splits on newlines when
+ * deciding which cue belongs to which language mention, so bullets no longer bleed into each other.
+ */
 export function stripHtml(html: string) {
-  return html
+  const withBreaks = html
     .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/\s+/g, ' ')
+    .replace(/<li[^>]*>/gi, '\n• ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(p|div|tr|h[1-6]|ul|ol|li|section|article)[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ');
+  return decodeEntities(withBreaks)
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    // A bullet with nothing after it is a layout artefact of the source markup, not a requirement.
+    .replace(/\n?• *(?=\n|$)/g, '')
+    // One newline per break, uniformly: adjacent block tags each emit one, and a blank line
+    // carries no meaning that the card cannot add back when it renders.
+    .replace(/\n+/g, '\n')
     .trim();
 }
 

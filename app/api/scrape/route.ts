@@ -18,7 +18,13 @@ const MAX_NEW_PER_BULK_SOURCE = 200;
 /** Employer-declared requirements are more reliable than prose, so they win when a source publishes them. */
 function languageForParsedJob(parsed: ParsedJob, description: string): LanguageResult {
   const skills = (parsed as { languageSkills?: Parameters<typeof analyzeStructuredLanguages>[0] }).languageSkills;
-  return (skills && analyzeStructuredLanguages(skills)) || analyzeLanguage(description);
+  const structured = skills && analyzeStructuredLanguages(skills);
+  // A language in the title still blocks: employer-declared skill lists are occasionally left
+  // empty on an advertisement whose own headline names the language it needs.
+  if (structured && structured.status === 'blocked') return structured;
+  const fromText = analyzeLanguage(description, parsed.title);
+  if (fromText.status === 'blocked') return fromText;
+  return structured || fromText;
 }
 
 interface KnownIdentity {

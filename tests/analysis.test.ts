@@ -13,18 +13,47 @@ test('passes a sufficiently long English advertisement with no local-language re
   assert.equal(analyzeLanguage(englishAd).status, 'pass');
 });
 
-test('passes an explicitly optional German requirement', () => {
+// These three used to expect `pass`. A local language named anywhere now goes to review instead,
+// even when the advertisement calls it optional: "a plus" is frequently how an employer describes
+// a language they go on to expect at interview, and the cost is asymmetric — a few seconds reading
+// the wording against an evening spent on a job that was never open. The optional wording is still
+// detected, and still stated in the summary, so the review is a quick one.
+test('sends an explicitly optional German requirement to review, saying it is optional', () => {
   const result = analyzeLanguage(`${englishAd} German is a plus.`);
-  assert.equal(result.status, 'pass');
+  assert.equal(result.status, 'review');
   assert.match(result.summary, /optional/i);
 });
 
 test('treats not required as optional rather than mandatory', () => {
-  assert.equal(analyzeLanguage(`${englishAd} German is not required.`).status, 'pass');
+  const result = analyzeLanguage(`${englishAd} German is not required.`);
+  assert.equal(result.status, 'review');
+  assert.match(result.summary, /optional/i);
 });
 
 test('treats advantageous language skills as optional', () => {
-  assert.equal(analyzeLanguage(`${englishAd} German language skills are advantageous.`).status, 'pass');
+  const result = analyzeLanguage(`${englishAd} German language skills are advantageous.`);
+  assert.equal(result.status, 'review');
+  assert.match(result.summary, /optional/i);
+});
+
+test('does not let an optional cue for one language silence a requirement for another', () => {
+  // The cue nearest a language binds to it: a match may not step over another language name.
+  const result = analyzeLanguage(`${englishAd} German preferred and French fluency.`);
+  assert.equal(result.status, 'blocked');
+  assert.match(result.summary, /French/);
+  assert.doesNotMatch(result.summary, /German/);
+});
+
+test('reads a labelled language list, colons and levels included', () => {
+  // "Sprachen: Deutsch: C2" is the clearest hard bar an ad has, and was being missed entirely.
+  assert.equal(analyzeLanguage(`${englishAd} Sprachen: Deutsch: C2, Franzosisch: B2.`).status, 'blocked');
+});
+
+test('blocks a language named in the job title even when the body never repeats it', () => {
+  // Aggregator teasers truncate the body, so the headline carries the only signal.
+  const result = analyzeLanguage(englishAd, 'Online Data Analyst - German Language');
+  assert.equal(result.status, 'blocked');
+  assert.match(result.summary, /German/);
 });
 
 test('blocks a mandatory local language', () => {

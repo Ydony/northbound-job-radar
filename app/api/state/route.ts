@@ -3,7 +3,7 @@ import { authSecrets, ensureSchema } from '@/db/runtime';
 import { recordVisit } from '@/lib/analytics';
 import { clientIp, requireSession } from '@/lib/guard';
 import { jobSourceAdapters } from '@/lib/job-adapters';
-import { criteriaFromRow, cvFromRow, jobFromRow, searchRunsFromRows, type CriteriaRow, type CvRow,
+import { criteriaFromRow, cvFromRow, jobFromRow, reclusterJobs, searchRunsFromRows, type CriteriaRow, type CvRow,
   type JobRow, type SearchRoleRow, type SearchRunRow, type SearchRunSourceRow } from '@/lib/server-data';
 
 /**
@@ -24,6 +24,13 @@ export async function GET(request: Request) {
   // is stored - see lib/analytics.ts.
   await recordVisit(db, clientIp(request), request.headers.get('user-agent') ?? '', authSecrets().sessionSecret);
 
+  // Jobs stored before duplicate detection existed carry no cluster key, and the column had to be
+  // left blank by the migration because the key is normalized in TypeScript. Backfill once, on the
+  // first read after upgrading, rather than asking anyone to run a script.
+  const unclustered = await db.prepare("SELECT COUNT(*) AS total FROM jobs WHERE user_id = ? AND cluster_key = ''")
+    .bind(user.id).first<{ total: number }>();
+  if (unclustered?.total) await reclusterJobs(db, user.id);
+
   const [cvs, jobs, criteria, roles, runs, jobTotal] = await Promise.all([
     db.prepare('SELECT * FROM cvs WHERE user_id = ? ORDER BY slot').bind(user.id).all<CvRow>(),
     db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,
@@ -42,10 +49,28 @@ export async function GET(request: Request) {
     ? await db.prepare(`SELECT * FROM search_run_sources WHERE run_id IN (${runIds.map(() => '?').join(',')}) ORDER BY source_name`)
       .bind(...runIds).all<SearchRunSourceRow>()
     : { results: [] as SearchRunSourceRow[] };
+  // Copies of the same advertisement are kept in the database but folded into the job on screen,
+  // which carries the count and the board names so the alternatives stay reachable.
+  const allJobs = jobs.results.map(jobFromRow);
+  const byId = new Map(allJobs.map((job) => [job.id, job]));
+  const copies = new Map<string, string[]>();
+  for (const job of allJobs) {
+    if (!job.duplicateOf || !byId.has(job.duplicateOf)) continue;
+    copies.set(job.duplicateOf, [...(copies.get(job.duplicateOf) ?? []), job.sourceName]);
+  }
+  const visibleJobs = allJobs
+    // A copy whose primary fell outside the page limit is shown rather than lost.
+    .filter((job) => !job.duplicateOf || !byId.has(job.duplicateOf))
+    .map((job) => {
+      const sources = copies.get(job.id);
+      return sources ? { ...job, duplicateCount: sources.length, duplicateSources: [...new Set(sources)] } : job;
+    });
+
   return NextResponse.json({
     account: { email: user.email, role: user.role },
     profiles: cvs.results.map(cvFromRow),
-    jobs: jobs.results.map(jobFromRow),
+    jobs: visibleJobs,
+    hiddenDuplicates: allJobs.length - visibleJobs.length,
     totalJobs: jobTotal?.total ?? jobs.results.length,
     jobLimit: JOB_PAGE_LIMIT,
     criteria: criteriaFromRow(criteria, roles.results),

@@ -130,6 +130,88 @@ export function jobIdentityFingerprint(input: JobIdentityInput) {
   return `job-v1-${stableHash(parts.join('|'))}`;
 }
 
+/**
+ * Noise that the same advertisement is spelled with on one board and without on another.
+ *
+ * Swiss and German listings carry a gender marker and a workload percentage in the title itself
+ * ("Business Analyst (m/w/d) 80-100%"), and aggregators frequently drop one or both when they
+ * republish. None of it identifies the role, so none of it belongs in a matching key.
+ */
+const titleNoise = [
+  /\((?:\s*[mwfdvxhk]\s*[/|])+\s*[mwfdvxhk]\s*\)/gi,
+  /(?:\b[mwfdvxhk]\s*\/)+\s*[mwfdvxhk]\b/gi,
+  /\(\s*(?:all genders|alle geschlechter|m\/f\/d\/i|d\/f\/m)\s*\)/gi,
+  /\(?\s*\d{1,3}\s*(?:[-–—]|to|bis)?\s*\d{0,3}\s*%\s*\)?/g,
+  /\b(?:ref\.?|reference|job[\s-]?id|vacancy(?:\s*(?:no|nr))?)\s*:?\s*#?[\w-]{3,}\b/gi,
+  /#\d{3,}/g,
+];
+
+/** Legal-form suffixes and country tails that one board prints and another omits. */
+const companyNoise = /\b(?:ag|sa|s\.a|gmbh|mbh|bv|b\.v|nv|n\.v|ltd|limited|llc|inc|plc|se|kg|ohg|sarl|srl|spa|holding|holdings|group|groep|schweiz|switzerland|suisse|svizzera|nederland|netherlands|international|co|company)\b/g;
+
+export function matchableTitle(title: string) {
+  const cleaned = titleNoise.reduce((value, pattern) => value.replace(pattern, ' '), title);
+  return normalizedIdentityText(cleaned);
+}
+
+export function matchableCompany(company: string) {
+  return normalizedIdentityText(company).replace(companyNoise, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * The coarse bucket used to find duplicate candidates cheaply.
+ *
+ * Deliberately looser than {@link jobIdentityFingerprint}: that one hashes the location and the
+ * exact posting day too, so a single advertisement listed as "Pfaeffikon · Schweiz" on one board
+ * and plain "Schweiz" on another produced two different hashes and two cards. The cluster key
+ * ignores both, and the finer comparison happens in {@link isNearDuplicate} where a range test is
+ * possible and a hash cannot help.
+ */
+export function jobClusterKey(input: { title: string; company: string }) {
+  const title = matchableTitle(input.title);
+  const company = matchableCompany(input.company);
+  if (!title || !company) return '';
+  return `cluster-v1-${stableHash(`${company}|${title}`)}`;
+}
+
+/**
+ * True when neither location contradicts the other.
+ *
+ * Boards disagree about granularity far more often than they disagree about the place, so a subset
+ * test is the right shape: "schweiz" sits inside "pfaeffikon schweiz" and they merge, while
+ * "amsterdam" and "rotterdam" share nothing and stay apart as the genuinely different postings
+ * they are.
+ */
+export function locationsCompatible(left: string, right: string) {
+  const a = new Set(normalizedIdentityText(left).split(' ').filter(Boolean));
+  const b = new Set(normalizedIdentityText(right).split(' ').filter(Boolean));
+  if (!a.size || !b.size) return true;
+  const [small, large] = a.size <= b.size ? [a, b] : [b, a];
+  return [...small].every((token) => large.has(token));
+}
+
+export const DUPLICATE_WINDOW_DAYS = 4;
+
+/**
+ * Whether two postings in the same cluster are the same job reposted elsewhere.
+ *
+ * Same employer and same role is not enough on its own — a company can advertise the identical
+ * title in two cities, or reopen it months later — so the place has to be compatible and the
+ * dates close. An absent date is not treated as a contradiction because several sources simply
+ * do not publish one.
+ */
+export function isNearDuplicate(
+  left: { location: string; postedAt?: string },
+  right: { location: string; postedAt?: string },
+  windowDays = DUPLICATE_WINDOW_DAYS,
+) {
+  if (!locationsCompatible(left.location, right.location)) return false;
+  const leftTime = left.postedAt ? Date.parse(left.postedAt) : Number.NaN;
+  const rightTime = right.postedAt ? Date.parse(right.postedAt) : Number.NaN;
+  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return true;
+  return Math.abs(leftTime - rightTime) <= windowDays * 24 * 60 * 60 * 1000;
+}
+
 export function countryLabel(country: JobCountry) {
   if (country === 'switzerland') return 'Switzerland';
   if (country === 'netherlands') return 'Netherlands';

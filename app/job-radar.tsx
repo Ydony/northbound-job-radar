@@ -672,10 +672,16 @@ export default function JobRadar() {
           </div>
           {!health && <p>{healthBusy ? 'Contacting each keyed source…' : 'Run a check to confirm your IP still matches what Careerjet expects.'}</p>}
           {health && <>
-            <p className={health.ipMatches ? 'health-ok' : 'health-warn'}>
+            {/* The probe result decides the tone, not the IP comparison. CAREERJET_USER_IP is only
+                the value configured here, so a mismatch while Careerjet is answering means the
+                local note has gone stale on a dynamic home connection - worth correcting, but not
+                a failure, and showing it in red next to "Working" simply contradicted itself. */}
+            <p className={health.ipMatches || health.careerjetWorking ? 'health-ok' : 'health-warn'}>
               {health.ipMatches
                 ? `Your IP ${health.publicIp} matches the one declared to Careerjet.`
-                : `Your IP is now ${health.publicIp || 'unknown'}, but Careerjet expects ${health.declaredIp || 'none declared'}. Update CAREERJET_USER_IP and the declared IP in your Careerjet account.`}
+                : health.careerjetWorking
+                  ? `Careerjet is answering normally. Your IP is now ${health.publicIp || 'unknown'} while CAREERJET_USER_IP still says ${health.declaredIp || 'none declared'} — update the local value when convenient so this check stays meaningful.`
+                  : `Careerjet is not answering, and your IP has changed: it is now ${health.publicIp || 'unknown'} but CAREERJET_USER_IP says ${health.declaredIp || 'none declared'}. Update both that value and the declared IP in your Careerjet account.`}
             </p>
             <ul>
               {health.sources.map((source) => <li key={source.key}>

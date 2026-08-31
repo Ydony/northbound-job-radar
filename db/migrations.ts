@@ -322,4 +322,23 @@ export const runtimeMigrations: RuntimeMigration[] = [
        WHERE detected_status = ''`,
     ],
   },
+  {
+    version: 13,
+    name: 'collapse_cross_board_duplicates',
+    statements: [
+      // identity_fingerprint hashes the location and the exact posting day, so the same
+      // advertisement listed as "Pfaeffikon, Schweiz" on one board and plain "Schweiz" on another
+      // hashed differently and appeared twice. A hash cannot express "within four days" or "one
+      // location contains the other", so matching needs a coarse bucket plus a real comparison.
+      "ALTER TABLE jobs ADD COLUMN cluster_key TEXT NOT NULL DEFAULT ''",
+      // Points at the job kept on screen. Non-empty means this row is a copy and stays hidden.
+      // Nothing is deleted: the copy still carries its own apply link, which is the whole reason
+      // a person might want the version on a particular board.
+      "ALTER TABLE jobs ADD COLUMN duplicate_of TEXT NOT NULL DEFAULT ''",
+      'CREATE INDEX IF NOT EXISTS jobs_cluster_idx ON jobs(user_id, cluster_key)',
+      'CREATE INDEX IF NOT EXISTS jobs_duplicate_of_idx ON jobs(user_id, duplicate_of)',
+      // cluster_key is normalized in TypeScript, so rows are left blank here and backfilled by
+      // reclusterJobs() the next time the workspace is read.
+    ],
+  },
 ];

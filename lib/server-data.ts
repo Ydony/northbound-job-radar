@@ -1,6 +1,6 @@
 import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
-import { canonicalJobUrl, isGloballyStableSourceJobId, jobIdentityFingerprint, sourceInfoForUrl,
-  sourceJobIdFromUrl } from './job-identity';
+import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
+  sourceInfoForUrl, sourceJobIdFromUrl } from './job-identity';
 import { detectWorkplaceType } from './workplace';
 import type { CvProfile, CvSlot, JobRecord, SearchCriteria, SearchRun, SearchRunSource } from './types';
 
@@ -38,6 +38,8 @@ interface JobRow {
   matched_keywords: string;
   missing_keywords: string;
   identity_fingerprint: string;
+  cluster_key: string;
+  duplicate_of: string;
   is_saved: number;
   application_status: JobRecord['applicationStatus'];
   visibility_status: JobRecord['visibilityStatus'];
@@ -148,6 +150,7 @@ export function jobFromRow(row: JobRow): JobRecord {
       location: row.location,
       postedAt: row.posted_at,
     }),
+    duplicateOf: row.duplicate_of ?? '',
     isSaved: Boolean(row.is_saved),
     applicationStatus: row.application_status === 'applied' ? 'applied' : 'not_applied',
     visibilityStatus: row.visibility_status === 'dismissed' ? 'dismissed' : 'active',
@@ -227,6 +230,14 @@ export interface UpsertJobResult {
   wasDismissed: boolean;
 }
 
+interface NearDuplicateCandidate {
+  id: string;
+  location: string;
+  posted_at: string;
+  duplicate_of: string;
+  first_seen_at: string;
+}
+
 interface ExistingJobIdentity {
   id: string;
   source_url: string;
@@ -262,7 +273,22 @@ export async function upsertJob(db: D1Database, userId: string, input: UpsertJob
       .bind(userId, identityFingerprint).first<ExistingJobIdentity>()
     : null;
   const existing = exact ?? fingerprintMatch;
-  const wasDuplicate = Boolean(fingerprintMatch && fingerprintMatch.source_key !== source.key);
+  const clusterKey = jobClusterKey(input);
+  // Only a genuinely new row needs a near-duplicate search: anything matched above is already the
+  // same row being refreshed. The candidate list is bounded by the cluster index, and the range
+  // comparison that the fingerprint hash cannot express happens here in TypeScript.
+  const nearMatch = !existing && clusterKey
+    ? (await db.prepare(`SELECT id, location, posted_at, duplicate_of, first_seen_at FROM jobs
+        WHERE user_id = ? AND cluster_key = ? ORDER BY first_seen_at LIMIT 25`)
+        .bind(userId, clusterKey).all<NearDuplicateCandidate>())
+      .results.find((candidate) => isNearDuplicate(
+        { location: input.location, postedAt },
+        { location: candidate.location, postedAt: candidate.posted_at },
+      ))
+    : undefined;
+  // Point at the row actually on screen, never at another copy, so the chain stays one level deep.
+  const duplicateOf = nearMatch ? nearMatch.duplicate_of || nearMatch.id : '';
+  const wasDuplicate = Boolean(nearMatch) || Boolean(fingerprintMatch && fingerprintMatch.source_key !== source.key);
 
   const tombstone = await db.prepare(`SELECT id FROM dismissed_jobs
     WHERE user_id = ? AND ((? != '' AND source_job_id = ? AND (source_key = ? OR ? = 1))
@@ -280,22 +306,23 @@ export async function upsertJob(db: D1Database, userId: string, input: UpsertJob
     await db.prepare(`UPDATE jobs SET canonical_url = ?, source_key = ?, source_name = ?, source_job_id = ?,
       country = ?, title = ?, company = ?, location = ?, description = ?, language_status = ?, language_summary = ?,
       language_signals = ?, fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
-      identity_fingerprint = ?, visibility_status = ?, posted_at = CASE WHEN ? = '' THEN posted_at ELSE ? END,
+      identity_fingerprint = ?, cluster_key = ?, visibility_status = ?, posted_at = CASE WHEN ? = '' THEN posted_at ELSE ? END,
       last_seen_at = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
       .bind(canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company, input.location,
         input.description, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals), input.fitScoreA,
         input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords), JSON.stringify(input.missingKeywords),
-        identityFingerprint, visibilityStatus, postedAt, postedAt, now, now, id, userId).run();
+        identityFingerprint, clusterKey, visibilityStatus, postedAt, postedAt, now, now, id, userId).run();
   } else {
     await db.prepare(`INSERT INTO jobs (id, user_id, source_url, canonical_url, source_key, source_name, source_job_id, country,
       title, company, location, description, language_status, language_summary, language_signals, fit_score_a, fit_score_b,
-      best_cv_slot, workplace_type, matched_keywords, missing_keywords, identity_fingerprint, is_saved, application_status,
+      best_cv_slot, workplace_type, matched_keywords, missing_keywords, identity_fingerprint, cluster_key, duplicate_of,
+      is_saved, application_status,
       visibility_status, posted_at, first_seen_at, last_seen_at, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(id, userId, canonicalUrl, canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company,
         input.location, input.description, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals),
         input.fitScoreA, input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords),
-        JSON.stringify(input.missingKeywords), identityFingerprint, 0, 'not_applied', visibilityStatus, postedAt, now, now,
+        JSON.stringify(input.missingKeywords), identityFingerprint, clusterKey, duplicateOf, 0, 'not_applied', visibilityStatus, postedAt, now, now,
         visibilityStatus === 'dismissed' ? 'ignored' : 'new', now, now).run();
   }
   const row = await db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,
@@ -308,13 +335,98 @@ export async function upsertJob(db: D1Database, userId: string, input: UpsertJob
   return { job, wasKnown: Boolean(existing), wasDuplicate, wasDismissed: job.visibilityStatus === 'dismissed' };
 }
 
+interface ClusterableJob {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  posted_at: string;
+  first_seen_at: string;
+  source_key: string;
+  is_saved: number;
+  application_status: string;
+  description: string;
+}
+
+/**
+ * Group every job this account holds and mark the copies.
+ *
+ * Needed because cluster keys are normalized in TypeScript, so the migration that added the column
+ * could not fill it, and because the rules changed underneath jobs that were already stored. It is
+ * a full re-derivation rather than an incremental pass so that a correction to the normalizer
+ * takes effect everywhere instead of only on jobs seen afterwards.
+ *
+ * Which copy stays on screen is not arbitrary. A job the person has already saved or applied to
+ * wins outright — hiding that would lose their work. Otherwise the longest description wins,
+ * because the whole point of collapsing duplicates is to keep the copy worth reading: aggregator
+ * teasers stop displacing the full advertisement.
+ */
+export async function reclusterJobs(db: D1Database, userId: string) {
+  const rows = await db.prepare(`SELECT id, title, company, location, posted_at, first_seen_at, source_key,
+      is_saved, application_status, description FROM jobs WHERE user_id = ? ORDER BY first_seen_at, created_at`)
+    .bind(userId).all<ClusterableJob>();
+  if (!rows.results.length) return { clusters: 0, duplicates: 0 };
+
+  const buckets = new Map<string, ClusterableJob[]>();
+  const assignment = new Map<string, { clusterKey: string; duplicateOf: string }>();
+  for (const row of rows.results) {
+    const key = jobClusterKey(row);
+    assignment.set(row.id, { clusterKey: key, duplicateOf: '' });
+    if (!key) continue;
+    const bucket = buckets.get(key) ?? [];
+    bucket.push(row);
+    buckets.set(key, bucket);
+  }
+
+  const rank = (job: ClusterableJob) =>
+    (job.is_saved ? 2 : 0) + (job.application_status === 'applied' ? 2 : 0);
+
+  let clusters = 0;
+  let duplicates = 0;
+  for (const bucket of buckets.values()) {
+    if (bucket.length < 2) continue;
+    // Within a bucket the employer and role already agree; these groups apply the place and date
+    // rules, so one employer advertising the same title in two cities still yields two groups.
+    const groups: ClusterableJob[][] = [];
+    for (const job of bucket) {
+      const group = groups.find((candidate) => candidate.some((member) => isNearDuplicate(
+        { location: job.location, postedAt: job.posted_at },
+        { location: member.location, postedAt: member.posted_at },
+      )));
+      if (group) group.push(job);
+      else groups.push([job]);
+    }
+    for (const group of groups) {
+      if (group.length < 2) continue;
+      const primary = [...group].sort((a, b) =>
+        rank(b) - rank(a)
+        || b.description.length - a.description.length
+        || a.first_seen_at.localeCompare(b.first_seen_at))[0];
+      clusters += 1;
+      for (const job of group) {
+        if (job.id === primary.id) continue;
+        assignment.get(job.id)!.duplicateOf = primary.id;
+        duplicates += 1;
+      }
+    }
+  }
+
+  const statements = [...assignment.entries()].map(([id, value]) =>
+    db.prepare('UPDATE jobs SET cluster_key = ?, duplicate_of = ? WHERE id = ? AND user_id = ?')
+      .bind(value.clusterKey, value.duplicateOf, id, userId));
+  for (let index = 0; index < statements.length; index += 50) {
+    await db.batch(statements.slice(index, index + 50));
+  }
+  return { clusters, duplicates };
+}
+
 export async function rescoreAllJobs(db: D1Database, userId: string, cvs: CvInput[]) {
   const jobs = await db.prepare('SELECT id, title, description FROM jobs WHERE user_id = ?').bind(userId)
     .all<{ id: string; title: string; description: string }>();
   if (!jobs.results.length) return 0;
 
   const updates = jobs.results.map((job) => {
-    const language = analyzeLanguage(job.description);
+    const language = analyzeLanguage(job.description, job.title);
     const fit = scoreFitAcrossCvs(job.description, job.title, cvs);
     return db.prepare(`UPDATE jobs SET language_status = ?, language_summary = ?, language_signals = ?,
       fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, matched_keywords = ?, missing_keywords = ?,

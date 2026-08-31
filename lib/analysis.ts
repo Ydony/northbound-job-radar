@@ -1,3 +1,5 @@
+import { matchLanguagePhrases } from './language-rules';
+
 export type LanguageStatus = 'pass' | 'review' | 'blocked';
 
 export interface LanguageResult {
@@ -84,7 +86,6 @@ export function analyzeStructuredLanguages(skills: StructuredLanguageSkill[]): L
 }
 
 const localLanguages = ['german', 'french', 'italian', 'dutch', 'deutsch', 'français', 'francais', 'italiano', 'nederlands'];
-const languagePattern = localLanguages.join('|');
 
 const englishMarkers = new Set([
   'and', 'are', 'as', 'at', 'be', 'business', 'candidate', 'company', 'customer', 'experience', 'for', 'from',
@@ -98,9 +99,6 @@ const nonEnglishMarkers = new Set([
   'nous', 'poste', 'pour', 'profil', 'vous', 'con', 'esperienza', 'il', 'la', 'requisiti', 'ruolo', 'bij', 'de', 'een',
   'ervaring', 'functie', 'het', 'met', 'van', 'vereisten', 'voor', 'wij',
 ]);
-
-const optionalWords = /\b(?:a plus|advantage|advantageous|an asset|beneficial|bonus|desirable|nice to have|not required|optional|preferred|would be helpful)\b/gi;
-const requiredWords = /\b(?:advanced(?: level)?|at least|business[- ]fluent|excellent|fluency|fluent|good command|mandatory|minimum|must|required|requirement|strong|very good|working knowledge|proficien(?:t|cy)|native|b[12]|c[12])\b/gi;
 
 const skillPhrases = [
   'account management', 'agile', 'aws', 'azure', 'business analysis', 'change management', 'communication', 'crm',
@@ -119,97 +117,94 @@ const stopWords = new Set([
 function words(text: string) {
   return text.toLowerCase().normalize('NFKD').match(/[a-z][a-z0-9.+#-]{1,}/g) ?? [];
 }
+/**
+ * Decide whether English alone is enough for one advertisement.
+ *
+ * Three stages, strictest first, and the order matters:
+ *
+ *   1. A phrase rule matched a language next to a requirement cue ("fluent in German", "Dutch is
+ *      mandatory") — excluded outright. See lib/language-rules.ts for the wording.
+ *   2. The advertisement is not written in English — excluded.
+ *   3. A local language is named at all, in the title or the body — sent to review rather than
+ *      passed, even when the text calls it optional. A person glancing at the wording costs a few
+ *      seconds; applying for a job that was never open costs an evening.
+ *
+ * The title is read as well as the body. On aggregator teasers the description is a truncated
+ * blurb, so "Online Data Analyst - German Language" carried its only real signal in the headline —
+ * and passing that one as English-sufficient is the exact failure this project exists to avoid.
+ */
+export function analyzeLanguage(description: string, title = ''): LanguageResult {
+  const fromTitle = matchLanguagePhrases(title);
+  const fromBody = matchLanguagePhrases(description);
+  const required = [...new Set([...fromTitle.required, ...fromBody.required])];
+  const mentioned = [...new Set([...fromTitle.mentioned, ...fromBody.mentioned])];
+  const optional = [...new Set([...fromTitle.optional, ...fromBody.optional])]
+    .filter((language) => !required.includes(language));
+  const evidence = [...fromTitle.evidence, ...fromBody.evidence].slice(0, 5);
 
-function labelLanguage(value: string) {
-  const normalized = value.toLowerCase();
-  if (normalized === 'deutsch') return 'German';
-  if (['français', 'francais'].includes(normalized)) return 'French';
-  if (normalized === 'italiano') return 'Italian';
-  if (normalized === 'nederlands') return 'Dutch';
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-}
+  const signals: string[] = [];
+  if (required.length) signals.push(`Mandatory: ${required.join(', ')}`);
+  if (optional.length) signals.push(`Described as optional: ${optional.join(', ')}`);
+  const unqualified = mentioned.filter((language) =>
+    !required.includes(language) && !optional.includes(language));
+  if (unqualified.length) signals.push(`Mentioned: ${unqualified.join(', ')}`);
+  if (evidence.length) signals.push(`Wording: "${evidence.join('", "')}"`);
 
-interface Cue {
-  start: number;
-  end: number;
-}
+  if (required.length) {
+    return {
+      status: 'blocked' as const,
+      summary: `Excluded: ${required.join(', ')} ${required.length > 1 ? 'appear' : 'appears'} to be required.`,
+      signals,
+    };
+  }
 
-function cues(sentence: string, pattern: RegExp) {
-  return [...sentence.matchAll(pattern)].map((match) => ({
-    start: match.index ?? 0,
-    end: (match.index ?? 0) + match[0].length,
-  }));
-}
+  // A language in the title with no cue at all still excludes. A headline is not prose; it names
+  // what the role is, so "German and Dutch speaking Sales Support" needs no supporting sentence.
+  if (fromTitle.mentioned.length) {
+    const named = fromTitle.mentioned.join(', ');
+    return {
+      status: 'blocked' as const,
+      summary: `Excluded: the job title names ${named}.`,
+      signals: [`Mandatory: ${named} (named in the job title)`, ...signals.filter((line) => !line.startsWith('Mentioned:'))],
+    };
+  }
 
-function distanceToCue(languageStart: number, languageEnd: number, cue: Cue) {
-  if (cue.end < languageStart) return languageStart - cue.end;
-  if (cue.start > languageEnd) return cue.start - languageEnd;
-  return 0;
-}
-
-function nearestDistance(languageStart: number, languageEnd: number, matches: Cue[]) {
-  return matches.reduce((nearest, cue) => Math.min(nearest, distanceToCue(languageStart, languageEnd, cue)), Number.POSITIVE_INFINITY);
-}
-
-export function analyzeLanguage(description: string): LanguageResult {
   const tokens = words(description);
   const englishScore = tokens.filter((token) => englishMarkers.has(token)).length;
   const localScore = tokens.filter((token) => nonEnglishMarkers.has(token)).length;
-  const sentences = description.split(/(?<=[.!?;\n])\s+/).map((part) => part.trim()).filter(Boolean);
-  const mandatory = new Set<string>();
-  const optional = new Set<string>();
-  const ambiguous = new Set<string>();
-
-  for (const sentence of sentences) {
-    const matches = [...sentence.matchAll(new RegExp(`\\b(${languagePattern})\\b`, 'gi'))];
-    const optionalCues = cues(sentence, optionalWords);
-    const requiredCues = cues(sentence, requiredWords).filter((required) =>
-      !optionalCues.some((optional) => required.start >= optional.start && required.end <= optional.end),
-    );
-    for (const match of matches) {
-      const language = labelLanguage(match[1]);
-      const start = match.index ?? 0;
-      const end = start + match[0].length;
-      const optionalDistance = nearestDistance(start, end, optionalCues);
-      const requiredDistance = nearestDistance(start, end, requiredCues);
-      const associationLimit = 55;
-      if (requiredDistance <= associationLimit && requiredDistance <= optionalDistance) mandatory.add(language);
-      else if (optionalDistance <= associationLimit) optional.add(language);
-      else ambiguous.add(language);
-    }
-  }
-
-  for (const language of mandatory) {
-    optional.delete(language);
-    ambiguous.delete(language);
-  }
-  for (const language of optional) ambiguous.delete(language);
-
-  const signals: string[] = [];
-  if (mandatory.size) signals.push(`Mandatory: ${[...mandatory].join(', ')}`);
-  if (optional.size) signals.push(`Optional: ${[...optional].join(', ')}`);
-  if (ambiguous.size) signals.push(`Unclear mention: ${[...ambiguous].join(', ')}`);
-
   const enoughText = tokens.length >= 55;
   const clearlyEnglish = enoughText && englishScore >= 7 && englishScore >= localScore * 1.35;
   const clearlyLocal = enoughText && localScore >= 7 && localScore > englishScore * 0.8;
 
-  if (mandatory.size) {
-    return { status: 'blocked' as const, summary: `Excluded: ${[...mandatory].join(', ')} appears mandatory.`, signals };
-  }
   if (clearlyLocal) {
-    return { status: 'blocked' as const, summary: 'Excluded: the advertisement is not predominantly English.', signals: [...signals, 'Ad language: not English'] };
+    return {
+      status: 'blocked' as const,
+      summary: 'Excluded: the advertisement is not predominantly English.',
+      signals: [...signals, 'Ad language: not English'],
+    };
+  }
+  if (mentioned.length) {
+    const named = mentioned.join(', ');
+    return {
+      status: 'review' as const,
+      summary: optional.length === mentioned.length
+        ? `Needs review: ${named} is described as optional — worth confirming in the ad.`
+        : `Needs review: ${named} is mentioned without a clear requirement.`,
+      signals,
+    };
   }
   if (!clearlyEnglish) {
-    return { status: 'review' as const, summary: 'Needs review: there is not enough evidence that the full advertisement is in English.', signals };
+    return {
+      status: 'review' as const,
+      summary: 'Needs review: there is not enough evidence that the full advertisement is in English.',
+      signals,
+    };
   }
-  if (ambiguous.size) {
-    return { status: 'review' as const, summary: `Needs review: ${[...ambiguous].join(', ')} is mentioned without saying whether it is optional.`, signals };
-  }
-  if (optional.size) {
-    return { status: 'pass' as const, summary: `English is sufficient; ${[...optional].join(', ')} is described as optional.`, signals };
-  }
-  return { status: 'pass' as const, summary: 'English advertisement with no mandatory local-language requirement detected.', signals: ['Ad language: English'] };
+  return {
+    status: 'pass' as const,
+    summary: 'English advertisement with no local-language requirement detected.',
+    signals: ['Ad language: English'],
+  };
 }
 
 export function scoreFit(description: string, title: string, cvText: string, targetRole: string): FitResult {

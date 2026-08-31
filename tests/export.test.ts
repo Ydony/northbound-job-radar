@@ -30,6 +30,7 @@ const job: JobRecord = {
   matchedKeywords: ['sap', 'data governance'],
   missingKeywords: ['python'],
   identityFingerprint: 'job-v1-example',
+  duplicateOf: '',
   isSaved: true,
   applicationStatus: 'not_applied',
   visibilityStatus: 'active',
