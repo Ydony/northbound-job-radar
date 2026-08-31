@@ -55,14 +55,84 @@ function runSourceRow(runId: string, source: SearchRunSource) {
   };
 }
 
+type ProgressEvent = { type: 'progress'; label: string; percent: number };
+type Report = (event: ProgressEvent) => void;
+
+/**
+ * Streams the search as newline-delimited JSON instead of answering once at the end.
+ *
+ * The last line is the result the caller wants; everything before it is progress. A client that
+ * only reads the final line still works, which is what keeps the scripted verifiers unchanged.
+ *
+ * Progress is flushed as it is produced. Buffering it would defeat the point entirely — the whole
+ * reason this exists is that a search takes tens of seconds and a silent button looks broken.
+ */
 export async function POST(request: Request) {
+  const encoder = new TextEncoder();
+  const queued: string[] = [];
+  let flush: (() => void) | null = null;
+
+  // Start the work immediately, collecting progress until we know whether there is anything to
+  // stream. A refusal happens before any of it - no session, rate limited, no role keywords - and
+  // those deserve their real status code rather than a 200 carrying an error in its last line.
+  const work = runSearch(request, (event) => {
+    queued.push(`${JSON.stringify(event)}
+`);
+    flush?.();
+  });
+
+  const firstSignal = new Promise<void>((resolve) => { flush = resolve; });
+  const settled = await Promise.race([
+    work.then((outcome) => outcome),
+    firstSignal.then(() => null),
+  ]);
+  if (settled && settled.kind === 'refused') return settled.response;
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const write = (line: string) => {
+        try {
+          controller.enqueue(encoder.encode(line));
+        } catch {
+          // The tab was closed. The search is worth finishing - anything it finds is already
+          // being stored - so a dead reader is not a reason to stop.
+        }
+      };
+      // Anything produced while we were deciding whether to stream at all.
+      for (const line of queued.splice(0)) write(line);
+      flush = () => { for (const line of queued.splice(0)) write(line); };
+
+      const outcome = await work;
+      flush();
+      write(`${JSON.stringify(outcome.kind === 'done' ? outcome.body : { error: 'Search failed.' })}
+`);
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      'content-type': 'application/x-ndjson; charset=utf-8',
+      'cache-control': 'no-store',
+      // Nothing between here and the browser may hold events back and deliver them together.
+      'x-accel-buffering': 'no',
+    },
+  });
+}
+
+type SearchOutcome =
+  /** Refused before any work started; sent as an ordinary response with its real status code. */
+  | { kind: 'refused'; response: NextResponse }
+  /** Completed; `body` becomes the last line of the stream. */
+  | { kind: 'done'; body: unknown };
+
+async function runSearch(request: Request, report: Report): Promise<SearchOutcome> {
   await ensureSchema();
   const { session, response } = await requireSession(request);
-  if (response) return response;
+  if (response) return { kind: 'refused', response };
   const { db, user } = session;
   // A search fans out to every source, so it is capped per account to protect third-party quotas.
   const limited = rateLimit(`scrape:${user.id}`, 6, 10 * 60_000);
-  if (limited) return limited;
+  if (limited) return { kind: 'refused', response: limited };
 
   // 'authorized' runs only official or keyed APIs. 'all' additionally reads public web pages, which
   // is the mode that carries terms risk, so it is restricted to administrators and is not merely
@@ -70,14 +140,14 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({})) as { mode?: SearchMode };
   const requestedAll = body.mode === 'all';
   if (requestedAll && user.role !== 'admin') {
-    return NextResponse.json({ error: 'That search mode is not available on this account.' }, { status: 403 });
+    return { kind: 'refused', response: NextResponse.json({ error: 'That search mode is not available on this account.' }, { status: 403 }) };
   }
   // Restricted sources need the VPN, and the button label is not evidence of one. Only the
   // launcher that verifies a full tunnel route sets this, so without it the mode is refused.
   if (requestedAll && !authSecrets().vpnEnforced) {
-    return NextResponse.json({
+    return { kind: 'refused', response: NextResponse.json({
       error: 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.',
-    }, { status: 409 });
+    }, { status: 409 }) };
   }
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';
   // Everyone gets the authorized APIs and the grey-area sources, whose robots.txt permits the
@@ -98,7 +168,7 @@ export async function POST(request: Request) {
   // derived from one, which made an optional feature block the product's only job. Roles come from
   // the role keywords now; a CV, when the feature is switched back on, only adds to them.
   if (CV_MATCHING_ENABLED && !cvRows.results.length) {
-    return NextResponse.json({ error: 'Upload at least one CV first.' }, { status: 400 });
+    return { kind: 'refused', response: NextResponse.json({ error: 'Upload at least one CV first.' }, { status: 400 }) };
   }
 
   const criteria = criteriaFromRow(criteriaRow, roleRows.results);
@@ -107,11 +177,11 @@ export async function POST(request: Request) {
     derivedRole: row.derived_role,
   })), criteria);
   if (!searchTerms.length) {
-    return NextResponse.json({
+    return { kind: 'refused', response: NextResponse.json({
       error: CV_MATCHING_ENABLED
         ? 'Add at least one role keyword or use a CV with a detectable target role.'
         : 'Add at least one role keyword in Search settings, then search again.',
-    }, { status: 400 });
+    }, { status: 400 }) };
   }
 
   const cvs = cvRows.results.map((row) => ({
@@ -131,22 +201,60 @@ export async function POST(request: Request) {
   const known = [...jobIdentities.results, ...dismissedIdentities.results];
 
   const credentials = aggregatorCredentials();
+
+  /**
+   * Progress is reported as it happens rather than estimated.
+   *
+   * A search takes tens of seconds — it contacts every configured source and then screens what
+   * comes back — and a button that sits there looking broken is the most common reason someone
+   * presses it twice. Every event below corresponds to work that has actually finished, so the
+   * percentage cannot run ahead of reality or stall at 99.
+   *
+   * Two phases, weighted by how long each really takes. Fetching is the slow one: it waits on
+   * other people's servers. Screening is local and quick, so it gets the last quarter of the bar.
+   */
+  const FETCH_SHARE = 0.75;
+  const totalSteps = activeAdapters.length || 1;
+  let fetched = 0;
+  let screened = 0;
+  const progress = (label: string) => report({
+    type: 'progress',
+    label,
+    percent: Math.min(99, Math.round(
+      ((fetched / totalSteps) * FETCH_SHARE + (screened / totalSteps) * (1 - FETCH_SHARE)) * 100,
+    )),
+  });
+
+  progress(`Contacting ${activeAdapters.length} source${activeAdapters.length === 1 ? '' : 's'}…`);
   const searchResults = await Promise.all(activeAdapters.map(async (adapter) => {
     const empty = { adapter, candidates: [] as string[], bulk: [] as ParsedJob[], error: '', missingCredentials: false };
-    if (adapter.availability !== 'enabled') return empty;
+    // Counted whichever way this ends, including skipped and failed sources: a bar that only
+    // advances on success stops moving exactly when something has gone wrong.
+    const done = <T>(value: T, note: string) => {
+      fetched += 1;
+      progress(`${adapter.name}: ${note}`);
+      return value;
+    };
+    if (adapter.availability !== 'enabled') return done(empty, 'not available');
     if (adapter.hasCredentials && !adapter.hasCredentials(credentials)) {
-      return { ...empty, missingCredentials: true };
+      return done({ ...empty, missingCredentials: true }, 'no credentials');
     }
     try {
       if (adapter.searchDetailed) {
         const bulk = await adapter.searchDetailed(searchTerms, criteria.location, credentials);
-        return { ...empty, bulk, candidates: bulk.map((job) => canonicalJobUrl(job.sourceUrl)) };
+        return done(
+          { ...empty, bulk, candidates: bulk.map((job) => canonicalJobUrl(job.sourceUrl)) },
+          `${bulk.length} advertisement${bulk.length === 1 ? '' : 's'}`,
+        );
       }
-      if (!adapter.search) return empty;
+      if (!adapter.search) return done(empty, 'nothing to search');
       const candidates = [...new Set((await adapter.search(searchTerms, criteria.location)).map(canonicalJobUrl))];
-      return { ...empty, candidates };
+      return done({ ...empty, candidates }, `${candidates.length} listing${candidates.length === 1 ? '' : 's'}`);
     } catch (error) {
-      return { ...empty, error: error instanceof Error ? error.message : 'Source request failed.' };
+      return done(
+        { ...empty, error: error instanceof Error ? error.message : 'Source request failed.' },
+        'failed',
+      );
     }
   }));
 
@@ -155,6 +263,8 @@ export async function POST(request: Request) {
 
   for (const result of searchResults) {
     const { adapter, candidates, bulk, error, missingCredentials } = result;
+    screened += 1;
+    progress(`Screening ${adapter.name}…`);
     if (missingCredentials) {
       sourceReports.push({
         sourceKey: adapter.key,
@@ -304,10 +414,10 @@ export async function POST(request: Request) {
     : sourceReports.filter((source) => !hiddenForAccount.has(source.sourceKey));
   const run: SearchRun = { id: runId, status: overallStatus, startedAt, completedAt, sources: visibleSources };
   const added = [...addedById.values()];
-  return NextResponse.json({
+  return { kind: 'done', body: {
     added,
     run,
     scanned: sourceReports.reduce((sum, source) => sum + source.foundCount, 0),
     alreadyKnown: sourceReports.reduce((sum, source) => sum + source.knownCount, 0),
-  });
+  } };
 }

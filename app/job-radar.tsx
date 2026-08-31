@@ -134,6 +134,7 @@ export default function JobRadar() {
   const [cvSlots, setCvSlots] = useState<Record<CvSlot, SlotState>>({ a: { ...emptySlotState }, b: { ...emptySlotState } });
   const [scrapeBusy, setScrapeBusy] = useState<'' | 'authorized' | 'all'>('');
   const [scrapeMessage, setScrapeMessage] = useState('');
+  const [scrapeProgress, setScrapeProgress] = useState<{ label: string; percent: number } | null>(null);
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(criteriaToDraft(defaultSearchCriteria));
   const [criteriaBusy, setCriteriaBusy] = useState(false);
   const [criteriaMessage, setCriteriaMessage] = useState('');
@@ -444,13 +445,43 @@ export default function JobRadar() {
       ? 'Searching every source, including the page-fetching ones. Keep the VPN connected…'
       : 'Searching the official and keyed APIs only. No VPN needed…');
     try {
-      const result = await responseJson<{ added: JobRecord[]; run: SearchRun; scanned: number; alreadyKnown: number }>(
-        await fetch('/api/scrape', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ mode }),
-        }),
-      );
+      const response = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      // Refusals still come back as an ordinary response with a real status code, so they are read
+      // the same way as any other error rather than being buried in the stream.
+      if (!response.ok || !response.body) {
+        throw new Error(((await response.json()) as { error?: string }).error || 'Could not search.');
+      }
+
+      // Progress arrives as newline-delimited JSON while the search runs. Only the last line is the
+      // result; everything before it says what is happening. A search takes tens of seconds, and a
+      // button that sits there looking broken is why people press it twice.
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let last: unknown = null;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        // The final fragment may be an incomplete line; keep it for the next chunk.
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const event = JSON.parse(line) as { type?: string; label?: string; percent?: number };
+          if (event.type === 'progress') {
+            setScrapeProgress({ label: event.label ?? '', percent: event.percent ?? 0 });
+          } else {
+            last = event;
+          }
+        }
+      }
+      const result = last as { added: JobRecord[]; run: SearchRun; scanned: number; alreadyKnown: number } | null;
+      if (!result?.run) throw new Error('The search ended without returning a result.');
       setState((current) => ({
         ...current,
         jobs: [...result.added, ...current.jobs.filter((job) => !result.added.some((added) => added.id === job.id))],
@@ -461,6 +492,7 @@ export default function JobRadar() {
     } catch (error) {
       setScrapeMessage(error instanceof Error ? error.message : 'Could not search the configured job sources.');
     } finally {
+      setScrapeProgress(null);
       setScrapeBusy('');
     }
   }
@@ -762,6 +794,10 @@ export default function JobRadar() {
         {isAdmin && <button className="jobs-button admin-only" type="button" disabled={Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
+        {scrapeProgress && <div className="scrape-progress" role="status" aria-live="polite">
+          <div className="scrape-bar"><i style={{ width: `${scrapeProgress.percent}%` }} /></div>
+          <p><span>{scrapeProgress.label}</span><b>{scrapeProgress.percent}%</b></p>
+        </div>}
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
         {isAdmin && <div className="health-panel">
           <div className="health-head">
