@@ -44,7 +44,34 @@ unnoticed before. Set `ALLOW_SIGNUPS=true` in `.dev.vars.dev` to create the seco
   claims with the code.
 - [ ] Report findings before making Phase 2 bug fixes; add regression tests for every fix.
 
-### A4. Protect the local test workspace
+### A4. Remove leftover test debris from the test workspace
+
+The test workspace still contains `second@example.test`, an account created during an earlier
+isolation check. It holds one synthetic CV and no jobs. Test is the environment used as a real
+user, so it should not carry debris from development.
+
+- [ ] Delete `second@example.test` from `http://localhost:3001/admin`.
+- [ ] Confirm the remaining account is the owner's and holds the 916-job workspace.
+
+### A5. Coordinate restarts of the test environment
+
+Reported 2026-08-31: saving criteria in test failed with "NetworkError when attempting to fetch
+resource", and settings and admin appeared broken. The failure did not reproduce afterwards. Every
+endpoint and page was re-checked and all returned 200 — `/api/account`, `/api/admin`,
+`/api/criteria` with five roles, `/settings`, `/admin`, `/sources`, `/privacy`, admin
+disable/enable, last-admin protection, and a second account saving its own criteria.
+
+The likely cause is the test Worker being rebuilt or restarted while a browser tab had it open.
+`test:local` serves a fixed build, so a restart drops in-flight requests, and a dropped fetch is
+exactly what that browser message reports. It is not a code fault, but it will keep happening while
+one person uses test and another restarts it.
+
+- [ ] Agree that whoever restarts test says so first, since it interrupts the person using it.
+- [ ] If it recurs, capture the browser network tab and the `test:local` terminal output at that
+  moment — a status code or a server-side stack trace would distinguish a real fault from a
+  restart, and neither was available this time.
+
+### A6. Protect the local test workspace
 
 - [ ] Add a documented, repeatable backup command for the test D1 and R2 state.
 - [ ] Verify a restore into a disposable directory without touching test.

@@ -284,12 +284,22 @@ export const runtimeMigrations: RuntimeMigration[] = [
       "DELETE FROM auth_events WHERE created_at < datetime('now', '-30 days')",
     ],
   },
-{
+  {
     version: 10,
     name: 'session_epoch_for_revocation',
     statements: [
       // Bumping a user's epoch invalidates every cookie already issued to them.
       'ALTER TABLE users ADD COLUMN session_epoch INTEGER NOT NULL DEFAULT 1',
+    ],
+  },
+  {
+    version: 11,
+    name: 'scope_search_role_positions_per_user',
+    statements: [
+      // The original index remained globally unique after user_id was introduced, so the first
+      // account to save positions 0-4 prevented every other account from saving role keywords.
+      'DROP INDEX IF EXISTS search_roles_position_idx',
+      'CREATE UNIQUE INDEX IF NOT EXISTS search_roles_user_position_idx ON search_roles(user_id, position)',
     ],
   },
 ];

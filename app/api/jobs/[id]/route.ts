@@ -51,12 +51,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const statements: D1PreparedStatement[] = [];
   const now = new Date().toISOString();
   if (hasSavedState) statements.push(db.prepare('UPDATE jobs SET is_saved = ?, updated_at = ? WHERE id = ? AND user_id = ?')
-    .bind(body.isSaved ? 1 : 0, now, id));
+    .bind(body.isSaved ? 1 : 0, now, id, user.id));
   if (hasApplicationStatus) statements.push(db.prepare('UPDATE jobs SET application_status = ?, updated_at = ? WHERE id = ? AND user_id = ?')
-    .bind(applicationStatus, now, id));
+    .bind(applicationStatus, now, id, user.id));
   if (hasVisibilityStatus) {
     statements.push(db.prepare('UPDATE jobs SET visibility_status = ?, updated_at = ? WHERE id = ? AND user_id = ?')
-      .bind(visibilityStatus, now, id));
+      .bind(visibilityStatus, now, id, user.id));
     if (visibilityStatus === 'dismissed') {
       const canonicalUrl = canonicalJobUrl(job.canonical_url || job.source_url);
       const source = sourceInfoForUrl(canonicalUrl, job.location);

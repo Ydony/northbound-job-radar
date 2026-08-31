@@ -3,7 +3,7 @@ import test from 'node:test';
 import { runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
@@ -56,4 +56,9 @@ test('uniqueness is scoped per owner so one account cannot block another', () =>
   assert.match(sql, /CREATE UNIQUE INDEX IF NOT EXISTS jobs_user_source_url_idx ON jobs\(user_id, source_url\)/);
   assert.match(sql, /CREATE UNIQUE INDEX IF NOT EXISTS cvs_user_slot_idx ON cvs\(user_id, slot\)/);
   assert.match(sql, /INSERT INTO jobs_rebuilt SELECT/, 'the old UNIQUE constraint needs a table rebuild');
+
+  const searchRoleSql = runtimeMigrations[10].statements.join('\n');
+  assert.match(searchRoleSql, /DROP INDEX IF EXISTS search_roles_position_idx/);
+  assert.match(searchRoleSql,
+    /CREATE UNIQUE INDEX IF NOT EXISTS search_roles_user_position_idx ON search_roles\(user_id, position\)/);
 });

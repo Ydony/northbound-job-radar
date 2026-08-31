@@ -77,10 +77,11 @@ export const languageFeedback = sqliteTable('language_feedback', {
 
 export const searchRoles = sqliteTable('search_roles', {
   id: text('id').primaryKey(),
+  userId: text('user_id').notNull().default('legacy'),
   position: integer('position').notNull(),
   role: text('role').notNull(),
   updatedAt: text('updated_at').notNull(),
-}, (table) => [uniqueIndex('search_roles_position_idx').on(table.position)]);
+}, (table) => [uniqueIndex('search_roles_user_position_idx').on(table.userId, table.position)]);
 
 export const dismissedJobs = sqliteTable('dismissed_jobs', {
   id: text('id').primaryKey(),
