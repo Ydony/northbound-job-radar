@@ -24,22 +24,31 @@ Working and verified locally:
 - Sign-in, sign-out, account settings, account deletion, and an administrator panel.
 - Seven job sources: Job-Room (67k Swiss vacancies, no key), Adzuna (CH + NL), Careerjet (CH + NL),
   61 public company career boards, and three page-fetching sources restricted to administrators.
-- `dev` at `http://localhost:3000` with disposable state under `.wrangler/dev/state`.
+- `dev` at `http://localhost:3000` with disposable state under `.wrangler/dev/state`. **Its
+  database is empty** — no jobs, no CVs. Task A3 needs an account registered and a CV uploaded
+  there first, which is deliberate: testing against freshly created data is exactly what exposes
+  the write paths that adopted data never touches.
 - `test` at `http://localhost:3001` with a stable built Worker and separate state under
   `.wrangler/test/state`.
 - The populated test workspace contains 916 jobs, 2 real CVs, and 12 recorded search runs.
 - The local-environment change passed `lint`, all 90 tests, `typecheck`, and `build` on 2026-08-31.
   The built test Worker was then restarted and `/login`, `/privacy`, and `/sources` returned 200.
+- Isolation between the two environments was independently re-verified on 2026-08-31 by signing in
+  to each and cross-sending the cookies: a test session against dev returns 401 and a dev session
+  against test returns 401, and the two workspaces differ (test 916 jobs and 2 CVs, dev empty). The
+  separation is real, not just configured.
 
 Not built yet: self-service password reset, email verification, pagination past 1,000 jobs, and
 backups. All listed with context in `docs/TASKS.md`.
 
 ## 3. Things that will surprise you
 
-**The local administrator credentials are temporary.** Test currently uses
-`admin-test@ikengels.test`; dev uses `admin-dev@ikengels.test`. The owner was given the temporary
-passwords in the task that created the environments and must change the test email and password in
-`/settings` immediately. Never put the passwords in this file or Git.
+**Both administrator passwords must be treated as compromised.** Test uses
+`admin-test@ikengels.test`, dev uses `admin-dev@ikengels.test`. The generated passwords for both
+were posted in plain text into a chat transcript, so they are exposed — not merely temporary. The
+owner must change the email and password on **both** environments in `/settings`, not only test.
+Changing a password also revokes that account's existing sessions. Never write these into a file,
+a commit, or a chat message.
 
 **Registration is closed by default.** `ALLOW_SIGNUPS=false`, so only the first account on an
 empty database can be created. To add a second account in dev, set `ALLOW_SIGNUPS=true` in
@@ -145,5 +154,6 @@ account with **new** data, not just the account that already has rows.
 
 The environment conversion is complete. Continue at `docs/TASKS.md` A3: exercise the entire dev
 workflow as a fresh second account, report findings before fixing them, and verify cross-account
-access fails. A1 remains a personal owner action: replace the temporary test administrator email
-and password in `http://localhost:3001/settings`.
+access fails. A1 remains a personal owner action, and now covers both environments: replace the administrator
+email and password in `http://localhost:3001/settings` **and** `http://localhost:3000/settings`,
+because both passwords were exposed in a chat transcript.

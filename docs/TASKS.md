@@ -5,7 +5,7 @@ session can continue without reconstructing the state.
 
 ## A. Current work — complete in order
 
-### A1. Owner changes the temporary test administrator login
+### A1. Owner changes BOTH administrator logins (exposed, not merely temporary)
 
 The populated test workspace is now owned by `admin-test@ikengels.test`. The temporary password
 was given directly to the owner and is not stored in Git. The owner must sign in at
