@@ -46,6 +46,22 @@ path, so test D1 and R2 data stay under `.wrangler/test/state`.
 Both may run at the same time. Restart `test:local` only when a validated change is ready for real
 use; source edits do not hot-reload into the running test release.
 
+## What differs between dev and test, deliberately
+
+The two run the same code. Everything below is configuration or data, and is meant to differ — do
+not "fix" it by making them match.
+
+| | dev | test | why |
+|---|---|---|---|
+| `ALLOW_SIGNUPS` | `true` | `false` | `verify:dev` and `verify:admin` create and delete disposable accounts, so dev must accept registrations. Test stays closed. |
+| Data | empty by default | the real workspace | Dev is disposable; exercising freshly created data is what catches write-path bugs that adopted data never touches. |
+| Reload | hot | fixed build | Test must not change under you while dev is being edited. |
+
+To confirm the two are running the same code: no file under `app/`, `lib/`, `db/` or
+`next.config.ts` should be newer than `dist/server/index.js`, and both should serve the same
+`Content-Security-Policy` and the same `/api/state` shape. If test is behind, rebuild it with
+`npm run test:local`.
+
 ## VPN-enforced variants
 
 Windows:
