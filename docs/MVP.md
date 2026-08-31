@@ -134,6 +134,33 @@ restrictions actually hold.
       the server still knows it. Do not let the toggle become the thing that enforces P6 — the
       server-side checks must hold regardless of which view is selected.
 
+### P8b. Security, verified after deployment
+
+*"Pre-launch we also need to make sure all is secure, and test its security once deployed."*
+
+**This is not the same posture as a local tool, and the reason is the LinkedIn plan.** The owner
+intends to link this publicly, to show how they look for work and build their own tools. That means
+strangers will open the URL. Nobody else gets an account, but the login page, the sources page and
+the privacy page become publicly reachable, and the site will attract exactly the automated traffic
+that finds new domains.
+
+That promotes three carried blockers from "before public traffic" to **actually blocking**:
+
+| | Why it blocks now |
+|---|---|
+| **A1** | Both administrator passwords were pasted into a chat transcript in plain text. The only account on a publicly reachable login page must not be one of them. Rotate both, and issue a fresh `SESSION_SECRET` rather than copying a local one. |
+| **A7** | The CSP allows `'unsafe-inline'` for React hydration. Acceptable while nothing is reachable; not once a URL is being handed to strangers. Move to nonces. |
+| **B3** | Rate limiting resets with the process, so it is close to useless against a distributed attempt on the one account that exists. Needs a durable store. |
+
+- [ ] Rotate both administrator logins and the session secret (A1).
+- [ ] Nonce-based CSP, drop `'unsafe-inline'` (A7).
+- [ ] Durable rate limiting on the login route (B3).
+- [ ] **Test the deployed site, not the local one.** Confirm security headers are actually served
+      from the edge, that registration is genuinely closed, that an unauthenticated request to every
+      API route is refused, and that admin-only sources stay invisible without a session.
+- [ ] Confirm nothing identifying the owner leaks on the public pages: no CV content, no job list,
+      no email address, and no administrator email in any error message.
+
 ### P8. Owner's acceptance pass
 
 The last gate. Not something to be done for the owner.
@@ -153,26 +180,57 @@ Not part of the dictated scope, but they gate a public deployment regardless.
 | A1 | Both administrator passwords were pasted in plaintext | Rotate, plus a fresh `SESSION_SECRET` |
 | A7 | CSP allows `'unsafe-inline'` for React hydration | Nonces before public traffic |
 | B3 | Rate limiting resets with the process | A durable store |
-| ~~B1/B2~~ | ~~No password reset, no email verification~~ | **Not a blocker.** The owner is the only user and registration stays closed, so no email provider is needed to launch. Becomes blocking the moment anyone else gets an account. |
+| B1/B2 | No password reset, no email verification | **Not blocking the launch** — the owner is the only user and registration stays closed. But the owner also expects *"most users will be from"* the Netherlands, so this is a "not yet" rather than a "never": both become blocking the moment a second account exists, and an email provider has to be chosen before then. |
 | B6 | Careerjet is IP-locked to a declared address | Cloudflare Workers have no static egress IP, so it cannot work in production as it stands. P6 makes it administrator-only, which contains but does not solve this. |
 
 ---
 
-## After launch
+## After launch — aims, in the owner's order
 
-### Better filtering, measured
+**The overall aim, above all the rest: find as many jobs as possible where English alone is good
+enough.** Every aim below serves that; where they conflict, this one wins.
 
-The conversion report (P2) exists to answer one question: **which jobs are we losing, and why?**
-The aim is to keep raising the share of advertisements we can decide about, without ever loosening
-the rule that a `pass` requires evidence.
+### 1. Coverage — more jobs where English is enough
 
-Two things already point the way:
+Not more jobs. More *screenable* jobs, and fewer lost to a filter that could not see enough of the
+advertisement to decide.
 
 - **626 jobs sit in `unknown`** because Adzuna caps descriptions at 500 characters and Careerjet at
-  279. Fetching their full text through the aggregator redirect is a licensing question, not a
-  technical one.
-- **Job-Room proved the value of the fix**: its detail endpoint returns 4,193 characters against 316
-  in search, and on 20 test advertisements **18 changed verdict** once the whole text was read.
+  279. Their full text is only reachable through the aggregator's redirect link, which is a
+  licensing question rather than a technical one.
+- **Job-Room already proved the value of fixing this**: its detail endpoint returns 4,193 characters
+  against 316 in search, and on 20 test advertisements **18 changed verdict** once the whole text
+  was read.
+- The admin conversion report (P2) is the instrument for this. It shows where jobs are being lost.
+
+### 2. The Netherlands is the priority market
+
+*"Most users will be from there."* The name is Dutch, the domain is `.nl`, and the tagline names
+Dutch. Where effort has to be chosen between the two countries, the Netherlands comes first.
+
+Worth knowing: **EURES Netherlands alone holds 245,007 jobs**, against 41,896 for Switzerland, so
+the priority and the available supply already agree.
+
+### 3. Cheap or free to run
+
+*"It should be efficient and not use a lot of resources, to make it cheap or free to run."* A
+standing constraint on design, not a task — it rules things out before they are built.
+
+Already relevant:
+
+- **`/api/state` sends every job in one response**, roughly 2 MB at 1,000 jobs, of which about a
+  third is advertisement text carried only so the browser can match keywords. Tracked as B4. This is
+  the single largest running cost in the app and it grows with use.
+- **Bulk sources are cheap, per-job fetching is not.** EURES returns 50 complete advertisements per
+  request; Job-Room needs one request per advertisement. Prefer the former shape when adding
+  sources.
+- Cloudflare's free tier is the target. Anything requiring a paid subscription — a scraping service,
+  a paid aggregator — should be weighed against EURES being free and already sufficient.
+
+### 4. Better filtering, and a more polished interface
+
+The filter and the interface, in that order. Filtering is the product; polish is what makes it
+usable by someone who is not its author.
 
 ### Deferred, not dropped
 
