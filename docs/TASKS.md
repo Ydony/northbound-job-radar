@@ -323,7 +323,15 @@ Wrong countries, though. Scanned 950 jobs across 8 pages: **one** touched the Ne
 Switzerland, and that one was a German advertisement naming "Deutschland, Osterreich, Schweiz und
 Italien" as its region. Top locations were London, Berlin, Munich, Hamburg, Dusseldorf.
 
-- [x] Measured; not added.
+**The remote angle was checked separately**, since Arbeitnow is usually recommended for its remote
+flag and that would make the country mismatch irrelevant. It does not rescue it: of 950 jobs, 45
+are `remote: true` (5%), and 40 of those are blocked because they require German - unsurprising on
+a German-market board. **Five jobs were both remote and English-sufficient**, two of them from the
+same London company and one titled "Homeoffice ... (w/m/d)". A yield of roughly 0.5%.
+
+For comparison, EURES supplies 287,000 Netherlands and Switzerland jobs at a 12-18% pass rate.
+
+- [x] Measured twice - by country, then by the remote flag. Not added on either basis.
 - [ ] Revisit only if the product ever covers Germany or the UK, where it would be a strong source.
 
 ### E12. eurojobs.com — declined, they said no explicitly
