@@ -52,9 +52,9 @@ test('maps the EURES record onto the shared job shape', () => {
   assert.ok(parsed);
   assert.equal(parsed.title, 'Data Analyst Operations');
   assert.equal(parsed.company, 'Example BV');
-  // NUTS code plus country: the region is kept as a hint but never resolved to a city name,
-  // because a wrong city would split one advertisement into two cards during deduplication.
-  assert.equal(parsed.location, 'NL32B NL');
+  // The NUTS code is resolved to its name at ingest: NL32B is Groot-Amsterdam. Stored raw it
+  // would surface as "NL32B" on the card and in the location facet, which helps nobody.
+  assert.equal(parsed.location, 'Groot-Amsterdam');
   assert.match(parsed.sourceUrl, /europa\.eu\/eures\/portal\/jv-se\/jv-details\/abc123/);
   assert.equal(parsed.postedAt.slice(0, 4), '2026');
 });

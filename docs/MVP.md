@@ -52,10 +52,14 @@ Mostly built. Search, then work the results: dismiss, add to pipeline, mark appl
 - [ ] **Job requirements shown on the card** (TASKS E6). Still open, and now worth doing: EURES and
       Job-Room supply full advertisements, which they did not when this was first raised.
 
-### P4. Hide the CV upload and the CV-fit score
+### P4. Shelve the CV upload and the CV-fit score
 
-The CV feature is **hidden from everyone, administrators included** — not deleted. It stays in the
-code to be switched back on later once there is a clearer idea of what it is for.
+**Shelved, not cancelled.** In the owner's words: *"CV score and CV add — shelve it, but we will
+come back to it later. It is a feature which will be developed in future."*
+
+Hidden from everyone, administrators included, and left intact in the code behind a flag. The point
+of shelving rather than deleting is that turning it back on should be a switch, not a rebuild — so
+the tables, routes and scoring stay, and stay working.
 
 - [ ] Hide CV upload, both CV slots, the fit-score circle, and the per-slot score breakdown.
 - [x] **Decided:** the score circle goes entirely and the text runs full-width. The circle, the

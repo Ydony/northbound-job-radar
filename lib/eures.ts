@@ -1,3 +1,4 @@
+import { nutsRegionName } from './nuts';
 import type { ParsedJob } from './jobsch';
 import type { JobCountry } from './types';
 
@@ -66,16 +67,26 @@ export interface EuresParsedJob extends ParsedJob {
 }
 
 /**
- * NUTS region codes are not place names, so they are only worth keeping as a locality hint
- * alongside the country. "CH031" is Basel, but nothing here resolves it, and inventing a name
- * would be worse than leaving the country: duplicate matching compares locations, and a wrong
- * city would split one advertisement into two cards.
+ * Resolve the NUTS region code into a place name at ingest.
+ *
+ * EURES gives a code, not a name: `{ "NL": ["NL32B"] }`. Stored raw, that surfaces as "NL32B" on
+ * the card and in any location facet, which is no use to anyone — it is Groot-Amsterdam. Resolving
+ * here rather than at display time means the readable name is what gets stored, so duplicate
+ * matching compares places rather than codes and an export carries something a person can read.
+ *
+ * Unknown codes fall back to their parent region and, failing that, to the country, because a
+ * broader true answer beats a precise meaningless one.
  */
 function locationFrom(locationMap: Record<string, (string | null)[]> | undefined, fallback: string) {
   const entries = Object.entries(locationMap ?? {});
   if (!entries.length) return fallback;
   const [country, regions] = entries[0];
   const region = regions?.find((value): value is string => Boolean(value));
+  const name = region ? nutsRegionName(region) : '';
+  if (name) return name;
+  // Some postings carry a country and no region at all: `{ "CH": [null] }`. Showing the bare code
+  // "CH" as a location is worse than saying Switzerland, so fall back to the country's name.
+  if (!region) return fallback;
   return [region, country].filter(Boolean).join(' ') || fallback;
 }
 
