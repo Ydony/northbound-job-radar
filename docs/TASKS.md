@@ -162,12 +162,24 @@ website, and the key in use currently names a placeholder domain nobody here own
 still has to match wherever the app actually runs, which is fine while it stays local on a stable
 connection.
 
-### B7. Product name and domain do not match
+### B7. Product name and domain — resolved 2026-08-31
 
-The product is called **Ik Engels** throughout the code, the dashboard header, the login page,
-`/sources`, `/privacy`, and both READMEs. The intended domain is `ikbeneenappel.nl`. If the name
-changes with the domain, decide before writing more user-facing copy — the rename is cheap now and
-touches several pages later.
+The product was called "Ik Engels" while the registered domain was `ikbeneenappel.nl`. The owner
+settled it by renaming the product to match the domain: **Ik ben een appel**, tagline *"an English
+job search filter for those who do not speak Dutch"*.
+
+Renamed across 25 files: the interface and every page title, the package name, the outbound
+`User-Agent` sent to job sites, the `IKENGELS_*` environment variables (now `IKBENEENAPPEL_*`), and
+all documentation.
+
+- [x] Renamed everywhere the old name appeared.
+- [ ] **Deliberately not renamed:** the login addresses `admin-test@ikengels.test` and
+      `admin-dev@ikengels.test`. Those are credentials stored in both databases, and changing them
+      breaks sign-in for no branding benefit on a local-only environment. Fold them into A1, which
+      already rotates both administrator logins when the first live environment is created.
+- [ ] The tagline names Dutch, but the product covers Switzerland at least as heavily, where the
+      barrier is German, French or Italian. Worth a second look if the Swiss side is ever promoted -
+      the name is Dutch and the domain is `.nl`, so leaning Dutch-first may well be deliberate.
 
 ## E. Requested 2026-08-31 — from screenshots of the test workspace
 

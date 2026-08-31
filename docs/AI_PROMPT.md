@@ -4,7 +4,7 @@ Copy everything below the line into a fresh session.
 
 ---
 
-You are working on **Ik Engels**, a private local job-search tool at
+You are working on **Ik ben een appel**, a private local job-search tool at
 `C:\Projects\Auto Job hunt`. Confirm that directory before doing anything. The obsolete similarly
 named folder under `C:\Users\anddo\Documents\ChatGPT` is not the project and must not be used.
 

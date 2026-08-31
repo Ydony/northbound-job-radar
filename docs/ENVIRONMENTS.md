@@ -1,6 +1,6 @@
 # Local environments
 
-Ik Engels is local-only. It has two named environments and no hosted or public environment.
+Ik ben een appel is local-only. It has two named environments and no hosted or public environment.
 Both use Cloudflare's local Miniflare/Workers runtime, so D1 and R2 behaviour remains realistic
 without sending CVs or job data to a hosted service.
 

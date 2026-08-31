@@ -35,7 +35,8 @@ export default function LoginPage() {
       <section className="login-wrap">
         <div className="login-card">
           <span className="brand-mark">I</span>
-          <h1>Ik Engels</h1>
+          <h1>Ik ben een appel</h1>
+          <p className="login-tagline">An English job-search filter for people who do not speak Dutch.</p>
           <p className="login-sub">
             {mode === 'login'
               ? 'Sign in to your job workspace.'

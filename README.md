@@ -1,7 +1,9 @@
-# Ik Engels — English Job Radar
+# Ik ben een appel
 
-Ik Engels is a local job-search tool for finding Swiss and Netherlands roles where English is
-sufficient. It combines CV profiles with strict language screening and a simple application
+**An English job-search filter for people who do not speak Dutch.**
+
+Ik ben een appel is a local job-search tool for finding Netherlands and Switzerland roles where
+English is sufficient. It combines CV profiles with strict language screening and a simple application
 pipeline while keeping login and applications on the original job site. Accounts, CVs, jobs, and
 search history stay on the computer running it.
 
@@ -19,13 +21,13 @@ Apple Silicon/Intel macOS instructions, Windows instructions, VPN setup, and nor
 
 ## What the MVP does
 
-1. Upload up to two PDF, DOCX, or TXT CVs (e.g. a generalist and a specialist version). Ik Engels detects a likely target role from each CV's own content; you can override either role when the heuristic is too broad.
+1. Upload up to two PDF, DOCX, or TXT CVs (e.g. a generalist and a specialist version). Ik ben een appel detects a likely target role from each CV's own content; you can override either role when the heuristic is too broad.
 2. Add up to five persisted search roles (for example Supply Chain, Data Analyst, Data Governance, Master Data, and Business Analyst), plus optional location/canton, workplace, seniority, contract, required-keyword, and exclusion filters.
 3. Click **Search all job sites**. One manually triggered run checks every configured source and records a truthful result for each. The currently enabled public-page adapters are jobs.ch, jobup.ch, JobScout24, IamExpat, and Undutchables. LinkedIn is deliberately excluded.
 4. High-volume discovery uses Job-Room, Adzuna, Careerjet when configured, and verified public
    employer ATS boards. Sources that cannot be searched are still shown truthfully: Indeed is
    blocked, Nationale Vacaturebank is unavailable, and I amsterdam is a guide rather than a feed.
-5. Ik Engels classifies the language requirement as:
+5. Ik ben een appel classifies the language requirement as:
    - `pass`: English ad, no mandatory local language detected;
    - `review`: evidence is incomplete or ambiguous;
    - `blocked`: a mandatory local language or a non-English ad is detected.
@@ -34,7 +36,7 @@ Apple Silicon/Intel macOS instructions, Windows instructions, VPN setup, and nor
 8. Filter the unified list by Switzerland/Netherlands, Applied/Not applied, source, and result view. The latest-run dashboard shows found, known, new, added, duplicate, and skipped counts per website; cumulative metrics show where analyzed jobs and applications came from.
 9. Export the workspace as JSON or jobs as CSV, delete selected/all jobs, remove either CV, or reset all locally stored data from the dashboard.
 
-Ik Engels never automates an account, login, or application submission. Those actions
+Ik ben een appel never automates an account, login, or application submission. Those actions
 stay on the original job website and are done by you. **Analyze a job** remains available
 for a public HTTPS advert that an automatic adapter cannot access.
 
@@ -62,7 +64,7 @@ See `docs/ENVIRONMENTS.md` before resetting, copying, or migrating either enviro
 For the optional Windows privacy launcher, run `npm run vpn:setup` once, complete the
 provider's visible sign-in and Netherlands/kill-switch setup, then use
 `npm run dev:private`. That launcher refuses to start without a detected full VPN route.
-See `docs/VPN.md`; no VPN credentials are stored by Ik Engels.
+See `docs/VPN.md`; no VPN credentials are stored by Ik ben een appel.
 
 On macOS, the equivalent commands are `npm run vpn:setup:mac` once and
 `npm run dev:private:mac` for VPN-enforced startup.
@@ -114,7 +116,7 @@ column rename.
 
 JobCloud's published terms cover jobs.ch, jobup.ch, and JobScout24 and prohibit automated
 extraction; Indeed likewise prohibits automated access without written permission.
-Ik Engels does not pretend these are sanctioned integrations. At the user's explicit,
+Ik ben een appel does not pretend these are sanctioned integrations. At the user's explicit,
 informed direction (2026-08-26 and expanded 2026-08-27), the three JobCloud adapters run
 anyway for personal use, while Indeed stays blocked. IamExpat and Undutchables use only
 current public listing/detail paths; Undutchables query-string search is deliberately not

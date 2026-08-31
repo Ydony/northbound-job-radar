@@ -1,4 +1,4 @@
-# Ik Engels: instructions for coding agents
+# Ik ben een appel: instructions for coding agents
 
 **Read `docs/TASKS.md` first** — the ordered list of what needs doing, blocking items at the top.
 Then `docs/HANDOFF.md` for the state of the project and the things that will surprise you. Read

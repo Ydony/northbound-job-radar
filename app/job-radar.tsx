@@ -572,7 +572,7 @@ export default function JobRadar() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="#top"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>English job radar</small></span></a>
+        <a className="brand" href="#top"><span className="brand-mark">I</span><span><b>Ik ben een appel</b><small>English job filter</small></span></a>
         <nav aria-label="Main navigation">
           <a className="active" href="#jobs">Matches</a><a href="#profile">My CVs</a>
           <a href="/settings">Settings</a>
@@ -811,7 +811,7 @@ export default function JobRadar() {
         </div>
       </section>
 
-      <footer><b>Ik Engels</b><span>Swiss + Netherlands sources · strict English gate · user-controlled applications</span><a href="#sources">Source report ↑</a><a href="/sources">Where the jobs come from →</a><a href="/privacy">Privacy</a></footer>
+      <footer><b>Ik ben een appel</b><span>An English job-search filter for people who do not speak Dutch · you apply yourself, always</span><a href="#sources">Source report ↑</a><a href="/sources">Where the jobs come from →</a><a href="/privacy">Privacy</a></footer>
     </main>
   );
 }

@@ -71,7 +71,7 @@ export default function SettingsPage() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>Settings</small></span></a>
+        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik ben een appel</b><small>Settings</small></span></a>
         <nav aria-label="Main navigation">
           <a href="/">Back to the radar</a>
           {account?.role === 'admin' && <a href="/admin">Admin</a>}
@@ -125,7 +125,7 @@ export default function SettingsPage() {
       </section>
 
       <footer>
-        <b>Ik Engels</b>
+        <b>Ik ben een appel</b>
         <span>Your CV is never sent to a job site</span>
         <a href="/privacy">Privacy</a>
       </footer>

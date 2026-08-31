@@ -31,7 +31,7 @@ The completed experience must:
   source-health reporting;
 - keep login and application submission on the original website under user control.
 
-“All websites” means all adapters listed as enabled in Ik Engels. A source that cannot be
+“All websites” means all adapters listed as enabled in Ik ben een appel. A source that cannot be
 searched must appear in the run report as `blocked`, `unavailable`, or `failed`; it must not
 be silently counted as searched.
 

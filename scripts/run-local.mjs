@@ -23,7 +23,7 @@ if (!existsSync(varsFile)) {
 const vinextCli = resolve('node_modules/vinext/dist/cli.js');
 const childEnvironment = {
   ...process.env,
-  IKENGELS_ENV: environment,
+  IKBENEENAPPEL_ENV: environment,
   ...(environment === 'dev' ? { CLOUDFLARE_ENV: 'dev' } : {}),
 };
 

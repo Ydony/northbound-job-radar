@@ -6,8 +6,8 @@ const sans = DM_Sans({ variable: '--font-sans', subsets: ['latin'] });
 const display = Fraunces({ variable: '--font-display', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Ik Engels — English Job Radar',
-  description: 'Strict English-language screening and CV matching for Swiss and Netherlands roles.',
+  title: 'Ik ben een appel — English job filter',
+  description: 'An English job-search filter for people who do not speak Dutch. Screens Netherlands and Switzerland vacancies and hides the ones that need a local language.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

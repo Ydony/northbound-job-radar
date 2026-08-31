@@ -6,7 +6,7 @@ import { atsCompanies } from '@/lib/ats-feeds';
 import { collectionPrinciples, POLICIES_VERIFIED_ON, sourcePolicies, stanceLabel } from '@/lib/source-policies';
 
 export const metadata = {
-  title: 'Where the jobs come from — Ik Engels',
+  title: 'Where the jobs come from — Ik ben een appel',
   description: 'Every site this app reads, what it collects, and how that sits against each site\'s own rules.',
 };
 
@@ -46,7 +46,7 @@ export default async function SourcesPage() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>Where the jobs come from</small></span></a>
+        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik ben een appel</b><small>Where the jobs come from</small></span></a>
         <nav aria-label="Main navigation"><a href="/">Back to the radar</a></nav>
         <span className="source-pill"><i /> Checked {POLICIES_VERIFIED_ON}</span>
       </header>
@@ -112,7 +112,7 @@ export default async function SourcesPage() {
       </section>
 
       <footer>
-        <b>Ik Engels</b>
+        <b>Ik ben een appel</b>
         <span>Public advertisements only · no logins · no detection evasion</span>
         <a href="/">Back to the radar</a>
       </footer>

@@ -87,7 +87,7 @@ export default function AdminPage() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>System manager</small></span></a>
+        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik ben een appel</b><small>System manager</small></span></a>
         <nav aria-label="Main navigation"><a href="/">Radar</a><a href="/settings">Settings</a></nav>
         <span className="source-pill"><i /> {data ? `${data.totals.users} accounts` : 'Loading…'}</span>
       </header>
@@ -161,7 +161,7 @@ export default function AdminPage() {
       </>}
 
       <footer>
-        <b>Ik Engels</b>
+        <b>Ik ben een appel</b>
         <span>Counts only · no access to anyone&apos;s CV or job list</span>
         <a href="/privacy">Privacy</a>
       </footer>

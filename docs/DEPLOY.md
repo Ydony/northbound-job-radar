@@ -1,6 +1,6 @@
 # Hosting status
 
-Ik Engels is intentionally local-only. Do not deploy it to OpenAI Sites, `chatgpt.site`,
+Ik ben een appel is intentionally local-only. Do not deploy it to OpenAI Sites, `chatgpt.site`,
 Cloudflare Workers, or another public host unless the owner makes a new explicit decision.
 
 The supported environments are documented in `docs/ENVIRONMENTS.md`:

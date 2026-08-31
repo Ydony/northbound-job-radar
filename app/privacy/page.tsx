@@ -1,15 +1,15 @@
 import { cookieNotice, dataWeHold, notCollected, PRIVACY_UPDATED_ON, visitCounting, yourRights } from '@/lib/privacy-policy';
 
 export const metadata = {
-  title: 'Privacy — Ik Engels',
-  description: 'What Ik Engels stores, why, how long, and the rights you have over it.',
+  title: 'Privacy — Ik ben een appel',
+  description: 'What Ik ben een appel stores, why, how long, and the rights you have over it.',
 };
 
 export default function PrivacyPage() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik Engels</b><small>Privacy</small></span></a>
+        <a className="brand" href="/"><span className="brand-mark">I</span><span><b>Ik ben een appel</b><small>Privacy</small></span></a>
         <nav aria-label="Main navigation"><a href="/sources">Sources</a><a href="/">Back to the radar</a></nav>
         <span className="source-pill"><i /> Updated {PRIVACY_UPDATED_ON}</span>
       </header>
@@ -107,7 +107,7 @@ export default function PrivacyPage() {
       </section>
 
       <footer>
-        <b>Ik Engels</b>
+        <b>Ik ben een appel</b>
         <span>No tracking · no profiling · no data sold</span>
         <a href="/sources">Where the jobs come from →</a>
       </footer>

@@ -13,7 +13,7 @@ A private job-search tool for Switzerland and the Netherlands, for someone whose
 language is English. It gathers public job advertisements, screens each one for whether English
 alone is enough, and scores it against the user's CVs.
 
-Product name is **Ik Engels**. Active interface and setup references use that name.
+Product name is **Ik ben een appel**. Active interface and setup references use that name.
 
 ## 2. State right now
 

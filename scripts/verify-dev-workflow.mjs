@@ -2,7 +2,7 @@
 
 import { randomBytes } from 'node:crypto';
 
-const baseUrl = process.env.IKENGELS_VERIFY_URL ?? 'http://127.0.0.1:3000';
+const baseUrl = process.env.IKBENEENAPPEL_VERIFY_URL ?? 'http://127.0.0.1:3000';
 const parsedBase = new URL(baseUrl);
 if (!['localhost', '127.0.0.1', '::1'].includes(parsedBase.hostname)) {
   throw new Error('The workflow verifier refuses to run against a non-local URL.');

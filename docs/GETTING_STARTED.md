@@ -1,6 +1,6 @@
-# Install and use Ik Engels
+# Install and use Ik ben een appel
 
-Ik Engels is a private, local job-screening application. It stores CV files and analyzed jobs in
+Ik ben een appel is a private, local job-screening application. It stores CV files and analyzed jobs in
 one of two isolated local environments. Do not deploy it without a new explicit owner decision.
 
 ## Give the repository to Codex
@@ -15,7 +15,7 @@ Suggested prompt for Codex on a new computer:
 
 ```text
 Clone https://github.com/Ydony/northbound-job-radar, read AGENTS.md, README.md,
-docs/GETTING_STARTED.md, and docs/VPN.md completely, then install and run Ik Engels
+docs/GETTING_STARTED.md, and docs/VPN.md completely, then install and run Ik ben een appel
 locally. Do not deploy it publicly. I use macOS; identify whether this Mac is Apple
 Silicon or Intel, install the appropriate prerequisites, help me complete the visible
 Windscribe setup without reading or storing my credentials, verify the VPN, and start
@@ -50,7 +50,7 @@ For a currently supported Homebrew installation, use macOS 14 Sonoma or newer.
    Homebrew marks versioned Node packages as keg-only. Follow the `brew info node@24`
    instruction to add it to the shell path, then confirm `node --version` reports 24.x and
    both `npm --version` and `git --version` work.
-6. Clone and install Ik Engels:
+6. Clone and install Ik ben een appel:
 
    ```text
    git clone https://github.com/Ydony/northbound-job-radar.git
@@ -84,7 +84,7 @@ For a currently supported Homebrew installation, use macOS 14 Sonoma or newer.
 
    The result must show a VPN route and an external country. If it fails, reconnect
    Windscribe and confirm split tunnelling is disabled.
-11. Start Ik Engels through the enforced launcher:
+11. Start Ik ben een appel through the enforced launcher:
 
     ```text
     npm run dev:private:mac
@@ -114,9 +114,9 @@ npm run dev:private
 
 The setup command installs the official Windscribe package. Complete account creation and
 sign-in visibly, select Netherlands, enable Firewall, disable split tunnelling, and leave
-auto-connect enabled. Ik Engels never reads or stores the VPN credentials.
+auto-connect enabled. Ik ben een appel never reads or stores the VPN credentials.
 
-## Using Ik Engels
+## Using Ik ben een appel
 
 1. Upload one or two text-based PDF, DOCX, or TXT CVs. Scanned image-only PDFs need OCR and
    are not supported yet.
@@ -136,7 +136,7 @@ auto-connect enabled. Ik Engels never reads or stores the VPN credentials.
 7. Mark language decisions accurate or correct them with a reason. Save jobs, mark them
    Applied or Not applied, and dismiss/restore unsuitable roles. Dismissed adverts are
    suppressed during future searches.
-8. Open the original source to apply personally. Ik Engels does not log in or submit an
+8. Open the original source to apply personally. Ik ben een appel does not log in or submit an
    application for the user.
 9. Use JSON/CSV export and deletion controls to manage local data.
 

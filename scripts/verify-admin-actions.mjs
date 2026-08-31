@@ -11,21 +11,21 @@
  * It needs an administrator's credentials, which are read from the environment so they are never
  * written into this file:
  *
- *   IKENGELS_ADMIN_EMAIL=... IKENGELS_ADMIN_PASSWORD=... npm run verify:admin
+ *   IKBENEENAPPEL_ADMIN_EMAIL=... IKBENEENAPPEL_ADMIN_PASSWORD=... npm run verify:admin
  */
 
 import { randomBytes } from 'node:crypto';
 
-const baseUrl = process.env.IKENGELS_VERIFY_URL ?? 'http://127.0.0.1:3000';
+const baseUrl = process.env.IKBENEENAPPEL_VERIFY_URL ?? 'http://127.0.0.1:3000';
 const parsedBase = new URL(baseUrl);
 if (!['localhost', '127.0.0.1', '::1'].includes(parsedBase.hostname)) {
   throw new Error('The admin verifier refuses to run against a non-local URL.');
 }
 
-const adminEmail = process.env.IKENGELS_ADMIN_EMAIL;
-const adminPassword = process.env.IKENGELS_ADMIN_PASSWORD;
+const adminEmail = process.env.IKBENEENAPPEL_ADMIN_EMAIL;
+const adminPassword = process.env.IKBENEENAPPEL_ADMIN_PASSWORD;
 if (!adminEmail || !adminPassword) {
-  throw new Error('Set IKENGELS_ADMIN_EMAIL and IKENGELS_ADMIN_PASSWORD before running this.');
+  throw new Error('Set IKBENEENAPPEL_ADMIN_EMAIL and IKBENEENAPPEL_ADMIN_PASSWORD before running this.');
 }
 
 const origin = parsedBase.origin;

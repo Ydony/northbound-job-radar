@@ -31,13 +31,13 @@ source-specific review, the user explicitly requested the same manually triggere
 for other Swiss and Netherlands sources. The current flow is:
 
 ```text
-Ik Engels builds role searches for every enabled adapter
+Ik ben een appel builds role searches for every enabled adapter
         ↓
 POST /api/scrape fetches capped public result pages (no login)
         ↓
 For a few new listings per source, reads schema.org JobPosting data
         ↓
-Ik Engels canonicalizes/deduplicates, verifies language, and scores CV fit
+Ik ben een appel canonicalizes/deduplicates, verifies language, and scores CV fit
         ↓
 Every source records an honest run report; the user opens the source and applies personally
 ```
@@ -241,7 +241,7 @@ Basic where the API key is the username and the password is empty.
 
 **Open licensing question on Careerjet (2026-08-28).** Careerjet issues its key against one
 registered publisher website and states the key is "provided exclusively for integration on the
-registered website". Ik Engels is a local private tool with no public site, and the key in
+registered website". Ik ben een appel is a local private tool with no public site, and the key in
 use was registered against a placeholder domain, so this usage sits outside the registered scope —
 this is a licensing question, not a technical one, and it is unresolved. Adzuna carries no
 equivalent per-site restriction and is the safer default of the two. If Careerjet's scope matters,
@@ -294,7 +294,7 @@ unless `check-vpn.ps1` finds a supported active adapter carrying a full IPv4 rou
 
 Provider account creation, sign-in, country selection, and Firewall/Kill Switch settings
 remain a one-time visible provider step. The free Windows clients do not publish a
-supported interface for automating those settings, and Ik Engels must never capture VPN
+supported interface for automating those settings, and Ik ben een appel must never capture VPN
 credentials or manipulate undocumented provider state. The route check is a guardrail,
 not proof of anonymity; its optional exit-IP display calls Cloudflare's trace endpoint.
 
