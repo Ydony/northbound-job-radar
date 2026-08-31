@@ -32,8 +32,15 @@ Strictest first; the first match wins.
    is.
 3. **Advertisement is not predominantly English** → `blocked`.
 4. **A local language is named at all** → `review`, even when the text calls it optional.
-5. **Not enough text to tell** → `review`.
-6. **Otherwise** → `pass`.
+5. **Under 900 characters** → `unknown`. Not "looks fine" — *there was not enough advertisement to
+   judge*. Checked before the prose test, because a preview does not fail an English check; there
+   was no ad there to check.
+6. **Long enough, but the prose does not read as English** → `review`.
+7. **Otherwise** → `pass`, meaning English was confirmed against a complete advertisement.
+
+The length gate applies to `pass` alone. Absence of evidence invalidates a clean bill of health but
+not a finding: German spotted in a teaser is still German, so `blocked` and `review` stand on
+however much text produced them.
 
 Two rules stop the phrase matcher going wrong, both forced out by real ads:
 
@@ -124,12 +131,14 @@ another member state.
 1. **Lean on EURES.** It is free, legitimate, enormous, and — uniquely among the bulk sources —
    complete enough to screen. It also aggregates the national employment services, so it already
    covers UWV (`werk.nl`), which publishes no API of its own.
-2. **Stop trusting Adzuna's passes.** Either fetch full text through its redirect link (a licensing
-   question, not a technical one) or reclassify its short ads as *unknown* rather than *pass*.
-   Right now 148 verdicts claim more than the evidence supports.
-3. **Split `pass` into "confirmed" and "unknown".** A verdict of English-sufficient should be
-   impossible on a truncated ad. This is the change that makes the good bucket trustworthy, and it
-   is independent of any source work.
+2. ~~**Stop trusting Adzuna's passes.**~~ **Done**, and by the change below rather than by a
+   licensing decision. No Adzuna or Careerjet job now reaches the English-confirmed bucket at all.
+   Fetching their full text through the aggregator redirect remains an option, but it is no longer
+   urgent: those jobs sit visibly in `unknown` instead of silently claiming to be fine.
+3. ~~**Split `pass` into "confirmed" and "unknown".**~~ **Done.** On the stored corpus, pass fell
+   from 179 to 31 and **none of the 31 rests on under 900 characters**. They come only from sources
+   that publish whole advertisements. 626 moved to `unknown`, every one from the three teaser
+   sources; blocked was unchanged at 249.
 4. **Leave Careerjet alone.** 279-character teasers, and the API is IP-locked to a declared address
    that Cloudflare Workers cannot provide in production.
 
