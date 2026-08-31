@@ -77,6 +77,21 @@ one person uses test and another restarts it.
 - [ ] Verify a restore into a disposable directory without touching test.
 - [ ] Decide retention for old backups and make the operation recoverable by default.
 
+### A7. Replace the inline-script CSP allowance with nonces before any public deployment
+
+Fixed 2026-08-31: `script-src 'self'` blocked every inline script React streams for hydration.
+Pages rendered server-side, so direct URLs worked, but nothing hydrated — links showed a target on
+hover and did nothing on click, and no button or form responded. It reads like a browser or
+ad-blocker fault and is not one.
+
+`'unsafe-inline'` is the fix that works in this stack, because there is no middleware here to stamp
+a per-request nonce. The exposure is limited while the app is local and single-tenant: all user
+data renders through React's escaping and there is no `dangerouslySetInnerHTML` anywhere.
+
+- [ ] Before any public deployment, move to nonce-based script CSP and drop `'unsafe-inline'`.
+- [ ] Note that a restart is required after changing `next.config.ts`; dev kept serving the old
+  header until it was restarted, which briefly made the fix look ineffective.
+
 ## B. Known gaps
 
 ### B1. No self-service password reset

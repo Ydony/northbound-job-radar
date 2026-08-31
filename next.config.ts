@@ -16,7 +16,13 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self'",
+      // React streams its hydration payload as inline <script> tags, and this stack has no
+      // middleware to stamp a per-request nonce on them. Without 'unsafe-inline' every one of them
+      // is blocked: pages still render server-side, but nothing hydrates, so no button, form or
+      // link works while direct URLs appear fine. The XSS exposure this reopens is limited here -
+      // all user data renders through React's escaping and there is no dangerouslySetInnerHTML
+      // anywhere - but it should become nonce-based before any public deployment.
+      "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "connect-src 'self'",
