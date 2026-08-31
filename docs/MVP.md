@@ -176,8 +176,14 @@ That promotes three carried blockers from "before public traffic" to **actually 
 
 The last gate. Not something to be done for the owner.
 
+Written up as `docs/ACCEPTANCE_TEST.md` — nine sections, in order, with what to look for rather
+than just what to click.
+
 - [ ] Owner walks every tab and page, reads all copy, gives feedback on wording and interface.
 - [ ] Owner checks the security behaviour.
+- [ ] **Section 7b is the one that matters most**: sign in as a genuine second account and confirm
+      the administrator-only sources are absent. The Careerjet leak passed every unit test, so this
+      is the check that would actually have caught it.
 - [ ] Fix what comes back, then ship.
 
 ---
