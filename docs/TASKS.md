@@ -334,26 +334,6 @@ For comparison, EURES supplies 287,000 Netherlands and Switzerland jobs at a 12-
 - [x] Measured twice - by country, then by the remote flag. Not added on either basis.
 - [ ] Revisit only if the product ever covers Germany or the UK, where it would be a strong source.
 
-### E12. eurojobs.com — declined, they said no explicitly
-
-Checked 2026-08-31 at the owner's request. `robots.txt` names Anthropic's crawler directly:
-
-    User-agent: ClaudeBot
-    Disallow: /
-
-alongside GPTBot, CCBot, Bytespider, Google-Extended, Applebot-Extended, Amazonbot and
-meta-externalagent. It also carries `Content-Signal: search=yes,ai-train=no,use=reference` and an
-express reservation of rights under Article 4 of EU Directive 2019/790 - the text and data mining
-opt-out, which is legally operative in the EU rather than merely advisory.
-
-There is no API and no feed; the only machine-readable surface is a sitemap, which points at a
-different host entirely (`rebuild.otint.org`).
-
-Nothing to weigh here. The site has refused this specific use in the clearest terms available to
-it, and both countries are already covered by EURES with full advertisement text.
-
-- [x] Checked; not added, and not to be revisited without written permission from the operator.
-
 ### E11. Apify EU Jobs Scraper — PARKED, owner to revisit
 
 Offered as a tool that "circumvents anti-scraping walls for you". That is the one line this project
@@ -385,6 +365,26 @@ syndicate from the same employers EURES carries, so the content is not unique.
 - [ ] **Owner:** decide whether to pursue, and if so identify a specific actor and what it calls.
 - [ ] If that actor only reads public documented endpoints, evaluate it on description length the
       same way as everything else - the measurement in E9 is the template.
+
+### E12. eurojobs.com — declined, they said no explicitly
+
+Checked 2026-08-31 at the owner's request. `robots.txt` names Anthropic's crawler directly:
+
+    User-agent: ClaudeBot
+    Disallow: /
+
+alongside GPTBot, CCBot, Bytespider, Google-Extended, Applebot-Extended, Amazonbot and
+meta-externalagent. It also carries `Content-Signal: search=yes,ai-train=no,use=reference` and an
+express reservation of rights under Article 4 of EU Directive 2019/790 - the text and data mining
+opt-out, which is legally operative in the EU rather than merely advisory.
+
+There is no API and no feed; the only machine-readable surface is a sitemap, which points at a
+different host entirely (`rebuild.otint.org`).
+
+Nothing to weigh here. The site has refused this specific use in the clearest terms available to
+it, and both countries are already covered by EURES with full advertisement text.
+
+- [x] Checked; not added, and not to be revisited without written permission from the operator.
 
 ## C. Product improvements, in value order
 
