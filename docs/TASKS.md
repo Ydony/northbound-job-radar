@@ -56,6 +56,38 @@ now comes from — did not. Not exploited: all 1,504 stored jobs are `https`.
 | **Input caps** | A 600 KB payload was truncated to title 240 / description 120,000 rather than stored whole |
 | **Signed-out surface** | `/`, `/admin` render an empty shell containing no email, job data, source key or IP; every data route 401s; registration closed with 403 |
 
+### S3. Dependency advisories — partly fixed, rest assessed
+
+OWASP moved **Software Supply Chain Failures** into the Top 10 at A03 for 2025, so `npm audit` is
+now a first-class check rather than housekeeping. It reported 12 high advisories.
+
+- [x] **Next bumped 16.2.6 → 16.3.4**, a non-major fix that clears the nine Next advisories and
+      postcss. Build, 118 tests, lint and types all clean afterwards. Most of those advisories need
+      Next's own server, middleware, Server Actions or the image API — none of which this app uses,
+      since workerd runs the vinext build — but the bump was free, so reachability did not have to
+      be argued.
+- [x] **The remaining ten assessed as build-time only**: `vite`, `wrangler`, `miniflare`, `sharp`,
+      `image-size`, `undici`, `ws`, `@cloudflare/vite-plugin`, `react-server-dom-webpack`, `vinext`.
+      Checked rather than assumed — none of them appear anywhere in the built worker bundle. They
+      are a risk to the integrity of the build, not to the running application, and fixing them
+      needs `--force` and major upgrades to the toolchain.
+
+### S4. Next is a 166 MB dependency used for one method — worth removing
+
+Noticed while assessing S3, and it is the single largest supply-chain reduction available.
+
+**vinext does not depend on Next at all** — no dependency, no peer dependency. Next is here only
+because this app imports from it, and of 85 imports, **all 85 are `NextResponse.json(...)`**, which
+`Response.json(...)` does natively in workerd. That is 166 MB of dependency, and every advisory it
+ever carries, for one static method.
+
+Two imports make it not a five-minute job: `next/font/google` and `next/headers`, one use each.
+
+- [ ] Replace the 85 `NextResponse.json` calls with `Response.json`.
+- [ ] Deal with the two remaining imports, then drop `next` from `package.json` entirely.
+- [ ] Expect this to remove ten of the current advisories permanently rather than until the next one
+      is published against Next.
+
 ### Still open
 
 - [ ] **A1** — rotate both administrator passwords and `SESSION_SECRET`. Unchanged by this review and
