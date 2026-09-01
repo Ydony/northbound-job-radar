@@ -1,4 +1,3 @@
-import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
@@ -7,6 +6,12 @@ import hostingConfig from './.openai/hosting.json';
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   '00000000-0000-4000-8000-000000000000';
 
+// The binding names live in .openai/hosting.json because that is where the scaffolding that
+// created this project put them. The file is kept and read - it is what names DB and CV_FILES -
+// but the @openai/sites-vite-plugin that came with it is gone: the project deploys to Cloudflare
+// and docs/DEPLOY.md rules out OpenAI Sites outright, so the plugin was building for a target
+// nobody intends to use. Verified by removing it: the worker builds, both bindings are still
+// declared, and the app reads D1 and R2 normally.
 const { d1, r2 } = hostingConfig;
 const localEnvironment = process.env.IKBENEENAPPEL_ENV === 'test' ? 'test' : 'dev';
 const localStateDirectory = `.wrangler/${localEnvironment}`;
@@ -64,7 +69,6 @@ export default defineConfig(async () => {
     },
     plugins: [
       vinext(),
-      sites(),
       cloudflare({
         persistState: { path: `${localStateDirectory}/state` },
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },

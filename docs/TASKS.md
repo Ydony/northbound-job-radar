@@ -112,6 +112,49 @@ that takes the application down when storage hiccups converts a minor fault into
 sign-in is still protected by deliberately slow password hashing. It is a second line, not the only
 one. Worth revisiting if this is ever hosted for other people.
 
+### S5. Unused code and dependencies — one removed, four recorded
+
+Asked for after the security review, and it overlaps with it: OWASP now ranks supply chain at A03,
+so anything present and unused is surface for nothing in return.
+
+**Removed.** `@openai/sites-vite-plugin` was in the Vite plugin chain, building for OpenAI Sites —
+a target `docs/DEPLOY.md` rules out in its first sentence. Verified rather than assumed: with it
+gone the worker builds, `DB` and `CV_FILES` are still declared in the generated wrangler config,
+and the running app reads 1,504 jobs from D1 and 2 CVs from R2. `.openai/hosting.json` stays,
+because it is what names those two bindings; the rationale is recorded in `vite.config.ts`.
+
+**Recorded, not removed — these need a decision rather than a cleanup:**
+
+- [ ] **The whole Drizzle layer is unused, and it has already drifted.** `db/index.ts` exports
+      `getDb()`, which nothing imports. `db/schema.ts` is read only by `db/index.ts` and by
+      `drizzle.config.ts`. The four generated files in `drizzle/` are never applied — the real
+      schema is `schemaStatements` plus `runtimeMigrations`, hand-written. `drizzle-orm` and
+      `drizzle-kit` exist to serve this and nothing else.
+
+      **The drift is the argument for deciding.** `db/schema.ts` was missing `user_id` on `jobs`
+      entirely until 31 August, months after the column was added, and nothing failed — because
+      nothing depends on it. A second schema definition that can silently disagree with the real
+      one is worse than no second definition, since it reads as authoritative. Either delete it, or
+      make it load-bearing. Leaving it as decoration is the one option with no upside.
+
+- [ ] **`password_resets` is written by nobody.** Four routes `DELETE` from it; there is no
+      `INSERT` anywhere. It is scaffolding for the reset flow that B1 has not built, so today it is
+      a table that only ever gets tidied up. Harmless, but it will look implemented to whoever
+      reads the schema next.
+
+- [ ] **`@rolldown/binding-win32-x64-msvc` is pinned as a devDependency** and declares
+      `os: ["win32"], cpu: ["x64"]`. On Linux or macOS — CI, or a second machine — the install
+      either fails or produces an unusable binary. If it works around something on Windows, it
+      belongs in `optionalDependencies` with a comment saying why.
+
+- [ ] **`npm start` duplicates `npm run test:local`** and appears in no documentation. Two names
+      for one thing, one of which nobody is told about.
+
+**Checked and genuinely in use**, so the audit's own false positives are recorded too: `react-dom`,
+`@vitejs/plugin-react`, `@vitejs/plugin-rsc` and `react-server-dom-webpack` are vinext peer
+dependencies; `@types/node` and `@cloudflare/workers-types` are pulled in by `tsconfig.json`'s
+`types` array rather than by an import.
+
 ### Still open
 
 - [ ] **A1** — rotate both administrator passwords and `SESSION_SECRET`. Unchanged by this review and
