@@ -3,6 +3,68 @@
 Ordered by what blocks dependable local use. Tick items off as they are completed so another
 session can continue without reconstructing the state.
 
+## Security review — 1 September 2026
+
+A full pass over tenancy, authorisation, injection and session handling, run partly by reading the
+code and partly by signing in as a genuine second account and attacking the first. Two real holes
+found, both fixed; everything else held.
+
+### S1. `/api/health` answered any signed-in account — FIXED
+
+It returned the server's public IP address — on a local install, the owner's home address — the IP
+declared to Careerjet, and the name and status of every keyed integration, **Careerjet among them**,
+which P6 otherwise hides from ordinary accounts entirely.
+
+The panel was gated on `isAdmin` in the interface. The endpoint was not. That is exactly the mistake
+the P6 notes warn about, sitting in the code those notes were written beside. Hiding a control does
+nothing while the route behind it still answers.
+
+Found only by calling the API directly as a second account. No amount of reading the interface would
+have shown it.
+
+- [x] Now `requireSession(request, { adminOnly: true })`; refused with 403 before any work, verified
+      against a real second account.
+
+### S2. The search path did not validate apply links — FIXED
+
+The apply link is rendered as a clickable `href`, and for several sources it comes straight out of a
+third-party response: Adzuna returns `redirect_url`, Careerjet returns `url`. Nothing between that
+response and the anchor checked the scheme, so a compromised or malicious source could have supplied
+`javascript:…` and had it execute in this origin the moment somebody clicked Apply, with the session
+cookie available to it.
+
+The manual import path validated this from the start. The search path — where essentially every job
+now comes from — did not. Not exploited: all 1,504 stored jobs are `https`.
+
+- [x] Validated at the same point as the other quality gates, so a refused job is counted failed and
+      the run continues. Covered by a test.
+
+### What was checked and held
+
+| Area | Result |
+|---|---|
+| **Cross-account read** | Attacker's workspace showed 0 jobs; victim's job absent |
+| **Cross-account write** | `PATCH` on another account's job → 404, victim's `isSaved` unchanged |
+| **Cross-account delete** | Victim's job survived; `DELETE` returns an identical 200 for a real foreign id and a nonexistent one, so it is not an existence oracle |
+| **Bulk delete by id** | Refused |
+| **Admin escalation** | `/api/admin` → 403; restricted search mode → 403 |
+| **SQL injection** | Every interpolation is a run of `?` placeholders or a code-authored fragment; all values bound. The one query without `user_id` reads `search_run_sources` by ids that came from a user-scoped query |
+| **XSS** | No `dangerouslySetInnerHTML`, `innerHTML`, `eval` or `new Function` anywhere; all advertisement text reaches the DOM through JSX escaping |
+| **Session forgery** | Altered signature → 401; altered user id → 401 (the HMAC covers it) |
+| **CSRF** | Cross-origin POST → 403; missing origin → 400; cookie is HttpOnly, SameSite=Strict, Secure when served over TLS |
+| **Sign-out** | Revokes immediately: `/api/state` goes 200 → 401 |
+| **Input caps** | A 600 KB payload was truncated to title 240 / description 120,000 rather than stored whole |
+| **Signed-out surface** | `/`, `/admin` render an empty shell containing no email, job data, source key or IP; every data route 401s; registration closed with 403 |
+
+### Still open
+
+- [ ] **A1** — rotate both administrator passwords and `SESSION_SECRET`. Unchanged by this review and
+      still the most pressing item, given the repository is public and the app is to be linked from
+      LinkedIn.
+- [ ] **A7** — `'unsafe-inline'` in the script CSP. A decision rather than a task; see `docs/MVP.md`.
+      Worth noting alongside S2: the CSP is what would have contained a `javascript:` apply link had
+      one ever been stored, and it currently would not have.
+
 ## Scope
 
 `docs/MVP.md` is the scope document, dictated by the owner on 2026-08-31: what must be true before
