@@ -46,8 +46,12 @@ async function probe(key: string, name: string, configured: boolean, run: () => 
 }
 
 export async function GET(request: Request) {
-  // Reveals the server's public IP and which integrations are configured, so it is not public.
-  const { session, response } = await requireSession(request);
+  // Administrator only, and enforced here rather than in the interface. This returns the server's
+  // public IP address - which on a local install is the owner's home address - the IP declared to
+  // Careerjet, and the name and status of every keyed integration including Careerjet itself,
+  // which P6 otherwise hides from ordinary accounts entirely. Hiding the panel was never enough:
+  // the endpoint answered anyone who was signed in.
+  const { session, response } = await requireSession(request, { adminOnly: true });
   if (response) return response;
   // Each check spends a real Adzuna and Careerjet request, so it is capped per account.
   const limited = rateLimit(`health:${session.user.id}`, 5, 10 * 60_000);
