@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { adminOnlySourceKeys, jobSourceAdapters } from '../lib/job-adapters';
+import { isSafeManualJobUrl } from '../lib/job-sources';
 
 test('Careerjet and IamExpat are administrator-only', () => {
   const keys = adminOnlySourceKeys();
@@ -54,4 +55,18 @@ test('every administrator-only adapter that redirects declares where its results
       `${adapter.key} has a country-suffixed key, so its results are stored under something else - declare resultSourceKeys`,
     );
   }
+});
+
+test('a dangerous apply link is refused, whatever the source claims', () => {
+  // The apply link becomes a clickable href. Adzuna returns redirect_url and Careerjet returns url
+  // straight from their own responses, so a compromised source could put a javascript: URL there
+  // and have it run in this origin when somebody clicks Apply.
+  for (const url of [
+    'javascript:alert(document.cookie)',
+    'JaVaScRiPt:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'http://plain-http.example/job/1',
+    'https://user:pass@example.com/job/1',
+  ]) assert.equal(isSafeManualJobUrl(url), false, `${url} must be refused`);
+  assert.equal(isSafeManualJobUrl('https://www.example.com/job/1'), true);
 });

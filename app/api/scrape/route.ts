@@ -7,6 +7,7 @@ import { adminOnlySourceKeys, descriptionMatchesRoles, jobSourceAdapters, REQUES
   sourceStatusForAvailability,
   type SearchMode } from '@/lib/job-adapters';
 import { canonicalJobUrl, isGloballyStableSourceJobId, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
+import { isSafeManualJobUrl } from '@/lib/job-sources';
 import { delay, stripHtml, type ParsedJob } from '@/lib/jobsch';
 import { roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
 import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
@@ -337,6 +338,15 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         parsed = await adapter.fetchDetail!(url);
       }
       if (!parsed) {
+        failedCount += 1;
+        continue;
+      }
+      // The apply link is rendered as a clickable href, and for several sources it comes straight
+      // out of a third-party response - Adzuna hands back `redirect_url`, Careerjet hands back
+      // `url`. Nothing upstream checks the scheme, so a compromised or malicious source could put
+      // `javascript:` there and have it run in this origin the moment somebody clicked Apply. The
+      // manual import path has always validated this; the search path did not.
+      if (!isSafeManualJobUrl(parsed.sourceUrl)) {
         failedCount += 1;
         continue;
       }
