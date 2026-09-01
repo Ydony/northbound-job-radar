@@ -13,7 +13,6 @@
     "dev:private:mac": "bash scripts/start-private-macos.sh dev",
     "test:private:mac": "bash scripts/start-private-macos.sh test",
     "build": "vinext build",
-    "start": "node scripts/run-local.mjs test",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test": "tsx --test tests/**/*.test.ts",
     "typecheck": "tsc --noEmit",
@@ -21,7 +20,6 @@
     "backup:test": "node scripts/backup-local.mjs test",
     "backup:dev": "node scripts/backup-local.mjs dev",
     "backup:verify": "node scripts/verify-local-backup.mjs",
-    "db:generate": "drizzle-kit generate",
     "vpn:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-vpn.ps1",
     "vpn:setup:mac": "bash scripts/setup-vpn-macos.sh",
     "vpn:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-vpn.ps1 -ShowPublicIp",
@@ -30,7 +28,6 @@
     "verify:admin": "node scripts/verify-admin-actions.mjs"
   },
   "dependencies": {
-    "drizzle-orm": "0.45.2",
     "mammoth": "1.11.0",
     "next": "16.3.4",
     "pdfjs-dist": "5.4.149",
@@ -40,14 +37,12 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
     "@cloudflare/workers-types": "4.20260515.1",
-    "@rolldown/binding-win32-x64-msvc": "^1.0.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
-    "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "react-server-dom-webpack": "19.2.6",

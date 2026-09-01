@@ -125,30 +125,30 @@ because it is what names those two bindings; the rationale is recorded in `vite.
 
 **Recorded, not removed — these need a decision rather than a cleanup:**
 
-- [ ] **The whole Drizzle layer is unused, and it has already drifted.** `db/index.ts` exports
-      `getDb()`, which nothing imports. `db/schema.ts` is read only by `db/index.ts` and by
-      `drizzle.config.ts`. The four generated files in `drizzle/` are never applied — the real
-      schema is `schemaStatements` plus `runtimeMigrations`, hand-written. `drizzle-orm` and
-      `drizzle-kit` exist to serve this and nothing else.
+- [x] **The Drizzle layer is deleted.** `db/index.ts`, `db/schema.ts`, `drizzle.config.ts`, the four
+      generated migrations and their snapshots, plus `drizzle-orm`, `drizzle-kit` and the
+      `db:generate` script. Nothing outside the layer referenced any of it.
 
-      **The drift is the argument for deciding.** `db/schema.ts` was missing `user_id` on `jobs`
-      entirely until 31 August, months after the column was added, and nothing failed — because
-      nothing depends on it. A second schema definition that can silently disagree with the real
-      one is worse than no second definition, since it reads as authoritative. Either delete it, or
-      make it load-bearing. Leaving it as decoration is the one option with no upside.
+      It was deleted rather than repaired because of the drift: `db/schema.ts` was missing `user_id`
+      on `jobs` entirely until 31 August, months after the column existed, and nothing failed -
+      because nothing depended on it. A second schema definition that can silently disagree with the
+      real one is worse than none, since it reads as authoritative. The schema that runs is
+      `schemaStatements` plus `runtimeMigrations`, and it is now the only one.
 
-- [ ] **`password_resets` is written by nobody.** Four routes `DELETE` from it; there is no
-      `INSERT` anywhere. It is scaffolding for the reset flow that B1 has not built, so today it is
-      a table that only ever gets tidied up. Harmless, but it will look implemented to whoever
-      reads the schema next.
+- [ ] **`password_resets` is kept, deliberately.** Four routes `DELETE` from it and nothing
+      `INSERT`s, so it is scaffolding for the reset flow B1 has not built. It was left alone
+      because dropping it means a migration plus edits to four routes, to remove something that
+      costs nothing and that B1 will need again - and because those four deletes are correct
+      defensive behaviour the moment the flow does exist. Recorded so the next reader knows it is
+      unbuilt rather than broken.
 
-- [ ] **`@rolldown/binding-win32-x64-msvc` is pinned as a devDependency** and declares
-      `os: ["win32"], cpu: ["x64"]`. On Linux or macOS — CI, or a second machine — the install
-      either fails or produces an unusable binary. If it works around something on Windows, it
-      belongs in `optionalDependencies` with a comment saying why.
+- [x] **`@rolldown/binding-win32-x64-msvc` deleted.** It declared `os: ["win32"], cpu: ["x64"]`,
+      so on Linux or macOS - CI, or a second machine - the install would fail or produce an
+      unusable binary. Tested before removing: the worker still builds and runs without it, because
+      Vite resolves the right platform binary on its own.
 
-- [ ] **`npm start` duplicates `npm run test:local`** and appears in no documentation. Two names
-      for one thing, one of which nobody is told about.
+- [x] **`npm start` deleted.** It duplicated `npm run test:local` under a second name that no
+      document mentioned.
 
 **Checked and genuinely in use**, so the audit's own false positives are recorded too: `react-dom`,
 `@vitejs/plugin-react`, `@vitejs/plugin-rsc` and `react-server-dom-webpack` are vinext peer
