@@ -88,6 +88,30 @@ Two imports make it not a five-minute job: `next/font/google` and `next/headers`
 - [ ] Expect this to remove ten of the current advisories permanently rather than until the next one
       is published against Next.
 
+### Mapped against OWASP Top 10:2025
+
+The 2025 revision reorders things, and two of the categories are new, so the review was re-run
+against it rather than against the 2021 list from memory.
+
+| | Category | Result |
+|---|---|---|
+| A01 | Broken Access Control | **Two found, both fixed** — S1 and P6's Careerjet key mismatch. This is where every real finding was, which matches it being ranked first |
+| A02 | Security Misconfiguration | No source maps shipped, no debug or diagnostic route, security headers served from the edge, registration closed. `'unsafe-inline'` in the script CSP is the one open item (A7) |
+| A03 | Software Supply Chain Failures | **New for 2025.** S3 — Next patched, the remaining ten confirmed build-time only and absent from the worker bundle. S4 records the larger reduction |
+| A04 | Cryptographic Failures | PBKDF2-SHA256 at 210k iterations, HMAC-signed sessions, constant-time comparison, no secret in any tracked file |
+| A05 | Injection | Every SQL interpolation is `?` placeholders or a code-authored fragment; no `dangerouslySetInnerHTML`, `innerHTML` or `eval` anywhere |
+| A06 | Insecure Design | The evidence gate is the clearest example of designing for the failure that matters: a `pass` is impossible without enough text to justify one |
+| A07 | Authentication Failures | Durable rate limiting verified across a worker restart, session revocation on sign-out, uniform response for unknown accounts |
+| A08 | Data Integrity Failures | Every consequential write goes through an owned, user-scoped statement; CSRF blocked cross-origin |
+| A09 | Logging Failures | **A real gap, and it is by design.** There is no audit log at all - no record of sign-ins, admin actions or deletions. Acceptable for one local user, not for a hosted service |
+| A10 | Mishandling of Exceptional Conditions | **New for 2025.** Errors returned to the client carry only a source name and an HTTP status - no URLs, no keys, no stack traces, and no `console` calls anywhere in source. One deliberate exception is recorded below |
+
+**The one deliberate fail-open**, called out because A10 is specifically about unsafe failure states:
+`durableRateLimit` returns "allowed" if the database errors. That is a considered trade — a limiter
+that takes the application down when storage hiccups converts a minor fault into an outage, and
+sign-in is still protected by deliberately slow password hashing. It is a second line, not the only
+one. Worth revisiting if this is ever hosted for other people.
+
 ### Still open
 
 - [ ] **A1** — rotate both administrator passwords and `SESSION_SECRET`. Unchanged by this review and
