@@ -132,9 +132,15 @@ requirement — so this needs a flag of its own rather than reusing `access: 're
 - [x] Excluded in SQL in the jobs read path, dropped before a run starts in the search path, and
       filtered from run rows — all from one derived list, so it cannot drift.
 - [x] Retroactive by construction: the rule is on the source key, so stored jobs are covered.
-- [ ] **Still to verify end-to-end with a second account** — the enforcement is unit-tested and the
-      SQL is right, but nobody has yet signed in as a non-administrator and confirmed the rows are
-      absent. `npm run verify:dev` creates disposable accounts and is the tool for it. Do this in P8.
+- [x] **Verified end-to-end with a real second account, 1 September.** A disposable ordinary account
+      was registered in dev, given a role keyword, and ran a real search. It received 155 jobs from
+      six sources — adzuna.ch, adzuna.nl, eures-ch, eures-nl, greenhouse, job-room.ch — and not one
+      row, source name or run entry from Careerjet, jobviewtrack.com, IamExpat, jobs.ch, jobup.ch or
+      Undutchables. `/api/health` and the restricted search mode both refused it with 403.
+
+      Worth doing precisely because the unit tests had passed throughout the Careerjet leak: the
+      hole was in the gap between an adapter key and the key results are stored under, which no
+      test of the derivation could see.
 - [x] A new account starts empty and inherits nothing — jobs are already owned per account, so
       there is no path by which a second user could see another account's stored results.
 

@@ -24,9 +24,14 @@ export async function PUT(request: Request) {
   if (response) return response;
   const { db, user } = session;
   const body = await request.json() as Record<string, unknown>;
-  const workplace = cleanText(body.workplace) as WorkplaceMode;
-  const seniority = cleanText(body.seniority) as Seniority;
-  const contractType = cleanText(body.contractType) as ContractType;
+  // Workplace, seniority and contract type were removed from the product in P5. Their columns are
+  // still written so an older client keeps working, but a caller that omits them is not wrong any
+  // more - it is simply using the current product, and answering that with "one or more search
+  // filters are invalid" describes controls that no longer exist. Missing now means 'any'; a value
+  // that is present is still validated, so a malformed one is still refused.
+  const workplace = (cleanText(body.workplace) || 'any') as WorkplaceMode;
+  const seniority = (cleanText(body.seniority) || 'any') as Seniority;
+  const contractType = (cleanText(body.contractType) || 'any') as ContractType;
   if (!workplaces.has(workplace) || !seniorities.has(seniority) || !contractTypes.has(contractType)) {
     return NextResponse.json({ error: 'One or more search filters are invalid.' }, { status: 400 });
   }
