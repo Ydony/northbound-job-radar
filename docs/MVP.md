@@ -119,8 +119,16 @@ shows counts.
       `CH031` is Basel and `NL32B` is part of North Holland, but nothing in the app resolves them.
       Either map the NUTS codes to names (a fixed public list, ~2,000 entries for the two countries,
       no lookups at runtime) or the facet is unusable for the largest source we have.
-- [ ] Free text from other sources is still uneven: "Zürich" and "Zürich 8000 ZH" count as two
-      places, and "Nederland" appears as though it were a city. Cosmetic, worth a pass later.
+- [x] **Free text from other sources is now tidied** (`lib/places.ts`). 483 distinct places across
+      1,504 jobs became 410: "Zürich" and "Zürich 8000 ZH" merged, as did three spellings of
+      Amsterdam, and 101 jobs that name only a country are marked country-wide rather than offered
+      beside Utrecht as though they were a city.
+
+      Deliberately narrow, because merging two genuinely different places is worse than leaving a
+      duplicate. Only a positively identified suffix is removed - a postal code, a known province
+      or canton - and a name Eurostat publishes is never rewritten at all. That last rule exists
+      because the first version turned "Kop van Noord-Holland" into "Kop van" and "Overig
+      Groningen" into "Overig", by treating a province that is *part* of a NUTS name as a suffix.
 
 ### P6. Sources that only an administrator may use — DONE
 

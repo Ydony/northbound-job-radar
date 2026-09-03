@@ -7,6 +7,7 @@ import { jobsToCsv, workspaceToJson } from '@/lib/export';
 import { countryLabel } from '@/lib/job-identity';
 import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
+import { normalizePlace } from '@/lib/places';
 import { extractRequirements } from '@/lib/requirements';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import type { HealthReport } from '@/app/api/health/route';
@@ -223,7 +224,7 @@ export default function JobRadar() {
     const byApplication = (job: JobRecord) => applicationFilter === 'all' || job.applicationStatus === applicationFilter;
     const bySource = (job: JobRecord) => sourceFilter === 'all' || job.sourceKey === sourceFilter;
     const byWorkType = (job: JobRecord) => workTypeFilter === 'all' || job.workplaceType === workTypeFilter;
-    const byCity = (job: JobRecord) => cityFilter === 'all' || job.location === cityFilter;
+    const byCity = (job: JobRecord) => cityFilter === 'all' || normalizePlace(job.location).place === cityFilter;
     const except = (skip: 'country' | 'application' | 'source' | 'workType' | 'city') => inView.filter((job) =>
       (skip === 'country' || byCountry(job))
       && (skip === 'application' || byApplication(job))
@@ -240,7 +241,7 @@ export default function JobRadar() {
       application: tally(except('application'), (job) => job.applicationStatus),
       source: tally(except('source'), (job) => job.sourceKey),
       workType: tally(except('workType'), (job) => job.workplaceType),
-      city: tally(except('city'), (job) => job.location),
+      city: tally(except('city'), (job) => normalizePlace(job.location).place),
       visible: inView.filter((job) => byCountry(job) && byApplication(job) && bySource(job) && byWorkType(job) && byCity(job)),
     };
   }, [applicationFilter, cityFilter, countryFilter, passesView, sourceFilter, visibleToRole, workTypeFilter]);
@@ -266,7 +267,9 @@ export default function JobRadar() {
   const cityOptions = useMemo(() => {
     const byCountry = new Map<JobCountry, Map<string, number>>();
     for (const job of visibleToRole) {
-      const place = job.location.trim();
+      // Grouped by the tidied name, so one city is one entry: "Zürich" and "Zürich 8000 ZH" were
+      // two rows in this list, as were three spellings of Amsterdam.
+      const { place } = normalizePlace(job.location);
       if (!place) continue;
       const cities = byCountry.get(job.country) ?? new Map<string, number>();
       cities.set(place, (cities.get(place) ?? 0) + 1);
