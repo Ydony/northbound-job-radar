@@ -24,6 +24,7 @@ jobs:
             const projectId = "PVT_kwHOCnYbl84BiaoA";
             const statusField = "PVTSSF_lAHOCnYbl84BiaoAzhhSxlQ";
             const statusOptions = {
+              "Spec Ready": "ac5b8533",
               "In Review": "950970f9",
               "In Test": "51366ce5",
               "Done": "fd1d5f70",
@@ -76,4 +77,10 @@ jobs:
               const issue = context.payload.issue;
               const item = await findProjectItem(issue.node_id);
               if (item) await setStatus(item.id, statusOptions["Done"]);
+            }
+
+            if (context.eventName === "issues" && context.payload.action === "reopened") {
+              const issue = context.payload.issue;
+              const item = await findProjectItem(issue.node_id);
+              if (item) await setStatus(item.id, statusOptions["Spec Ready"]);
             }
