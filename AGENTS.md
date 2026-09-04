@@ -1,7 +1,10 @@
 # Ik ben een appel: instructions for coding agents
 
-**Read `docs/TASKS.md` first** — the ordered list of what needs doing, blocking items at the top.
-Then `docs/HANDOFF.md` for the state of the project and the things that will surprise you. Read
+**Project board:** https://github.com/users/Ydony/projects/1 — what needs doing lives here now
+(migrated from Plane 2026-09-04), not in `docs/TASKS.md`. `docs/TASKS.md` stays as narrative
+history of what was found/decided; don't let it re-become a second open/closed list.
+
+**Read `docs/HANDOFF.md` first** for the state of the project and the things that will surprise you. Read
 `docs/MULTI_SOURCE_PLAN.md` before changing discovery, job identity, filters, pipeline state, or
 source adapters. Then `README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making
 product or integration changes. Local environments and the no-hosting decision:

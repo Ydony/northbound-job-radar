@@ -7,6 +7,8 @@ English is sufficient. It combines CV profiles with strict language screening an
 pipeline while keeping login and applications on the original job site. Accounts, CVs, jobs, and
 search history stay on the computer running it.
 
+**Project board:** https://github.com/users/Ydony/projects/1
+
 ## Download with Codex
 
 Give Codex this repository URL:
