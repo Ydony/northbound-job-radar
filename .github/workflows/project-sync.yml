@@ -1,11 +1,15 @@
 name: Sync GitHub Project status
 
-# Keeps the shared board (github.com/users/Ydony/projects/1) honest without manual dragging.
-# Adapted from the original task/<n>-branch convention to signals this repo actually uses:
-# PR lifecycle and issue-closing, referenced via "closes #N" / "fixes #N" in the PR body.
+# Keeps every Project board an issue belongs to in sync, without manual dragging.
+# Works against the per-project board AND the shared cross-project roll-up, by
+# resolving each board's own Status field/options by name at runtime rather than
+# hardcoding IDs (every board has different field and option IDs).
 #
-# Requires a repo secret PROJECT_TOKEN: a token with `project` scope (the default
-# GITHUB_TOKEN cannot write to a user-level Project that spans multiple repos).
+# Triggers are the ones this repo actually uses - PR lifecycle and issue open/close -
+# not the task/<n>-branch convention, which nothing here follows.
+#
+# Requires a repo secret PROJECT_TOKEN: a classic PAT with `project` AND `repo` scopes.
+# `project` alone cannot read issues in private repos, so the sync silently fails there.
 
 on:
   pull_request:
@@ -21,66 +25,82 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            const projectId = "PVT_kwHOCnYbl84BiaoA";
-            const statusField = "PVTSSF_lAHOCnYbl84BiaoAzhhSxlQ";
-            const statusOptions = {
-              "Spec Ready": "ac5b8533",
-              "In Review": "950970f9",
-              "In Test": "51366ce5",
-              "Done": "fd1d5f70",
-            };
-
-            async function findProjectItem(contentNodeId) {
+            // Every board this issue/PR sits on, so per-project and roll-up boards both update.
+            async function projectItemsFor(contentNodeId) {
               const q = `query($id: ID!) {
                 node(id: $id) {
-                  ... on Issue { projectItems(first: 20) { nodes { id project { id } } } }
-                  ... on PullRequest { projectItems(first: 20) { nodes { id project { id } } } }
+                  ... on Issue { projectItems(first: 20) { nodes { id project { id title } } } }
+                  ... on PullRequest { projectItems(first: 20) { nodes { id project { id title } } } }
                 }
               }`;
               const res = await github.graphql(q, { id: contentNodeId });
-              const items = res.node.projectItems.nodes;
-              return items.find((i) => i.project.id === projectId);
+              return res.node?.projectItems?.nodes ?? [];
             }
 
-            async function setStatus(itemId, optionId) {
-              const m = `mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: $project, itemId: $item, fieldId: $field,
-                  value: { singleSelectOptionId: $value }
-                }) { projectV2Item { id } }
+            // Each board defines its own Status field and option IDs - resolve by name.
+            const fieldCache = new Map();
+            async function statusFieldFor(projectId) {
+              if (fieldCache.has(projectId)) return fieldCache.get(projectId);
+              const q = `query($p: ID!) {
+                node(id: $p) {
+                  ... on ProjectV2 {
+                    field(name: "Status") {
+                      ... on ProjectV2SingleSelectField { id options { id name } }
+                    }
+                  }
+                }
               }`;
-              await github.graphql(m, { project: projectId, item: itemId, field: statusField, value: optionId });
+              const res = await github.graphql(q, { p: projectId });
+              const field = res.node?.field ?? null;
+              fieldCache.set(projectId, field);
+              return field;
+            }
+
+            async function setStatus(contentNodeId, statusName) {
+              const items = await projectItemsFor(contentNodeId);
+              for (const item of items) {
+                const field = await statusFieldFor(item.project.id);
+                if (!field) continue;
+                const option = field.options.find((o) => o.name === statusName);
+                if (!option) {
+                  core.info(`"${statusName}" not an option on "${item.project.title}" - skipped`);
+                  continue;
+                }
+                await github.graphql(
+                  `mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $project, itemId: $item, fieldId: $field,
+                      value: { singleSelectOptionId: $value }
+                    }) { projectV2Item { id } }
+                  }`,
+                  { project: item.project.id, item: item.id, field: field.id, value: option.id }
+                );
+                core.info(`${item.project.title}: Status -> ${statusName}`);
+              }
             }
 
             if (context.eventName === "pull_request") {
               const pr = context.payload.pull_request;
               const body = pr.body || "";
               const matches = [...body.matchAll(/\b(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#(\d+)/gi)];
-              const issueNumbers = [...new Set(matches.map((m) => parseInt(m[2])))];
+              const issueNumbers = [...new Set(matches.map((m) => parseInt(m[3])))];
 
               let newStatus = null;
               if (context.payload.action === "closed" && pr.merged) {
-                newStatus = statusOptions["In Test"];
+                newStatus = "In Test";
               } else if (["opened", "reopened", "ready_for_review"].includes(context.payload.action)) {
-                newStatus = statusOptions["In Review"];
+                newStatus = "In Review";
               }
               if (!newStatus) return;
 
               for (const num of issueNumbers) {
                 const issue = await github.rest.issues.get({ ...context.repo, issue_number: num });
-                const item = await findProjectItem(issue.data.node_id);
-                if (item) await setStatus(item.id, newStatus);
+                await setStatus(issue.data.node_id, newStatus);
               }
             }
 
-            if (context.eventName === "issues" && context.payload.action === "closed") {
-              const issue = context.payload.issue;
-              const item = await findProjectItem(issue.node_id);
-              if (item) await setStatus(item.id, statusOptions["Done"]);
-            }
-
-            if (context.eventName === "issues" && context.payload.action === "reopened") {
-              const issue = context.payload.issue;
-              const item = await findProjectItem(issue.node_id);
-              if (item) await setStatus(item.id, statusOptions["Spec Ready"]);
+            if (context.eventName === "issues") {
+              const action = context.payload.action;
+              if (action === "closed") await setStatus(context.payload.issue.node_id, "Done");
+              if (action === "reopened") await setStatus(context.payload.issue.node_id, "Spec Ready");
             }
