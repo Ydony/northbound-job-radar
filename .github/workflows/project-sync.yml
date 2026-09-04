@@ -16,7 +16,6 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    if: ${{ secrets.PROJECT_TOKEN != '' }}
     steps:
       - uses: actions/github-script@v7
         with:
