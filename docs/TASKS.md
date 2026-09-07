@@ -1,8 +1,14 @@
 # Task list
 
-**2026-09-07 planning update:** the recommended public/admin source split, integration order and
-task acceptance criteria are in [PUBLIC_ADMIN_INTEGRATION_PLAN.md](PUBLIC_ADMIN_INTEGRATION_PLAN.md).
-These are specifications, not implemented changes. Live progress belongs on the
+**2026-09-07 planning update:** the recommended integration order and task acceptance criteria are
+in [PUBLIC_ADMIN_INTEGRATION_PLAN.md](PUBLIC_ADMIN_INTEGRATION_PLAN.md). These are specifications,
+not implemented changes.
+
+**Read [SOURCE_POLICY.md](SOURCE_POLICY.md) first for the public/admin split.** It was verified the
+same day by fetching each source's own terms, and it supersedes the plan's EURES row: the
+restriction the plan described could not be found in any cited source, and the real constraint is a
+different and more useful one — reading a source and republishing its advertisements are separate
+permissions. Live progress belongs on the
 [GitHub project board](https://github.com/users/Ydony/projects/1); the older entries below are
 historical and may contain superseded status or source-permission claims.
 

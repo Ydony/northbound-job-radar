@@ -113,12 +113,20 @@ For a single job, in order:
 - [ ] **Source health** is visible to you as an administrator. It shows the server's public IP,
       which is why it must never appear for anyone else.
 
-### 7b. The one thing still unverified
+### 7b. Verified 7 September — worth repeating anyway
 
 A Careerjet leak was found on 31 August: 218 jobs were stored under `jobviewtrack.com` while the
 hidden list named `careerjet-ch`, so they were reachable by ordinary accounts while every unit test
-passed. The tests now cover it — **but nobody has yet signed in as a non-administrator and seen
-those rows absent**, and that is precisely the gap the leak lived in.
+passed. The tests now cover it.
+
+**This has since been done for real.** On 7 September a disposable ordinary account was registered
+in dev, given a role keyword and run through a genuine search. It received 155 jobs from adzuna.ch,
+adzuna.nl, eures-ch, eures-nl, greenhouse and job-room.ch, and not one row, source name or run entry
+from Careerjet, jobviewtrack.com, IamExpat, jobs.ch, jobup.ch or Undutchables. `/api/health` and the
+restricted search mode both refused it with 403.
+
+Repeat it anyway when the source split changes, because that is exactly the gap the leak lived in
+and no unit test could see it.
 
 - [ ] Press **View as user**. Careerjet, IamExpat, jobs.ch, jobup.ch and Undutchables must vanish
       from the job list, from the website filter, and from the source coverage report.
@@ -173,7 +181,7 @@ These are known, tracked, and deliberately not done yet:
 |---|---|
 | **A1** | Both administrator passwords were pasted in plain text and must be rotated before anything goes live. Given this repository is public, that also means never committing the new ones. |
 | **A7** | CSP still allows `'unsafe-inline'`; nonces before public traffic. |
-| **B3** | Rate limiting resets with the process. |
-| **P2** | The admin conversion report is not built yet. |
-| **P5b** | The location facet is not built yet, though the place names behind it are now correct. |
+| ~~**B3**~~ | **Done.** Sign-in rate limiting is held in the database and was verified across a worker restart, so it is no longer part of this pass. |
+| ~~**P2**~~ | **Built.** Per-source conversion report, administrator-only. |
+| ~~**P5b**~~ | **Built.** Places unfold under each country with counts, grouped by one name per city. |
 | **E6** | Job requirements are not shown on the card yet. |

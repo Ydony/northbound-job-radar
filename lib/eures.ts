@@ -14,15 +14,25 @@ import type { JobCountry } from './types';
  *   characters. It does not truncate, which is precisely what makes Adzuna (capped at 500) and
  *   Careerjet (279) unscreenable — a language requirement lives near the end of an ad, so a
  *   preview leaves the filter deciding on text that never contained the answer.
- * - **Standing.** The endpoint path is literally `/public/`, `robots.txt` does not disallow
- *   `/eures/`, and content on europa.eu is licensed CC BY 4.0 under the Commission's reuse
- *   decision of 12 December 2011 — reuse permitted with attribution. Nothing here depends on
- *   working around an access control, and the portal exists specifically so that people can find
- *   work in another member state.
+ * - **Standing to read it.** The endpoint path is literally `/public/`, `robots.txt` does not
+ *   disallow `/eures/`, and the EURES legal notice authorises reuse provided the European Labour
+ *   Authority is credited. Nothing here works around an access control, and the portal exists
+ *   specifically so that people can find work in another member state.
  *
- * The advertisement text itself belongs to the employer who wrote it. It is read to screen jobs
- * for one signed-in person and is never republished, which is the same footing as every other
- * source the app reads.
+ * **Reading it and republishing it are different questions**, and only the first is settled above.
+ * The Commission's CC BY 4.0 licence covers content *owned by the EU* and says additional rights
+ * may need clearing where content includes third-party works. An advertisement is written by the
+ * employer, so it is a third-party work inside an EU-operated portal: ours to read and screen,
+ * not ours to hand out.
+ *
+ * That distinction used to be satisfied by accident — there was one signed-in user and nothing was
+ * published to anyone. It stops being satisfied by accident the moment a public tier exists, so it
+ * is now a rule: see `docs/SOURCE_POLICY.md` §1. The public tier shows facts and our own verdict
+ * plus a link to the original; the full text stays server-side, where it is only ever used to
+ * decide whether English is enough.
+ *
+ * Attribution to the ELA is a condition of the permission and is **not implemented yet** —
+ * `SOURCE_POLICY.md` §4 tracks it as a blocker for going public.
  */
 const SEARCH_ENDPOINT = 'https://europa.eu/eures/api/jv-searchengine/public/jv-search/search?lang=en';
 const DETAIL_URL = 'https://europa.eu/eures/portal/jv-se/jv-details';
