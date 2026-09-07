@@ -1,8 +1,11 @@
 # Ik ben een appel: instructions for coding agents
 
-**Project board:** https://github.com/users/Ydony/projects/1 — what needs doing lives here now
+**Project board:** https://github.com/users/Ydony/projects/4 — what needs doing lives here now
 (migrated from Plane 2026-09-04), not in `docs/TASKS.md`. `docs/TASKS.md` stays as narrative
 history of what was found/decided; don't let it re-become a second open/closed list.
+
+**Cross-agent delivery rules:** read `C:/Projects/AI team and PM Tools/AGENTS.md` before
+estimating, delegating, or reviewing work. A user scope decision is required before dispatch.
 
 **2026-09-07 integration direction:** read `docs/PUBLIC_ADMIN_INTEGRATION_PLAN.md` before future
 source/public-service work. It records the owner's public/admin split, national-board permission
