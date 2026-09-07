@@ -4,6 +4,8 @@
 (migrated from Plane 2026-09-04), not in `docs/TASKS.md`. `docs/TASKS.md` stays as narrative
 history of what was found/decided; don't let it re-become a second open/closed list.
 
+Use `python "C:/Projects/AI team and PM Tools/pm-tools/pm.py"` (project key `ajh`) to create/group epics, tasks and relations here rather than editing the board by hand or writing raw gh/GraphQL calls — see that folder's README.md for the full PM system this repo participates in.
+
 **Read `docs/HANDOFF.md` first** for the state of the project and the things that will surprise you. Read
 `docs/MULTI_SOURCE_PLAN.md` before changing discovery, job identity, filters, pipeline state, or
 source adapters. Then `README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making
