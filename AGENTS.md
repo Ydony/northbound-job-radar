@@ -4,6 +4,12 @@
 (migrated from Plane 2026-09-04), not in `docs/TASKS.md`. `docs/TASKS.md` stays as narrative
 history of what was found/decided; don't let it re-become a second open/closed list.
 
+**2026-09-07 integration direction:** read `docs/PUBLIC_ADMIN_INTEGRATION_PLAN.md` before future
+source/public-service work. It records the owner's public/admin split, national-board permission
+assumptions and ordered task specifications, with existing issue links. It supersedes older planning
+claims about EURES reuse and an owner-only public launch; it does not mean runtime access controls,
+scheduled collection or hosting already changed. Keep actual policy evidence distinct from assumptions.
+
 **Read `docs/HANDOFF.md` first** for the state of the project and the things that will surprise you. Read
 `docs/MULTI_SOURCE_PLAN.md` before changing discovery, job identity, filters, pipeline state, or
 source adapters. Then `README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md` before making

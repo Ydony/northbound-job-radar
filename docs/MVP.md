@@ -1,5 +1,11 @@
 # MVP scope — pre-launch and after
 
+**2026-09-07 scope update:** the owner now wants public users to have their own accounts and a
+separate administrator source mode. [PUBLIC_ADMIN_INTEGRATION_PLAN.md](PUBLIC_ADMIN_INTEGRATION_PLAN.md)
+records the recommended integration design and tasks. Its public-account/source decisions supersede
+the owner-only launch assumptions below. This remains a plan; current dev/test are local, CV
+matching remains shelved, and no hosting or source-policy changes have been implemented.
+
 Dictated by the owner 2026-08-31. This is the scope document; `docs/TASKS.md` tracks the work.
 
 **The product does one thing:** it shows you jobs where English is enough, and hides the ones that

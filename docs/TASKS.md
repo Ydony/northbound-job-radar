@@ -1,5 +1,11 @@
 # Task list
 
+**2026-09-07 planning update:** the recommended public/admin source split, integration order and
+task acceptance criteria are in [PUBLIC_ADMIN_INTEGRATION_PLAN.md](PUBLIC_ADMIN_INTEGRATION_PLAN.md).
+These are specifications, not implemented changes. Live progress belongs on the
+[GitHub project board](https://github.com/users/Ydony/projects/1); the older entries below are
+historical and may contain superseded status or source-permission claims.
+
 Ordered by what blocks dependable local use. Tick items off as they are completed so another
 session can continue without reconstructing the state.
 

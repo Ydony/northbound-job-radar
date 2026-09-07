@@ -1,5 +1,24 @@
 # Handover
 
+## 2026-09-07 integration planning handover
+
+The owner now intends a free public service plus separate administrator discovery. Read
+[PUBLIC_ADMIN_INTEGRATION_PLAN.md](PUBLIC_ADMIN_INTEGRATION_PLAN.md) for the recommended source
+allocation, architecture, ordered INT-01 to INT-14 task specifications and existing issue links.
+It supersedes older future-scope/source-permission assumptions below, not the current runtime.
+
+Documentation only was changed: no adapters, schedules, accounts, secrets, database state or
+servers were changed. Dev/test remain local. Public sources need permitted reuse; uncertain or
+restricted sources stay admin-only under the owner's accepted risk. UWV and Job-Room permission
+is an explicit owner planning assumption, not independently verified evidence. UWV still needs
+an actual retrieval interface. EURES is proposed admin-only; its currently public-enabled registry
+has not yet been changed. No guarantee against IP blocking is made.
+
+Next implementation step: INT-01 source-policy consolidation, followed by server-side audience
+isolation and collection budgets. The GitHub board remains the execution tracker. The sections
+below are the 2026-08-31 historical snapshot; do not treat their counts, incomplete-task labels,
+or removed-schema references as current verification.
+
 Last updated: 2026-08-31, after the project was converted to isolated local-only dev and test
 environments.
 

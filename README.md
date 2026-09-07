@@ -9,6 +9,10 @@ search history stay on the computer running it.
 
 **Project board:** https://github.com/users/Ydony/projects/1
 
+**Next integration plan:** [public and administrator sources](docs/PUBLIC_ADMIN_INTEGRATION_PLAN.md)
+describes the proposed free public service, separate admin discovery, national-board assumptions,
+source evaluations and ordered implementation tasks. It is documentation, not a deployed feature.
+
 ## Download with Codex
 
 Give Codex this repository URL:
