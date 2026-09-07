@@ -1,6 +1,6 @@
 # Ik ben een appel: instructions for coding agents
 
-**Project board:** https://github.com/users/Ydony/projects/1 — what needs doing lives here now
+**Project board:** https://github.com/users/Ydony/projects/4 — what needs doing lives here now
 (migrated from Plane 2026-09-04), not in `docs/TASKS.md`. `docs/TASKS.md` stays as narrative
 history of what was found/decided; don't let it re-become a second open/closed list.
 
