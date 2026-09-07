@@ -15,7 +15,7 @@ on:
   pull_request:
     types: [opened, reopened, ready_for_review, closed]
   issues:
-    types: [closed, reopened]
+    types: [opened, closed, reopened]
 
 jobs:
   sync:
@@ -37,29 +37,30 @@ jobs:
               return res.node?.projectItems?.nodes ?? [];
             }
 
-            // Each board defines its own Status field and option IDs - resolve by name.
+            // Each board defines its own field and option IDs - resolve by name, not hardcoded.
             const fieldCache = new Map();
-            async function statusFieldFor(projectId) {
-              if (fieldCache.has(projectId)) return fieldCache.get(projectId);
-              const q = `query($p: ID!) {
+            async function selectFieldFor(projectId, fieldName) {
+              const key = `${projectId}:${fieldName}`;
+              if (fieldCache.has(key)) return fieldCache.get(key);
+              const q = `query($p: ID!, $f: String!) {
                 node(id: $p) {
                   ... on ProjectV2 {
-                    field(name: "Status") {
+                    field(name: $f) {
                       ... on ProjectV2SingleSelectField { id options { id name } }
                     }
                   }
                 }
               }`;
-              const res = await github.graphql(q, { p: projectId });
+              const res = await github.graphql(q, { p: projectId, f: fieldName });
               const field = res.node?.field ?? null;
-              fieldCache.set(projectId, field);
+              fieldCache.set(key, field);
               return field;
             }
 
             async function setStatus(contentNodeId, statusName) {
               const items = await projectItemsFor(contentNodeId);
               for (const item of items) {
-                const field = await statusFieldFor(item.project.id);
+                const field = await selectFieldFor(item.project.id, "Status");
                 if (!field) continue;
                 const option = field.options.find((o) => o.name === statusName);
                 if (!option) {
@@ -99,8 +100,64 @@ jobs:
               }
             }
 
+            // A brand-new issue belongs to no board and has no field values - without this
+            // it silently lands outside the structure and never shows up in planning.
+            async function onboardNewIssue(issue) {
+              const repoQuery = `query($owner: String!, $name: String!) {
+                repository(owner: $owner, name: $name) {
+                  projectsV2(first: 20) { nodes { id title } }
+                }
+              }`;
+              const res = await github.graphql(repoQuery, {
+                owner: context.repo.owner,
+                name: context.repo.repo,
+              });
+              const boards = res.repository?.projectsV2?.nodes ?? [];
+              if (!boards.length) {
+                core.warning("No project boards linked to this repo - issue not added anywhere.");
+                return;
+              }
+
+              // Owner mirrors the migration convention: assigned to a human = "You", else "Claude".
+              const ownerValue = (issue.assignees ?? []).length ? "You" : "Claude";
+
+              for (const board of boards) {
+                const added = await github.graphql(
+                  `mutation($project: ID!, $content: ID!) {
+                    addProjectV2ItemById(input: { projectId: $project, contentId: $content }) {
+                      item { id }
+                    }
+                  }`,
+                  { project: board.id, content: issue.node_id }
+                );
+                const itemId = added.addProjectV2ItemById.item.id;
+
+                for (const [fieldName, valueName] of [["Status", "Backlog"], ["Owner", ownerValue]]) {
+                  const field = await selectFieldFor(board.id, fieldName);
+                  if (!field) continue;
+                  const option = field.options.find((o) => o.name === valueName);
+                  if (!option) continue;
+                  await github.graphql(
+                    `mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $project, itemId: $item, fieldId: $field,
+                        value: { singleSelectOptionId: $value }
+                      }) { projectV2Item { id } }
+                    }`,
+                    { project: board.id, item: itemId, field: field.id, value: option.id }
+                  );
+                }
+                core.info(`${board.title}: added #${issue.number} (Backlog, Owner ${ownerValue})`);
+              }
+              core.notice(
+                `#${issue.number} added to ${boards.length} board(s). Still needs triage: ` +
+                `Priority, Difficulty, Milestone (epic), and a parent issue if it belongs under one.`
+              );
+            }
+
             if (context.eventName === "issues") {
               const action = context.payload.action;
+              if (action === "opened") await onboardNewIssue(context.payload.issue);
               if (action === "closed") await setStatus(context.payload.issue.node_id, "Done");
               if (action === "reopened") await setStatus(context.payload.issue.node_id, "Spec Ready");
             }
