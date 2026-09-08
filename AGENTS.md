@@ -4,7 +4,17 @@
 (migrated from Plane 2026-09-04), not in `docs/TASKS.md`. `docs/TASKS.md` stays as narrative
 history of what was found/decided; don't let it re-become a second open/closed list.
 
-Use `python "C:/Projects/AI team and PM Tools/pm-tools/pm.py"` (project key `ajh`) to create/group epics, tasks and relations here rather than editing the board by hand or writing raw gh/GraphQL calls — see that folder's README.md for the full PM system this repo participates in.
+**Cross-agent delivery rules:** read `C:/Projects/AI team and PM Tools/AGENTS.md` before
+estimating, delegating, or reviewing work. A user scope decision is required before dispatch.
+
+Use `python "C:/Projects/AI team and PM Tools/pm-tools/pm.py"` (project key `ajh`) to
+create/group epics, tasks and relations rather than writing raw GitHub/GraphQL calls.
+
+**2026-09-07 integration direction:** read `docs/PUBLIC_ADMIN_INTEGRATION_PLAN.md` before future
+source/public-service work. It records the owner's public/admin split, national-board permission
+assumptions and ordered task specifications, with existing issue links. It supersedes older planning
+claims about EURES reuse and an owner-only public launch; it does not mean runtime access controls,
+scheduled collection or hosting already changed. Keep actual policy evidence distinct from assumptions.
 
 **Read `docs/HANDOFF.md` first** for the state of the project and the things that will surprise you. Read
 `docs/MULTI_SOURCE_PLAN.md` before changing discovery, job identity, filters, pipeline state, or

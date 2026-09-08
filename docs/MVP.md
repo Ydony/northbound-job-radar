@@ -1,5 +1,11 @@
 # MVP scope — pre-launch and after
 
+**2026-09-07 scope update:** the owner now wants public users to have their own accounts and a
+separate administrator source mode. [PUBLIC_ADMIN_INTEGRATION_PLAN.md](PUBLIC_ADMIN_INTEGRATION_PLAN.md)
+records the recommended integration design and tasks. Its public-account/source decisions supersede
+the owner-only launch assumptions below. This remains a plan; current dev/test are local, CV
+matching remains shelved, and no hosting or source-policy changes have been implemented.
+
 Dictated by the owner 2026-08-31. This is the scope document; `docs/TASKS.md` tracks the work.
 
 **The product does one thing:** it shows you jobs where English is enough, and hides the ones that
@@ -226,7 +232,7 @@ Not part of the dictated scope, but they gate a public deployment regardless.
 |---|---|---|
 | A1 | Both administrator passwords were pasted in plaintext | Rotate, plus a fresh `SESSION_SECRET` |
 | A7 | CSP allows `'unsafe-inline'` for React hydration | Nonces before public traffic |
-| B3 | Rate limiting resets with the process | A durable store |
+| ~~B3~~ | ~~Rate limiting resets with the process~~ | **Done 1 September.** Sign-in counts in the database and survives a worker restart. This row contradicted the one above it, which had already recorded the fix. |
 | B1/B2 | No password reset, no email verification | **Not blocking the launch** — the owner is the only user and registration stays closed. But the owner also expects *"most users will be from"* the Netherlands, so this is a "not yet" rather than a "never": both become blocking the moment a second account exists, and an email provider has to be chosen before then. |
 | B6 | Careerjet is IP-locked to a declared address | Cloudflare Workers have no static egress IP, so it cannot work in production as it stands. P6 makes it administrator-only, which contains but does not solve this. |
 

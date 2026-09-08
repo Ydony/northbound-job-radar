@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
 import { roleForSlot } from '@/lib/criteria';
@@ -33,17 +32,17 @@ export async function POST(request: Request) {
   const fileEntry = form.get('file');
   const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
 
-  if (!slots.has(slot)) return NextResponse.json({ error: 'Invalid CV slot.' }, { status: 400 });
-  if (!file) return NextResponse.json({ error: 'Choose a CV file.' }, { status: 400 });
-  if (file.size > maxCvBytes) return NextResponse.json({ error: 'CV must be 10 MB or smaller.' }, { status: 400 });
+  if (!slots.has(slot)) return Response.json({ error: 'Invalid CV slot.' }, { status: 400 });
+  if (!file) return Response.json({ error: 'Choose a CV file.' }, { status: 400 });
+  if (file.size > maxCvBytes) return Response.json({ error: 'CV must be 10 MB or smaller.' }, { status: 400 });
   const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-  if (!allowedExtensions.has(extension)) return NextResponse.json({ error: 'Use a PDF, DOCX, or TXT file.' }, { status: 400 });
-  if (cvText.length < 80) return NextResponse.json({ error: 'I could not read enough text from this CV. Try another file or a text-based PDF.' }, { status: 400 });
+  if (!allowedExtensions.has(extension)) return Response.json({ error: 'Use a PDF, DOCX, or TXT file.' }, { status: 400 });
+  if (cvText.length < 80) return Response.json({ error: 'I could not read enough text from this CV. Try another file or a text-based PDF.' }, { status: 400 });
 
   const derivedRole = deriveRoleFromCv(cvText);
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!looksLikeDeclaredType(extension, bytes)) {
-    return NextResponse.json({ error: 'That file does not look like a real PDF, DOCX or TXT file.' }, { status: 400 });
+    return Response.json({ error: 'That file does not look like a real PDF, DOCX or TXT file.' }, { status: 400 });
   }
   const { files } = session;
   const previous = await db.prepare('SELECT object_key FROM cvs WHERE user_id = ? AND slot = ?').bind(user.id, slot).first<{ object_key: string }>();
@@ -73,7 +72,7 @@ export async function POST(request: Request) {
   })));
 
   const row = await db.prepare('SELECT * FROM cvs WHERE user_id = ? AND slot = ?').bind(user.id, slot).first<CvRow>();
-  return NextResponse.json({ cv: cvFromRow(row!), rescoredJobs });
+  return Response.json({ cv: cvFromRow(row!), rescoredJobs });
 }
 
 export async function DELETE(request: Request) {
@@ -82,12 +81,12 @@ export async function DELETE(request: Request) {
   if (response) return response;
   const { db, user } = session;
   const slot = new URL(request.url).searchParams.get('slot') as CvSlot;
-  if (!slots.has(slot)) return NextResponse.json({ error: 'Invalid CV slot.' }, { status: 400 });
+  if (!slots.has(slot)) return Response.json({ error: 'Invalid CV slot.' }, { status: 400 });
 
   const { files } = session;
   const saved = await db.prepare('SELECT object_key FROM cvs WHERE user_id = ? AND slot = ?')
     .bind(user.id, slot).first<{ object_key: string }>();
-  if (!saved) return NextResponse.json({ error: 'CV not found.' }, { status: 404 });
+  if (!saved) return Response.json({ error: 'CV not found.' }, { status: 404 });
   if (saved.object_key) await files.delete(saved.object_key);
 
   const now = new Date().toISOString();
@@ -110,5 +109,5 @@ export async function DELETE(request: Request) {
     cvText: remaining.cv_text,
     derivedRole: roleForSlot(remaining.slot, remaining.derived_role, criteria),
   })));
-  return NextResponse.json({ ok: true, rescoredJobs });
+  return Response.json({ ok: true, rescoredJobs });
 }

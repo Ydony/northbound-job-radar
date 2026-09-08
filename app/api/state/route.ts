@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { authSecrets, ensureSchema } from '@/db/runtime';
 import { recordVisit } from '@/lib/analytics';
 import { clientIp, requireSession } from '@/lib/guard';
@@ -79,7 +78,7 @@ export async function GET(request: Request) {
       return sources ? { ...job, duplicateCount: sources.length, duplicateSources: [...new Set(sources)] } : job;
     });
 
-  return NextResponse.json({
+  return Response.json({
     account: { email: user.email, role: user.role },
     // Sent so the administrator's "view as user" preview can hide the same sources the server
     // already withholds from everyone else. The server is what enforces it; this is what makes the

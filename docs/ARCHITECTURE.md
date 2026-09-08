@@ -53,9 +53,12 @@ The source roster is deliberately mixed:
   pages; query-string vacancy search is not used because its robots policy disallows it.
 - Indeed Switzerland and Netherlands are blocked because their rules prohibit automated
   access without written permission and live requests returned HTTP 403.
-- Job-Room is unavailable because its published API is for employers posting adverts,
-  Nationale Vacaturebank is unavailable after HTTP 403, and I amsterdam is disabled
-  because it is a guide rather than a vacancy feed.
+- Job-Room is enabled and public. The line previously here said it was unavailable because
+  its published API is for employers posting adverts - that is a different interface. Its
+  unauthenticated public search and detail API is what this app reads, and the detail endpoint
+  returns whole advertisements where search returns only a preview.
+- Nationale Vacaturebank is unavailable after HTTP 403, and I amsterdam is disabled because it
+  is a guide rather than a vacancy feed.
 - LinkedIn is not configured by user request.
 
 This is bounded on purpose:
@@ -265,11 +268,12 @@ CRMs. The same ATS endpoints are rich for direct employers.
 - The existing database upgrade was verified with two real CV profiles and 48 distinct
   jobs (7 pass, 1 review, 40 blocked; 4 dismissed). The new external multi-source run has
   not been executed because `npm run dev:private` found no active full VPN route.
-- `drizzle/0000_open_whirlwind.sql` matches the two-CV schema and
-  `drizzle/0001_lush_silvermane.sql` adds saved search settings;
-  `drizzle/0002_cultured_squadron_supreme.sql` adds language feedback, and
-  `drizzle/0003_cloudy_toro.sql` represents the multi-source schema. Runtime migrations
-  are separately applied and versioned as described in §7a.
+- The generated Drizzle migrations that were described here no longer exist. The whole
+  Drizzle layer was removed on 1 September because nothing imported it and its schema had
+  silently drifted from the real one - `db/schema.ts` was missing `user_id` on `jobs` for
+  months without anything failing. `schemaStatements` in `db/runtime.ts` plus
+  `runtimeMigrations` in `db/migrations.ts` are now the only description of the schema, and
+  are applied and versioned as described in §7a.
 - Authentication and tenant scoping exist, but the complete second-user regression exercise in
   `docs/TASKS.md` A3 must be rerun after the environment split.
 - Deterministic language detection has focused regression tests, a reviewed 24-ad live

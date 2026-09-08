@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { aggregatorCredentials } from '@/db/runtime';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { searchAdzuna, searchCareerjet } from '@/lib/job-aggregators';
@@ -74,5 +73,5 @@ export async function GET(request: Request) {
     checkedAt: new Date().toISOString(),
     sources,
   };
-  return NextResponse.json(report);
+  return Response.json(report);
 }

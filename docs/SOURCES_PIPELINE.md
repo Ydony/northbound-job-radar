@@ -119,10 +119,17 @@ language gate. `tests/eures.test.ts` exists to keep it that way.
 | `grey-area` | Public pages, no access control worked around | IamExpat |
 | `restricted` | Page-fetching; administrator only, VPN required, hidden from other accounts | jobs.ch, jobup.ch, Indeed, and others |
 
-EURES has the strongest footing of anything here: the endpoint path is literally `/public/`,
-`robots.txt` does not disallow `/eures/`, and europa.eu content is **CC BY 4.0** under the
-Commission's reuse decision of 12 December 2011. The portal exists so people can find work in
+EURES has the strongest footing of anything here for *reading*: the endpoint path is literally
+`/public/`, `robots.txt` does not disallow `/eures/`, and the EURES legal notice authorises reuse
+provided the European Labour Authority is credited. The portal exists so people can find work in
 another member state.
+
+**Reading is not republishing, and this paragraph used to blur the two.** The Commission's CC BY 4.0
+licence covers content *owned by the EU*, and says explicitly that additional rights may need
+clearing where content includes third-party works. A job advertisement is written by the employer,
+not by the EU, so it is a third-party work inside an EU-operated portal. That is fine for screening
+it, and not a licence to republish it publicly. See `docs/SOURCE_POLICY.md` §1 — the public tier
+shows facts and our own verdict plus a link, not the employer's text.
 
 ---
 

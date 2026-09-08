@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
@@ -20,17 +19,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const hasVisibilityStatus = body.visibilityStatus !== undefined;
   const hasLanguageFeedback = body.languageFeedback !== undefined;
   if (!hasSavedState && !hasApplicationStatus && !hasVisibilityStatus && !hasLanguageFeedback) {
-    return NextResponse.json({ error: 'No supported update was provided.' }, { status: 400 });
+    return Response.json({ error: 'No supported update was provided.' }, { status: 400 });
   }
-  if (hasSavedState && typeof body.isSaved !== 'boolean') return NextResponse.json({ error: 'Invalid saved state.' }, { status: 400 });
+  if (hasSavedState && typeof body.isSaved !== 'boolean') return Response.json({ error: 'Invalid saved state.' }, { status: 400 });
   const applicationStatus = body.applicationStatus as ApplicationStatus;
-  if (hasApplicationStatus && !applicationStatuses.has(applicationStatus)) return NextResponse.json({ error: 'Invalid application status.' }, { status: 400 });
+  if (hasApplicationStatus && !applicationStatuses.has(applicationStatus)) return Response.json({ error: 'Invalid application status.' }, { status: 400 });
   const visibilityStatus = body.visibilityStatus as VisibilityStatus;
-  if (hasVisibilityStatus && !visibilityStatuses.has(visibilityStatus)) return NextResponse.json({ error: 'Invalid visibility status.' }, { status: 400 });
+  if (hasVisibilityStatus && !visibilityStatuses.has(visibilityStatus)) return Response.json({ error: 'Invalid visibility status.' }, { status: 400 });
   const feedback = hasLanguageFeedback
     ? normalizeLanguageFeedback(body.languageFeedback, body.correctedLanguageStatus, body.languageFeedbackReason)
     : null;
-  if (hasLanguageFeedback && !feedback) return NextResponse.json({ error: 'Invalid language feedback.' }, { status: 400 });
+  if (hasLanguageFeedback && !feedback) return Response.json({ error: 'Invalid language feedback.' }, { status: 400 });
 
   const job = await db.prepare(`SELECT id, source_url, source_key, source_job_id, canonical_url, identity_fingerprint,
       title, company, location, posted_at, language_status, language_summary, language_signals, description
@@ -50,7 +49,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       location: string;
       posted_at: string;
     }>();
-  if (!job) return NextResponse.json({ error: 'Job not found.' }, { status: 404 });
+  if (!job) return Response.json({ error: 'Job not found.' }, { status: 404 });
 
   const statements: D1PreparedStatement[] = [];
   const now = new Date().toISOString();
@@ -113,7 +112,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ELSE 'new' END WHERE id = ? AND user_id = ?`).bind(id, user.id));
   }
   await db.batch(statements);
-  return NextResponse.json({ ok: true, feedback, isSaved: body.isSaved, applicationStatus, visibilityStatus });
+  return Response.json({ ok: true, feedback, isSaved: body.isSaved, applicationStatus, visibilityStatus });
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -126,5 +125,5 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     db.prepare('DELETE FROM language_feedback WHERE job_id = ? AND user_id = ?').bind(id, user.id),
     db.prepare('DELETE FROM jobs WHERE id = ? AND user_id = ?').bind(id, user.id),
   ]);
-  return NextResponse.json({ ok: true });
+  return Response.json({ ok: true });
 }
