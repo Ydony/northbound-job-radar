@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
 import { analyzeLanguage, scoreFitAcrossCvs } from '@/lib/analysis';
@@ -26,9 +25,9 @@ export async function POST(request: Request) {
   const description = clean(payload.description, 120_000);
   const postedAt = clean(payload.postedAt, 80);
 
-  if (!isSafeManualJobUrl(sourceUrl)) return NextResponse.json({ error: 'Paste a valid public HTTPS job-ad URL.' }, { status: 400 });
-  if (!title) return NextResponse.json({ error: 'Add the job title.' }, { status: 400 });
-  if (description.length < 160) return NextResponse.json({ error: 'Paste the full job advertisement so the language gate has enough evidence.' }, { status: 400 });
+  if (!isSafeManualJobUrl(sourceUrl)) return Response.json({ error: 'Paste a valid public HTTPS job-ad URL.' }, { status: 400 });
+  if (!title) return Response.json({ error: 'Add the job title.' }, { status: 400 });
+  if (description.length < 160) return Response.json({ error: 'Paste the full job advertisement so the language gate has enough evidence.' }, { status: 400 });
 
   const [cvRows, criteriaRow] = await Promise.all([
     db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id)
@@ -36,7 +35,7 @@ export async function POST(request: Request) {
     db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
   ]);
   if (CV_MATCHING_ENABLED && !cvRows.results.length) {
-    return NextResponse.json({ error: 'Upload at least one CV before analyzing jobs.' }, { status: 400 });
+    return Response.json({ error: 'Upload at least one CV before analyzing jobs.' }, { status: 400 });
   }
   const criteria = criteriaFromRow(criteriaRow);
   const cvs = cvRows.results.map((row) => ({
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
     postedAt,
     ...fit,
   });
-  return NextResponse.json({ job: result.job, duplicate: result.wasKnown || result.wasDuplicate, dismissed: result.wasDismissed });
+  return Response.json({ job: result.job, duplicate: result.wasKnown || result.wasDuplicate, dismissed: result.wasDismissed });
 }
 
 export async function DELETE(request: Request) {
@@ -66,14 +65,14 @@ export async function DELETE(request: Request) {
   const ids = Array.isArray(body.ids)
     ? [...new Set(body.ids.filter((id): id is string => typeof id === 'string' && id.length > 0))].slice(0, 250)
     : [];
-  if (!all && !ids.length) return NextResponse.json({ error: 'Choose at least one job to delete.' }, { status: 400 });
+  if (!all && !ids.length) return Response.json({ error: 'Choose at least one job to delete.' }, { status: 400 });
 
   if (all) {
     const results = await db.batch([
       db.prepare('DELETE FROM language_feedback WHERE user_id = ?').bind(user.id),
       db.prepare('DELETE FROM jobs WHERE user_id = ?').bind(user.id),
     ]);
-    return NextResponse.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
+    return Response.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
   }
 
   const placeholders = ids.map(() => '?').join(',');
@@ -81,5 +80,5 @@ export async function DELETE(request: Request) {
     db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (${placeholders})`).bind(user.id, ...ids),
     db.prepare(`DELETE FROM jobs WHERE user_id = ? AND id IN (${placeholders})`).bind(user.id, ...ids),
   ]);
-  return NextResponse.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
+  return Response.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
 }

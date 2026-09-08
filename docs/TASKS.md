@@ -84,21 +84,24 @@ now a first-class check rather than housekeeping. It reported 12 high advisories
       are a risk to the integrity of the build, not to the running application, and fixing them
       needs `--force` and major upgrades to the toolchain.
 
-### S4. Next is a 166 MB dependency used for one method — worth removing
+### S4. Next was a 166 MB dependency used for one method — removed 2026-09-08
 
-Noticed while assessing S3, and it is the single largest supply-chain reduction available.
-
-**vinext does not depend on Next at all** — no dependency, no peer dependency. Next is here only
-because this app imports from it, and of 85 imports, **all 85 are `NextResponse.json(...)`**, which
-`Response.json(...)` does natively in workerd. That is 166 MB of dependency, and every advisory it
-ever carries, for one static method.
-
-Two imports make it not a five-minute job: `next/font/google` and `next/headers`, one use each.
-
-- [ ] Replace the 85 `NextResponse.json` calls with `Response.json`.
-- [ ] Deal with the two remaining imports, then drop `next` from `package.json` entirely.
-- [ ] Expect this to remove ten of the current advisories permanently rather than until the next one
-      is published against Next.
+- [x] Replaced all 85 `NextResponse.json` calls with the native `Response.json` (12 API routes
+      plus `lib/guard.ts`, whose `Guarded`/`rateLimit`/`durableRateLimit` types became `Response`).
+- [x] Dropped the `next` runtime package from `package.json` entirely. The two remaining
+      imports (`next/font/google`, `next/headers`) plus the `Metadata`/`NextConfig` types resolve
+      through vinext's own shims — vinext documents that apps run and type-check without the
+      `next` package — wired via `"vinext/types"` in `tsconfig.json`'s `types` array.
+      `next.config.ts` stays because vinext loads it for the security headers; the file no longer
+      implies the package. The lint gate now uses direct ESLint, TypeScript, React, hooks, and
+      accessibility presets instead of `eslint-config-next`, whose parser imports the removed
+      runtime package. The `next` TS plugin and `.next` includes are gone.
+- [x] Audit after removal: 0 production vulnerabilities; 11 dev-only advisories remain (esbuild,
+      image-size, react-server-dom-webpack, sharp, ws — all build-time, none in the worker
+      bundle). The nine Next advisories are no longer present. Verified: 122 tests, typecheck, lint and
+      `vinext build` clean; the dev server serves `/` with the CSP, `/sources` (headers shim),
+      `/login`, and `/api/state` → 401 through the native `Response` path. Fresh synthetic accounts
+      also passed register → authenticated state → sign-out in both isolated dev and test state.
 
 ### Mapped against OWASP Top 10:2025
 

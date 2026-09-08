@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { authSecrets, bindings } from '@/db/runtime';
 import { isSameOrigin, readCookie, readSessionValue } from './auth';
 import { findUserById, userFromRow, type UserRecord } from './users';
@@ -9,7 +8,7 @@ export interface Session {
   files: R2Bucket;
 }
 
-export type Guarded = { session: Session; response?: never } | { session?: never; response: NextResponse };
+export type Guarded = { session: Session; response?: never } | { session?: never; response: Response };
 
 /**
  * Every API route starts here. The app is closed by default: no valid session means no data, and a
@@ -19,30 +18,30 @@ export type Guarded = { session: Session; response?: never } | { session?: never
 export async function requireSession(request: Request, options: { adminOnly?: boolean } = {}): Promise<Guarded> {
   const { sessionSecret } = authSecrets();
   if (!sessionSecret) {
-    return { response: NextResponse.json({ error: 'This installation is not configured. Set SESSION_SECRET and restart.' }, { status: 503 }) };
+    return { response: Response.json({ error: 'This installation is not configured. Set SESSION_SECRET and restart.' }, { status: 503 }) };
   }
   if (request.method !== 'GET' && request.method !== 'HEAD' && !isSameOrigin(request)) {
-    return { response: NextResponse.json({ error: 'Cross-origin request refused.' }, { status: 403 }) };
+    return { response: Response.json({ error: 'Cross-origin request refused.' }, { status: 403 }) };
   }
 
   const claims = await readSessionValue(readCookie(request), sessionSecret);
-  if (!claims) return { response: NextResponse.json({ error: 'Sign in to continue.' }, { status: 401 }) };
+  if (!claims) return { response: Response.json({ error: 'Sign in to continue.' }, { status: 401 }) };
 
   const { db, files } = bindings();
   const row = await findUserById(db, claims.userId);
   // A cookie issued before the account's epoch was raised is refused, which is what makes
   // "sign out everywhere" and a post-breach revocation actually take effect.
   if (row && (row.session_epoch ?? 1) !== claims.epoch) {
-    return { response: NextResponse.json({ error: 'This session has been signed out.' }, { status: 401 }) };
+    return { response: Response.json({ error: 'This session has been signed out.' }, { status: 401 }) };
   }
   // Re-read the account on every request so disabling someone takes effect immediately rather than
   // waiting for their cookie to expire.
   if (!row || row.status !== 'active') {
-    return { response: NextResponse.json({ error: 'This account is not active.' }, { status: 403 }) };
+    return { response: Response.json({ error: 'This account is not active.' }, { status: 403 }) };
   }
   const user = userFromRow(row);
   if (options.adminOnly && user.role !== 'admin') {
-    return { response: NextResponse.json({ error: 'Administrator access required.' }, { status: 403 }) };
+    return { response: Response.json({ error: 'Administrator access required.' }, { status: 403 }) };
   }
   return { session: { user, db, files } };
 }
@@ -71,7 +70,7 @@ export function clientIp(request: Request) {
  * Against the single account this app has, on a URL about to be posted publicly, a counter that
  * forgets is close to no counter at all. Use `durableRateLimit` there.
  */
-export function rateLimit(key: string, limit: number, windowMs: number): NextResponse | null {
+export function rateLimit(key: string, limit: number, windowMs: number): Response | null {
   const now = Date.now();
   if (windows.size > 5000) {
     for (const [entry, window] of windows) if (window.resetAt <= now) windows.delete(entry);
@@ -83,7 +82,7 @@ export function rateLimit(key: string, limit: number, windowMs: number): NextRes
   }
   if (current.count >= limit) {
     const retryAfter = Math.ceil((current.resetAt - now) / 1000);
-    return NextResponse.json(
+    return Response.json(
       { error: `Too many requests. Try again in ${retryAfter} second${retryAfter === 1 ? '' : 's'}.` },
       { status: 429, headers: { 'retry-after': String(retryAfter) } },
     );
@@ -114,7 +113,7 @@ export async function durableRateLimit(
   key: string,
   limit: number,
   windowMs: number,
-): Promise<NextResponse | null> {
+): Promise<Response | null> {
   const now = Date.now();
   try {
     const existing = await db.prepare('SELECT count, reset_at FROM rate_limits WHERE bucket = ?')
@@ -132,7 +131,7 @@ export async function durableRateLimit(
 
     if (existing.count >= limit) {
       const retryAfter = Math.ceil((existing.reset_at - now) / 1000);
-      return NextResponse.json(
+      return Response.json(
         { error: `Too many requests. Try again in ${retryAfter} second${retryAfter === 1 ? '' : 's'}.` },
         { status: 429, headers: { 'retry-after': String(retryAfter) } },
       );

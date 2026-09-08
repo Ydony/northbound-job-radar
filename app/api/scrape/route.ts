@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { aggregatorCredentials, authSecrets, ensureSchema } from '@/db/runtime';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
@@ -122,7 +121,7 @@ export async function POST(request: Request) {
 
 type SearchOutcome =
   /** Refused before any work started; sent as an ordinary response with its real status code. */
-  | { kind: 'refused'; response: NextResponse }
+  | { kind: 'refused'; response: Response }
   /** Completed; `body` becomes the last line of the stream. */
   | { kind: 'done'; body: unknown };
 
@@ -141,12 +140,12 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   const body = await request.json().catch(() => ({})) as { mode?: SearchMode };
   const requestedAll = body.mode === 'all';
   if (requestedAll && user.role !== 'admin') {
-    return { kind: 'refused', response: NextResponse.json({ error: 'That search mode is not available on this account.' }, { status: 403 }) };
+    return { kind: 'refused', response: Response.json({ error: 'That search mode is not available on this account.' }, { status: 403 }) };
   }
   // Restricted sources need the VPN, and the button label is not evidence of one. Only the
   // launcher that verifies a full tunnel route sets this, so without it the mode is refused.
   if (requestedAll && !authSecrets().vpnEnforced) {
-    return { kind: 'refused', response: NextResponse.json({
+    return { kind: 'refused', response: Response.json({
       error: 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.',
     }, { status: 409 }) };
   }
@@ -169,7 +168,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   // derived from one, which made an optional feature block the product's only job. Roles come from
   // the role keywords now; a CV, when the feature is switched back on, only adds to them.
   if (CV_MATCHING_ENABLED && !cvRows.results.length) {
-    return { kind: 'refused', response: NextResponse.json({ error: 'Upload at least one CV first.' }, { status: 400 }) };
+    return { kind: 'refused', response: Response.json({ error: 'Upload at least one CV first.' }, { status: 400 }) };
   }
 
   const criteria = criteriaFromRow(criteriaRow, roleRows.results);
@@ -178,7 +177,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     derivedRole: row.derived_role,
   })), criteria);
   if (!searchTerms.length) {
-    return { kind: 'refused', response: NextResponse.json({
+    return { kind: 'refused', response: Response.json({
       error: CV_MATCHING_ENABLED
         ? 'Add at least one role keyword or use a CV with a detectable target role.'
         : 'Add at least one role keyword in Search settings, then search again.',
