@@ -9,6 +9,7 @@ import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
 import { normalizePlace } from '@/lib/places';
 import { extractRequirements } from '@/lib/requirements';
+import { MIN_CHARS_TO_CONFIRM_ENGLISH } from '@/lib/analysis';
 import { ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import type { HealthReport } from '@/app/api/health/route';
@@ -1070,6 +1071,15 @@ export default function JobRadar() {
                     <summary>{requirements.heading} <i>{requirements.items.length}</i></summary>
                     <ul>{requirements.items.map((item) => <li key={item}>{item}</li>)}</ul>
                   </details>}
+                  {/* Half the catalogue is aggregator teasers of a few hundred characters. Showing
+                      nothing there is indistinguishable from a job with no stated requirements, so
+                      say which it is and point at the page that has them. The threshold is the one
+                      the language gate already uses, so "too short" means one thing in this app. */}
+                  {!requirements && job.description.trim().length < MIN_CHARS_TO_CONFIRM_ENGLISH
+                    && <p className="requirements-elsewhere">
+                      Short listing — {job.sourceName || sourceNameForUrl(job.sourceUrl)} published a
+                      preview rather than the full advertisement. The requirements are on the original page.
+                    </p>}
                   {CV_MATCHING_ENABLED && <div className="tags">{job.matchedKeywords.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}{!job.matchedKeywords.length && <span>No clear CV overlap yet</span>}</div>}
                   <div className="language-feedback">
                     <span>Was the language result right?</span>

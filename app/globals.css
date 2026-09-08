@@ -201,3 +201,4 @@ footer { align-items:center; background:var(--ink); color:#b9c7c0; display:flex;
 
 .source-attribution { border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.5; margin:22px 0 0; padding-top:14px; }
 .source-attribution a { color:var(--muted); text-decoration:underline; white-space:nowrap; }
+.requirements-elsewhere { color:var(--muted); font-size:12px; font-style:italic; line-height:1.5; margin:10px 0 0; }
