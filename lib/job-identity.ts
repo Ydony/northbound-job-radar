@@ -215,23 +215,56 @@ export function locationsCompatible(left: string, right: string) {
 export const DUPLICATE_WINDOW_DAYS = 4;
 
 /**
+ * The window applied to first-seen dates when a source publishes no posting date.
+ *
+ * Wider than the posting window on purpose. First-seen is a lagging, noisier signal — it says
+ * when this app happened to reach the advertisement, not when the employer published it — and
+ * two copies of one job can enter the catalogue several runs apart because their sources were
+ * searched on different days or one source was briefly failing. Four days would split real
+ * duplicates; a fortnight still separates a genuine repost months later.
+ */
+export const DUPLICATE_FIRST_SEEN_WINDOW_DAYS = 14;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function withinDays(left: string | undefined, right: string | undefined, days: number) {
+  const leftTime = left ? Date.parse(left) : Number.NaN;
+  const rightTime = right ? Date.parse(right) : Number.NaN;
+  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return null;
+  return Math.abs(leftTime - rightTime) <= days * DAY_MS;
+}
+
+/**
  * Whether two postings in the same cluster are the same job reposted elsewhere.
  *
  * Same employer and same role is not enough on its own — a company can advertise the identical
  * title in two cities, or reopen it months later — so the place has to be compatible and the
- * dates close. An absent date is not treated as a contradiction because several sources simply
- * do not publish one.
+ * dates close.
+ *
+ * Several sources publish no posting date at all, and the rule used to fall straight through to
+ * "assume duplicate" for those, which merges on nothing but employer, role and place. That is
+ * how one employer's long-running vacancy and its genuine reposting three months later end up
+ * as a single card with the newer copy hidden. When a posting date is missing on either side,
+ * first-seen is used instead: it is our own record rather than the employer's, but two copies
+ * that entered the catalogue a fortnight apart are poor evidence of being the same advertisement.
+ *
+ * Assume-duplicate remains the last resort, for the case where neither date exists on either
+ * side. Nothing is available there to distinguish them, and refusing to merge would put two
+ * identical cards in front of the reader.
  */
 export function isNearDuplicate(
-  left: { location: string; postedAt?: string },
-  right: { location: string; postedAt?: string },
+  left: { location: string; postedAt?: string; firstSeenAt?: string },
+  right: { location: string; postedAt?: string; firstSeenAt?: string },
   windowDays = DUPLICATE_WINDOW_DAYS,
 ) {
   if (!locationsCompatible(left.location, right.location)) return false;
-  const leftTime = left.postedAt ? Date.parse(left.postedAt) : Number.NaN;
-  const rightTime = right.postedAt ? Date.parse(right.postedAt) : Number.NaN;
-  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return true;
-  return Math.abs(leftTime - rightTime) <= windowDays * 24 * 60 * 60 * 1000;
+  const byPostedAt = withinDays(left.postedAt, right.postedAt, windowDays);
+  if (byPostedAt !== null) return byPostedAt;
+  const byFirstSeen = withinDays(
+    left.firstSeenAt, right.firstSeenAt, DUPLICATE_FIRST_SEEN_WINDOW_DAYS,
+  );
+  if (byFirstSeen !== null) return byFirstSeen;
+  return true;
 }
 
 export function countryLabel(country: JobCountry) {

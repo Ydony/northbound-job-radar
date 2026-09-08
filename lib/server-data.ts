@@ -295,8 +295,13 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
         WHERE user_id = ? AND cluster_key = ? ORDER BY first_seen_at LIMIT 25`)
         .bind(userId, clusterKey).all<NearDuplicateCandidate>())
       .results.find((candidate) => isNearDuplicate(
-        { location: input.location, postedAt },
-        { location: candidate.location, postedAt: candidate.posted_at },
+        // The row being written has not been stored yet, so its first-seen is now.
+        { location: input.location, postedAt, firstSeenAt: now },
+        {
+          location: candidate.location,
+          postedAt: candidate.posted_at,
+          firstSeenAt: candidate.first_seen_at,
+        },
       ))
     : undefined;
   // Point at the row actually on screen, never at another copy, so the chain stays one level deep.
@@ -463,8 +468,8 @@ export async function reclusterJobs(db: D1Database, userId: string) {
     const groups: ClusterableJob[][] = [];
     for (const job of bucket) {
       const group = groups.find((candidate) => candidate.some((member) => isNearDuplicate(
-        { location: job.location, postedAt: job.posted_at },
-        { location: member.location, postedAt: member.posted_at },
+        { location: job.location, postedAt: job.posted_at, firstSeenAt: job.first_seen_at },
+        { location: member.location, postedAt: member.posted_at, firstSeenAt: member.first_seen_at },
       )));
       if (group) group.push(job);
       else groups.push([job]);

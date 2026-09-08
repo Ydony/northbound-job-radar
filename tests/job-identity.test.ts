@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
+import { canonicalJobUrl, isNearDuplicate, jobIdentityFingerprint, sourceInfoForUrl,
+  sourceJobIdFromUrl } from '../lib/job-identity';
 
 test('canonicalizes tracking variants to the same job URL', () => {
   const first = canonicalJobUrl('https://www.jobs.ch/en/vacancies/detail/00000000-0000-0000-0000-000000000000/?utm_source=mail#apply');
@@ -32,4 +33,64 @@ test('does not fingerprint jobs without a posting day', () => {
   assert.equal(jobIdentityFingerprint({
     sourceUrl: 'https://jobs.ch/example', title: 'Data Analyst', company: 'Example AG', location: 'Zürich',
   }), '');
+});
+
+test('two copies with posting dates inside the window are one job', () => {
+  assert.equal(isNearDuplicate(
+    { location: 'Amsterdam', postedAt: '2026-09-01T00:00:00Z' },
+    { location: 'Amsterdam', postedAt: '2026-09-03T00:00:00Z' },
+  ), true);
+});
+
+test('a genuine repost outside the posting window stays a separate job', () => {
+  assert.equal(isNearDuplicate(
+    { location: 'Amsterdam', postedAt: '2026-06-01T00:00:00Z' },
+    { location: 'Amsterdam', postedAt: '2026-09-01T00:00:00Z' },
+  ), false);
+});
+
+test('first-seen decides when a source publishes no posting date', () => {
+  // The case this fallback exists for: several sources omit a posting date entirely, and the
+  // rule used to fall straight through to "assume duplicate", merging on employer, role and
+  // place alone. A long-running vacancy and its reposting months later became one card.
+  assert.equal(isNearDuplicate(
+    { location: 'Amsterdam', firstSeenAt: '2026-09-01T00:00:00Z' },
+    { location: 'Amsterdam', firstSeenAt: '2026-09-05T00:00:00Z' },
+  ), true);
+  assert.equal(isNearDuplicate(
+    { location: 'Amsterdam', firstSeenAt: '2026-06-01T00:00:00Z' },
+    { location: 'Amsterdam', firstSeenAt: '2026-09-01T00:00:00Z' },
+  ), false);
+});
+
+test('first-seen is only a fallback — a posting date on both sides still wins', () => {
+  // First-seen is our record, not the employer's. Where the employer published dates, those
+  // decide, even when the two copies reached this app months apart.
+  assert.equal(isNearDuplicate(
+    { location: 'Amsterdam', postedAt: '2026-09-01T00:00:00Z', firstSeenAt: '2026-01-01T00:00:00Z' },
+    { location: 'Amsterdam', postedAt: '2026-09-02T00:00:00Z', firstSeenAt: '2026-09-02T00:00:00Z' },
+  ), true);
+});
+
+test('first-seen tolerates a wider gap than a posting date, because it lags', () => {
+  const tenDaysApart = { left: '2026-09-01T00:00:00Z', right: '2026-09-11T00:00:00Z' };
+  assert.equal(isNearDuplicate(
+    { location: 'Amsterdam', postedAt: tenDaysApart.left },
+    { location: 'Amsterdam', postedAt: tenDaysApart.right },
+  ), false, 'ten days is outside the four-day posting window');
+  assert.equal(isNearDuplicate(
+    { location: 'Amsterdam', firstSeenAt: tenDaysApart.left },
+    { location: 'Amsterdam', firstSeenAt: tenDaysApart.right },
+  ), true, 'ten days is inside the fourteen-day first-seen window');
+});
+
+test('with no date of any kind the copies still merge, rather than showing twice', () => {
+  assert.equal(isNearDuplicate({ location: 'Amsterdam' }, { location: 'Amsterdam' }), true);
+});
+
+test('an incompatible place is decisive whatever the dates say', () => {
+  assert.equal(isNearDuplicate(
+    { location: 'Amsterdam', postedAt: '2026-09-01T00:00:00Z' },
+    { location: 'Rotterdam', postedAt: '2026-09-01T00:00:00Z' },
+  ), false);
 });
