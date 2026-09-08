@@ -93,15 +93,24 @@ verified end to end with a real second account; keep it that way.
 
 ## 4. What must be built before anything is public
 
-- [ ] **ELA attribution for EURES.** The reuse permission is conditional on it and we do not
-      display it anywhere today. A line on the results page and on `/sources` naming the European
-      Labour Authority as the source of EURES vacancies.
+- [x] **ELA attribution for EURES.** Done 2026-09-08 (#33). The credit renders under the job list
+      when the list contains EURES jobs, and `/sources` carries a "Required attribution" section.
+      `lib/attribution.ts` holds the wording and the source keys, with a test that fails if a
+      EURES adapter is ever added that the rule does not cover.
 - [ ] **Verify Adzuna's current attribution wording** against their publisher terms and implement
       whatever it actually requires.
-- [ ] **Stop returning full descriptions to the public tier.** `/api/state` currently sends every
-      job's complete text to the browser. That is both the §1 problem and the payload problem
-      already tracked as B4 — one change fixes both.
-- [ ] **Update `/sources` and `/privacy`** to state the split and the attributions truthfully.
+- [x] **Stop returning full descriptions to the public tier.** Done 2026-09-08 (#34). `JobRecord`
+      no longer carries `description`; `descriptionLength`, `requirements` and `matchesCriteria`
+      replace it, and keyword matching moved server-side, which resolved B4 as predicted.
+      `tests/job-payload.test.ts` serialises a real row through `jobFromRow` and asserts a phrase
+      unique to the advertisement appears nowhere in the result.
+- [x] **`/sources`** states the split and the attribution. Done 2026-09-08 (#33) — it also gained a
+      EURES entry, which it had never had despite EURES being the largest source of usable jobs.
+- [x] **`/privacy`** re-read and corrected 2026-09-08. It was telling a stranger their CV is stored
+      and read to score jobs, months after CV matching was shelved, and listing location and
+      filters as search settings that no longer exist. The CV disclosures are now gated on
+      `CV_MATCHING_ENABLED` rather than deleted, so they return with the feature.
+      `tests/privacy-policy.test.ts` enforces it.
 
 ---
 
