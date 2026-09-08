@@ -12,10 +12,10 @@ const ONLINE_SINCE_DAYS = 30;
  * Measured on the stored corpus: Job-Room previews have a median length of 277 characters, while a
  * real advertisement runs to a few thousand.
  */
-const FULL_TEXT_THRESHOLD = 900;
+export const JOB_ROOM_FULL_TEXT_THRESHOLD = 900;
 /** Detail requests are one-per-job, so they are capped and paced like every other fetching source. */
-const MAX_DETAIL_FETCHES = 120;
-const DETAIL_DELAY_MS = 400;
+export const MAX_JOB_ROOM_DETAIL_FETCHES = 120;
+export const JOB_ROOM_DETAIL_DELAY_MS = 400;
 
 /** Job-Room returns whole advertisements in the search response, so a run costs a few requests instead of one per job. */
 export const MAX_PAGES_PER_TERM = 2;
@@ -134,7 +134,7 @@ export function jobRoomIdFromUrl(sourceUrl: string) {
 export async function searchJobRoom(
   terms: string[],
   pagesPerTerm = MAX_PAGES_PER_TERM,
-  { fullText = true, maxDetails = MAX_DETAIL_FETCHES, delayMs = DETAIL_DELAY_MS } = {},
+  { fullText = true, maxDetails = MAX_JOB_ROOM_DETAIL_FETCHES, delayMs = JOB_ROOM_DETAIL_DELAY_MS } = {},
 ): Promise<JobRoomParsedJob[]> {
   const queries = terms.length ? terms : [''];
   const byUrl = new Map<string, JobRoomParsedJob>();
@@ -154,7 +154,7 @@ export async function searchJobRoom(
 
   // Only ads that actually look truncated are worth a second request; some already arrive whole.
   const needsDetail = previews
-    .filter((job) => job.descriptionHtml.length < FULL_TEXT_THRESHOLD)
+    .filter((job) => job.descriptionHtml.length < JOB_ROOM_FULL_TEXT_THRESHOLD)
     .slice(0, maxDetails);
   for (const [index, job] of needsDetail.entries()) {
     if (index > 0) await delay(delayMs);

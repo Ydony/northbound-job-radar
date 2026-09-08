@@ -1,5 +1,35 @@
 # Handover
 
+## 2026-09-08 Job-Room legacy-description backfill (#29)
+
+Implemented on the isolated `ai/source-portfolio-20260908-165232-234475` branch; it has not been
+applied to the stable test workspace. The administrator page now has a manually triggered
+**Backfill Job-Room descriptions** action for the signed-in administrator's own stored jobs.
+
+- It selects only `job-room.ch` rows below the existing 900-character full-text threshold, fetches
+  at most 120 details per run, and keeps the existing fixed 400 ms pace. Failed details remain
+  eligible for a later retry.
+- Migration 16 adds `job_room_detail_version`. A successful detail fetch is marked even when the
+  source's complete advert is unusually short, so rerunning never loops over it forever.
+- A longer detail replaces only the description and derived language/CV/workplace analysis.
+  Saved, applied, dismissed, duplicate, and `language_feedback` state are not updated.
+- The report shows attempted, fetched, updated, already-complete, failed and remaining counts plus
+  every raw detector transition such as `unknown → blocked`. User corrections continue to control
+  the effective verdict because they remain separate.
+- The backfill's structured/prose precedence is covered with the same cases as normal Job-Room
+  search: employer-declared local requirements and explicit blocking text both win.
+
+Verification: all 128 tests on this branch, lint, typecheck and the production build pass. Migration 16 was applied
+to a verified offline backup containing 1,004 jobs and two language-feedback rows; job/action and
+feedback counts were unchanged. A fresh throwaway local Worker on port 3012 fetched one current
+Job-Room detail, expanded 215 characters to 1,476, changed `unknown → blocked`, preserved card
+state, refused an ordinary account with 403, and fetched zero rows on rerun. That temporary server
+was stopped; the owner's dev/test servers and saved state were not touched.
+
+After this branch is reviewed and merged, rebuild test, sign in as its administrator, and run the
+button until Remaining reaches zero. The issue's measured 234 short rows should require two runs,
+apart from any detail failures that need a retry.
+
 ## 2026-09-07 integration planning handover
 
 The owner now intends a free public service plus separate administrator discovery. Read

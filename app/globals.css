@@ -178,6 +178,11 @@ footer { align-items:center; background:var(--ink); color:#b9c7c0; display:flex;
 .admin-actions button:hover { border-color:var(--ink); }
 .admin-actions button.danger { border-color:#e2c4bd; color:var(--danger); }
 .admin-actions button:disabled { cursor:wait; opacity:.5; }
+.backfill-report { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.backfill-report span,.backfill-report small { background:var(--cream); border:1px solid var(--line); padding:9px 12px; }
+.backfill-report span { color:var(--muted); font-size:11px; }
+.backfill-report span b { color:var(--ink); font-size:14px; margin-right:3px; }
+.backfill-report small { color:var(--green); flex-basis:100%; font-size:10px; }
 .visit-chart { align-items:flex-end; border-bottom:1px solid var(--line); display:flex; gap:4px; height:150px; margin:10px 0; overflow-x:auto; padding-bottom:18px; }
 .visit-bar { align-items:flex-end; display:flex; flex:0 0 26px; height:100%; justify-content:center; position:relative; }
 .visit-total { background:#cfd9cd; bottom:0; position:absolute; width:18px; }

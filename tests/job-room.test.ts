@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeStructuredLanguages } from '../lib/analysis';
-import { advertisementToParsedJob } from '../lib/job-room';
+import { analyzeJobLanguage, analyzeStructuredLanguages } from '../lib/analysis';
+import { advertisementToParsedJob, JOB_ROOM_DETAIL_DELAY_MS, JOB_ROOM_FULL_TEXT_THRESHOLD,
+  MAX_JOB_ROOM_DETAIL_FETCHES } from '../lib/job-room';
 import { sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
 
 const advertisement = {
@@ -78,4 +79,18 @@ test('reviews when no local language is required but English is not declared eit
 test('falls back to prose analysis when nothing is declared', () => {
   assert.equal(analyzeStructuredLanguages([]), null);
   assert.equal(analyzeStructuredLanguages([{ languageIsoCode: 'de', spokenLevel: 'NONE', writtenLevel: 'NONE' }]), null);
+});
+
+test('backfill language analysis preserves structured-language precedence', () => {
+  const description = `${'We are building a global data product with an international team. '.repeat(20)} Fluent German is required.`;
+  const result = analyzeJobLanguage(description, 'Data Analyst', [
+    { languageIsoCode: 'en', spokenLevel: 'PROFICIENT', writtenLevel: 'PROFICIENT' },
+  ]);
+  assert.equal(result.status, 'blocked');
+});
+
+test('Job-Room detail limits stay explicit and bounded', () => {
+  assert.equal(JOB_ROOM_FULL_TEXT_THRESHOLD, 900);
+  assert.equal(JOB_ROOM_DETAIL_DELAY_MS, 400);
+  assert.equal(MAX_JOB_ROOM_DETAIL_FETCHES, 120);
 });
