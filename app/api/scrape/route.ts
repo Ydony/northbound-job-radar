@@ -56,7 +56,7 @@ function runSourceRow(runId: string, source: SearchRunSource) {
   };
 }
 
-type ProgressEvent = { type: 'progress'; label: string; percent: number };
+type ProgressEvent = { type: 'progress'; label: string; percent: number; step: number; steps: number };
 type Report = (event: ProgressEvent) => void;
 
 /**
@@ -224,6 +224,10 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     percent: Math.min(99, Math.round(
       ((fetched / totalSteps) * FETCH_SHARE + (screened / totalSteps) * (1 - FETCH_SHARE)) * 100,
     )),
+    // Sent alongside the percentage so the run bar can say "4 of 9 sources". A percentage alone
+    // does not tell you whether a slow run is stuck or simply has six sources left to contact.
+    step: Math.min(fetched, totalSteps),
+    steps: totalSteps,
   });
 
   progress(`Contacting ${activeAdapters.length} source${activeAdapters.length === 1 ? '' : 's'}…`);
