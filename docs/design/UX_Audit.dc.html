@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-11df038c-4088-4ff5-b3c2-d8e2c56822ce/styles.css">
+<script src="_ds/organic-11df038c-4088-4ff5-b3c2-d8e2c56822ce/_ds_bundle.js"></script>
+<style>
+body { margin: 0; background: var(--color-bg); }
+a { color: var(--color-accent-700); }
+a:hover { color: var(--color-accent-900); }
+</style>
+</helmet>
+
+<div style="max-width: 980px; margin: 0 auto; padding: var(--space-8) var(--space-4) var(--space-8); font-family: var(--font-body); color: var(--color-text);">
+
+  <header style="display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-6);">
+    <span style="font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent-700); font-weight: 700;">UX + UI audit · Ik ben een appel</span>
+    <h1 style="font-family: var(--font-heading); font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.05; margin: 0; max-width: 16ch;">Make it a tool, not a page</h1>
+    <p style="font-size: 1.15rem; line-height: 1.6; max-width: 62ch; margin: 0; text-wrap: pretty;">Twenty-one findings from reading <code>app/job-radar.tsx</code>, <code>app/login/page.tsx</code> and the source docs. Ranked by what you'd feel first. The app's logic is careful — the honest source reporting, facet counts that exclude their own dimension, optimistic updates that roll back. The problem is that all of that careful thinking is presented at the same volume, on one scrolling page shaped like a marketing site.</p>
+  </header>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-8);">
+    <div style="background: var(--color-accent-100); border-radius: var(--radius-lg); padding: var(--space-4);">
+      <div style="font-family: var(--font-heading); font-size: 2rem; line-height: 1;">6</div>
+      <div style="font-size: 0.9rem; margin-top: var(--space-2); color: var(--color-neutral-800);">P0 — fix these first</div>
+    </div>
+    <div style="background: var(--color-accent-2-100); border-radius: var(--radius-lg); padding: var(--space-4);">
+      <div style="font-family: var(--font-heading); font-size: 2rem; line-height: 1;">9</div>
+      <div style="font-size: 0.9rem; margin-top: var(--space-2); color: var(--color-neutral-800);">P1 — real friction</div>
+    </div>
+    <div style="background: var(--color-neutral-200); border-radius: var(--radius-lg); padding: var(--space-4);">
+      <div style="font-family: var(--font-heading); font-size: 2rem; line-height: 1;">6</div>
+      <div style="font-size: 0.9rem; margin-top: var(--space-2); color: var(--color-neutral-800);">P2 — polish</div>
+    </div>
+  </div>
+
+  <section style="background: var(--color-surface, #fffaf0); border-radius: var(--radius-lg); padding: var(--space-6); margin-bottom: var(--space-8); box-shadow: var(--shadow-sm);">
+    <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0 0 var(--space-3);">The one-paragraph version</h2>
+    <p style="line-height: 1.65; margin: 0 0 var(--space-3); text-wrap: pretty;">You described the job as five steps: enter criteria, watch the search, see where results came from, filter and apply, keep history. The current page does all five — but in that literal order, top to bottom, forever. That's the right order <em>once</em>. On visit two hundred you want the results first and everything else folded away. Almost every recommendation below is a version of that: <strong>promote the job list to the whole screen, demote setup to a drawer, and make the run status follow you.</strong></p>
+    <p style="line-height: 1.65; margin: 0; text-wrap: pretty;">The second theme is <strong>too many things are colored</strong>. Count the semantic colors on screen today: four language verdicts, three application states, three run statuses, three health dots, plus good/warn metric tints. Roughly a dozen color meanings, none of which the eye can hold. One color should mean "this job is worth your attention." Everything else can be grey.</p>
+  </section>
+
+  <h2 style="font-family: var(--font-heading); font-size: 2rem; margin: 0 0 var(--space-2);">Information architecture</h2>
+  <p style="color: var(--color-neutral-700); margin: 0 0 var(--space-4); max-width: 60ch;">Where things live and in what order.</p>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P0</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">01 · The results are the sixth thing on the page</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> hero → CV upload → criteria form → workflow copy → source coverage grid → <code>&lt;section className="results"&gt;</code>. Five sections and a full-height hero before the first job.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Why it hurts:</strong> your stated daily loop is "search, skim new results, apply." Every session pays a scroll tax for setup you change once a month, and the <code>#jobs</code> anchor link exists precisely because the layout is wrong.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> results become the page. One compact bar at top: role chips + Search button + last-run timestamp. Criteria, CVs and coverage move into a right-hand panel (desktop) or a sheet (mobile) that opens on demand. Delete the hero and the "Step one / Step two" narration entirely — a tool with one user doesn't need to sell itself.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P0</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">02 · Two filtering systems that don't know about each other</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> saved criteria (<code>matchesSearchCriteria</code> — role keywords, required/excluded words) live in a form near the top; view facets (country, city, source, work type, applied) live in a toolbar down by the list. Both remove jobs from view; only one needs saving to a server.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Why it hurts:</strong> when the list is empty you cannot tell which of the two systems emptied it. Excluded keywords in particular delete results silently from a control that's off-screen.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> one filter surface. Show every active constraint — saved <em>and</em> temporary — as removable pills in a single row above the list ("Excludes: sales ×", "Zürich ×"), plus a "Clear all" when more than one is on. Empty state names the culprit: "No jobs match. 41 were removed by your excluded keywords."</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P0</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">03 · Nothing answers "what's new since last run"</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> <code>visibleJobs</code> sorts by best fit score only. New and three-week-old jobs interleave with no visual difference; the only "new" number is a counter in the coverage grid.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Why it hurts:</strong> for a returning user this is <em>the</em> question. Right now you re-scan a list you've already read to find the handful of additions.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> a "New (12)" tab as the default landing view, plus a sort control (Best fit / Newest posted / Recently found). Give unseen cards a soft accent left edge that clears once opened.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P0</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">04 · The progress bar is where you aren't</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> the NDJSON progress stream is genuinely good — label plus percent, refusals surfaced as real errors. But <code>scrape-progress</code> renders inside the workflow section. Press Search, scroll to the list, and the run becomes invisible.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> promote it to a sticky strip under the top bar for the life of the run: thin determinate bar, "Searching jobs.ch — 4 of 9 sources", and a live "+7 new" counter that ticks up. When it finishes it becomes a dismissible result line linking to the coverage detail. Keep the per-source detail; just stop making it the only place status exists.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-2-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent-2-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P1</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">05 · The nav is fake</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> <code>&lt;a className="active" href="#jobs"&gt;Matches&lt;/a&gt;</code> — the active class is hard-coded, so "Matches" stays highlighted on every scroll position; the brand links to <code>#top</code>; "My CVs" is an anchor to a section on the same page.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> once the page splits (finding 01), these become real routes — Jobs / Pipeline / Sources / Settings — with <code>aria-current="page"</code>. If you keep one page, drop the nav to just Settings and Sign out and stop pretending.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-2-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent-2-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P1</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">06 · Six view tabs, five of which are edge cases</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> Matches / Not enough of the ad / Review / Pipeline / Dismissed / All — six peer views, each with a count.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> three tabs — <strong>New</strong>, <strong>All matches</strong>, <strong>Pipeline</strong>. "Review" and "Not enough of the ad" become a single quieter link ("18 need a look") because they're a triage chore, not a browsing mode. "Dismissed" belongs behind an undo affordance or in Settings, not in the primary row.</p>
+  </article>
+
+  <h2 style="font-family: var(--font-heading); font-size: 2rem; margin: var(--space-8) 0 var(--space-2);">The job card</h2>
+  <p style="color: var(--color-neutral-700); margin: 0 0 var(--space-4); max-width: 60ch;">The thing you look at hundreds of times a week.</p>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P0</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">07 · Roughly ten controls per card, all the same size</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> select checkbox, language verdict, application status label, source, country, posted date, best score, per-CV score breakdown, extracted requirements, Save, Applied / Not applied, Dismiss, "was this language call right?" with an inline correction form, and the apply link — on every row.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Why it hurts:</strong> the one action that matters (open the ad and apply) has no more visual weight than "mark language feedback accurate."</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this — three tiers:</strong></p>
+    <ol style="margin: 0; padding-left: 1.25rem; line-height: 1.7;">
+      <li><strong>Read:</strong> job title (largest thing on the card), company · city · posted date in one grey line.</li>
+      <li><strong>Judge:</strong> exactly two chips — language verdict and fit score. Score breakdown and requirements move behind a "Why this matched" expander.</li>
+      <li><strong>Act:</strong> one filled pill, <em>Apply on jobs.ch ↗</em>. Save is an outline icon button. Applied is a checkbox that appears after you've opened the link. Dismiss and language feedback go into a "…" menu.</li>
+    </ol>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-2-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent-2-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P1</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">08 · Two status systems on one card</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> <code>statusLabel()</code> collapses dismissed / applied / saved / not-applied into one badge, while <code>languageStatusLabel()</code> produces a second, unrelated badge beside it. "Not applied" is shown on every unhandled job — a label that carries no information, on a list where 95% of rows are unhandled.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> show a pipeline badge only when it's <em>true</em> (Saved, Applied). Default state shows nothing. Language verdict keeps its chip — and if the card is in the Matches view, "English confirmed" is also redundant: it's the definition of the view. Show the chip only for review / too-short rows.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-2-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent-2-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P1</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">09 · The correction form lives inside the row</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> <code>feedbackOpen</code> expands a status select plus a reason field inline, pushing every card below it down the page.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> two taps on the chip itself — click "Review language" → a small popover with three choices and an optional reason. Better still, make triage its own mode: one job at a time, full ad text, keyboard <kbd>P</kbd>/<kbd>R</kbd>/<kbd>B</kbd>. You're correcting a detector; that's a batch job, not an inline edit.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-neutral-200); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-neutral-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P2</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">10 · The apply link doesn't look like the exit</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;">Every card's purpose is to send you off-site. Name the destination in the button (<em>Apply on Undutchables ↗</em>), open in a new tab, and on return prompt once: "Did you apply?" — that's how the Applied state gets filled in without you remembering to click anything.</p>
+  </article>
+
+  <h2 style="font-family: var(--font-heading); font-size: 2rem; margin: var(--space-8) 0 var(--space-2);">Source reporting</h2>
+  <p style="color: var(--color-neutral-700); margin: 0 0 var(--space-4); max-width: 60ch;">Your "where did results come from" requirement — the most over-served part of the app.</p>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-2-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent-2-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P1</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">11 · Six counters per source, one of which you use</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> Found / Known / New / Added / Duplicates / Skipped as a <code>&lt;dl&gt;</code> on every source card, with the raw status string (<code>complete</code>, <code>partial</code>) printed lowercase as a badge.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> collapse to one line per source — "jobs.ch · 42 found · <strong>8 new</strong>" — sorted with failures and blocked sources at the top, where they're actionable. Keep the six numbers behind a per-source expander. Sentence-case the statuses: "Completed", "Partly returned", "Couldn't be reached".</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-2-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent-2-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P1</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">12 · Provenance is missing where you'd actually ask for it</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;">"Where did this come from" is a per-job question far more often than a per-run one. The source name is on the card but reads as metadata. Make it the second-largest thing after the title, and make it a filter — clicking "IamExpat" narrows the list to IamExpat. That single interaction replaces most of what the coverage dashboard is doing.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-neutral-200); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-neutral-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P2</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">13 · Two search buttons that name the plumbing</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;">"Search — VPN off" and "Search all — VPN on" put an implementation detail in the primary action. One button, <strong>Find new jobs</strong>. The VPN-dependent sources become a checkbox in the search panel — "Include page-fetching sources (needs VPN)" — with the state remembered. Admin-only anyway; it should never outrank the main verb.</p>
+  </article>
+
+  <h2 style="font-family: var(--font-heading); font-size: 2rem; margin: var(--space-8) 0 var(--space-2);">First run and onboarding</h2>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P0</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">14 · The empty state is the full state, minus content</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> on first load you get the hero, two empty CV boxes, five empty role fields, an empty coverage panel ("Run Search all job sites to create the first source report") and an empty list. Nothing says what to do first, and the message names a button labelled differently to the actual button.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> a genuine first-run state that owns the screen — three numbered steps (Add a role you're looking for → optionally add a CV → Find jobs), one field, one button. Sections with no data render nothing at all, not empty frames. And align every reference to the search button with its real label.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-2-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent-2-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P1</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">15 · Five role inputs, always, whether you use them or not</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><code>Array.from({ length: 5 })</code> renders five labelled text fields permanently. Four of them are usually empty, and the placeholders differ per index for no visible reason. Replace with chips: type a role, press Enter, it becomes a removable pill; an "+ Add role" ghost button until you hit five.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-2-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent-2-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P1</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">16 · Criteria must be saved before they count, and nothing insists</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;">Edit the criteria form, don't press Save, press Find new jobs — you search on the old criteria. The only signal is a message string that shares its slot with a job count. Either autosave on blur (this is a single-user local tool; a save button earns nothing) or disable the search button while the draft is dirty and say why.</p>
+  </article>
+
+  <h2 style="font-family: var(--font-heading); font-size: 2rem; margin: var(--space-8) 0 var(--space-2);">Visual system</h2>
+  <p style="color: var(--color-neutral-700); margin: 0 0 var(--space-4); max-width: 60ch;">You asked for a restyle in Organic — here's what that buys, concretely.</p>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P0</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">17 · A dozen color meanings competing</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> four language verdicts, three application states, three run statuses, three health dots, plus <code>metric-good</code> / <code>metric-warn</code> tints in the conversion table — each with its own hue.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this — a three-color rule:</strong></p>
+    <div style="display: grid; gap: var(--space-2); margin-top: var(--space-1);">
+      <div style="display: flex; gap: var(--space-3); align-items: baseline; padding: var(--space-3); background: var(--color-accent-2-200); border-radius: var(--radius-md);"><strong style="min-width: 8ch;">Sage</strong><span>Confirmed good — English confirmed, source healthy, applied.</span></div>
+      <div style="display: flex; gap: var(--space-3); align-items: baseline; padding: var(--space-3); background: var(--color-accent-200); border-radius: var(--radius-md);"><strong style="min-width: 8ch;">Terracotta</strong><span>Needs you — review, new since last run, primary action. Nothing else.</span></div>
+      <div style="display: flex; gap: var(--space-3); align-items: baseline; padding: var(--space-3); background: var(--color-neutral-200); border-radius: var(--radius-md);"><strong style="min-width: 8ch;">Neutral</strong><span>Everything else — too short to judge, dismissed, all metadata, all counts.</span></div>
+    </div>
+    <p style="margin: var(--space-2) 0 0; line-height: 1.6;">Blocked jobs need no color at all: they're filtered out of view. Red is reserved for a source that failed — a thing you can act on.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-2-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent-2-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P1</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">18 · "Reads like a raw form" is a spacing problem, not a font problem</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;">33 KB of hand-written CSS with no shared scale means every section spaces itself differently and labels sit tight against their inputs. Adopting Organic fixes it mechanically: <code>--space-*</code> for every gap, <code>--radius-lg</code> on containers, <code>999px</code> on buttons and inputs, Caprasimo only for section headings, Figtree everywhere else. Set a strict type ladder — 32/24/17/14 — and refuse to add a fifth size. Cards get <code>--shadow-sm</code>; only the sticky run bar goes to <code>--shadow-md</code>.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-neutral-200); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-neutral-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P2</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">19 · Marketing voice in a private tool</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;">"Less searching. More fitting.", "Step one", "Step two", eyebrow labels above every section. It's well written and it costs a screen and a half. Keep exactly one piece of explanatory copy — the promise card explaining when a job reaches your matches, moved into a "?" popover next to the language chip, which is the moment you'd want it.</p>
+  </article>
+
+  <h2 style="font-family: var(--font-heading); font-size: 2rem; margin: var(--space-8) 0 var(--space-2);">Mobile</h2>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-accent-100); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-accent); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P0</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">20 · Structures that physically cannot reflow</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;"><strong>What's there:</strong> the conversion table is seven columns of <code>&lt;span&gt;</code> in a <code>role="table"</code> grid; the source report is a six-item <code>&lt;dl&gt;</code> grid; the card action row holds six-plus buttons.</p>
+    <p style="margin: 0; line-height: 1.6;"><strong>Do this:</strong> under 700px, the conversion table becomes one stacked card per source (it's admin-only — it can also simply not render on phones). Source reports become single lines. Card actions become one full-width <em>Apply</em> plus a 44px "…" — nothing smaller than 44px anywhere. Filters collapse into a single "Filters (3)" button opening a bottom sheet, with the search/run bar pinned to the top.</p>
+  </article>
+
+  <article style="display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-neutral-200); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span style="background: var(--color-neutral-700); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;">P2</span>
+      <h3 style="font-family: var(--font-heading); font-size: 1.35rem; margin: 0;">21 · Phone is where you'd triage, desktop is where you'd apply</h3>
+    </div>
+    <p style="margin: 0; line-height: 1.6;">Worth designing for deliberately: on mobile, save and dismiss are the only actions that matter — swipe left to dismiss, right to save, tap to open the ad. Applying, correcting language calls and reading the coverage report are desktop jobs. Cutting mobile down to those three interactions is less work than making the current page responsive.</p>
+  </article>
+
+  <section style="background: var(--color-accent-2-100); border-radius: var(--radius-lg); padding: var(--space-6); margin: var(--space-8) 0;">
+    <h2 style="font-family: var(--font-heading); font-size: 1.7rem; margin: 0 0 var(--space-3);">Quick wins — an afternoon each</h2>
+    <ul style="margin: 0; padding-left: 1.2rem; line-height: 1.9;">
+      <li>Move the results section above the criteria and coverage sections. One cut-and-paste; biggest single improvement.</li>
+      <li>Make the progress strip sticky.</li>
+      <li>Hide the "Not applied" badge; show pipeline badges only when true.</li>
+      <li>Delete the hero, or shrink it to a single line beside the search button.</li>
+      <li>Collapse the six per-source counters to "42 found · 8 new", details on expand.</li>
+      <li>Replace the four <code>window.confirm</code> calls with an Organic dialog — the browser prompt is the only un-styled surface in the app.</li>
+      <li>Add <code>aria-current</code> to nav, drop the hard-coded <code>active</code> class.</li>
+      <li>Sentence-case raw status strings before printing them.</li>
+    </ul>
+  </section>
+
+  <section style="border-top: 2px solid var(--color-neutral-300); padding-top: var(--space-4);">
+    <h2 style="font-family: var(--font-heading); font-size: 1.7rem; margin: 0 0 var(--space-3);">Suggested order of work</h2>
+    <ol style="margin: 0; padding-left: 1.2rem; line-height: 1.9;">
+      <li><strong>Re-order the page</strong> — results first, setup into a panel (01, 14). Everything else gets easier after this.</li>
+      <li><strong>Rebuild the card</strong> on the three-tier hierarchy (07, 08, 10).</li>
+      <li><strong>Unify filtering</strong> into one pill row with a "New" default view (02, 03, 06).</li>
+      <li><strong>Apply the three-color rule and the Organic tokens</strong> (17, 18) — cheap once the structure is settled, expensive before.</li>
+      <li><strong>Mobile pass</strong> (20, 21).</li>
+    </ol>
+    <p style="margin: var(--space-4) 0 0; line-height: 1.65; color: var(--color-neutral-800);">Say the word and I'll mock up steps 1–3 as real screens in Organic — a redesigned job list, card, and search panel you can hand straight to Codex.</p>
+  </section>
+
+</div>
+</x-dc>
+</body>
+</html>
