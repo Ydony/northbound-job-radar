@@ -87,10 +87,14 @@ Build a private job-search companion for a user seeking roles where English alon
   paths. Undutchables uses only its plain public listing page, not the query-string paths
   disallowed by its robots policy. Keep caps, fixed delays, and truthful source reporting.
 - Indeed Switzerland/Netherlands remain `blocked`: their rules prohibit automated access
-  without written permission and live requests returned HTTP 403. Job-Room is
-  `unavailable` because its documented API is for employer publication, Nationale
+  without written permission and live requests returned HTTP 403. Nationale
   Vacaturebank is `unavailable` after HTTP 403, and I amsterdam is `disabled` because it
   is a guide rather than a job feed. Never bypass these outcomes. LinkedIn is excluded.
+- **Job-Room (arbeit.swiss) is live, not unavailable.** An earlier note here called it
+  unavailable on the basis that its documented API is for employer publication. Its
+  unauthenticated public search and detail endpoints have been in use since 31 August
+  (`lib/job-room.ts`, registered in `lib/job-adapters.ts`) and it is a full-text public
+  source. See `docs/SOURCE_POLICY.md` §2.
 - Every configured source must write a truthful per-run status. Do not label a blocked,
   unavailable, disabled, or failed source as searched successfully.
 
@@ -138,8 +142,9 @@ the optional native binding. Local Miniflare/Workers state is under the environm
   with UI automation, public proxies, proxy rotation, or IP cycling.
 - Validate all manually imported URLs server-side; do not trust browser input.
 - Keep one SQL statement per D1 `prepare()` call. Add indexes for new recurring queries.
-- The schema lives in three hand-synced places: base creation in `db/runtime.ts`, ordered
-  applied upgrades in `db/migrations.ts`, and Drizzle's generation model in `db/schema.ts`.
+- The schema lives in two hand-synced places: base creation in `db/runtime.ts` and
+  ordered applied upgrades in `db/migrations.ts`. Drizzle and `db/schema.ts` were removed
+  entirely, so there is no third generation model to keep in step.
   Add a new migration version for every schema change; never edit an applied
   migration or reset `.wrangler/` as a shortcut. Back up local state and test both existing
   and fresh databases. See `docs/ARCHITECTURE.md` §7a.
