@@ -785,7 +785,7 @@ export default function JobRadar() {
 
   return (
     <main className="shell">
-      <header className="topbar">
+      <header className="topbar" id="top">
         <a className="brand" href="#top"><span className="brand-mark">I</span><span><b>Ik ben een appel</b><small>English job filter</small></span></a>
         <nav aria-label="Main navigation">
           {/* aria-current is the state; the highlight is styled from it rather than from a
@@ -824,75 +824,8 @@ export default function JobRadar() {
         </div>}
       </header>
 
-      <section className="hero" id="top">
-        <div className="hero-copy">
-          <span className="eyebrow">English-only roles · Switzerland + Amsterdam</span>
-          <h1>Less searching.<br /><em>More fitting.</em></h1>
-          <p>Search Swiss and Netherlands job sites, then let this private workspace reject any that require German, French, Italian or Dutch.</p>
-          <div className="hero-actions">
-            <a className="primary" href="#jobs">See your matches <span>↓</span></a>
-          </div>
-        </div>
-        <aside className="promise-card">
-          <span className="label">A role reaches your match list when</span>
-          <ol>
-            <li><b>01</b><span>Enough of the advertisement was published to judge it</span></li>
-            <li><b>02</b><span>The text is predominantly English</span></li>
-            <li><b>03</b><span>No local language is named as required</span></li>
-          </ol>
-          <p>An ad too short to judge goes to <b>Not enough of the ad</b>, not to your matches. Anything that names a language without clearly requiring it goes to <b>Review</b>. You apply on the original job site yourself.</p>
-        </aside>
-      </section>
-
-      {CV_MATCHING_ENABLED && <section className="profile-section" id="profile">
-        <div className="profile-intro"><span className="section-label">Step one</span><h2>Upload up to two CVs</h2><p>Each CV is stored privately. We detect a likely target role and use it to shape your Swiss and Netherlands searches.</p></div>
-        <div className="cv-slots">
-          {slots.map((slot) => {
-            const saved = state.profiles.find((profile) => profile.slot === slot);
-            const local = cvSlots[slot];
-            return (
-              <form className="profile-form" key={slot} onSubmit={(event) => saveCv(slot, event)}>
-                <span className="cv-slot-label">{slotLabels[slot]}</span>
-                <label className={`upload-box ${local.file ? 'has-file' : ''}`}>
-                  <span className="upload-icon">↑</span>
-                  <span><b>{local.file?.name || saved?.cvFileName || 'Upload a CV'}</b><small>PDF, DOCX or TXT · max 10 MB</small></span>
-                  <input type="file" accept=".pdf,.docx,.txt" onChange={(event) => chooseCv(slot, event.target.files?.[0] ?? null)} />
-                </label>
-                <div className="cv-actions"><button className="search-button" type="submit" disabled={local.busy}>{local.busy ? 'Saving…' : saved ? 'Update' : 'Save'}</button>{saved && <button className="delete-button" type="button" disabled={local.busy} onClick={() => deleteCv(slot)}>Delete CV</button>}</div>
-                <p className="form-message" aria-live="polite">{local.message || (saved ? (saved.derivedRole ? `Detected role: ${saved.derivedRole}` : 'No role detected yet.') : 'Your CV never goes to jobs.ch from this app.')}</p>
-              </form>
-            );
-          })}
-        </div>
-      </section>}
-
-      <section className="criteria-section" id="criteria">
-        <div className="criteria-intro">
-          <span className="section-label coral">Search criteria</span>
-          <h2>Define what fits</h2>
-          <p>Role keywords are what get searched. Required and excluded keywords then narrow what comes back — an ad must contain every required word, and is dropped if it contains an excluded one.</p>
-        </div>
-        <form className="criteria-form" onSubmit={saveCriteria}>
-          <div className="role-keywords">
-            <span>Additional search roles · up to five</span>
-            <div>{Array.from({ length: 5 }, (_, index) => <label className="field" key={index}>
-              <span>Role {index + 1}</span>
-              <input value={criteriaDraft.roleKeywords[index] ?? ''} onChange={(event) => {
-                const roleKeywords = [...criteriaDraft.roleKeywords];
-                roleKeywords[index] = event.target.value;
-                setCriteriaDraft({ ...criteriaDraft, roleKeywords });
-              }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
-            </label>)}</div>
-          </div>
-          <label className="field keywords"><span>Required keywords (all)</span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
-          <label className="field keywords"><span>Exclude if ad contains</span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
-          <div className="criteria-actions"><button className="search-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button><button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button><p aria-live="polite">{criteriaMessage || `${criteriaFilteredJobs.length} of ${state.jobs.length} analyzed jobs match the saved criteria.`}</p></div>
-        </form>
-      </section>
-
       <section className="workflow">
-        <div className="workflow-copy"><span className="section-label coral">Step two</span><h2>Search and screen everywhere</h2><p>One search runs every enabled Swiss and Netherlands adapter, records source failures, removes duplicates, and applies the strict English gate.</p></div>
-        <div className="workflow-steps"><span><b>1</b> Search configured sites</span><span><b>2</b> Deduplicate and screen</span><span><b>3</b> Compare source results</span></div>
+        <div className="workflow-copy"><h2>Find new jobs</h2><p>One search runs every enabled Swiss and Netherlands source, records what each returned, removes duplicates, and applies the English gate.</p></div>
         <button className="jobs-button" type="button" disabled={Boolean(scrapeBusy)} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
           {scrapeBusy === 'authorized' ? 'Searching…' : isAdmin ? 'Search — VPN off' : 'Find new jobs'} <span>⚡</span>
         </button>
@@ -926,51 +859,6 @@ export default function JobRadar() {
               </li>)}
             </ul>
           </>}
-        </div>}
-      </section>
-
-      <section className="source-dashboard" id="sources">
-        <div className="source-dashboard-heading">
-          <div><span className="section-label coral">Search coverage</span><h2>What every source returned</h2></div>
-          <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run Search all job sites to create the first source report.'}</p>
-        </div>
-        {latestRun && <div className="source-report-grid">
-          {[...latestRun.sources]
-            .sort((a, b) => SOURCE_RUN_STATUS_RANK[a.status] - SOURCE_RUN_STATUS_RANK[b.status]
-              || a.sourceName.localeCompare(b.sourceName))
-            .map((source) => <article className={`source-report ${source.status}`} key={source.sourceKey}>
-            <div><span>{countryLabel(source.country)}</span><b>{sourceRunStatusLabel(source.status)}</b></div>
-            <h3>{source.sourceName}</h3>
-            {/* One line answers the question people actually ask of this panel. The other four
-                numbers are diagnostics and now sit behind the expander. */}
-            <p className="source-headline">{source.foundCount} found · {source.newCount} new</p>
-            <details className="source-counts">
-              <summary>All counts</summary>
-              <dl><div><dt>Found</dt><dd>{source.foundCount}</dd></div><div><dt>Known</dt><dd>{source.knownCount}</dd></div><div><dt>New</dt><dd>{source.newCount}</dd></div><div><dt>Added</dt><dd>{source.importedCount}</dd></div><div><dt>Duplicates</dt><dd>{source.duplicateCount}</dd></div><div><dt>Skipped</dt><dd>{source.skippedCount}</dd></div></dl>
-            </details>
-            <p>{source.message}</p>
-          </article>)}
-        </div>}
-        {/* Administrator only: it is a tool for judging the sources and the filter, not something
-            a person looking for work needs to read. */}
-        {isAdmin && <div className="source-performance">
-          <div>
-            <span className="section-label">Conversion by source</span>
-            <h3>What each website is actually worth</h3>
-            <p>Of everything a source returned, how much could be screened and how much survived. A large <b>too short</b> share means the source is not publishing enough of its advertisements to judge — a problem with the source, not the filter.</p>
-          </div>
-          {sourceMetrics.length ? <div className="performance-table" role="table" aria-label="Conversion by source">
-            <div className="performance-row heading" role="row"><span>Website</span><span>Found</span><span>English</span><span>Review</span><span>Too short</span><span>Blocked</span><span>Applied</span></div>
-            {sourceMetrics.map((source) => <div className="performance-row" role="row" key={source.key}>
-              <b>{source.name}<small>{countryLabel(source.country)}</small></b>
-              <span>{source.found}</span>
-              <span className="metric-good">{source.confirmed}<small>{share(source.confirmed, source.found)}</small></span>
-              <span>{source.review}<small>{share(source.review, source.found)}</small></span>
-              <span className={source.unknown / Math.max(1, source.found) > 0.5 ? 'metric-warn' : ''}>{source.unknown}<small>{share(source.unknown, source.found)}</small></span>
-              <span>{source.blocked}<small>{share(source.blocked, source.found)}</small></span>
-              <span>{source.applied}</span>
-            </div>)}
-          </div> : <p className="no-source-data">No jobs yet. Run a search to fill this in.</p>}
         </div>}
       </section>
 
@@ -1113,6 +1001,109 @@ export default function JobRadar() {
             {ELA_ATTRIBUTION} <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a>
           </p>}
         </div>
+      </section>
+
+      <section className="promise-section">
+        <aside className="promise-card">
+          <span className="label">A role reaches your match list when</span>
+          <ol>
+            <li><b>01</b><span>Enough of the advertisement was published to judge it</span></li>
+            <li><b>02</b><span>The text is predominantly English</span></li>
+            <li><b>03</b><span>No local language is named as required</span></li>
+          </ol>
+          <p>An ad too short to judge goes to <b>Not enough of the ad</b>, not to your matches. Anything that names a language without clearly requiring it goes to <b>Review</b>. You apply on the original job site yourself.</p>
+        </aside>
+      </section>
+
+      {CV_MATCHING_ENABLED && <section className="profile-section" id="profile">
+        <div className="profile-intro"><span className="section-label">Step one</span><h2>Upload up to two CVs</h2><p>Each CV is stored privately. We detect a likely target role and use it to shape your Swiss and Netherlands searches.</p></div>
+        <div className="cv-slots">
+          {slots.map((slot) => {
+            const saved = state.profiles.find((profile) => profile.slot === slot);
+            const local = cvSlots[slot];
+            return (
+              <form className="profile-form" key={slot} onSubmit={(event) => saveCv(slot, event)}>
+                <span className="cv-slot-label">{slotLabels[slot]}</span>
+                <label className={`upload-box ${local.file ? 'has-file' : ''}`}>
+                  <span className="upload-icon">↑</span>
+                  <span><b>{local.file?.name || saved?.cvFileName || 'Upload a CV'}</b><small>PDF, DOCX or TXT · max 10 MB</small></span>
+                  <input type="file" accept=".pdf,.docx,.txt" onChange={(event) => chooseCv(slot, event.target.files?.[0] ?? null)} />
+                </label>
+                <div className="cv-actions"><button className="search-button" type="submit" disabled={local.busy}>{local.busy ? 'Saving…' : saved ? 'Update' : 'Save'}</button>{saved && <button className="delete-button" type="button" disabled={local.busy} onClick={() => deleteCv(slot)}>Delete CV</button>}</div>
+                <p className="form-message" aria-live="polite">{local.message || (saved ? (saved.derivedRole ? `Detected role: ${saved.derivedRole}` : 'No role detected yet.') : 'Your CV never goes to jobs.ch from this app.')}</p>
+              </form>
+            );
+          })}
+        </div>
+      </section>}
+
+      <section className="criteria-section" id="criteria">
+        <div className="criteria-intro">
+          <span className="section-label coral">Search criteria</span>
+          <h2>Define what fits</h2>
+          <p>Role keywords are what get searched. Required and excluded keywords then narrow what comes back — an ad must contain every required word, and is dropped if it contains an excluded one.</p>
+        </div>
+        <form className="criteria-form" onSubmit={saveCriteria}>
+          <div className="role-keywords">
+            <span>Additional search roles · up to five</span>
+            <div>{Array.from({ length: 5 }, (_, index) => <label className="field" key={index}>
+              <span>Role {index + 1}</span>
+              <input value={criteriaDraft.roleKeywords[index] ?? ''} onChange={(event) => {
+                const roleKeywords = [...criteriaDraft.roleKeywords];
+                roleKeywords[index] = event.target.value;
+                setCriteriaDraft({ ...criteriaDraft, roleKeywords });
+              }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
+            </label>)}</div>
+          </div>
+          <label className="field keywords"><span>Required keywords (all)</span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
+          <label className="field keywords"><span>Exclude if ad contains</span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
+          <div className="criteria-actions"><button className="search-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button><button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button><p aria-live="polite">{criteriaMessage || `${criteriaFilteredJobs.length} of ${state.jobs.length} analyzed jobs match the saved criteria.`}</p></div>
+        </form>
+      </section>
+
+      <section className="source-dashboard" id="sources">
+        <div className="source-dashboard-heading">
+          <div><span className="section-label coral">Search coverage</span><h2>What every source returned</h2></div>
+          <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run Search all job sites to create the first source report.'}</p>
+        </div>
+        {latestRun && <div className="source-report-grid">
+          {[...latestRun.sources]
+            .sort((a, b) => SOURCE_RUN_STATUS_RANK[a.status] - SOURCE_RUN_STATUS_RANK[b.status]
+              || a.sourceName.localeCompare(b.sourceName))
+            .map((source) => <article className={`source-report ${source.status}`} key={source.sourceKey}>
+            <div><span>{countryLabel(source.country)}</span><b>{sourceRunStatusLabel(source.status)}</b></div>
+            <h3>{source.sourceName}</h3>
+            {/* One line answers the question people actually ask of this panel. The other four
+                numbers are diagnostics and now sit behind the expander. */}
+            <p className="source-headline">{source.foundCount} found · {source.newCount} new</p>
+            <details className="source-counts">
+              <summary>All counts</summary>
+              <dl><div><dt>Found</dt><dd>{source.foundCount}</dd></div><div><dt>Known</dt><dd>{source.knownCount}</dd></div><div><dt>New</dt><dd>{source.newCount}</dd></div><div><dt>Added</dt><dd>{source.importedCount}</dd></div><div><dt>Duplicates</dt><dd>{source.duplicateCount}</dd></div><div><dt>Skipped</dt><dd>{source.skippedCount}</dd></div></dl>
+            </details>
+            <p>{source.message}</p>
+          </article>)}
+        </div>}
+        {/* Administrator only: it is a tool for judging the sources and the filter, not something
+            a person looking for work needs to read. */}
+        {isAdmin && <div className="source-performance">
+          <div>
+            <span className="section-label">Conversion by source</span>
+            <h3>What each website is actually worth</h3>
+            <p>Of everything a source returned, how much could be screened and how much survived. A large <b>too short</b> share means the source is not publishing enough of its advertisements to judge — a problem with the source, not the filter.</p>
+          </div>
+          {sourceMetrics.length ? <div className="performance-table" role="table" aria-label="Conversion by source">
+            <div className="performance-row heading" role="row"><span>Website</span><span>Found</span><span>English</span><span>Review</span><span>Too short</span><span>Blocked</span><span>Applied</span></div>
+            {sourceMetrics.map((source) => <div className="performance-row" role="row" key={source.key}>
+              <b>{source.name}<small>{countryLabel(source.country)}</small></b>
+              <span>{source.found}</span>
+              <span className="metric-good">{source.confirmed}<small>{share(source.confirmed, source.found)}</small></span>
+              <span>{source.review}<small>{share(source.review, source.found)}</small></span>
+              <span className={source.unknown / Math.max(1, source.found) > 0.5 ? 'metric-warn' : ''}>{source.unknown}<small>{share(source.unknown, source.found)}</small></span>
+              <span>{source.blocked}<small>{share(source.blocked, source.found)}</small></span>
+              <span>{source.applied}</span>
+            </div>)}
+          </div> : <p className="no-source-data">No jobs yet. Run a search to fill this in.</p>}
+        </div>}
       </section>
 
       <dialog
