@@ -4,6 +4,15 @@ import { defaultSearchCriteria, matchesSearchCriteria, normalizeRoleKeywords, pa
   searchTermsForProfiles } from '../lib/criteria';
 import type { JobRecord, SearchCriteria } from '../lib/types';
 
+// matchesSearchCriteria takes the fields it reads rather than a JobRecord, because the record no
+// longer carries the advertisement text — it is screened server-side and never sent to a client.
+// This is the shape the server passes it, straight from the stored row.
+const matchable = {
+  title: 'Senior Data Governance Analyst',
+  location: 'Zürich 8000',
+  description: 'Permanent hybrid role using SAP, SQL and Power BI. English is the working language.',
+};
+
 const job: JobRecord = {
   id: 'job-1',
   workplaceType: 'hybrid',
@@ -16,7 +25,9 @@ const job: JobRecord = {
   title: 'Senior Data Governance Analyst',
   company: 'Example AG',
   location: 'Zürich 8000',
-  description: 'Permanent hybrid role using SAP, SQL and Power BI. English is the working language.',
+  descriptionLength: 84,
+  requirements: null,
+  matchesCriteria: true,
   languageStatus: 'pass',
   languageSummary: 'English sufficient.',
   languageSignals: [],
@@ -68,11 +79,11 @@ test('stores five distinct role keywords and combines them with CV roles', () =>
 });
 
 test('applies required and excluded keywords, accent-insensitively', () => {
-  assert.equal(matchesSearchCriteria(job, criteria({ requiredKeywords: ['sap', 'power bi'] })), true);
-  assert.equal(matchesSearchCriteria(job, criteria({ requiredKeywords: ['python'] })), false);
-  assert.equal(matchesSearchCriteria(job, criteria({ excludedKeywords: ['power bi'] })), false);
+  assert.equal(matchesSearchCriteria(matchable, criteria({ requiredKeywords: ['sap', 'power bi'] })), true);
+  assert.equal(matchesSearchCriteria(matchable, criteria({ requiredKeywords: ['python'] })), false);
+  assert.equal(matchesSearchCriteria(matchable, criteria({ excludedKeywords: ['power bi'] })), false);
   // Matched against title, location and description together, with accents folded.
-  assert.equal(matchesSearchCriteria(job, criteria({ requiredKeywords: ['zurich'] })), true);
+  assert.equal(matchesSearchCriteria(matchable, criteria({ requiredKeywords: ['zurich'] })), true);
 });
 
 test('no longer filters on location, workplace, seniority or contract type', () => {
@@ -80,8 +91,19 @@ test('no longer filters on location, workplace, seniority or contract type', () 
   // results, and every one of them silently hid jobs. Location is a facet beside the results now.
   // The criteria columns still exist in the database and are simply not read, so a stored value
   // from before the change must not quietly keep filtering.
-  assert.equal(matchesSearchCriteria(job, criteria({ location: 'Geneva' })), true);
-  assert.equal(matchesSearchCriteria(job, criteria({ workplace: 'onsite' })), true);
-  assert.equal(matchesSearchCriteria(job, criteria({ seniority: 'entry' })), true);
-  assert.equal(matchesSearchCriteria(job, criteria({ contractType: 'temporary' })), true);
+  assert.equal(matchesSearchCriteria(matchable, criteria({ location: 'Geneva' })), true);
+  assert.equal(matchesSearchCriteria(matchable, criteria({ workplace: 'onsite' })), true);
+  assert.equal(matchesSearchCriteria(matchable, criteria({ seniority: 'entry' })), true);
+  assert.equal(matchesSearchCriteria(matchable, criteria({ contractType: 'temporary' })), true);
+});
+
+test('a job record carries our work on the advertisement, never the advertisement', () => {
+  // The guard for docs/SOURCE_POLICY.md §1. The employer owns the advertisement text; reading it
+  // to screen a job and handing it to a browser are different permissions, and only the first is
+  // settled. Everything the interface needs is derived server-side and travels in its place.
+  assert.equal('description' in job, false,
+    'JobRecord must not carry the employer advertisement text');
+  assert.equal(typeof job.descriptionLength, 'number');
+  assert.equal(typeof job.matchesCriteria, 'boolean');
+  assert.ok('requirements' in job);
 });

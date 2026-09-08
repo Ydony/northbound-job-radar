@@ -63,7 +63,10 @@ export async function GET(request: Request) {
     : { results: [] as SearchRunSourceRow[] };
   // Copies of the same advertisement are kept in the database but folded into the job on screen,
   // which carries the count and the board names so the alternatives stay reachable.
-  const allJobs = jobs.results.map(jobFromRow);
+  // Criteria are evaluated here, against the text, because the text does not leave the server.
+  // The client receives each job's matchesCriteria and never the advertisement it was judged on.
+  const searchCriteria = criteriaFromRow(criteria, roles.results);
+  const allJobs = jobs.results.map((row) => jobFromRow(row, searchCriteria));
   const byId = new Map(allJobs.map((job) => [job.id, job]));
   const copies = new Map<string, string[]>();
   for (const job of allJobs) {
@@ -89,7 +92,7 @@ export async function GET(request: Request) {
     hiddenDuplicates: allJobs.length - visibleJobs.length,
     totalJobs: jobTotal?.total ?? jobs.results.length,
     jobLimit: JOB_PAGE_LIMIT,
-    criteria: criteriaFromRow(criteria, roles.results),
+    criteria: searchCriteria,
     // Page-fetching sources are an administrator capability, so their run rows are withheld from
     // everyone else rather than only hidden in the interface.
     searchRuns: searchRunsFromRows(runs.results, user.role === 'admin'

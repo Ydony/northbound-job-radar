@@ -1,7 +1,9 @@
 import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
 import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
   sourceInfoForUrl, sourceJobIdFromUrl } from './job-identity';
+import { matchesSearchCriteria } from './criteria';
 import { decodeEntities } from './jobsch';
+import { extractRequirements } from './requirements';
 import { readableLocation } from './nuts';
 import { detectWorkplaceType } from './workplace';
 import type { CvProfile, CvSlot, JobRecord, SearchCriteria, SearchRun, SearchRunSource } from './types';
@@ -111,7 +113,16 @@ export function cvFromRow(row: CvRow): CvProfile {
   };
 }
 
-export function jobFromRow(row: JobRow): JobRecord {
+/**
+ * Maps a stored row to what a client is allowed to see.
+ *
+ * The advertisement text stops here. It is read from the row, used to derive the three fields
+ * that replace it, and never copied onto the returned object — see docs/SOURCE_POLICY.md §1 and
+ * the note on JobRecord. `criteria` is optional only so callers that have no criteria to hand
+ * (a freshly imported job, say) still work; they get `matchesCriteria: true`, which is what an
+ * empty criteria set would have produced anyway.
+ */
+export function jobFromRow(row: JobRow, criteria?: SearchCriteria): JobRecord {
   const languageFeedback = row.feedback_verdict === 'correct' || row.feedback_verdict === 'incorrect'
     ? row.feedback_verdict
     : '';
@@ -132,7 +143,13 @@ export function jobFromRow(row: JobRow): JobRecord {
     title: row.title,
     company: row.company,
     location: row.location,
-    description: row.description,
+    descriptionLength: row.description.trim().length,
+    requirements: extractRequirements(row.description),
+    matchesCriteria: criteria
+      ? matchesSearchCriteria(
+        { title: row.title, location: row.location, description: row.description }, criteria,
+      )
+      : true,
     languageStatus: row.language_status,
     languageSummary: row.language_summary,
     languageSignals: stringArray(row.language_signals),

@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
-import { defaultSearchCriteria, matchesSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
+import { defaultSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
 import { jobsToCsv, workspaceToJson } from '@/lib/export';
 import { countryLabel } from '@/lib/job-identity';
 import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
 import { normalizePlace } from '@/lib/places';
-import { extractRequirements } from '@/lib/requirements';
 import { MIN_CHARS_TO_CONFIRM_ENGLISH } from '@/lib/analysis';
 import { ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
@@ -247,9 +246,11 @@ export default function JobRadar() {
     return state.jobs.filter((job) => !hidden.has(job.sourceKey));
   }, [state.jobs, state.adminOnlySources, viewAsUser]);
 
+  // Decided on the server, against advertisement text the client is not sent. Criteria only
+  // count once saved, which was already true, and a save refetches this state.
   const criteriaFilteredJobs = useMemo(
-    () => visibleToRole.filter((job) => matchesSearchCriteria(job, state.criteria)),
-    [visibleToRole, state.criteria],
+    () => visibleToRole.filter((job) => job.matchesCriteria),
+    [visibleToRole],
   );
 
   const counts = useMemo(() => ({
@@ -261,7 +262,7 @@ export default function JobRadar() {
   }), [criteriaFilteredJobs, visibleToRole]);
 
   const passesView = useMemo(() => (job: JobRecord) => {
-    const matchesCriteria = matchesSearchCriteria(job, state.criteria);
+    const matchesCriteria = job.matchesCriteria;
     const languageStatus = effectiveLanguageStatus(job);
     if (view === 'dismissed') return job.visibilityStatus === 'dismissed';
     if (job.visibilityStatus !== 'active') return false;
@@ -270,7 +271,7 @@ export default function JobRadar() {
     if (view === 'review') return matchesCriteria && languageStatus === 'review';
     if (view === 'pipeline') return job.isSaved || job.applicationStatus === 'applied';
     return matchesCriteria;
-  }, [state.criteria, view]);
+  }, [view]);
 
   /**
    * Facet counts: each dimension is counted with every *other* filter applied, so a number shows
@@ -930,7 +931,7 @@ export default function JobRadar() {
             {visibleJobs.map((job) => {
               const bothCvsSaved = CV_MATCHING_ENABLED && state.profiles.filter((profile) => profile.hasCvText).length > 1;
               const displayedLanguageStatus = effectiveLanguageStatus(job);
-              const requirements = extractRequirements(job.description);
+              const requirements = job.requirements;
               const hasCorrection = job.languageFeedback === 'incorrect' && Boolean(job.correctedLanguageStatus);
               const feedbackDraft = feedbackDrafts[job.id] ?? {
                 correctedStatus: job.correctedLanguageStatus || (job.languageStatus === 'pass' ? 'review' : 'pass'),
@@ -963,7 +964,7 @@ export default function JobRadar() {
                       nothing there is indistinguishable from a job with no stated requirements, so
                       say which it is and point at the page that has them. The threshold is the one
                       the language gate already uses, so "too short" means one thing in this app. */}
-                  {!requirements && job.description.trim().length < MIN_CHARS_TO_CONFIRM_ENGLISH
+                  {!requirements && job.descriptionLength < MIN_CHARS_TO_CONFIRM_ENGLISH
                     && <p className="requirements-elsewhere">
                       Short listing — {job.sourceName || sourceNameForUrl(job.sourceUrl)} published a
                       preview rather than the full advertisement. The requirements are on the original page.
