@@ -198,3 +198,6 @@ footer { align-items:center; background:var(--ink); color:#b9c7c0; display:flex;
 .confirm-cancel { background:transparent; border:1px solid #b9c1b7; color:var(--ink); }
 .confirm-go { background:var(--danger); border:1px solid var(--danger); color:var(--cream); }
 .confirm-actions button:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+
+.source-attribution { border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.5; margin:22px 0 0; padding-top:14px; }
+.source-attribution a { color:var(--muted); text-decoration:underline; white-space:nowrap; }

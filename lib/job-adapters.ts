@@ -246,13 +246,13 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'eures-ch', name: 'EURES Switzerland', country: 'switzerland',
     access: 'authorized-api', availability: 'enabled',
-    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. europa.eu content is CC BY 4.0 under the Commission reuse decision of 12 December 2011.',
+    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. Reuse is authorised provided the European Labour Authority is acknowledged as the source. The Commission’s CC BY 4.0 reuse decision covers EU-owned content; the advertisement text is the employer’s, so it is screened here and not republished.',
     searchDetailed: (terms) => searchEures(terms, 'switzerland'),
   },
   {
     key: 'eures-nl', name: 'EURES Netherlands', country: 'netherlands',
     access: 'authorized-api', availability: 'enabled',
-    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. europa.eu content is CC BY 4.0 under the Commission reuse decision of 12 December 2011.',
+    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. Reuse is authorised provided the European Labour Authority is acknowledged as the source. The Commission’s CC BY 4.0 reuse decision covers EU-owned content; the advertisement text is the employer’s, so it is screened here and not republished.',
     searchDetailed: (terms) => searchEures(terms, 'netherlands'),
   },
   {

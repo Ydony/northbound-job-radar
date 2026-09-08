@@ -9,6 +9,7 @@ import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
 import { normalizePlace } from '@/lib/places';
 import { extractRequirements } from '@/lib/requirements';
+import { ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
@@ -1095,6 +1096,12 @@ export default function JobRadar() {
               </article>;
             })}
           </div>
+          {/* The condition EURES reuse rests on: ELA acknowledged as the source, where the
+              material is shown. Rendered from the job list actually on screen rather than
+              unconditionally, so it is a true statement about what you are looking at. */}
+          {needsElaAttribution(visibleJobs) && <p className="source-attribution">
+            {ELA_ATTRIBUTION} <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a>
+          </p>}
         </div>
       </section>
 

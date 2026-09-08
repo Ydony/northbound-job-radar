@@ -39,6 +39,15 @@ export const sourcePolicies: SourcePolicy[] = [
     link: 'https://developers.greenhouse.io/job-board.html',
   },
   {
+    name: 'EURES (Switzerland and Netherlands)',
+    group: 'Authorized APIs',
+    stance: 'intended-use',
+    collected: 'Search results from the public EURES job-search endpoint: title, employer, place, posting date, link, and the advertisement text, which is read to decide the language verdict.',
+    theirRules: "The endpoint is published under `/public/` and robots.txt does not disallow `/eures/`. The EURES legal notice states the condition in one sentence: “Re-use is authorised, provided that ELA is acknowledged as the source of the material.” The Commission’s CC BY 4.0 policy covers EU-owned content and says explicitly that reproducing third-party works inside it may need permission from the rightholder.",
+    ourPosition: 'Used as published, and the European Labour Authority is credited wherever EURES vacancies appear. The advertisement text belongs to the employer rather than to the EU, so it is read to screen the language and is not republished — you get the facts, our verdict, and a link to the employer’s own page.',
+    link: 'https://eures.europa.eu/legal-notice_en',
+  },
+  {
     name: 'Adzuna (Switzerland and Netherlands)',
     group: 'Authorized APIs',
     stance: 'permitted',

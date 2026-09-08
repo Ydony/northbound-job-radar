@@ -4,6 +4,7 @@ import { readSessionValue } from '@/lib/auth';
 import { findUserById } from '@/lib/users';
 import { atsCompanies } from '@/lib/ats-feeds';
 import { collectionPrinciples, POLICIES_VERIFIED_ON, sourcePolicies, stanceLabel } from '@/lib/source-policies';
+import { ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK } from '@/lib/attribution';
 
 export const metadata = {
   title: 'Where the jobs come from — Ik ben een appel',
@@ -109,6 +110,14 @@ export default async function SourcesPage() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="policy-principles">
+        <h2>Required attribution</h2>
+        <p className="source-attribution">
+          {ELA_ATTRIBUTION}{' '}
+          <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a>
+        </p>
       </section>
 
       <footer>
