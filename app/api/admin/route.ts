@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { authSecrets, ensureSchema } from '@/db/runtime';
 import { hashPassword } from '@/lib/auth';
 import { readDailyVisits } from '@/lib/analytics';
@@ -57,7 +56,7 @@ export async function GET(request: Request) {
     },
     signupsOpen: authSecrets().allowSignups === 'true',
   };
-  return NextResponse.json(overview);
+  return Response.json(overview);
 }
 
 /** Administrative actions on one account. Guarded so an installation can never lose its last administrator. */
@@ -72,53 +71,53 @@ export async function PATCH(request: Request) {
   };
   const userId = typeof body.userId === 'string' ? body.userId : '';
   const action = body.action;
-  if (!userId) return NextResponse.json({ error: 'Choose an account.' }, { status: 400 });
+  if (!userId) return Response.json({ error: 'Choose an account.' }, { status: 400 });
 
   const target = await db.prepare('SELECT id, email, role, status FROM users WHERE id = ?').bind(userId)
     .first<{ id: string; email: string; role: string; status: string }>();
-  if (!target) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
+  if (!target) return Response.json({ error: 'Account not found.' }, { status: 404 });
 
   const wouldRemoveLastAdmin = target.role === 'admin' && target.status === 'active'
     && await activeAdminCount(db) <= 1;
 
   if (action === 'disable') {
-    if (target.id === actor.id) return NextResponse.json({ error: 'You cannot disable your own account.' }, { status: 409 });
-    if (wouldRemoveLastAdmin) return NextResponse.json({ error: 'That is the only active administrator.' }, { status: 409 });
+    if (target.id === actor.id) return Response.json({ error: 'You cannot disable your own account.' }, { status: 409 });
+    if (wouldRemoveLastAdmin) return Response.json({ error: 'That is the only active administrator.' }, { status: 409 });
     await db.prepare("UPDATE users SET status = 'disabled' WHERE id = ?").bind(userId).run();
     await revokeSessions(db, userId);
     await recordAdminAction(db, actor.email, target.email, 'disable');
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   }
   if (action === 'enable') {
     await db.prepare("UPDATE users SET status = 'active' WHERE id = ?").bind(userId).run();
     await recordAdminAction(db, actor.email, target.email, 'enable');
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   }
   if (action === 'promote') {
     await db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").bind(userId).run();
     await recordAdminAction(db, actor.email, target.email, 'promote');
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   }
   if (action === 'demote') {
-    if (wouldRemoveLastAdmin) return NextResponse.json({ error: 'That is the only active administrator.' }, { status: 409 });
+    if (wouldRemoveLastAdmin) return Response.json({ error: 'That is the only active administrator.' }, { status: 409 });
     await db.prepare("UPDATE users SET role = 'user' WHERE id = ?").bind(userId).run();
     await recordAdminAction(db, actor.email, target.email, 'demote');
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   }
   if (action === 'set-password') {
     // There is no mail sender here, so a reset is an administrator setting a new password and
     // handing it over directly. The recipient can change it from their own settings afterwards.
     const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
-    if (newPassword.length < 12) return NextResponse.json({ error: 'Use at least 12 characters.' }, { status: 400 });
+    if (newPassword.length < 12) return Response.json({ error: 'Use at least 12 characters.' }, { status: 400 });
     await db.batch([
       db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(await hashPassword(newPassword), userId),
       db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(userId),
     ]);
     await revokeSessions(db, userId);
     await recordAdminAction(db, actor.email, target.email, 'set-password');
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   }
-  return NextResponse.json({ error: 'Unknown action.' }, { status: 400 });
+  return Response.json({ error: 'Unknown action.' }, { status: 400 });
 }
 
 /** Deletes an account and every row it owns. */
@@ -130,14 +129,14 @@ export async function DELETE(request: Request) {
 
   const body = await request.json().catch(() => ({})) as { userId?: unknown; confirm?: unknown };
   const userId = typeof body.userId === 'string' ? body.userId : '';
-  if (body.confirm !== 'DELETE') return NextResponse.json({ error: 'Deletion was not confirmed.' }, { status: 400 });
-  if (userId === actor.id) return NextResponse.json({ error: 'Delete your own account from Settings.' }, { status: 409 });
+  if (body.confirm !== 'DELETE') return Response.json({ error: 'Deletion was not confirmed.' }, { status: 400 });
+  if (userId === actor.id) return Response.json({ error: 'Delete your own account from Settings.' }, { status: 409 });
 
   const target = await db.prepare('SELECT id, email, role, status FROM users WHERE id = ?').bind(userId)
     .first<{ id: string; email: string; role: string; status: string }>();
-  if (!target) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
+  if (!target) return Response.json({ error: 'Account not found.' }, { status: 404 });
   if (target.role === 'admin' && target.status === 'active' && await activeAdminCount(db) <= 1) {
-    return NextResponse.json({ error: 'That is the only active administrator.' }, { status: 409 });
+    return Response.json({ error: 'That is the only active administrator.' }, { status: 409 });
   }
 
   const cvs = await db.prepare('SELECT object_key FROM cvs WHERE user_id = ?').bind(userId)
@@ -159,5 +158,5 @@ export async function DELETE(request: Request) {
     db.prepare('DELETE FROM users WHERE id = ?').bind(userId),
   ]);
   await recordAdminAction(db, actor.email, target.email, 'delete-account');
-  return NextResponse.json({ ok: true });
+  return Response.json({ ok: true });
 }

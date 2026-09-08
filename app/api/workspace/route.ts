@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
 
@@ -9,7 +8,7 @@ export async function DELETE(request: Request) {
   const { db, user, files } = session;
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   if (body.confirm !== 'RESET') {
-    return NextResponse.json({ error: 'Workspace reset was not confirmed.' }, { status: 400 });
+    return Response.json({ error: 'Workspace reset was not confirmed.' }, { status: 400 });
   }
 
   const cvs = await db.prepare('SELECT object_key FROM cvs WHERE user_id = ?').bind(user.id).all<{ object_key: string }>();
@@ -25,5 +24,5 @@ export async function DELETE(request: Request) {
     db.prepare('DELETE FROM search_run_sources WHERE run_id IN (SELECT id FROM search_runs WHERE user_id = ?)').bind(user.id),
     db.prepare('DELETE FROM search_runs WHERE user_id = ?').bind(user.id),
   ]);
-  return NextResponse.json({ ok: true });
+  return Response.json({ ok: true });
 }

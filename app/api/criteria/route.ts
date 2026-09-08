@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
 import { normalizeRoleKeywords, roleForSlot } from '@/lib/criteria';
@@ -33,7 +32,7 @@ export async function PUT(request: Request) {
   const seniority = (cleanText(body.seniority) || 'any') as Seniority;
   const contractType = (cleanText(body.contractType) || 'any') as ContractType;
   if (!workplaces.has(workplace) || !seniorities.has(seniority) || !contractTypes.has(contractType)) {
-    return NextResponse.json({ error: 'One or more search filters are invalid.' }, { status: 400 });
+    return Response.json({ error: 'One or more search filters are invalid.' }, { status: 400 });
   }
 
   const input = {
@@ -75,5 +74,5 @@ export async function PUT(request: Request) {
     cvText: saved.cv_text,
     derivedRole: roleForSlot(saved.slot, saved.derived_role, criteria),
   })));
-  return NextResponse.json({ criteria, rescoredJobs });
+  return Response.json({ criteria, rescoredJobs });
 }

@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
 
@@ -66,7 +65,7 @@ export async function GET(request: Request) {
     byShape.set(shape, (byShape.get(shape) ?? 0) + 1);
   }
 
-  return NextResponse.json({
+  return Response.json({
     total: entries.length,
     confirmed: entries.filter((entry) => entry.verdict === 'correct').length,
     disagreements: disagreements.length,

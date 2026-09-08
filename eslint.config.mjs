@@ -1,22 +1,33 @@
+import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+import react from 'eslint-plugin-react';
+import reactHooks from 'eslint-plugin-react-hooks';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
   globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
+    files: ['**/*.{js,mjs,cjs,jsx,ts,tsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+    // Preserve the previous lint baseline; one fixture intentionally embeds escaped JSON quotes.
+    rules: { 'no-useless-escape': 'off' },
+  },
+  {
+    files: ['**/*.{jsx,tsx}'],
+    plugins: { react, 'react-hooks': reactHooks, 'jsx-a11y': jsxA11y },
+    settings: { react: { version: 'detect' } },
     rules: {
-      /**
-       * This rule wants `next/link` for internal navigation. vinext 1.0.0-beta.3 ships a Link shim
-       * that throws `TypeError: e is not a function` from its client chunk the moment a link is
-       * clicked, so navigation silently did nothing while the href looked correct on hover. Plain
-       * anchors do a full page load, which works, and costs nothing here: every internal
-       * destination is a different page with its own data, so there is no client-side transition
-       * worth preserving. Revisit if vinext fixes Link.
-       */
-      '@next/next/no-html-link-for-pages': 'off',
+      ...react.configs.flat.recommended.rules,
+      ...react.configs.flat['jsx-runtime'].rules,
+      ...reactHooks.configs.flat.recommended.rules,
+      ...jsxA11y.flatConfigs.recommended.rules,
     },
   },
 ]);
