@@ -234,7 +234,7 @@ Not part of the dictated scope, but they gate a public deployment regardless.
 | A7 | CSP allows `'unsafe-inline'` for React hydration | Nonces before public traffic |
 | ~~B3~~ | ~~Rate limiting resets with the process~~ | **Done 1 September.** Sign-in counts in the database and survives a worker restart. This row contradicted the one above it, which had already recorded the fix. |
 | B1/B2 | No password reset, no email verification | **Not blocking the launch** — the owner is the only user and registration stays closed. But the owner also expects *"most users will be from"* the Netherlands, so this is a "not yet" rather than a "never": both become blocking the moment a second account exists, and an email provider has to be chosen before then. |
-| B6 | Careerjet is IP-locked to a declared address | Cloudflare Workers have no static egress IP, so it cannot work in production as it stands. P6 makes it administrator-only, which contains but does not solve this. |
+| ~~B6~~ | ~~Careerjet is IP-locked to a declared address~~ | **Resolved as a product boundary 9 September (#31).** Retained for correctly configured local administrators only; hosted environments leave its credentials unset. The 237 existing leads stay private for manual discovery, and teaser-only rows never count as English-confirmed. |
 
 ---
 
@@ -249,8 +249,8 @@ Not more jobs. More *screenable* jobs, and fewer lost to a filter that could not
 advertisement to decide.
 
 - **626 jobs sit in `unknown`** because Adzuna caps descriptions at 500 characters and Careerjet at
-  279. Their full text is only reachable through the aggregator's redirect link, which is a
-  licensing question rather than a technical one.
+  279. Careerjet is now deliberately local-administrator discovery only; its redirect remains a
+  manual path to the original advertisement, not a way to manufacture a language verdict.
 - **Job-Room already proved the value of fixing this**: its detail endpoint returns 4,193 characters
   against 316 in search, and on 20 test advertisements **18 changed verdict** once the whole text
   was read.

@@ -1,5 +1,23 @@
 # Handover
 
+## 2026-09-09 Careerjet decision (#31)
+
+Careerjet is retained as a **local administrator-only discovery source**. It is not a public or
+hosted feature. Leave `CAREERJET_API_KEY`, `CAREERJET_REFERER` and `CAREERJET_USER_IP` unset in every
+hosted environment; local use is allowed only with a correctly registered publisher site/key and
+real request details. The server-side audience gate and the `jobviewtrack.com` storage alias remain
+mandatory.
+
+The existing 237 leads were deliberately preserved. They produced zero English-confirmed jobs and
+233 `unknown` verdicts because the API supplies 279-character teasers, but they may still be useful
+for an administrator to inspect manually. A Careerjet result must never be presented as proof that
+English is sufficient. The admin conversion report is the basis for any later retirement decision.
+
+The current official publisher documentation was rechecked before recording this decision. It
+requires a unique key per publisher website, the real end-user IP and user agent, and an originating
+page Referer. The current placeholder registration remains unresolved and is not permission for a
+public integration. No database rows, credentials, environments or running servers were changed.
+
 ## 2026-09-07 integration planning handover
 
 The owner now intends a free public service plus separate administrator discovery. Read

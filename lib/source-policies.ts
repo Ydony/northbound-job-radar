@@ -61,8 +61,8 @@ export const sourcePolicies: SourcePolicy[] = [
     group: 'Authorized APIs',
     stance: 'unresolved',
     collected: 'Search results for the saved role keywords: title, company, location, teaser description, link.',
-    theirRules: 'Careerjet issues a publisher API key bound to one registered website, enforced through the Referer header, and requires the calling IP to be declared in the partner account.',
-    ourPosition: 'The API is used with a real key inside its rate limit, but the key is registered to a placeholder domain rather than a site we own, so this use sits outside the registered scope. Unresolved.',
+    theirRules: 'Careerjet issues a unique API key for each publisher website. Its current API documentation requires the real end-user IP and user agent on every query, and its examples require a Referer containing the page that triggered the request.',
+    ourPosition: 'Retained for local administrators only as a discovery aid. It is disabled unless the key, registered site, Referer and real user details are correctly configured, and its credentials must stay unset in hosted environments. The current placeholder registration remains unresolved, so this is not a public feature or evidence that English is sufficient.',
     link: 'https://www.careerjet.com/partners/api/',
   },
   {
