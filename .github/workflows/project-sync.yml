@@ -32,9 +32,12 @@ jobs:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
             const issue = context.payload.issue;
+            // 20 matches the ceiling used elsewhere in this system (pm.py, the original
+            // project-sync.yml); a repo linked to more boards than that is not a case
+            // any registered project is near, but this avoids silently missing one.
             const repoQuery = `query($owner: String!, $name: String!) {
               repository(owner: $owner, name: $name) {
-                projectsV2(first: 5) { nodes { id title } }
+                projectsV2(first: 20) { nodes { id title } }
               }
             }`;
             const res = await github.graphql(repoQuery, {
@@ -48,23 +51,14 @@ jobs:
             }
 
             // Owner mirrors the migration convention: assigned to a human = "You", else "Claude".
-            // Native "Auto-add to project" + "Item added to project" workflows already put the
-            // item on the board with Status=Backlog by the time this runs; addProjectV2ItemById
-            // is idempotent, so calling it again here is just a safe way to get the item id back
-            // without a race against which automation lands first.
             const ownerValue = (issue.assignees ?? []).length ? "You" : "Claude";
 
             for (const board of boards) {
-              const added = await github.graphql(
-                `mutation($project: ID!, $content: ID!) {
-                  addProjectV2ItemById(input: { projectId: $project, contentId: $content }) {
-                    item { id }
-                  }
-                }`,
-                { project: board.id, content: issue.node_id }
-              );
-              const itemId = added.addProjectV2ItemById.item.id;
-
+              // Validate the Owner field exists BEFORE adding the item: a board without it
+              // (or without our exact option names) isn't one this workflow is set up for,
+              // and inserting the item anyway would misrepresent what happened - the item
+              // would sit on the board with no Owner set and no warning visible on the item
+              // itself, only in the Action log.
               const fieldQuery = `query($p: ID!) {
                 node(id: $p) {
                   ... on ProjectV2 {
@@ -78,9 +72,24 @@ jobs:
               const field = fieldRes.node?.field;
               const option = field?.options.find((o) => o.name === ownerValue);
               if (!field || !option) {
-                core.warning(`"${ownerValue}" Owner option not found on "${board.title}" - skipped`);
+                core.warning(`"${ownerValue}" Owner option not found on "${board.title}" - item not added`);
                 continue;
               }
+
+              // Native "Auto-add to project" already puts the item on the board by the time
+              // this runs; addProjectV2ItemById is idempotent, so calling it again here is
+              // just a safe way to get the item id back without a race against which
+              // automation lands first.
+              const added = await github.graphql(
+                `mutation($project: ID!, $content: ID!) {
+                  addProjectV2ItemById(input: { projectId: $project, contentId: $content }) {
+                    item { id }
+                  }
+                }`,
+                { project: board.id, content: issue.node_id }
+              );
+              const itemId = added.addProjectV2ItemById.item.id;
+
               await github.graphql(
                 `mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
                   updateProjectV2ItemFieldValue(input: {
