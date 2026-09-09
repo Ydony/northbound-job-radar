@@ -78,8 +78,9 @@ use a source, the second additionally requires the VPN launcher.
 | Source | Why |
 |---|---|
 | **Careerjet CH/NL** | Licensed to one declared IP address. Workable for the owner, not offerable as a feature. Also produces 279-character teasers, so it cannot support a `pass` regardless. |
-| **IamExpat** | Read from public pages rather than an API. No access control is worked around, but there is no published permission either — `grey-area` is the honest label. |
-| **jobs.ch, jobup.ch, JobScout24, Undutchables** | Terms prohibit automated access. Page-fetching, VPN-gated, hard caps, administrator only. Do not raise the caps to hit a volume target. |
+| **jobs.ch, jobup.ch, JobScout24** | **Retained 2026-09-09 (#32), local administrator and VPN only.** JobCloud's current terms prohibit automation; jobs.ch also disallows its detail pages in robots.txt. Keep the hard cap, fixed delay, manual trigger, no-login boundary and no-evasion rule. Do not raise the cap to hit a volume target. |
+| **IamExpat** | **Retained 2026-09-09 (#32), local administrator only; no VPN required.** It produced one English-confirmed job. The career paths read are outside its robots.txt disallow list and the published crawl delay is honoured, but there is no explicit permission, so `grey-area` remains the honest label. |
+| **Undutchables** | **Retained 2026-09-09 (#32), local administrator and VPN only.** It produced two English-confirmed jobs from three stored advertisements. Current robots.txt permits the plain `/vacancies` and detail paths used here while disallowing query-string searches, but the site previously returned HTTP 403 to automation. Keep the precautionary VPN gate and stop on blocking. |
 | **Indeed CH/NL** | Returns HTTP 403 and prohibits automated access without written permission. Assigning it to admin does not make it usable. |
 | **Nationale Vacaturebank** | HTTP 403. |
 | **I amsterdam** | A city guide, not a vacancy feed. |
@@ -88,6 +89,37 @@ use a source, the second additionally requires the VPN launcher.
 Administrator-only source names, counts, run records and links must not appear in any public
 response — including for jobs stored before a source was reclassified. This is already enforced and
 verified end to end with a real second account; keep it that way.
+
+### Restricted-source retention decision (#32)
+
+Keep the small private source portfolio. Its purpose is not bulk coverage: it is to add
+full-advertisement, language-screenable leads for the owner where permitted public APIs and teaser
+aggregators miss them. In the measured workspace it contributed 12 English-confirmed jobs alongside
+114 from the public tier:
+
+| Source | Stored | English confirmed | Decision |
+|---|---:|---:|---|
+| jobs.ch | 62 | 3 | Keep, administrator + VPN only |
+| jobup.ch | 27 | 6 | Keep, administrator + VPN only |
+| JobScout24 | No separate measured yield | 0 measured | Keep on probation; it shares the JobCloud adapter and VPN boundary |
+| IamExpat | 4 | 1 | Keep, administrator only; no VPN |
+| Undutchables | 3 | 2 | Keep, administrator + VPN only after prior blocking |
+
+Nine confirmed jobs from jobs.ch and jobup.ch justify retaining the already-built VPN workflow for
+the owner, but not expanding it. The three JobCloud adapters remain knowingly contrary to the
+current JobCloud terms and must never be offered to ordinary users. They stay manually triggered,
+unauthenticated, fixed-delay and capped at four new detail pages per source per run. A VPN reduces
+exposure of the owner's home address; it does not create permission.
+
+Do not re-open this decision merely because the volume is small. Revisit a source if it produces no
+English-confirmed jobs across three successful private searches, repeatedly fails, becomes costly to
+maintain, changes its published rules, or receives a complaint/block. A block is a stop signal, not
+a reason to add stealth, alternate endpoints, proxies or IP rotation.
+
+Official material rechecked 2026-09-09: [JobCloud terms](https://www.jobs.ch/en/terms/),
+[jobs.ch robots.txt](https://www.jobs.ch/robots.txt),
+[IamExpat robots.txt](https://www.iamexpat.nl/robots.txt), and
+[Undutchables robots.txt](https://undutchables.nl/robots.txt).
 
 ---
 

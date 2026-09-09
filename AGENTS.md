@@ -70,7 +70,7 @@ Build a private job-search companion for a user seeking roles where English alon
   anything else designed to defeat jobs.ch's bot detection. `lib/jobsch.ts` uses a plain
   `fetch()` with a standard (non-spoofed) browser User-Agent, a fixed inter-request
   delay, and hard caps (`RESULTS_PAGE`, `MAX_NEW_JOBS_PER_RUN`) — keep it that way.
-- The search is **manually triggered only** (the "Search all job sites" button calls
+- The search is **manually triggered only** (the two search buttons call
   `POST /api/scrape`) — no scheduled/cron automation exists or should be added without
   a fresh explicit decision, since unattended background fetching is a materially bigger
   step than a user-clicked action.
@@ -79,13 +79,16 @@ Build a private job-search companion for a user seeking roles where English alon
 - A full, sanctioned jobs.ch ingestion integration (higher volume, scheduled, or
   authenticated) still requires written JobCloud permission or an authorized API/feed.
   Employer-side XML ingestion is not a public job-seeker search API.
-- **2026-08-27 source expansion:** after a source-specific terms/robots/technical review,
+- **2026-08-27 source expansion; portfolio retained 2026-09-09 (#32):** after a source-specific terms/robots/technical review,
   the user explicitly asked the same manually triggered automatic behavior to cover other
   Swiss and Netherlands sites. The currently enabled adapters are jobs.ch, jobup.ch,
   JobScout24, IamExpat, and Undutchables. The three Swiss sites are JobCloud properties and
-  therefore share the known unsanctioned-automation risk. IamExpat uses current public job
-  paths. Undutchables uses only its plain public listing page, not the query-string paths
-  disallowed by its robots policy. Keep caps, fixed delays, and truthful source reporting.
+  therefore share the known unsanctioned-automation risk and remain administrator/VPN-only.
+  IamExpat is administrator-only but does not require the VPN; it uses current public job paths.
+  Undutchables remains administrator/VPN-only after prior blocking and uses only its plain public
+  listing page, not the query-string paths disallowed by its robots policy. The private portfolio
+  produced 12 measured English-confirmed jobs. Keep caps, fixed delays, truthful reporting and the
+  no-evasion rule; do not expand the volume because of that result.
 - Indeed Switzerland/Netherlands remain `blocked`: their rules prohibit automated access
   without written permission and live requests returned HTTP 403. Nationale
   Vacaturebank is `unavailable` after HTTP 403, and I amsterdam is `disabled` because it

@@ -4,6 +4,12 @@ Ik ben een appel can run locally while Windows sends its network traffic through
 VPN. This is an optional privacy layer, not permission to automate a website and not an
 anonymity guarantee.
 
+The normal public-source search does not need a VPN. The enforced launcher is required only when a
+local administrator chooses **Search all — VPN on**, which adds the three restricted JobCloud
+sources and the precautionary Undutchables adapter. These private sources are retained for 12
+measured English-confirmed, full-text leads; they are supplementary and their caps must not be
+raised to chase volume.
+
 ## Recommended free setup
 
 Windscribe Free is the default because its free Windows plan includes Netherlands and
@@ -35,6 +41,9 @@ After the one-time provider setup, use:
 ```text
 npm run dev:private
 ```
+
+Use this launcher only when you want the administrator-only restricted sources. For the ordinary
+no-VPN search and normal development, use `npm run dev` and choose **Search — VPN off**.
 
 The launcher starts an installed VPN client when necessary, waits briefly for auto-connect,
 and refuses to start Ik ben een appel unless it detects a supported active adapter with a full

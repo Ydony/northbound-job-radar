@@ -329,10 +329,20 @@ about a third of that, carried only so the client can match required/excluded ke
 - [ ] Move keyword filtering server-side, or stop sending full descriptions, then paginate.
 - [ ] Revisit before any account approaches 2,000 jobs.
 
-### B5. Undutchables is a weak, restricted source
+### B5. Small administrator-only sources — RETAINED WITH EXISTING BOUNDARIES
 
-Its `robots.txt` rejects automated requests and it yields very few jobs. Keep the adapter truthful
-and administrator/VPN-only; removal remains a reasonable product decision.
+Decision recorded 2026-09-09 in GitHub #32 and `docs/SOURCE_POLICY.md` §3. Keep the three
+JobCloud sites, IamExpat and Undutchables as a private supplement: together they produced 12
+full-text English-confirmed jobs, including nine from jobs.ch + jobup.ch, against 114 in the public
+tier.
+
+- [x] jobs.ch, jobup.ch and JobScout24 remain local-administrator/VPN-only, fixed-delay and capped.
+- [x] IamExpat remains local-administrator-only without a VPN requirement.
+- [x] Undutchables remains local-administrator/VPN-only after prior HTTP 403 responses. Its current
+      robots.txt permits the plain listing/detail paths used and disallows query-string searches,
+      which the adapter does not use.
+- [x] No source login, scheduling, evasion, proxy rotation or cap increase.
+- [x] Revisit only on measured repeated zero yield, maintenance failure, changed rules or a block.
 
 ### B6. Careerjet licensing and IP scope remain unresolved
 

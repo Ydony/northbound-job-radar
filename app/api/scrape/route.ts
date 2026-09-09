@@ -150,12 +150,13 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     }, { status: 409 }) };
   }
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';
-  // Everyone gets the authorized APIs and the grey-area sources, whose robots.txt permits the
-  // paths read. Only the explicit VPN mode adds the sources that prohibit automated access.
+  // The no-VPN mode is eligible for authorized APIs and grey-area sources whose robots.txt permits
+  // the paths read. `adminOnly` below still removes private sources from ordinary accounts. Only
+  // the explicit VPN mode adds sources that prohibit automated access or previously blocked it.
   // Two separate rules, and they are not the same rule. `restricted` means page-fetching that needs
   // a verified VPN, so it is gated on the mode. `adminOnly` means a source the owner may use but
-  // that is not offered to anyone else - Careerjet is licensed to one declared IP, IamExpat is read
-  // from public pages - so it is gated on the account, in every mode.
+  // that is not offered to anyone else - Careerjet is licensed to one declared IP, while IamExpat
+  // is read from public pages - so it is gated on the account, in every mode.
   const hiddenForAccount = user.role === 'admin' ? new Set<string>() : adminOnlySourceKeys();
   const activeAdapters = jobSourceAdapters.filter((adapter) =>
     (mode === 'all' || adapter.access !== 'restricted') && !hiddenForAccount.has(adapter.key));

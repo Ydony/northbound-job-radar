@@ -139,8 +139,8 @@ shows counts.
 ### P6. Sources that only an administrator may use — DONE
 
 Some sources cannot be offered to ordinary users. Careerjet and IamExpat join the existing
-`restricted` set in being administrator-only, but for a different reason and without the VPN
-requirement — so this needs a flag of its own rather than reusing `access: 'restricted'`.
+VPN-gated private sources in being administrator-only. Careerjet and IamExpat do not inherently
+require the VPN, so this needs a flag of its own rather than reusing `access: 'restricted'`.
 
 - [x] `adminOnly` added, separate from `access`, and set on both.
 - [x] Excluded in SQL in the jobs read path, dropped before a run starts in the search path, and
@@ -157,6 +157,9 @@ requirement — so this needs a flag of its own rather than reusing `access: 're
       test of the derivation could see.
 - [x] A new account starts empty and inherits nothing — jobs are already owned per account, so
       there is no path by which a second user could see another account's stored results.
+- [x] **Portfolio decision 9 September (#32).** Keep the small private tier for its 12 confirmed,
+      full-text leads; nine came from jobs.ch + jobup.ch. Do not expand volume or relax the VPN,
+      cap, delay, manual-trigger, no-login or no-evasion boundaries. See `docs/SOURCE_POLICY.md` §3.
 
 ### P7. Switch between administrator and ordinary-user views — DONE
 
