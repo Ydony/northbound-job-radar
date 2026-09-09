@@ -12,6 +12,8 @@ export interface SourcePolicy {
   name: string;
   group: 'Authorized APIs' | 'Open public pages' | 'Restricted sites' | 'Not used';
   stance: PolicyStance;
+  /** Withhold this source's existence from ordinary accounts, matching the search and jobs APIs. */
+  adminOnly?: boolean;
   collected: string;
   theirRules: string;
   ourPosition: string;
@@ -51,15 +53,17 @@ export const sourcePolicies: SourcePolicy[] = [
     name: 'Adzuna (Switzerland and Netherlands)',
     group: 'Authorized APIs',
     stance: 'permitted',
+    adminOnly: true,
     collected: 'Search results for the saved role keywords: title, company, location, teaser description, salary range, link.',
-    theirRules: 'Adzuna runs a public developer API with a free tier and issues a key on request. Use is governed by their API terms and rate limits (250 requests/day on the free plan).',
-    ourPosition: 'Used with our own registered key, inside the free-tier rate limit.',
-    link: 'https://developer.adzuna.com/',
+    theirRules: 'Rechecked 2026-09-09. The API terms permit publishing Adzuna listings and personal research, with free limits of 25 requests per minute and 250 per day. Adverts displayed under the listing-publishing permission must carry “Jobs by Adzuna” branding; published research must name “The Adzuna API” and link to the relevant local site. The standard search API supplies teasers. Adzuna advertises full job details as a separate data service, and its terms require API queries to stay with Adzuna rather than third-party content providers.',
+    ourPosition: 'The standard teaser is too short to confirm that English alone is enough, so Adzuna is retained only as an administrator coverage measure. Ordinary accounts neither search it nor receive its stored jobs or run rows. The app does not follow redirect links to copy third-party full text, changes no saved verdicts, and acknowledges The Adzuna API with links to the Swiss and Dutch sites in the private result view.',
+    link: 'https://developer.adzuna.com/docs/terms_of_service',
   },
   {
     name: 'Careerjet (Switzerland and Netherlands)',
     group: 'Authorized APIs',
     stance: 'unresolved',
+    adminOnly: true,
     collected: 'Search results for the saved role keywords: title, company, location, teaser description, link.',
     theirRules: 'Careerjet issues a publisher API key bound to one registered website, enforced through the Referer header, and requires the calling IP to be declared in the partner account.',
     ourPosition: 'The API is used with a real key inside its rate limit, but the key is registered to a placeholder domain rather than a site we own, so this use sits outside the registered scope. Unresolved.',
@@ -96,6 +100,7 @@ export const sourcePolicies: SourcePolicy[] = [
     name: 'IamExpat',
     group: 'Open public pages',
     stance: 'unresolved',
+    adminOnly: true,
     collected: 'The public Netherlands job listing index and the linked job pages.',
     theirRules: 'robots.txt disallows /job/, /jobProvider/ and /jobs-iframe/, and sets Crawl-delay: 1. The /career/jobs-netherlands/ paths this reads are not disallowed.',
     ourPosition: 'The paths read are outside the disallow list and the 1.2s delay respects the stated crawl-delay. Their general site terms have not been reviewed, so this is not a clean permission.',
@@ -150,6 +155,12 @@ export const sourcePolicies: SourcePolicy[] = [
     ourPosition: 'Not used. Defeating a bot challenge would be detection evasion, which this project does not do under any circumstances.',
   },
 ];
+
+/** The transparency page must not name private discovery sources to an ordinary account. */
+export function sourcePoliciesForRole(isAdmin: boolean) {
+  return isAdmin ? sourcePolicies : sourcePolicies.filter((policy) =>
+    !policy.adminOnly && policy.group !== 'Restricted sites');
+}
 
 export const collectionPrinciples = [
   'Only public job advertisements are read. No account is ever logged into, and no page behind a login or access control is fetched.',

@@ -9,7 +9,8 @@ import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
 import { normalizePlace } from '@/lib/places';
 import { MIN_CHARS_TO_CONFIRM_ENGLISH } from '@/lib/analysis';
-import { ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
+import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
+  ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
@@ -309,6 +310,7 @@ export default function JobRadar() {
     () => [...facets.visible].sort((a, b) => bestFitScore(b) - bestFitScore(a)),
     [facets.visible],
   );
+  const visibleAdzunaSources = useMemo(() => adzunaSourcesOnScreen(visibleJobs), [visibleJobs]);
 
   const sourceOptions = useMemo(() => [...new Map(visibleToRole.map((job) => [job.sourceKey, job.sourceName])).entries()]
     .sort((a, b) => a[1].localeCompare(b[1])), [visibleToRole]);
@@ -1000,6 +1002,15 @@ export default function JobRadar() {
               unconditionally, so it is a true statement about what you are looking at. */}
           {needsElaAttribution(visibleJobs) && <p className="source-attribution">
             {ELA_ATTRIBUTION} <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a>
+          </p>}
+          {visibleAdzunaSources.length > 0 && <p className="source-attribution">
+            {ADZUNA_ATTRIBUTION}{' '}
+            {visibleAdzunaSources.map((key, index) => <span key={key}>
+              {index > 0 && ' · '}
+              <a href={ADZUNA_LOCAL_LINKS[key]} target="_blank" rel="noreferrer">
+                {key === 'adzuna.ch' ? 'Adzuna Switzerland' : 'Adzuna Netherlands'} ↗
+              </a>
+            </span>)}
           </p>}
         </div>
       </section>

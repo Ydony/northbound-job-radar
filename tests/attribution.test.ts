@@ -2,8 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { jobSourceAdapters } from '../lib/job-adapters';
 import {
+  ADZUNA_ATTRIBUTION,
+  ADZUNA_LOCAL_LINKS,
+  ADZUNA_SOURCE_KEYS,
   ELA_ATTRIBUTION,
   EURES_SOURCE_KEYS,
+  adzunaSourcesOnScreen,
   isEuresJob,
   needsElaAttribution,
 } from '../lib/attribution';
@@ -35,4 +39,23 @@ test('attribution is required as soon as one EURES job is on screen', () => {
     true,
   );
   assert.equal(needsElaAttribution([]), false);
+});
+
+test('Adzuna private research is acknowledged by the required name and local domains', () => {
+  const storedAdzunaKeys = jobSourceAdapters
+    .filter((adapter) => adapter.key.startsWith('adzuna-'))
+    .flatMap((adapter) => adapter.resultSourceKeys ?? [])
+    .sort();
+  assert.match(ADZUNA_ATTRIBUTION, /The Adzuna API/);
+  assert.deepEqual([...ADZUNA_SOURCE_KEYS].sort(), storedAdzunaKeys,
+    'an Adzuna result host could be displayed without the required acknowledgement');
+  assert.equal(ADZUNA_LOCAL_LINKS['adzuna.ch'], 'https://www.adzuna.ch/');
+  assert.equal(ADZUNA_LOCAL_LINKS['adzuna.nl'], 'https://www.adzuna.nl/');
+  assert.deepEqual(adzunaSourcesOnScreen([
+    { sourceKey: 'eures-nl' },
+    { sourceKey: 'adzuna.nl' },
+    { sourceKey: 'adzuna.nl' },
+    { sourceKey: 'adzuna.ch' },
+  ]), ['adzuna.ch', 'adzuna.nl']);
+  assert.deepEqual(adzunaSourcesOnScreen([{ sourceKey: 'eures-ch' }]), []);
 });

@@ -232,11 +232,20 @@ any local language at INTERMEDIATE or above blocks; English at INTERMEDIATE or a
 requirement passes; anything else goes to review. Listed languages with null levels are not
 treated as requirements, so those ads fall back to prose analysis.
 
-**Adzuna and Careerjet** are authorized aggregator APIs covering both Switzerland and the
-Netherlands. Both need free credentials (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`, `CAREERJET_API_KEY`) and
-report themselves `unavailable` with setup instructions until those are set — a missing key never
-fails a run. Note their APIs return short teaser descriptions, so their jobs will usually land in
-review rather than pass; they are best understood as discovery breadth, not language evidence.
+**Adzuna and Careerjet** are administrator-only aggregator APIs covering both Switzerland and the
+Netherlands. Both need credentials (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`, `CAREERJET_API_KEY`) and report
+themselves `unavailable` with setup instructions until those are set — a missing key never fails a
+run. Their short teasers cannot support the language evidence gate, so they are retained only as
+private discovery/coverage measures and their rows and run records are withheld from ordinary
+accounts. Adzuna rows are stored under `adzuna.ch` / `adzuna.nl`, so those result-host aliases are
+part of the server-side hidden-source set as well as the adapter keys.
+
+**Adzuna decision (2026-09-09, #30).** The current API terms allow publishing listings and personal
+research but impose attribution and default free limits (25 requests/minute, 250/day). The standard
+search API supplies the 500-character teaser already used here; Adzuna presents full job details as
+a separate data service. The app will not follow `redirect_url` to copy full text from third-party
+providers. Administrators still see Adzuna in the conversion report and a “The Adzuna API”
+acknowledgement with links to the relevant local domains; no stored verdicts are changed.
 
 Careerjet's legacy `public.api.careerjet.net/search` endpoint with an `affid` query parameter is
 dead. The current API is `https://search.api.careerjet.net/v4/query`, authenticated with HTTP
@@ -246,8 +255,7 @@ Basic where the API key is the username and the password is empty.
 registered publisher website and states the key is "provided exclusively for integration on the
 registered website". Ik ben een appel is a local private tool with no public site, and the key in
 use was registered against a placeholder domain, so this usage sits outside the registered scope —
-this is a licensing question, not a technical one, and it is unresolved. Adzuna carries no
-equivalent per-site restriction and is the safer default of the two. If Careerjet's scope matters,
+this is a licensing question, not a technical one, and it is unresolved. If Careerjet's scope matters,
 either register the real deployment through their "add another website" flow or leave
 `CAREERJET_API_KEY` unset, which cleanly disables both Careerjet sources.
 
