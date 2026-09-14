@@ -20,7 +20,8 @@ need Dutch, German, French or Italian. Everything below either serves that or ge
 Already built. Jobs come from APIs and public endpoints, never from working around an access
 control. The interface keeps showing what each run scanned and added, as it does now.
 
-- [x] EURES ×2, Job-Room, Adzuna ×2, Careerjet, and the public ATS boards.
+- [x] Public: EURES ×2, Job-Room, and the public ATS boards. Administrator measurement also retains
+      Adzuna ×2 and Careerjet; their permanently inconclusive teasers are not public results.
 - [x] Per-run counts: found, known, new, imported, duplicate, skipped.
 
 ### P2. Admin: a conversion report per source — DONE
@@ -248,9 +249,10 @@ enough.** Every aim below serves that; where they conflict, this one wins.
 Not more jobs. More *screenable* jobs, and fewer lost to a filter that could not see enough of the
 advertisement to decide.
 
-- **626 jobs sit in `unknown`** because Adzuna caps descriptions at 500 characters and Careerjet at
-  279. Their full text is only reachable through the aggregator's redirect link, which is a
-  licensing question rather than a technical one.
+- **Adzuna and Careerjet cannot contribute public matches** because their standard APIs cap
+  descriptions at about 500 and 279 characters. They remain administrator-only measurements. The
+  app does not copy full text through aggregator redirect links; for Adzuna, current terms point to
+  a separate full-details service and require queries to stay through Adzuna.
 - **Job-Room already proved the value of fixing this**: its detail endpoint returns 4,193 characters
   against 316 in search, and on 20 test advertisements **18 changed verdict** once the whole text
   was read.

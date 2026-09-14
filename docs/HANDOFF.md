@@ -1,5 +1,28 @@
 # Handover
 
+## 2026-09-09 Adzuna public-tier decision (#30)
+
+Adzuna is retained as an administrator-only coverage measure and removed from ordinary accounts.
+The current publisher terms permit listing publication and personal research, but the standard API
+only supplies the 500-character teasers that produced zero English-confirmed jobs. Full job details
+are a separate Adzuna data service; the app does not follow redirect targets to copy third-party
+text.
+
+Both adapter keys and the stored result hosts (`adzuna.ch`, `adzuna.nl`) are in the server-derived
+administrator-only set. This hides existing jobs, future searches and per-run rows from ordinary
+accounts while preserving the administrator conversion report. No rows or detector verdicts are
+changed. The administrator result view acknowledges “The Adzuna API” and links to the relevant
+local domain. `/sources` now uses the same audience split, so it does not disclose Adzuna or the
+other private discovery sources to an ordinary visitor.
+
+Source decision and current terms links are in `docs/SOURCE_POLICY.md` §3. Verified against an
+isolated copy of the populated test database: the administrator received 346 visible Adzuna cards
+and Adzuna run rows, with all four hidden keys advertised to the client-side preview. A fresh
+ordinary account received zero jobs after importing its own `adzuna.nl` row, received no private
+source names, and its `/sources` page did not contain Adzuna; the administrator page did. All 155
+tests, lint, typecheck and the production build pass. The temporary port 3013 Worker was stopped;
+the owner's dev/test servers and databases were not touched.
+
 ## 2026-09-14 — stored duplicate links (#50)
 
 Implemented in isolated branch `ai/recluster-stored-jobs-20260914-132120-382758`;

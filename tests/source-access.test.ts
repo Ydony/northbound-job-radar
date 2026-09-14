@@ -3,11 +3,15 @@ import test from 'node:test';
 import { adminOnlySourceKeys, jobSourceAdapters } from '../lib/job-adapters';
 import { isSafeManualJobUrl } from '../lib/job-sources';
 
-test('Careerjet and IamExpat are administrator-only', () => {
+test('zero-yield aggregators and grey-area page sources are administrator-only', () => {
   const keys = adminOnlySourceKeys();
-  // Named explicitly by the owner: Careerjet is licensed to one declared IP, and IamExpat is read
-  // from public pages rather than an API. Fine for the owner; not something to offer to others.
-  for (const key of ['careerjet-ch', 'careerjet-nl', 'iamexpat.nl']) {
+  // Adzuna and Careerjet publish snippets too short to confirm English. They remain useful to the
+  // owner for measuring coverage, but an ordinary account should not receive permanently
+  // inconclusive rows. IamExpat is page-fetched without explicit permission and stays private too.
+  for (const key of [
+    'adzuna-ch', 'adzuna-nl', 'adzuna.ch', 'adzuna.nl',
+    'careerjet-ch', 'careerjet-nl', 'iamexpat.nl',
+  ]) {
     assert.ok(keys.has(key), `${key} must be administrator-only`);
   }
 });
@@ -29,7 +33,7 @@ test('the sources an ordinary account may use are the ones we intend', () => {
   // Pinned deliberately. Adding a source is fine; adding one that ordinary accounts can reach
   // should be a decision someone made on purpose, so this test asks them to confirm it here.
   assert.deepEqual(open, [
-    'adzuna-ch', 'adzuna-nl', 'ats-ch', 'ats-nl', 'eures-ch', 'eures-nl', 'job-room.ch',
+    'ats-ch', 'ats-nl', 'eures-ch', 'eures-nl', 'job-room.ch',
   ]);
 });
 
@@ -41,6 +45,10 @@ test('covers the domains results are actually stored under, not just adapter key
   // one of them was reachable by an ordinary account despite the source being administrator-only.
   assert.ok(keys.has('jobviewtrack.com'), 'Careerjet results are stored under jobviewtrack.com');
   assert.ok(keys.has('careerjet'), 'and under a plain careerjet key');
+  // Adzuna returns its own details URL, so adapter keys use a country suffix with a dash while
+  // stored rows use the host with a dot. Both forms have to be hidden.
+  assert.ok(keys.has('adzuna.ch'), 'Swiss Adzuna results are stored under adzuna.ch');
+  assert.ok(keys.has('adzuna.nl'), 'Dutch Adzuna results are stored under adzuna.nl');
 });
 
 test('every administrator-only adapter that redirects declares where its results land', () => {

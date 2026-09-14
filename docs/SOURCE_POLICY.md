@@ -44,7 +44,6 @@ one click away on a page the employer chose to publish it on.
 |---|---|---|
 | **EURES CH/NL** | Public endpoint (`/public/` in the path), `robots.txt` does not disallow `/eures/`, and the EURES legal notice states plainly: *"Re-use is authorised, provided that ELA is acknowledged as the source of the material."* | **Attribution to the European Labour Authority (ELA) is mandatory** and is currently not implemented — see §4. Metadata + link only, per §1. |
 | **Job-Room (arbeit.swiss)** | Official Swiss public employment service. Unauthenticated public search and detail API, no key. Owner-assumed permission recorded separately. | Metadata + link only. Keep the per-advertisement detail fetch paced and capped as it is now. |
-| **Adzuna CH/NL** | Licensed publisher API; terms accepted when the key was issued. | Adzuna's publisher terms require attribution — verify the exact wording against the current terms before launch. Descriptions are capped at 500 characters, so these are `unknown` by design, not `pass`. |
 | **Employer ATS boards** (Greenhouse, Lever, Ashby, Recruitee, Personio) | Endpoints the platforms publish specifically so aggregators can consume them. | Metadata + link only. The employer publishes the board; the text is still theirs. |
 
 ### Why EURES is public here and admin-only in the older plan
@@ -77,6 +76,7 @@ use a source, the second additionally requires the VPN launcher.
 
 | Source | Why |
 |---|---|
+| **Adzuna CH/NL** | **Decision 2026-09-09 (#30): retained for administrator measurement, removed from the public tier.** Its current API terms permit publishing listings and personal research, with default limits of 25 requests/minute and 250/day. Adverts displayed under the listing-publishing permission require “Jobs by Adzuna” branding at least 116 × 23 pixels; research publication must name “The Adzuna API” and link to the relevant local domain. The standard search response caps descriptions at 500 characters and has produced 351 stored jobs with zero English-confirmed results. Adzuna advertises full job details as a separate data service, while its API terms require queries to be directed through Adzuna and treat attempts to contact third-party content providers as a breach. Therefore the app does not fetch full text through `redirect_url`. Ordinary accounts do not search Adzuna and cannot receive its existing `adzuna.ch` / `adzuna.nl` jobs or run rows. Administrators retain it in the conversion report, with a private research acknowledgement and local-domain links. No stored detector verdict is rewritten by this change. [Current API terms](https://developer.adzuna.com/docs/terms_of_service) · [API offering](https://developer.adzuna.com/) |
 | **Careerjet CH/NL** | Licensed to one declared IP address. Workable for the owner, not offerable as a feature. Also produces 279-character teasers, so it cannot support a `pass` regardless. |
 | **IamExpat** | Read from public pages rather than an API. No access control is worked around, but there is no published permission either — `grey-area` is the honest label. |
 | **jobs.ch, jobup.ch, JobScout24, Undutchables** | Terms prohibit automated access. Page-fetching, VPN-gated, hard caps, administrator only. Do not raise the caps to hit a volume target. |
@@ -97,8 +97,11 @@ verified end to end with a real second account; keep it that way.
       when the list contains EURES jobs, and `/sources` carries a "Required attribution" section.
       `lib/attribution.ts` holds the wording and the source keys, with a test that fails if a
       EURES adapter is ever added that the rule does not cover.
-- [ ] **Verify Adzuna's current attribution wording** against their publisher terms and implement
-      whatever it actually requires.
+- [x] **Verify Adzuna's current attribution wording.** Done 2026-09-09 (#30). The standard API's
+      teasers cannot support the language evidence gate, and permission to copy full text through
+      third-party redirect targets is not supplied. Adzuna is therefore administrator-only. Its
+      private research view names “The Adzuna API” and links to the relevant Swiss/Dutch domain;
+      public users never receive an Adzuna advert, so the public-listing logo rule is not triggered.
 - [x] **Stop returning full descriptions to the public tier.** Done 2026-09-08 (#34). `JobRecord`
       no longer carries `description`; `descriptionLength`, `requirements` and `matchesCriteria`
       replace it, and keyword matching moved server-side, which resolved B4 as predicted.
