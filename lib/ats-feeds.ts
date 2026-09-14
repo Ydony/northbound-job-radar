@@ -182,14 +182,56 @@ export function parseFeed(company: AtsCompany, body: string): ParsedJob[] {
   }).filter((job): job is ParsedJob => Boolean(job?.sourceUrl && job.title && job.descriptionHtml.trim()));
 }
 
-async function fetchCompany(company: AtsCompany): Promise<ParsedJob[]> {
+/**
+ * How board fetching is bounded, checked against Cloudflare's published Workers limits
+ * (developers.cloudflare.com/workers/platform/limits, read 2026-09-14):
+ *
+ * - **6 simultaneous connections** per invocation. A seventh is queued rather than failed, so
+ *   BOARD_CONCURRENCY matches the platform instead of opening connections that would only wait.
+ * - **50 subrequests per invocation on Free, 10,000 on Paid.** A search already contacts more than
+ *   50 upstreams before any employer board, so the Free plan cannot run this app whatever this
+ *   list holds. On Paid, the board list is bounded by MAX_BOARDS_PER_SEARCH, leaving the rest of
+ *   the budget to every other source in the same search.
+ * - **10 ms CPU on Free, 30 s default on Paid.** Parsing is the CPU cost here, not waiting.
+ *
+ * BOARD_TIMEOUT_MS stops one slow board from holding the whole search open. Only the local
+ * environments run today; re-check these numbers before any hosted deployment.
+ */
+export const BOARD_CONCURRENCY = 6;
+export const BOARD_TIMEOUT_MS = 8_000;
+export const MAX_BOARDS_PER_SEARCH = 600;
+
+/** Runs fn over items with at most `limit` in flight, preserving input order in the result. */
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[], limit: number, fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));
+  return results;
+}
+
+export async function fetchCompany(company: AtsCompany, timeoutMs = BOARD_TIMEOUT_MS): Promise<ParsedJob[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(feedUrl(company), { headers: { accept: 'application/json, application/xml' } });
+    const response = await fetch(feedUrl(company), {
+      headers: { accept: 'application/json, application/xml' },
+      signal: controller.signal,
+    });
     if (!response.ok) return [];
     return parseFeed(company, await response.text());
   } catch {
-    // One unreachable or reshaped board must never fail the whole source.
+    // One unreachable, slow or reshaped board must never fail the whole source.
     return [];
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -204,7 +246,9 @@ const CACHE_MS = 60_000;
  */
 export async function searchAtsBoards(): Promise<ParsedJob[]> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.jobs;
-  const results = await Promise.all(atsCompanies.map(fetchCompany));
+  const results = await mapWithConcurrency(
+    atsCompanies.slice(0, MAX_BOARDS_PER_SEARCH), BOARD_CONCURRENCY, (company) => fetchCompany(company),
+  );
   const byUrl = new Map<string, ParsedJob>();
   for (const job of results.flat()) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
   const jobs = [...byUrl.values()];
