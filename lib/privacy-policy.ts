@@ -60,6 +60,40 @@ const cvDataItem: DataItem = {
 
 if (CV_MATCHING_ENABLED) dataWeHold.splice(1, 0, cvDataItem);
 
+/**
+ * The page's own headline and summary, and the "where the data lives" list.
+ *
+ * These lived as hardcoded JSX in app/privacy/page.tsx, which is how the page went on promising
+ * "Your CV stays yours" and "R2 (your CV file)" months after CV matching was shelved: the tests
+ * checked this module, the copy was somewhere else, and both looked fine. Copy that makes a
+ * factual claim about data handling belongs here, where it is covered.
+ */
+export const privacyHeadline = CV_MATCHING_ENABLED
+  ? { lead: 'Your CV stays', emphasis: 'yours.' }
+  : { lead: 'Your job search stays', emphasis: 'yours.' };
+
+export const privacySummary = CV_MATCHING_ENABLED
+  ? 'This page describes exactly what is stored, why, how long it is kept, and what you can do about it. '
+    + 'It is written from what the software actually does rather than from a template. If you only read one '
+    + 'line: your CV is never sent to any job site, aggregator, or AI service, and nothing about you is sold or shared.'
+  : 'This page describes exactly what is stored, why, how long it is kept, and what you can do about it. '
+    + 'It is written from what the software actually does rather than from a template. If you only read one '
+    + 'line: nothing you save here is sent to any job site, aggregator, or AI service, and nothing about you '
+    + 'is sold or shared.';
+
+export const whereDataLives = [
+  CV_MATCHING_ENABLED
+    ? 'Data is stored in Cloudflare D1 (database) and R2 (your CV file). Cloudflare acts as a processor and is the only third party involved in hosting.'
+    : 'Data is stored in Cloudflare D1. Cloudflare acts as a processor and is the only third party involved in hosting.',
+  CV_MATCHING_ENABLED
+    ? 'Administrators of this installation can see that an account exists, its email address, and how many jobs and CVs it holds. They cannot read your CV text or your job list.'
+    : 'Administrators of this installation can see that an account exists, its email address, and how many jobs it holds. They cannot read your job list.',
+  CV_MATCHING_ENABLED
+    ? 'Job searches send only your role keywords to the job sources listed on the sources page. They never receive your CV, your email, or anything identifying you.'
+    : 'Job searches send only your role keywords to the job sources listed on the sources page. They never receive your email or anything identifying you.',
+  'There is no automated decision-making that produces legal or similarly significant effects. The language verdict is a suggestion for you to review, and you can correct any of them.',
+];
+
 export const notCollected = [
   'No advertising, marketing or third-party analytics of any kind.',
   'No tracking cookies, pixels, fingerprinting or cross-site tracking.',

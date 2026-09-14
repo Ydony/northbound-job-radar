@@ -1,4 +1,5 @@
-import { cookieNotice, dataWeHold, notCollected, PRIVACY_UPDATED_ON, visitCounting, yourRights } from '@/lib/privacy-policy';
+import { cookieNotice, dataWeHold, notCollected, PRIVACY_UPDATED_ON, privacyHeadline, privacySummary,
+  visitCounting, whereDataLives, yourRights } from '@/lib/privacy-policy';
 
 export const metadata = {
   title: 'Privacy — Ik ben een appel',
@@ -16,13 +17,8 @@ export default function PrivacyPage() {
 
       <section className="policy-intro">
         <span className="eyebrow">Privacy and GDPR</span>
-        <h1>Your CV stays<br /><em>yours.</em></h1>
-        <p>
-          This page describes exactly what is stored, why, how long it is kept, and what you can do
-          about it. It is written from what the software actually does rather than from a template.
-          If you only read one line: your CV is never sent to any job site, aggregator, or AI service,
-          and nothing about you is sold or shared.
-        </p>
+        <h1>{privacyHeadline.lead}<br /><em>{privacyHeadline.emphasis}</em></h1>
+        <p>{privacySummary}</p>
       </section>
 
       <section className="policy-principles">
@@ -99,10 +95,8 @@ export default function PrivacyPage() {
           <h2>Where the data lives, and who can see it</h2>
         </div>
         <ul className="plain-list">
-          <li>Data is stored in Cloudflare D1 (database) and R2 (your CV file). Cloudflare acts as a processor and is the only third party involved in hosting.</li>
-          <li>Administrators of this installation can see that an account exists, its email address, and how many jobs and CVs it holds. They cannot read your CV text or your job list.</li>
-          <li>Job searches send only your role keywords and location to the job sources listed on the <a href="/sources">sources page</a>. They never receive your CV, your email, or anything identifying you.</li>
-          <li>There is no automated decision-making that produces legal or similarly significant effects. The language and fit scores are suggestions for you to review, and you can correct any of them.</li>
+          {whereDataLives.map((line) => <li key={line}>{line}</li>)}
+          <li>The full list of sources is on the <a href="/sources">sources page</a>.</li>
         </ul>
       </section>
 

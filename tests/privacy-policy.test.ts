@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CV_MATCHING_ENABLED } from '../lib/features';
-import { dataWeHold, notCollected, yourRights } from '../lib/privacy-policy';
+import { dataWeHold, notCollected, privacyHeadline, privacySummary, whereDataLives,
+  yourRights } from '../lib/privacy-policy';
 
 /**
  * The privacy page is the one page whose entire purpose is being true.
@@ -12,7 +13,13 @@ import { dataWeHold, notCollected, yourRights } from '../lib/privacy-policy';
  * makes the upload unreachable. These tests are the enforcement.
  */
 
-const everything = JSON.stringify({ dataWeHold, notCollected, yourRights });
+// Everything the page renders, not only the parts that were already in this module. The first
+// version of this test covered dataWeHold/notCollected/yourRights and passed while the page's own
+// hardcoded JSX still said "Your CV stays yours" and "R2 (your CV file)" — the copy was simply
+// somewhere the test could not see. That copy now lives here, so this really is everything.
+const everything = JSON.stringify({
+  dataWeHold, notCollected, yourRights, privacyHeadline, privacySummary, whereDataLives,
+});
 
 test('the CV disclosure matches whether CV matching actually exists', () => {
   const mentionsCv = /\bCVs?\b/.test(everything);
@@ -52,4 +59,25 @@ test('search settings are described as the three that still exist', () => {
   const settings = dataWeHold.find((item) => /search settings/i.test(item.what));
   assert.ok(settings, 'search settings are not disclosed');
   assert.doesNotMatch(settings!.what, /\blocation\b|\bfilters\b/i);
+});
+
+test('the page headline and summary do not promise CV handling that does not exist', () => {
+  const intro = `${privacyHeadline.lead} ${privacyHeadline.emphasis} ${privacySummary}`;
+  assert.equal(/\bCVs?\b/.test(intro), CV_MATCHING_ENABLED,
+    'the privacy headline or summary disagrees with whether CV matching exists');
+});
+
+test('where the data lives matches the storage actually in use', () => {
+  const lines = whereDataLives.join(' ');
+  assert.equal(/\bCVs?\b/.test(lines), CV_MATCHING_ENABLED);
+  // R2 holds CV files and nothing else. Naming it while the feature is off describes a bucket
+  // that receives nothing.
+  assert.equal(/\bR2\b/.test(lines), CV_MATCHING_ENABLED,
+    'R2 is described as storing data while nothing writes to it');
+  assert.match(lines, /Cloudflare D1/, 'the database is not disclosed at all');
+});
+
+test('no privacy copy offers a search filter that was removed', () => {
+  // "role keywords and location" outlived the location filter by some months.
+  assert.doesNotMatch(whereDataLives.join(' '), /keywords and location/i);
 });
