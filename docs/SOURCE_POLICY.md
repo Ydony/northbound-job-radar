@@ -78,8 +78,9 @@ use a source, the second additionally requires the VPN launcher.
 |---|---|
 | **Adzuna CH/NL** | **Decision 2026-09-09 (#30): retained for administrator measurement, removed from the public tier.** Its current API terms permit publishing listings and personal research, with default limits of 25 requests/minute and 250/day. Adverts displayed under the listing-publishing permission require “Jobs by Adzuna” branding at least 116 × 23 pixels; research publication must name “The Adzuna API” and link to the relevant local domain. The standard search response caps descriptions at 500 characters and has produced 351 stored jobs with zero English-confirmed results. Adzuna advertises full job details as a separate data service, while its API terms require queries to be directed through Adzuna and treat attempts to contact third-party content providers as a breach. Therefore the app does not fetch full text through `redirect_url`. Ordinary accounts do not search Adzuna and cannot receive its existing `adzuna.ch` / `adzuna.nl` jobs or run rows. Administrators retain it in the conversion report, with a private research acknowledgement and local-domain links. No stored detector verdict is rewritten by this change. [Current API terms](https://developer.adzuna.com/docs/terms_of_service) · [API offering](https://developer.adzuna.com/) |
 | **Careerjet CH/NL** | **Retained 2026-09-09 (#31), local administrator only.** Careerjet gives each publisher website a unique key and requires the real user's IP, user agent and originating-page Referer. The current placeholder registration is not sufficient for public use, and the local account also has an IP declaration constraint. Its 279-character teasers cannot support a `pass`, so it is discovery only. Leave all Careerjet credentials unset in hosted environments. |
-| **IamExpat** | Read from public pages rather than an API. No access control is worked around, but there is no published permission either — `grey-area` is the honest label. |
-| **jobs.ch, jobup.ch, JobScout24, Undutchables** | Terms prohibit automated access. Page-fetching, VPN-gated, hard caps, administrator only. Do not raise the caps to hit a volume target. |
+| **jobs.ch, jobup.ch, JobScout24** | **Retained 2026-09-09 (#32), local administrator and VPN only.** JobCloud's current terms prohibit automation; jobs.ch also disallows its detail pages in robots.txt. Keep the hard cap, fixed delay, manual trigger, no-login boundary and no-evasion rule. Do not raise the cap to hit a volume target. |
+| **IamExpat** | **Retained 2026-09-09 (#32), local administrator only; no VPN required.** It produced one English-confirmed job. The career paths read are outside its robots.txt disallow list and the published crawl delay is honoured, but there is no explicit permission, so `grey-area` remains the honest label. |
+| **Undutchables** | **Retained 2026-09-09 (#32), local administrator and VPN only.** It produced two English-confirmed jobs from three stored advertisements. Current robots.txt permits the plain `/vacancies` and detail paths used here while disallowing query-string searches, but the site previously returned HTTP 403 to automation. Keep the precautionary VPN gate and stop on blocking. |
 | **Indeed CH/NL** | Returns HTTP 403 and prohibits automated access without written permission. Assigning it to admin does not make it usable. |
 | **Nationale Vacaturebank** | HTTP 403. |
 | **I amsterdam** | A city guide, not a vacancy feed. |
@@ -112,6 +113,37 @@ The boundary is explicit:
 
 Official documentation checked 2026-09-09: [Careerjet publisher API](https://www.careerjet.com/partners/api/)
 and its [request examples](https://www.careerjet.com/partners/api/javascript).
+
+### Restricted-source retention decision (#32)
+
+Keep the small private source portfolio. Its purpose is not bulk coverage: it is to add
+full-advertisement, language-screenable leads for the owner where permitted public APIs and teaser
+aggregators miss them. In the measured workspace it contributed 12 English-confirmed jobs alongside
+114 from the public tier:
+
+| Source | Stored | English confirmed | Decision |
+|---|---:|---:|---|
+| jobs.ch | 62 | 3 | Keep, administrator + VPN only |
+| jobup.ch | 27 | 6 | Keep, administrator + VPN only |
+| JobScout24 | No separate measured yield | 0 measured | Keep on probation; it shares the JobCloud adapter and VPN boundary |
+| IamExpat | 4 | 1 | Keep, administrator only; no VPN |
+| Undutchables | 3 | 2 | Keep, administrator + VPN only after prior blocking |
+
+Nine confirmed jobs from jobs.ch and jobup.ch justify retaining the already-built VPN workflow for
+the owner, but not expanding it. The three JobCloud adapters remain knowingly contrary to the
+current JobCloud terms and must never be offered to ordinary users. They stay manually triggered,
+unauthenticated, fixed-delay and capped at four new detail pages per source per run. A VPN reduces
+exposure of the owner's home address; it does not create permission.
+
+Do not re-open this decision merely because the volume is small. Revisit a source if it produces no
+English-confirmed jobs across three successful private searches, repeatedly fails, becomes costly to
+maintain, changes its published rules, or receives a complaint/block. A block is a stop signal, not
+a reason to add stealth, alternate endpoints, proxies or IP rotation.
+
+Official material rechecked 2026-09-09: [JobCloud terms](https://www.jobs.ch/en/terms/),
+[jobs.ch robots.txt](https://www.jobs.ch/robots.txt),
+[IamExpat robots.txt](https://www.iamexpat.nl/robots.txt), and
+[Undutchables robots.txt](https://undutchables.nl/robots.txt).
 
 ---
 

@@ -14,7 +14,8 @@ const REQUEST_DELAY_MS = 1200;
  * - `authorized-api`: a keyed or officially public API used as published. No terms risk.
  * - `grey-area`: a public page whose robots.txt does not disallow the paths read and whose terms
  *   say nothing either way. Not an explicit permission, but nothing forbids it, and any stated
- *   crawl-delay is honoured. Runs for everyone.
+ *   crawl-delay is honoured. Does not inherently require a VPN; `adminOnly` can still narrow its
+ *   audience.
  * - `restricted`: the site explicitly prohibits automated access, or actively blocks it. Runs only
  *   for an administrator, and only when the process was started through the VPN-enforced launcher.
  */
@@ -300,21 +301,21 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'jobs.ch', name: 'jobs.ch', country: 'switzerland',
     access: 'restricted', availability: 'enabled',
-    availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
+    availabilityMessage: 'Local administrator only; VPN required. Capped public-page adapter without JobCloud permission.',
     search: jobsChSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'jobs.ch', 'Switzerland'),
   },
   {
     key: 'jobup.ch', name: 'jobup.ch', country: 'switzerland',
     access: 'restricted', availability: 'enabled',
-    availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
+    availabilityMessage: 'Local administrator only; VPN required. Capped public-page adapter without JobCloud permission.',
     search: jobupSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'jobup.ch', 'Switzerland'),
   },
   {
     key: 'jobscout24.ch', name: 'JobScout24', country: 'switzerland',
     access: 'restricted', availability: 'enabled',
-    availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
+    availabilityMessage: 'Local administrator only; VPN required. Capped public-page adapter without JobCloud permission.',
     search: jobScoutSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'JobScout24', 'Switzerland'),
   },
@@ -322,7 +323,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     key: 'iamexpat.nl', name: 'IamExpat', country: 'netherlands',
     access: 'grey-area', availability: 'enabled',
     adminOnly: true,
-    availabilityMessage: 'Capped public-page adapter; current public listings only.',
+    availabilityMessage: 'Local administrator only; no VPN required. Capped public career pages with the published crawl delay.',
     search: async (terms) => (await listingLinks('https://www.iamexpat.nl/career/jobs-netherlands', 'IamExpat',
       /href=["']([^"']*\/career\/jobs-netherlands\/[^"'?]+\/[^"'?]+)["']/gi, 'https://www.iamexpat.nl'))
       .filter((url) => candidateUrlMatchesRoles(url, terms)),
@@ -331,7 +332,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'undutchables.nl', name: 'Undutchables', country: 'netherlands',
     access: 'restricted', availability: 'enabled',
-    availabilityMessage: 'Capped public listing adapter; query-string search is not used.',
+    availabilityMessage: 'Local administrator only; VPN required as a precaution after prior blocking. Plain public listing only.',
     search: async (terms) => (await listingLinks('https://undutchables.nl/vacancies', 'Undutchables',
       /href=["'](https:\/\/undutchables\.nl\/vacancies\/[^"'?]+)["']/gi, 'https://undutchables.nl'))
       .filter((url) => candidateUrlMatchesRoles(url, terms)),

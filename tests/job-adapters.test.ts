@@ -108,12 +108,27 @@ test('every adapter declares one of the three access tiers', () => {
 });
 
 test('sites that prohibit automated access stay behind the VPN mode', () => {
-  // These four either forbid automation in their terms or actively block it, so they must never
-  // run in the default search that every account can reach.
+  // The three JobCloud sites forbid automation in their terms. Undutchables previously blocked
+  // automated requests, so it remains behind the same precautionary boundary even though its
+  // current robots.txt permits the exact plain listing/detail paths used.
   for (const key of ['jobs.ch', 'jobup.ch', 'jobscout24.ch', 'undutchables.nl']) {
     assert.equal(jobSourceAdapters.find((adapter) => adapter.key === key)?.access, 'restricted',
       `${key} must stay behind the VPN-only mode`);
   }
+});
+
+test('the retained private sources say who can use them and whether a VPN is required', () => {
+  for (const key of ['jobs.ch', 'jobup.ch', 'jobscout24.ch', 'undutchables.nl']) {
+    const adapter = jobSourceAdapters.find((entry) => entry.key === key)!;
+    assert.match(adapter.availabilityMessage, /local administrator only/i);
+    assert.match(adapter.availabilityMessage, /VPN required/i);
+  }
+
+  const iamExpat = jobSourceAdapters.find((entry) => entry.key === 'iamexpat.nl')!;
+  assert.equal(iamExpat.adminOnly, true);
+  assert.equal(iamExpat.access, 'grey-area');
+  assert.match(iamExpat.availabilityMessage, /local administrator only/i);
+  assert.match(iamExpat.availabilityMessage, /no VPN required/i);
 });
 
 test('the default search excludes every restricted source', () => {

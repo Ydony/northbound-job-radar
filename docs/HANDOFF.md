@@ -1,5 +1,26 @@
 # Handover
 
+## 2026-09-09 restricted-source decision (#32)
+
+Keep the small private source portfolio. jobs.ch, jobup.ch and JobScout24 remain local
+administrator/VPN-only; IamExpat remains local-administrator-only without a VPN requirement;
+Undutchables remains local-administrator/VPN-only because it previously blocked automation. No
+source was removed, no stored rows were deleted, and no caps, schedules or access paths were added.
+
+The reason is quality, not volume. The measured data contains 12 full-advertisement
+English-confirmed jobs from this portfolio: jobs.ch 3, jobup.ch 6, IamExpat 1 and Undutchables 2,
+alongside 114 confirmed jobs from the public tier. JobScout24 has no separate measured yield and is
+retained on probation because it shares the existing JobCloud adapter and VPN boundary. Revisit only
+after repeated successful zero-yield searches, recurring maintenance failures, changed rules or a
+block.
+
+JobCloud's current terms still prohibit automation and jobs.ch robots.txt still disallows the detail
+paths read. The owner accepted that risk only for the private administrator tier. The fixed delay,
+four-new-details-per-source cap, manual trigger, unauthenticated access, VPN gate and no-evasion rule
+remain non-negotiable. Undutchables robots.txt is readable again and permits the exact plain listing
+and detail paths used while disallowing query-string searches; its prior blocking is why the VPN
+precaution stays. Running servers and local data were not touched.
+
 ## 2026-09-09 Careerjet decision (#31)
 
 Careerjet is retained as a **local administrator-only discovery source**. It is not a public or
@@ -145,8 +166,9 @@ Working and verified locally:
 - Multi-user accounts with per-account isolation. Every table has an owner column and all queries
   are scoped. A second account genuinely cannot see or touch the first's data — tested.
 - Sign-in, sign-out, account settings, account deletion, and an administrator panel.
-- Seven job sources: Job-Room (67k Swiss vacancies, no key), Adzuna (CH + NL), Careerjet (CH + NL),
-  61 public company career boards, and three page-fetching sources restricted to administrators.
+- Configured sources include Job-Room (67k Swiss vacancies, no key), Adzuna (CH + NL), Careerjet
+  (CH + NL), 61 public company career boards, and five private page-fetching adapters. Four of the
+  five require the VPN launcher; all five are restricted to administrators.
 - `dev` at `http://localhost:3000` with disposable state under `.wrangler/dev/state`. **Its
   database is empty** — no jobs, no CVs. Task A3 needs an account registered and a CV uploaded
   there first, which is deliberate: testing against freshly created data is exactly what exposes
@@ -185,9 +207,9 @@ access on 2026-08-31. Do not deploy again without a new explicit owner decision;
 `user_id = 'legacy'` and are adopted by the first account registered. On an empty database this
 does nothing.
 
-**Sources sit in three tiers, and the tier decides who can run them.** `authorized-api` (keyed or
-official APIs) and `grey-area` (public pages whose robots.txt permits the paths read and whose terms
-say nothing) run for everyone. `restricted` means the site explicitly prohibits automated access or
+**Sources sit in three tiers, and the tier plus `adminOnly` decides who can run them.**
+`authorized-api` and `grey-area` are eligible without the VPN, but an adapter such as IamExpat can
+still be administrator-only. `restricted` means the site explicitly prohibits automated access or
 actively blocks it: administrator only, and refused unless the process was started through
 `npm run dev:private`, which verifies a full VPN route and sets `VPN_ENFORCED`. The button label is
 not the enforcement; that env marker is.

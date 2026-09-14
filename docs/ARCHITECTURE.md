@@ -1,6 +1,6 @@
 # Architecture and decision record
 
-Last updated: 2026-08-31.
+Last updated: 2026-09-09.
 
 The accepted Swiss + Netherlands multi-source architecture in
 `docs/MULTI_SOURCE_PLAN.md` is implemented. The supported runtime is now local-only with isolated
@@ -46,11 +46,14 @@ The user can still search/paste manually instead — both paths exist side by si
 
 The source roster is deliberately mixed:
 
-- jobs.ch, jobup.ch, and JobScout24 are enabled at the user's accepted risk. They are all
-  JobCloud properties covered by the same automation prohibition and are not sanctioned.
-- IamExpat is enabled against its current public career listing/detail paths.
-- Undutchables is enabled only through the plain `/vacancies` listing and public detail
-  pages; query-string vacancy search is not used because its robots policy disallows it.
+- jobs.ch, jobup.ch, and JobScout24 are retained for local administrators at the user's accepted
+  risk. They are all JobCloud properties covered by the same automation prohibition, are not
+  sanctioned, and require the VPN launcher. jobs.ch + jobup.ch produced nine English-confirmed jobs.
+- IamExpat is retained for local administrators against its current public career listing/detail
+  paths, with its published crawl delay and no VPN requirement. It produced one confirmed job.
+- Undutchables is retained for local administrators only through the plain `/vacancies` listing
+  and public detail pages; query-string vacancy search is not used because robots.txt disallows it.
+  It produced two confirmed jobs and remains VPN-gated because it previously blocked automation.
 - Indeed Switzerland and Netherlands are blocked because their rules prohibit automated
   access without written permission and live requests returned HTTP 403.
 - Job-Room is enabled and public. The line previously here said it was unavailable because
@@ -62,7 +65,7 @@ The source roster is deliberately mixed:
 - LinkedIn is not configured by user request.
 
 This is bounded on purpose:
-- Manually triggered only (`app/job-radar.tsx`'s "Search all job sites" button calling
+- Manually triggered only (`app/job-radar.tsx`'s search buttons calling
   `POST /api/scrape`) — no cron/schedule.
 - At most five distinct normalized search roles and four new detail fetches per enabled
   source per click, with fixed delays inside each adapter.
@@ -71,6 +74,12 @@ This is bounded on purpose:
   (no randomized timing, fingerprinting, headless-browser stealth, or proxy rotation) —
   that boundary held even though the automation boundary did not, and stays unchanged
   regardless of any future scope increase here.
+
+The retention decision is based on quality rather than volume. These sources contributed 12
+full-advertisement English-confirmed jobs alongside 114 from the public tier. They are a private
+supplement, not the product's coverage foundation. Do not increase the four-detail-per-source cap;
+revisit an adapter only after repeated measured zero yield, recurring failures, changed rules or a
+block. See `docs/SOURCE_POLICY.md` §3.
 
 A sanctioned, higher-volume, or scheduled integration still requires source permission or
 an authorized API/feed; see `ROADMAP.md` for that path.
@@ -82,7 +91,7 @@ React client
   ├─ PDF/DOCX/TXT text extraction in browser
   ├─ two CV-specific role overrides + five general role keywords
   ├─ persisted criteria and country/application/source/result filtering
-  ├─ "Search all job sites" trigger + manual ad import fallback
+  ├─ VPN-off / VPN-on search triggers + manual ad import fallback
   ├─ source-run and cumulative performance dashboards
   └─ saved/applied/dismissed controls
          │ JSON / multipart

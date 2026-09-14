@@ -508,7 +508,7 @@ export default function JobRadar() {
     setRunSummaryDismissed(true);
     setScrapeMessage(mode === 'all'
       ? 'Searching every source, including the page-fetching ones. Keep the VPN connected…'
-      : 'Searching the official and keyed APIs only. No VPN needed…');
+      : 'Searching every source available without the VPN…');
     try {
       const response = await fetch('/api/scrape', {
         method: 'POST',
@@ -1076,7 +1076,7 @@ export default function JobRadar() {
       <section className="source-dashboard" id="sources">
         <div className="source-dashboard-heading">
           <div><span className="section-label coral">Search coverage</span><h2>What every source returned</h2></div>
-          <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run Search all job sites to create the first source report.'}</p>
+          <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run a job search to create the first source report.'}</p>
         </div>
         {latestRun && <div className="source-report-grid">
           {[...latestRun.sources]
