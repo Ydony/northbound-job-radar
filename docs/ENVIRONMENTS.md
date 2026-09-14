@@ -92,6 +92,19 @@ Migrations apply on first request and are recorded in `schema_migrations`. Befor
 copy `.wrangler/test/state` to a dated local backup. Never reset test state merely to make a
 migration pass.
 
+## Disposable duplicate-workflow verification
+
+`scripts/verify-cluster-workflow.mjs` exercises duplicate handling using newly registered
+ordinary accounts, synthetic ads and a synthetic CV. Run it only in an isolated checkout with
+disposable storage and `ALLOW_SIGNUPS=true`. It makes no external source requests. Set
+`IKBENEENAPPEL_VERIFY_DISPOSABLE=true` and `IKBENEENAPPEL_VERIFY_URL` to that local instance,
+then run `node scripts/verify-cluster-workflow.mjs`. Run once against hot-reload dev and once
+against the built test Worker. It deletes its ordinary accounts afterward; on an empty database,
+the bootstrap administrator is retained because the app forbids deleting the last administrator.
+
+For a custom Wrangler test launch, use an absolute `--env-file` path as `run-local.mjs` does;
+a relative path may resolve under the generated configuration directory and omit session settings.
+
 ## Legacy state
 
 The former single-environment workspace under `.wrangler/state` is retained as a recovery copy.

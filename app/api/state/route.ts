@@ -2,7 +2,7 @@ import { authSecrets, ensureSchema } from '@/db/runtime';
 import { recordVisit } from '@/lib/analytics';
 import { clientIp, requireSession } from '@/lib/guard';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
-import { criteriaFromRow, cvFromRow, jobFromRow, normalizeStoredJobs, reclusterJobs, searchRunsFromRows, type CriteriaRow, type CvRow,
+import { criteriaFromRow, cvFromRow, ensureCurrentJobClusters, jobFromRow, normalizeStoredJobs, searchRunsFromRows, type CriteriaRow, type CvRow,
   type JobRow, type SearchRoleRow, type SearchRunRow, type SearchRunSourceRow } from '@/lib/server-data';
 
 /**
@@ -23,15 +23,12 @@ export async function GET(request: Request) {
   // is stored - see lib/analytics.ts.
   await recordVisit(db, clientIp(request), request.headers.get('user-agent') ?? '', authSecrets().sessionSecret);
 
-  // Jobs stored before duplicate detection existed carry no cluster key, and the column had to be
-  // left blank by the migration because the key is normalized in TypeScript. Backfill once, on the
-  // first read after upgrading, rather than asking anyone to run a script.
+  // Recheck old links on the first read after a clustering-rule change, even when every job
+  // already has a cluster key. New imports and normalized fields also invalidate the version.
   // Order matters: decoding entities first means "Cost &amp; Inventory Analyst" and
   // "Cost & Inventory Analyst" produce the same cluster key and are recognised as one job.
   await normalizeStoredJobs(db, user.id);
-  const unclustered = await db.prepare("SELECT COUNT(*) AS total FROM jobs WHERE user_id = ? AND cluster_key = ''")
-    .bind(user.id).first<{ total: number }>();
-  if (unclustered?.total) await reclusterJobs(db, user.id);
+  await ensureCurrentJobClusters(db, user.id);
 
   // Careerjet and IamExpat are the owner's to use, not a feature to offer. Excluded in SQL rather
   // than filtered after the fact, so an ordinary account cannot reach those rows by calling this

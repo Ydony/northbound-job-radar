@@ -195,19 +195,41 @@ visible scores, labels, and the winning CV are current.
 
 ## 7a. Schema changes and local state (read before changing a column)
 
-The schema is represented in three places and must be kept in sync:
+The schema is represented by the legacy base plus ordered upgrades:
 
 - `db/runtime.ts` creates the legacy-compatible base tables for a brand-new local state.
 - `db/migrations.ts` contains ordered, additive upgrades that `ensureSchema()` applies and
   records in `schema_migrations`.
-- `db/schema.ts` is the latest Drizzle model used by `npm run db:generate`; generated SQL
-  is review/deployment material, not the local runtime executor.
+
+Fresh databases run the same upgrades as existing ones. Do not add an already-migrated column
+to the legacy base, or its later `ALTER TABLE` will fail. The Drizzle model and generator were removed.
 
 Never edit an applied migration version. Add a new version containing one SQL statement
-per D1 `prepare()` call, update the Drizzle model, generate/inspect the SQL, and test against
+per D1 `prepare()` call, inspect the SQL, and test against
 both a copied existing `.wrangler/` state and a fresh state. The 2026-08-27 multi-source
 upgrade followed this process: all 18 local state files were copied before migration and
 the two CV profiles plus 48 jobs survived. Do not reset `.wrangler/` as a migration shortcut.
+
+### Versioned duplicate links (2026-09-14, #50)
+
+Migration 17 adds `jobs.cluster_version` and an index on `(user_id, cluster_version)`.
+Version 16 is reserved for the independently pending Job-Room backfill in PR #52.
+`CLUSTER_VERSION` in `lib/server-data.ts` must be bumped when clustering/date matching or primary
+selection changes. The authenticated state route first normalizes matching fields, then calls
+`ensureCurrentJobClusters`; any stale member causes the entire owner's group to be recomputed.
+This covers links created under older rules, new imports, and rows with no usable cluster key.
+
+Only cluster keys, duplicate links and their versions change. Saved/applied/dismissed state,
+corrections and tombstones remain untouched. Version markers are written with their corresponding
+links in each D1 batch, scoped to snapshot row IDs and owner. If a later batch fails, unprocessed
+rows remain stale and the next state request retries. No failed pass returns a partial dashboard.
+
+Real D1 tests cover a populated upgrade, account isolation, preservation and interrupted-batch
+recovery. The new workflow verifier also passed against synthetic dev and built-test accounts.
+The owner's populated workspace has been backed up but has not been migrated with this branch;
+that promotion remains pending review. This remains an account-wide recomputation on the first
+read after a rule change; large-catalogue background processing belongs to the separate pagination
+and catalogue work, not this fix.
 
 ## 7b. Authorized high-volume sources (2026-08-28)
 
