@@ -211,3 +211,20 @@ footer { align-items:center; background:var(--ink); color:#b9c7c0; display:flex;
    instead of preceding the whole page, and no longer sits in the hero's two-column grid. */
 .promise-section { border-bottom:1px solid var(--line); display:flex; justify-content:center; padding:44px clamp(24px,7vw,112px); }
 .promise-section .promise-card { max-width:650px; transform:none; }
+
+/* Setup panels (#53). Closed, each is one line, so the job list still starts near the top; open,
+   the existing section renders exactly as before. The summary is the tap target, so it keeps the
+   44px minimum. */
+.setup-panels { border-bottom:1px solid var(--line); display:grid; gap:0; }
+.setup-panel { border-top:1px solid var(--line); }
+.setup-panel > summary { align-items:center; cursor:pointer; display:flex; flex-wrap:wrap; gap:6px 16px; list-style:none; min-height:var(--size-tap-min,44px); padding:12px clamp(24px,7vw,112px); }
+.setup-panel > summary::-webkit-details-marker { display:none; }
+.setup-panel > summary::before { color:var(--muted); content:'\25B8'; display:inline-block; font-size:12px; transition:transform .15s ease; }
+.setup-panel[open] > summary::before { transform:rotate(90deg); }
+.setup-panel > summary b { color:var(--ink); font-size:14px; }
+.setup-panel > summary span { color:var(--muted); font-size:13px; }
+.setup-panel > summary:focus-visible { outline:2px solid var(--ink); outline-offset:-2px; }
+.setup-panel > section { border-bottom:0; }
+@media (prefers-reduced-motion:reduce) { .setup-panel > summary::before { transition:none; } }
+.workspace-load-error { align-items:center; background:#f3ded8; border-bottom:1px solid var(--line); color:var(--danger); display:flex; flex-wrap:wrap; gap:12px 20px; padding:14px clamp(24px,7vw,112px); }
+.workspace-load-error p { font-size:14px; font-weight:700; margin:0; }

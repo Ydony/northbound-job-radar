@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
 import { defaultSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
 import { jobsToCsv, workspaceToJson } from '@/lib/export';
@@ -140,6 +140,17 @@ function formatDate(value: string) {
 export default function JobRadar() {
   const [state, setState] = useState<AppState>({ profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [], account: null });
   const [loading, setLoading] = useState(true);
+  /**
+   * A failed workspace load, kept apart from search messages.
+   *
+   * It used to be written into the same slot as search progress, so a load that failed looked
+   * like an empty workspace: no jobs, no keywords, no statistics, and nothing saying why. That is
+   * half of what #53 reported as "keywords and statistics are missing". (Adapted from the
+   * codex-lead draft for #53.)
+   */
+  const [loadError, setLoadError] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [view, setView] = useState<View>('matches');
   const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
   const [applicationFilter, setApplicationFilter] = useState<ApplicationFilter>('all');
@@ -209,20 +220,27 @@ export default function JobRadar() {
   const [jobFlash, setJobFlash] = useState<Record<string, string>>({});
   const flashTimers = useRef<Record<string, number>>({});
 
-  useEffect(() => {
-    fetch('/api/state')
+  const loadWorkspace = useCallback(() => {
+    setLoading(true);
+    setLoadError('');
+    return fetch('/api/state')
       .then((response) => responseJson<AppState>(response))
       .then((next) => {
         const criteria = next.criteria ?? defaultSearchCriteria;
         setState({ ...next, criteria, searchRuns: next.searchRuns ?? [] });
         setCriteriaDraft(criteriaToDraft(criteria));
+        // Someone with no role keywords has nothing to search for yet, so open the panel that
+        // fixes that instead of leaving them to find it.
+        if (!criteria.roleKeywords.some((keyword) => keyword.trim())) setSettingsOpen(true);
       })
       .catch((error: Error) => {
         if (/sign in/i.test(error.message)) window.location.href = '/login';
-        else setScrapeMessage(error.message);
+        else setLoadError('Could not load your saved keywords, jobs and statistics. Check the local server is running, then try again.');
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { void loadWorkspace(); }, [loadWorkspace]);
 
   const accountIsAdmin = state.account?.role === 'admin';
   /**
@@ -395,6 +413,7 @@ export default function JobRadar() {
    * preview that is supposed to show what somebody else sees — which makes the preview useless for
    * the one thing it exists to check.
    */
+  const savedRoleKeywords = state.criteria.roleKeywords.map((keyword) => keyword.trim()).filter(Boolean);
   const latestRun = useMemo(() => {
     const run = state.searchRuns[0];
     if (!run || !viewAsUser) return run;
@@ -795,6 +814,8 @@ export default function JobRadar() {
               second hand-maintained class, which is how this came to be highlighted on every
               scroll position regardless of where you were. */}
           <a aria-current="page" href="#jobs">Jobs</a>{CV_MATCHING_ENABLED && <a href="#profile">My CVs</a>}
+          <a href="#criteria" onClick={() => setSettingsOpen(true)}>Keywords</a>
+          <a href="#sources" onClick={() => setStatsOpen(true)}>Statistics</a>
           <a href="/settings">Settings</a>
           {isAdmin && <a href="/admin">Admin</a>}
           {accountIsAdmin && <button
@@ -829,10 +850,10 @@ export default function JobRadar() {
 
       <section className="workflow">
         <div className="workflow-copy"><h2>Find new jobs</h2><p>One search runs every enabled Swiss and Netherlands source, records what each returned, removes duplicates, and applies the English gate.</p></div>
-        <button className="jobs-button" type="button" disabled={Boolean(scrapeBusy)} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
+        <button className="jobs-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy)} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
           {scrapeBusy === 'authorized' ? 'Searching…' : isAdmin ? 'Search — VPN off' : 'Find new jobs'} <span>⚡</span>
         </button>
-        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
+        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
@@ -864,6 +885,117 @@ export default function JobRadar() {
           </>}
         </div>}
       </section>
+
+      {/* Search settings and statistics sit directly under the search, above the job list.
+
+          #51 put results first by moving these two below every job card. With a real workspace of
+          nearly two thousand jobs that is several thousand pixels down, and the owner reported both
+          as missing (#53). The audit asked for results first *with setup in a panel*; these are
+          that panel in its simplest form. A single line each while closed, so the job list still
+          starts near the top, and one click to open, with the list never between you and your own
+          settings. */}
+      {loadError && <div className="workspace-load-error" role="alert">
+        <p>{loadError}</p>
+        <button type="button" className="reset-button" onClick={() => void loadWorkspace()}>Retry loading</button>
+      </div>}
+
+      <div className="setup-panels">
+        <details
+          className="setup-panel"
+          id="criteria"
+          open={settingsOpen}
+          onToggle={(event) => setSettingsOpen(event.currentTarget.open)}
+        >
+          <summary>
+            <b>Search settings</b>
+            <span>{loadError ? 'Unavailable until the workspace loads'
+              : loading ? 'Loading…'
+              : savedRoleKeywords.length ? `Roles: ${savedRoleKeywords.join(' · ')}` : 'No role keywords yet — add one to search'}</span>
+          </summary>
+          <section className="criteria-section">
+            <div className="criteria-intro">
+              <span className="section-label coral">Search criteria</span>
+              <h2>Define what fits</h2>
+              <p>Role keywords are what get searched. Required and excluded keywords then narrow what comes back — an ad must contain every required word, and is dropped if it contains an excluded one.</p>
+            </div>
+            <form className="criteria-form" onSubmit={saveCriteria}>
+              <div className="role-keywords">
+                <span>Additional search roles · up to five</span>
+                <div>{Array.from({ length: 5 }, (_, index) => <label className="field" key={index}>
+                  <span>Role {index + 1}</span>
+                  <input value={criteriaDraft.roleKeywords[index] ?? ''} onChange={(event) => {
+                    const roleKeywords = [...criteriaDraft.roleKeywords];
+                    roleKeywords[index] = event.target.value;
+                    setCriteriaDraft({ ...criteriaDraft, roleKeywords });
+                  }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
+                </label>)}</div>
+              </div>
+              <label className="field keywords"><span>Required keywords (all)</span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
+              <label className="field keywords"><span>Exclude if ad contains</span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
+              <div className="criteria-actions"><button className="search-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button><button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button><p aria-live="polite">{criteriaMessage || `${criteriaFilteredJobs.length} of ${state.jobs.length} analyzed jobs match the saved criteria.`}</p></div>
+            </form>
+          </section>
+        </details>
+        <details
+          className="setup-panel"
+          id="sources"
+          open={statsOpen}
+          onToggle={(event) => setStatsOpen(event.currentTarget.open)}
+        >
+          <summary>
+            <b>Search statistics</b>
+            <span>{loadError ? 'Unavailable until the workspace loads'
+              : loading ? 'Loading…'
+              : latestRun
+                ? `Latest search: ${latestRun.sources.reduce((sum, source) => sum + source.foundCount, 0)} found · ${latestRun.sources.reduce((sum, source) => sum + source.newCount, 0)} new`
+                : 'No search has run yet'}</span>
+          </summary>
+          <section className="source-dashboard">
+            <div className="source-dashboard-heading">
+              <div><span className="section-label coral">Search coverage</span><h2>What every source returned</h2></div>
+              <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run a job search to create the first source report.'}</p>
+            </div>
+            {latestRun && <div className="source-report-grid">
+              {[...latestRun.sources]
+                .sort((a, b) => SOURCE_RUN_STATUS_RANK[a.status] - SOURCE_RUN_STATUS_RANK[b.status]
+                  || a.sourceName.localeCompare(b.sourceName))
+                .map((source) => <article className={`source-report ${source.status}`} key={source.sourceKey}>
+                <div><span>{countryLabel(source.country)}</span><b>{sourceRunStatusLabel(source.status)}</b></div>
+                <h3>{source.sourceName}</h3>
+                {/* One line answers the question people actually ask of this panel. The other four
+                    numbers are diagnostics and now sit behind the expander. */}
+                <p className="source-headline">{source.foundCount} found · {source.newCount} new</p>
+                <details className="source-counts">
+                  <summary>All counts</summary>
+                  <dl><div><dt>Found</dt><dd>{source.foundCount}</dd></div><div><dt>Known</dt><dd>{source.knownCount}</dd></div><div><dt>New</dt><dd>{source.newCount}</dd></div><div><dt>Added</dt><dd>{source.importedCount}</dd></div><div><dt>Duplicates</dt><dd>{source.duplicateCount}</dd></div><div><dt>Skipped</dt><dd>{source.skippedCount}</dd></div></dl>
+                </details>
+                <p>{source.message}</p>
+              </article>)}
+            </div>}
+            {/* Administrator only: it is a tool for judging the sources and the filter, not something
+                a person looking for work needs to read. */}
+            {isAdmin && <div className="source-performance">
+              <div>
+                <span className="section-label">Conversion by source</span>
+                <h3>What each website is actually worth</h3>
+                <p>Of everything a source returned, how much could be screened and how much survived. A large <b>too short</b> share means the source is not publishing enough of its advertisements to judge — a problem with the source, not the filter.</p>
+              </div>
+              {sourceMetrics.length ? <div className="performance-table" role="table" aria-label="Conversion by source">
+                <div className="performance-row heading" role="row"><span>Website</span><span>Found</span><span>English</span><span>Review</span><span>Too short</span><span>Blocked</span><span>Applied</span></div>
+                {sourceMetrics.map((source) => <div className="performance-row" role="row" key={source.key}>
+                  <b>{source.name}<small>{countryLabel(source.country)}</small></b>
+                  <span>{source.found}</span>
+                  <span className="metric-good">{source.confirmed}<small>{share(source.confirmed, source.found)}</small></span>
+                  <span>{source.review}<small>{share(source.review, source.found)}</small></span>
+                  <span className={source.unknown / Math.max(1, source.found) > 0.5 ? 'metric-warn' : ''}>{source.unknown}<small>{share(source.unknown, source.found)}</small></span>
+                  <span>{source.blocked}<small>{share(source.blocked, source.found)}</small></span>
+                  <span>{source.applied}</span>
+                </div>)}
+              </div> : <p className="no-source-data">No jobs yet. Run a search to fill this in.</p>}
+            </div>}
+          </section>
+        </details>
+      </div>
 
       <section className="results" id="jobs">
         <div className="section-heading"><div><span className="section-label coral">Your workspace</span><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…'
@@ -929,7 +1061,7 @@ export default function JobRadar() {
             {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites — {facets.source.all} job{facets.source.all === 1 ? '' : 's'}</option>{sourceOptions.filter(([key]) => facets.source.get(key) > 0 || key === sourceFilter).map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
           </aside>
           <div className="job-list">
-            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>No jobs in this view yet</h3><p>Add a role keyword in Search settings, run a search, or widen the filters.</p></div>}
+            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>No jobs in this view yet</h3><p>Add a role keyword in <a href="#criteria" onClick={() => setSettingsOpen(true)}>Search settings</a>, run a search, or widen the filters.</p></div>}
             {visibleJobs.map((job) => {
               const bothCvsSaved = CV_MATCHING_ENABLED && state.profiles.filter((profile) => profile.hasCvText).length > 1;
               const displayedLanguageStatus = effectiveLanguageStatus(job);
@@ -1048,75 +1180,6 @@ export default function JobRadar() {
           })}
         </div>
       </section>}
-
-      <section className="criteria-section" id="criteria">
-        <div className="criteria-intro">
-          <span className="section-label coral">Search criteria</span>
-          <h2>Define what fits</h2>
-          <p>Role keywords are what get searched. Required and excluded keywords then narrow what comes back — an ad must contain every required word, and is dropped if it contains an excluded one.</p>
-        </div>
-        <form className="criteria-form" onSubmit={saveCriteria}>
-          <div className="role-keywords">
-            <span>Additional search roles · up to five</span>
-            <div>{Array.from({ length: 5 }, (_, index) => <label className="field" key={index}>
-              <span>Role {index + 1}</span>
-              <input value={criteriaDraft.roleKeywords[index] ?? ''} onChange={(event) => {
-                const roleKeywords = [...criteriaDraft.roleKeywords];
-                roleKeywords[index] = event.target.value;
-                setCriteriaDraft({ ...criteriaDraft, roleKeywords });
-              }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
-            </label>)}</div>
-          </div>
-          <label className="field keywords"><span>Required keywords (all)</span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
-          <label className="field keywords"><span>Exclude if ad contains</span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
-          <div className="criteria-actions"><button className="search-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button><button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button><p aria-live="polite">{criteriaMessage || `${criteriaFilteredJobs.length} of ${state.jobs.length} analyzed jobs match the saved criteria.`}</p></div>
-        </form>
-      </section>
-
-      <section className="source-dashboard" id="sources">
-        <div className="source-dashboard-heading">
-          <div><span className="section-label coral">Search coverage</span><h2>What every source returned</h2></div>
-          <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run a job search to create the first source report.'}</p>
-        </div>
-        {latestRun && <div className="source-report-grid">
-          {[...latestRun.sources]
-            .sort((a, b) => SOURCE_RUN_STATUS_RANK[a.status] - SOURCE_RUN_STATUS_RANK[b.status]
-              || a.sourceName.localeCompare(b.sourceName))
-            .map((source) => <article className={`source-report ${source.status}`} key={source.sourceKey}>
-            <div><span>{countryLabel(source.country)}</span><b>{sourceRunStatusLabel(source.status)}</b></div>
-            <h3>{source.sourceName}</h3>
-            {/* One line answers the question people actually ask of this panel. The other four
-                numbers are diagnostics and now sit behind the expander. */}
-            <p className="source-headline">{source.foundCount} found · {source.newCount} new</p>
-            <details className="source-counts">
-              <summary>All counts</summary>
-              <dl><div><dt>Found</dt><dd>{source.foundCount}</dd></div><div><dt>Known</dt><dd>{source.knownCount}</dd></div><div><dt>New</dt><dd>{source.newCount}</dd></div><div><dt>Added</dt><dd>{source.importedCount}</dd></div><div><dt>Duplicates</dt><dd>{source.duplicateCount}</dd></div><div><dt>Skipped</dt><dd>{source.skippedCount}</dd></div></dl>
-            </details>
-            <p>{source.message}</p>
-          </article>)}
-        </div>}
-        {/* Administrator only: it is a tool for judging the sources and the filter, not something
-            a person looking for work needs to read. */}
-        {isAdmin && <div className="source-performance">
-          <div>
-            <span className="section-label">Conversion by source</span>
-            <h3>What each website is actually worth</h3>
-            <p>Of everything a source returned, how much could be screened and how much survived. A large <b>too short</b> share means the source is not publishing enough of its advertisements to judge — a problem with the source, not the filter.</p>
-          </div>
-          {sourceMetrics.length ? <div className="performance-table" role="table" aria-label="Conversion by source">
-            <div className="performance-row heading" role="row"><span>Website</span><span>Found</span><span>English</span><span>Review</span><span>Too short</span><span>Blocked</span><span>Applied</span></div>
-            {sourceMetrics.map((source) => <div className="performance-row" role="row" key={source.key}>
-              <b>{source.name}<small>{countryLabel(source.country)}</small></b>
-              <span>{source.found}</span>
-              <span className="metric-good">{source.confirmed}<small>{share(source.confirmed, source.found)}</small></span>
-              <span>{source.review}<small>{share(source.review, source.found)}</small></span>
-              <span className={source.unknown / Math.max(1, source.found) > 0.5 ? 'metric-warn' : ''}>{source.unknown}<small>{share(source.unknown, source.found)}</small></span>
-              <span>{source.blocked}<small>{share(source.blocked, source.found)}</small></span>
-              <span>{source.applied}</span>
-            </div>)}
-          </div> : <p className="no-source-data">No jobs yet. Run a search to fill this in.</p>}
-        </div>}
-      </section>
 
       <dialog
         className="confirm-dialog"
