@@ -2,7 +2,7 @@ import { aggregatorCredentials, authSecrets, ensureSchema } from '@/db/runtime';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
 import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
-import { adminOnlySourceKeys, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
+import { adminOnlySourceKeys, bulkJobIsRelevant, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
   sourceStatusForAvailability,
   type SearchMode } from '@/lib/job-adapters';
 import { canonicalJobUrl, isGloballyStableSourceJobId, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
@@ -246,7 +246,11 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     }
     try {
       if (adapter.searchDetailed) {
-        const bulk = await adapter.searchDetailed(searchTerms, criteria.location, credentials);
+        // Filtered to this adapter's country and roles before anything is capped: see
+        // bulkJobIsRelevant for how capping first left the employer boards stuck on the same
+        // first 200 worldwide postings run after run.
+        const bulk = (await adapter.searchDetailed(searchTerms, criteria.location, credentials))
+          .filter((job) => bulkJobIsRelevant(job, adapter.country, searchTerms));
         return done(
           { ...empty, bulk, candidates: bulk.map((job) => canonicalJobUrl(job.sourceUrl)) },
           `${bulk.length} advertisement${bulk.length === 1 ? '' : 's'}`,

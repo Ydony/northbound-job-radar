@@ -2,6 +2,7 @@ import { searchAtsBoards } from './ats-feeds';
 import { searchAdzuna, searchCareerjet, type AggregatorCredentials } from './job-aggregators';
 import { searchEures } from './eures';
 import { searchJobRoom } from './job-room';
+import { sourceInfoForUrl } from './job-identity';
 import { delay, extractJobPosting, interleaveUnique, stripHtml, type ParsedJob } from './jobsch';
 import type { JobCountry, SourceRunStatus } from './types';
 
@@ -362,6 +363,30 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
 
 export function sourceStatusForAvailability(availability: JobSourceAdapter['availability']): SourceRunStatus {
   return availability === 'enabled' ? 'complete' : availability;
+}
+
+/** Postings shorter than this are not worth storing; the same threshold the search applied per job. */
+export const MIN_BULK_DESCRIPTION_CHARS = 160;
+
+/**
+ * Whether a posting from a bulk source belongs to this adapter's search at all.
+ *
+ * Bulk sources — the employer boards — return every posting each employer has, worldwide, in one
+ * response. The search used to cap that list at MAX_NEW_PER_BULK_SOURCE *first* and check country,
+ * length and role *afterwards*. With the boards in board order, the first 200 were mostly other
+ * countries and other roles, so about one survived; and because rejected postings are not stored,
+ * the next search took the same first 200 again. The source was stuck on them indefinitely: 2,437
+ * postings found, one added. With 282 boards returning over 30,000 postings, everything past the
+ * first 200 would never have been looked at.
+ *
+ * The cap exists because page-fetching sources cost a request per job. A bulk source's postings are
+ * already in memory, so filtering them costs nothing and must come before the cap. Checked in
+ * order of cost: the location string, then the role match, then the text length.
+ */
+export function bulkJobIsRelevant(job: ParsedJob, country: JobCountry, roles: string[]) {
+  if (sourceInfoForUrl(job.sourceUrl, job.location).country !== country) return false;
+  if (!descriptionMatchesRoles(job, roles)) return false;
+  return stripHtml(job.descriptionHtml).length >= MIN_BULK_DESCRIPTION_CHARS;
 }
 
 export function descriptionMatchesRoles(job: ParsedJob, roles: string[]) {

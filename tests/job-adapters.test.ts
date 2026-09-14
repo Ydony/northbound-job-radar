@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  bulkJobIsRelevant,
   candidateUrlMatchesRoles,
   descriptionMatchesRoles,
   jobSourceAdapters,
@@ -143,4 +144,41 @@ test('authorized APIs never use the page-fetching path', () => {
   const authorized = jobSourceAdapters.filter((adapter) => adapter.access === 'authorized-api');
   assert.ok(authorized.length > 0);
   assert.ok(authorized.every((adapter) => !adapter.search));
+});
+
+const longText = 'You will own the data model for our reporting estate and work with finance and operations. '.repeat(4);
+const posting = (id: number, location: string, title: string, description = longText) => ({
+  sourceUrl: `https://boards.greenhouse.io/example/jobs/${id}`,
+  title,
+  company: 'Example',
+  location,
+  descriptionHtml: `<p>${description}</p>`,
+  postedAt: '',
+});
+
+test('a bulk posting is relevant only in its own country, for a searched role, with enough text', () => {
+  const roles = ['Data Analyst'];
+  assert.equal(bulkJobIsRelevant(posting(1, 'Amsterdam, Netherlands', 'Senior Data Analyst'), 'netherlands', roles), true);
+  assert.equal(bulkJobIsRelevant(posting(2, 'Zurich, Switzerland', 'Senior Data Analyst'), 'netherlands', roles), false,
+    'a Swiss posting must not count towards the Dutch search');
+  assert.equal(bulkJobIsRelevant(posting(3, 'Amsterdam, Netherlands', 'Backend Engineer'), 'netherlands', roles), false,
+    'a posting for a role nobody searched is not relevant');
+  assert.equal(bulkJobIsRelevant(posting(4, 'Amsterdam, Netherlands', 'Data Analyst', 'Apply now.'), 'netherlands', roles), false,
+    'a posting too short to store is not relevant');
+});
+
+test('relevant employer postings survive the per-run cap wherever they sit in the board order', () => {
+  // The defect this pins: the search capped a bulk source's postings first and filtered them after.
+  // With 250 irrelevant postings ahead of the relevant ones, capping first examined none of them —
+  // and because rejected postings are not stored, every later search examined the same 250 again.
+  const cap = 200;
+  const roles = ['Data Analyst'];
+  const board = [
+    ...Array.from({ length: 250 }, (_, i) => posting(i, 'Austin, Texas, United States', 'Software Engineer')),
+    ...Array.from({ length: 5 }, (_, i) => posting(1000 + i, 'Utrecht, Netherlands', 'Data Analyst')),
+  ];
+  const cappedFirst = board.slice(0, cap).filter((job) => bulkJobIsRelevant(job, 'netherlands', roles));
+  const filteredFirst = board.filter((job) => bulkJobIsRelevant(job, 'netherlands', roles)).slice(0, cap);
+  assert.equal(cappedFirst.length, 0, 'demonstrates the old order finding nothing');
+  assert.equal(filteredFirst.length, 5, 'the order the search now uses finds every relevant posting');
 });
