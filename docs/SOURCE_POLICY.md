@@ -77,7 +77,7 @@ use a source, the second additionally requires the VPN launcher.
 | Source | Why |
 |---|---|
 | **Adzuna CH/NL** | **Decision 2026-09-09 (#30): retained for administrator measurement, removed from the public tier.** Its current API terms permit publishing listings and personal research, with default limits of 25 requests/minute and 250/day. Adverts displayed under the listing-publishing permission require “Jobs by Adzuna” branding at least 116 × 23 pixels; research publication must name “The Adzuna API” and link to the relevant local domain. The standard search response caps descriptions at 500 characters and has produced 351 stored jobs with zero English-confirmed results. Adzuna advertises full job details as a separate data service, while its API terms require queries to be directed through Adzuna and treat attempts to contact third-party content providers as a breach. Therefore the app does not fetch full text through `redirect_url`. Ordinary accounts do not search Adzuna and cannot receive its existing `adzuna.ch` / `adzuna.nl` jobs or run rows. Administrators retain it in the conversion report, with a private research acknowledgement and local-domain links. No stored detector verdict is rewritten by this change. [Current API terms](https://developer.adzuna.com/docs/terms_of_service) · [API offering](https://developer.adzuna.com/) |
-| **Careerjet CH/NL** | Licensed to one declared IP address. Workable for the owner, not offerable as a feature. Also produces 279-character teasers, so it cannot support a `pass` regardless. |
+| **Careerjet CH/NL** | **Retained 2026-09-09 (#31), local administrator only.** Careerjet gives each publisher website a unique key and requires the real user's IP, user agent and originating-page Referer. The current placeholder registration is not sufficient for public use, and the local account also has an IP declaration constraint. Its 279-character teasers cannot support a `pass`, so it is discovery only. Leave all Careerjet credentials unset in hosted environments. |
 | **IamExpat** | Read from public pages rather than an API. No access control is worked around, but there is no published permission either — `grey-area` is the honest label. |
 | **jobs.ch, jobup.ch, JobScout24, Undutchables** | Terms prohibit automated access. Page-fetching, VPN-gated, hard caps, administrator only. Do not raise the caps to hit a volume target. |
 | **Indeed CH/NL** | Returns HTTP 403 and prohibits automated access without written permission. Assigning it to admin does not make it usable. |
@@ -88,6 +88,30 @@ use a source, the second additionally requires the VPN launcher.
 Administrator-only source names, counts, run records and links must not appear in any public
 response — including for jobs stored before a source was reclassified. This is already enforced and
 verified end to end with a real second account; keep it that way.
+
+### Careerjet retention decision (#31)
+
+Careerjet is retained, not promoted to a public source and not treated as a production dependency.
+The existing local workspace has 237 Careerjet leads: none are English-confirmed and 233 are
+`unknown` because the API returns short teasers. They may still help the owner discover a vacancy
+and inspect the original advertisement manually, so deleting them now would destroy potentially
+useful private history without improving the public product.
+
+The boundary is explicit:
+
+- only an administrator can search Careerjet or receive its saved jobs, source names, counts and
+  run history;
+- it is enabled only in a local environment whose publisher key, registered site, Referer and real
+  administrator IP/user details satisfy the Careerjet account and current API documentation;
+- hosted environments leave `CAREERJET_API_KEY`, `CAREERJET_REFERER` and `CAREERJET_USER_IP` unset;
+- a Careerjet teaser never establishes that English is sufficient; it remains `unknown` until the
+  owner checks the original advertisement; and
+- the conversion report remains the evidence for the next review. If the retained leads continue
+  to produce no manually useful results, retirement can be reconsidered without having exposed the
+  source to public users.
+
+Official documentation checked 2026-09-09: [Careerjet publisher API](https://www.careerjet.com/partners/api/)
+and its [request examples](https://www.careerjet.com/partners/api/javascript).
 
 ---
 

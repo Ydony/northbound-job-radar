@@ -334,19 +334,17 @@ about a third of that, carried only so the client can match required/excluded ke
 Its `robots.txt` rejects automated requests and it yields very few jobs. Keep the adapter truthful
 and administrator/VPN-only; removal remains a reasonable product decision.
 
-### B6. Careerjet licensing and IP scope remain unresolved
+### B6. Careerjet licensing and IP scope — RESOLVED AS A LOCAL-ONLY BOUNDARY
 
-Local execution avoids the former Cloudflare static-egress problem, but the API key is still tied
-to registered publisher/IP terms. Keep Careerjet disabled when its key or permission is absent and
-never describe an unavailable source as searched.
+Decision recorded 2026-09-09 in GitHub #31 and `docs/SOURCE_POLICY.md` §3: retain the 237 existing
+leads for private manual discovery, but keep Careerjet local-administrator-only. It has produced no
+English-confirmed jobs and its 279-character teasers cannot establish a `pass`.
 
-**Registering the real domain closes most of this.** The intended domain is **ikbeneenappel.nl**,
-confirmed free (no DNS records as of 2026-08-31). Careerjet binds a key to one registered publisher
-website, and the key in use currently names a placeholder domain nobody here owns — that is the
-"open question" shown on `/sources`. Registering the real domain with Careerjet, and setting
-`CAREERJET_REFERER` to match, moves the integration inside its licensed scope. The declared IP
-still has to match wherever the app actually runs, which is fine while it stays local on a stable
-connection.
+- [x] Server-side audience isolation already hides Careerjet jobs, source names, counts and runs.
+- [x] Hosted environments must leave all `CAREERJET_*` values unset.
+- [x] Local use requires a correctly registered publisher key/site and real request details.
+- [x] Missing credentials continue to report the source as unavailable, never searched.
+- [x] No stored rows were deleted; the admin conversion report supports a later retire/keep review.
 
 ### B7. Product name and domain — resolved 2026-08-31
 

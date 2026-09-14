@@ -235,7 +235,7 @@ Not part of the dictated scope, but they gate a public deployment regardless.
 | A7 | CSP allows `'unsafe-inline'` for React hydration | Nonces before public traffic |
 | ~~B3~~ | ~~Rate limiting resets with the process~~ | **Done 1 September.** Sign-in counts in the database and survives a worker restart. This row contradicted the one above it, which had already recorded the fix. |
 | B1/B2 | No password reset, no email verification | **Not blocking the launch** — the owner is the only user and registration stays closed. But the owner also expects *"most users will be from"* the Netherlands, so this is a "not yet" rather than a "never": both become blocking the moment a second account exists, and an email provider has to be chosen before then. |
-| B6 | Careerjet is IP-locked to a declared address | Cloudflare Workers have no static egress IP, so it cannot work in production as it stands. P6 makes it administrator-only, which contains but does not solve this. |
+| ~~B6~~ | ~~Careerjet is IP-locked to a declared address~~ | **Resolved as a product boundary 9 September (#31).** Retained for correctly configured local administrators only; hosted environments leave its credentials unset. The 237 existing leads stay private for manual discovery, and teaser-only rows never count as English-confirmed. |
 
 ---
 
@@ -249,10 +249,13 @@ enough.** Every aim below serves that; where they conflict, this one wins.
 Not more jobs. More *screenable* jobs, and fewer lost to a filter that could not see enough of the
 advertisement to decide.
 
-- **Adzuna and Careerjet cannot contribute public matches** because their standard APIs cap
-  descriptions at about 500 and 279 characters. They remain administrator-only measurements. The
-  app does not copy full text through aggregator redirect links; for Adzuna, current terms point to
-  a separate full-details service and require queries to stay through Adzuna.
+- **Adzuna and Careerjet cannot contribute public matches.** Their standard APIs cap descriptions at
+  about 500 and 279 characters, so their jobs sit in `unknown` rather than `pass` — 626 of them at
+  the last count. Both are administrator-only measurements. Adzuna (#30) is retained for the
+  conversion report; its current terms point to a separate full-details service and require queries
+  to stay through Adzuna. Careerjet (#31) is local-administrator discovery only. Neither redirect
+  link is followed to copy full text: each remains a manual path to the original advertisement, not
+  a way to manufacture a language verdict.
 - **Job-Room already proved the value of fixing this**: its detail endpoint returns 4,193 characters
   against 316 in search, and on 20 test advertisements **18 changed verdict** once the whole text
   was read.

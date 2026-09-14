@@ -16,6 +16,18 @@ test('zero-yield aggregators and grey-area page sources are administrator-only',
   }
 });
 
+test('Careerjet is explicitly a local administrator source, never a hosted fallback', () => {
+  const careerjet = jobSourceAdapters.filter((entry) => entry.key.startsWith('careerjet-'));
+  assert.equal(careerjet.length, 2);
+
+  for (const adapter of careerjet) {
+    assert.equal(adapter.adminOnly, true, `${adapter.key} must stay behind the server-side admin gate`);
+    assert.match(adapter.availabilityMessage, /local administrator/i);
+    assert.match(adapter.availabilityMessage, /leave them unset in hosted environments/i);
+    assert.ok(adapter.resultSourceKeys?.includes('jobviewtrack.com'));
+  }
+});
+
 test('every restricted source is administrator-only too', () => {
   // `restricted` means page-fetching behind a verified VPN. That is a narrower rule than
   // `adminOnly`, but everything in it is also administrator-only, and the derived list has to

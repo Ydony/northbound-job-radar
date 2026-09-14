@@ -40,9 +40,9 @@ export interface JobSourceAdapter {
    *
    * Deliberately separate from `access: 'restricted'`, which means something narrower: page-fetching
    * that additionally requires a VPN. A source can be perfectly ordinary to call and still not be
-   * something to put in front of other people — Careerjet is licensed to one declared IP, and
-   * IamExpat is read from public pages rather than an API. Both are fine for the owner and neither
-   * is fine to offer as a feature.
+   * something to put in front of other people — Careerjet is retained only for a correctly
+   * registered local administrator setup, and IamExpat is read from public pages rather than an
+   * API. Both are fine for the owner and neither is fine to offer as a feature.
    *
    * Enforced server-side in the jobs read path, not merely hidden in the interface, so a second
    * account cannot reach these results by calling the API directly.
@@ -284,7 +284,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     access: 'authorized-api', availability: 'enabled',
     adminOnly: true,
     resultSourceKeys: ['careerjet', 'jobviewtrack.com'],
-    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
+    availabilityMessage: 'Local administrator discovery only. Add correctly registered Careerjet credentials to enable it; leave them unset in hosted environments.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'switzerland', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
   },
@@ -293,7 +293,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     access: 'authorized-api', availability: 'enabled',
     adminOnly: true,
     resultSourceKeys: ['careerjet', 'jobviewtrack.com'],
-    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
+    availabilityMessage: 'Local administrator discovery only. Add correctly registered Careerjet credentials to enable it; leave them unset in hosted environments.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'netherlands', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
   },
