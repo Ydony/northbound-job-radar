@@ -102,6 +102,7 @@ column rename.
 - `lib/analysis.ts` — deterministic language gate and per-CV fit scoring
 - `lib/role-detection.ts` — derives a likely target role from CV text
 - `lib/job-adapters.ts` — shared Swiss/Netherlands adapter roster and source parsers
+- `lib/job-room-backfill.ts` — bounded, rerunnable repair for preview-length legacy Job-Room rows
 - `lib/job-identity.ts` — canonical URLs, source metadata, and conservative deduplication
 - `lib/jobsch.ts` — shared structured-job parsing helpers retained from the first jobs.ch adapter
 - `tests/` — language, role, scoring, export, adapter, identity, and migration regression tests

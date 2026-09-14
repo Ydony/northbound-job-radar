@@ -107,6 +107,26 @@ export function analyzeStructuredLanguages(skills: StructuredLanguageSkill[]): L
   };
 }
 
+/**
+ * Apply structured requirements and prose screening with one shared precedence rule.
+ *
+ * Job-Room publishes employer-declared language levels. Those are stronger evidence than prose,
+ * except that an explicit blocking phrase in the title/body must still win when the structured
+ * list is incomplete. Keeping this here prevents normal search and maintenance backfills from
+ * producing different verdicts for the same advertisement.
+ */
+export function analyzeJobLanguage(
+  description: string,
+  title = '',
+  skills: StructuredLanguageSkill[] = [],
+): LanguageResult {
+  const structured = skills.length ? analyzeStructuredLanguages(skills) : null;
+  if (structured?.status === 'blocked') return structured;
+  const fromText = analyzeLanguage(description, title);
+  if (fromText.status === 'blocked') return fromText;
+  return structured ?? fromText;
+}
+
 const localLanguages = ['german', 'french', 'italian', 'dutch', 'deutsch', 'français', 'francais', 'italiano', 'nederlands'];
 
 const englishMarkers = new Set([

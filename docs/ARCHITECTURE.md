@@ -179,6 +179,8 @@ neither a CV-derived/overridden role nor one of the five general roles exists.
 - `PUT /api/criteria` — validate and persist CV role overrides, five general roles, and filters
 - `POST /api/jobs` — validate and analyze one user-supplied public HTTPS job ad against every saved CV; the URL is never fetched by this route
 - `POST /api/scrape` — run every configured adapter, deduplicate, analyze, and persist the full source report
+- `POST /api/admin/job-room-backfill` — administrator-only, bounded repair of that administrator's
+  preview-length legacy Job-Room rows, with detector-transition reporting
 - `PATCH /api/jobs/:id` — independently update saved/application/visibility state and language feedback; dismissal writes a tombstone
 - `DELETE /api/jobs/:id` — delete one analyzed job and its language feedback
 - `DELETE /api/jobs` — delete selected job IDs or all jobs and their associated language feedback
@@ -222,6 +224,13 @@ It exposes 67,000+ live Swiss vacancies, and since 2018 shortage-occupation role
 there before anywhere else. Unlike jobs.ch, its `robots.txt` does not disallow the API path — but
 that file's comment reads "Do not crawl Job Adverts", so this is materially cleaner than the
 jobs.ch adapter without being an explicit grant. Re-check before increasing volume.
+
+Rows imported before Job-Room detail fetching existed are repaired through the administrator page,
+not during an ordinary search or page read. A run selects only that administrator's descriptions
+below 900 characters, requests at most 120 details with the same 400 ms fixed delay, and records a
+per-row detail version so it is safe to repeat. It updates content and derived analysis only;
+saved/application/dismissed state and explicit language corrections remain separate and survive.
+The returned report includes every raw detector transition and how many rows still need a later run.
 
 Job-Room publishes **employer-declared `languageSkills`** (ISO code plus spoken/written level from
 `NONE | BASIC | INTERMEDIATE | PROFICIENT`). `analyzeStructuredLanguages` in `lib/analysis.ts`

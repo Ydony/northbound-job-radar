@@ -372,4 +372,16 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE INDEX IF NOT EXISTS rate_limits_reset_idx ON rate_limits(reset_at)',
     ],
   },
+  {
+    version: 16,
+    name: 'track_job_room_detail_backfill',
+    statements: [
+      // A successful detail request is recorded even when the source's full advertisement is
+      // unusually short. Length alone cannot distinguish that from an unfetched preview, so
+      // without a version marker a repeat run would request the same row forever.
+      'ALTER TABLE jobs ADD COLUMN job_room_detail_version INTEGER NOT NULL DEFAULT 0',
+      `CREATE INDEX IF NOT EXISTS jobs_job_room_backfill_idx
+        ON jobs(user_id, source_key, job_room_detail_version)`,
+    ],
+  },
 ];

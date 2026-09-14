@@ -12,11 +12,17 @@ interface Overview {
   totals: { users: number; admins: number; jobs: number };
   signupsOpen: boolean;
 }
+interface JobRoomBackfillReport {
+  eligibleCount: number; attemptedCount: number; fetchedCount: number; updatedCount: number;
+  unchangedCount: number; failedCount: number; remainingCount: number;
+  verdictChangeCount: number; verdictDirections: Record<string, number>;
+}
 
 export default function AdminPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
+  const [backfillReport, setBackfillReport] = useState<JobRoomBackfillReport | null>(null);
 
   const [reloadToken, setReloadToken] = useState(0);
   const load = () => setReloadToken((token) => token + 1);
@@ -82,6 +88,26 @@ export default function AdminPage() {
     setMessage(`Password updated for ${user.email}. Share it with them directly; they can change it in Settings.`);
   }
 
+  async function backfillJobRoom() {
+    setBusy('job-room-backfill');
+    setMessage('');
+    setBackfillReport(null);
+    try {
+      const response = await fetch('/api/admin/job-room-backfill', { method: 'POST' });
+      const body = await response.json().catch(() => ({ error: 'The server returned an unreadable response.' })) as
+        JobRoomBackfillReport & { error?: string };
+      if (!response.ok) throw new Error(body.error || 'Job-Room backfill failed.');
+      setBackfillReport(body);
+      setMessage(body.remainingCount
+        ? `Job-Room backfill finished. ${body.remainingCount} short advert${body.remainingCount === 1 ? '' : 's'} remain; run it again to continue.`
+        : 'Job-Room backfill finished. No short legacy adverts remain.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Job-Room backfill failed.');
+    } finally {
+      setBusy('');
+    }
+  }
+
   const peak = Math.max(1, ...(data?.visits ?? []).map((day) => day.totalVisits));
 
   return (
@@ -103,6 +129,34 @@ export default function AdminPage() {
       </section>
 
       {data && <>
+        <section className="policy-group">
+          <div className="policy-group-head">
+            <h2>Job-Room repair</h2>
+            <p>
+              Replace old preview-length Job-Room records with the full public advertisement, then
+              recheck language and CV fit. One run is capped at 120 detail requests and uses the
+              source&apos;s existing fixed delay; saved, applied, dismissed, and corrected verdicts stay intact.
+            </p>
+          </div>
+          <div className="admin-actions">
+            <button type="button" disabled={busy === 'job-room-backfill'} onClick={backfillJobRoom}>
+              {busy === 'job-room-backfill' ? 'Backfilling Job-Room…' : 'Backfill Job-Room descriptions'}
+            </button>
+          </div>
+          {backfillReport && <div className="backfill-report" aria-live="polite">
+            <span><b>{backfillReport.attemptedCount}</b> attempted</span>
+            <span><b>{backfillReport.fetchedCount}</b> fetched</span>
+            <span><b>{backfillReport.updatedCount}</b> updated</span>
+            <span><b>{backfillReport.unchangedCount}</b> already complete</span>
+            <span><b>{backfillReport.verdictChangeCount}</b> verdicts changed</span>
+            <span><b>{backfillReport.failedCount}</b> failed</span>
+            <span><b>{backfillReport.remainingCount}</b> remaining</span>
+            {Object.entries(backfillReport.verdictDirections).map(([direction, count]) => (
+              <small key={direction}>{direction}: {count}</small>
+            ))}
+          </div>}
+        </section>
+
         <section className="policy-group">
           <div className="policy-group-head">
             <h2>Visits</h2>
