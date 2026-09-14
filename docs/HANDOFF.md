@@ -1,5 +1,38 @@
 # Handover
 
+## 2026-09-14 — stored duplicate links (#50)
+
+Implemented in isolated branch `ai/recluster-stored-jobs-20260914-132120-382758`;
+not yet integrated into the owner's primary checkout or its saved test workspace.
+The GitHub board is https://github.com/users/Ydony/projects/4.
+
+- Previously `/api/state` reclustered only if a job had an empty `cluster_key`. Existing
+  links therefore retained the old date rules, hiding some distinct reposts indefinitely.
+- Migration 17 adds an indexed per-row `cluster_version`. Version 16 is reserved for the
+  separately pending Job-Room backfill in PR #52; do not reuse that number when integrating.
+- `ensureCurrentJobClusters` rechecks the whole signed-in account if any member is stale.
+  New imports default to stale; normalization invalidates links after changing matching fields.
+  Keyless jobs are marked complete too, so they do not force repeated full recomputation.
+- Each batch writes links and versions together. An interrupted later batch leaves stale
+  members, so the next read retries the whole group. No user actions, verdict corrections,
+  dismissal tombstones or other accounts are rewritten by clustering.
+- Validation: 159 tests, lint, typecheck and build passed. Four new tests exercise real D1
+  SQL for a populated pre-upgrade table, owner isolation, personal-state preservation,
+  a 51-row interrupted batch, new imports and normalization invalidation.
+- `scripts/verify-cluster-workflow.mjs` passed against isolated hot-reload dev and the built
+  test Worker, each with newly registered ordinary accounts and synthetic data. It checks CV
+  upload, criteria, duplicate folding, distinct reposts, actions, correction retention,
+  cross-account mutation refusal and dismissal on repeated import. No external sources are called.
+  Test verification used port 3011 and an **absolute** `--env-file` path; a relative one initially
+  omitted the session secret and returned 503. The normal test launcher already uses an absolute path.
+- Fresh owner-workspace backups were created and hash/restore-copy verified before work:
+  `local-backups/test/2026-09-14T11-22-07-004Z` and
+  `local-backups/dev/2026-09-14T11-22-07-951Z` in the primary checkout. No saved owner data was migrated.
+
+Next: review/integrate this branch with the existing unpushed primary commits, then promote to
+the owner's stable test environment. Public hosting, new sources and pagination are separate tasks.
+The historical sections below still contain older counts and superseded feature descriptions.
+
 ## 2026-09-07 integration planning handover
 
 The owner now intends a free public service plus separate administrator discovery. Read

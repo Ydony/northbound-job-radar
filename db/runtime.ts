@@ -3,6 +3,8 @@ import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdF
 import { detectWorkplaceType } from '../lib/workplace';
 import { runtimeMigrations } from './migrations';
 
+// This is the legacy base, not the final schema. Fresh databases also run every migration,
+// including the cluster_version column; adding it here would duplicate migration 17's ALTER.
 const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS cvs (
     id TEXT PRIMARY KEY NOT NULL,

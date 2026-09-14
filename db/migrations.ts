@@ -372,4 +372,15 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE INDEX IF NOT EXISTS rate_limits_reset_idx ON rate_limits(reset_at)',
     ],
   },
+  {
+    // Version 16 belongs to the independently reviewed Job-Room backfill (PR #52).
+    version: 17,
+    name: 'track_cluster_rule_version',
+    statements: [
+      // Existing non-empty cluster keys do not prove the links use today's date rules.
+      // Zero also keeps newly imported jobs eligible for a full account-level regrouping.
+      'ALTER TABLE jobs ADD COLUMN cluster_version INTEGER NOT NULL DEFAULT 0',
+      'CREATE INDEX IF NOT EXISTS jobs_cluster_version_idx ON jobs(user_id, cluster_version)',
+    ],
+  },
 ];
