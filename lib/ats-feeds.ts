@@ -425,16 +425,20 @@ export function parseFeed(company: AtsCompany, body: string): ParsedJob[] {
  *   BOARD_CONCURRENCY matches the platform instead of opening connections that would only wait.
  * - **50 subrequests per invocation on Free, 10,000 on Paid.** A search already contacts more than
  *   50 upstreams before any employer board, so the Free plan cannot run this app whatever this
- *   list holds. On Paid, the board list is bounded by MAX_BOARDS_PER_SEARCH, leaving the rest of
- *   the budget to every other source in the same search.
+ *   list holds.
  * - **10 ms CPU on Free, 30 s default on Paid.** Parsing is the CPU cost here, not waiting.
  *
- * BOARD_TIMEOUT_MS stops one slow board from holding the whole search open. Only the local
- * environments run today; re-check these numbers before any hosted deployment.
+ * **No cap on the number of boards, deliberately, for now.** The app runs only in the local
+ * environments, where none of those limits apply, and the owner's decision (2026-09-14) is
+ * full coverage first, caps later. A 600-board ceiling added in #55 was removed on that decision.
+ * Before any hosted deployment the Paid subrequest budget has to be shared between these boards
+ * and every other source in the same search, and a ceiling belongs back here.
+ *
+ * Neither remaining constant limits coverage. BOARD_CONCURRENCY paces the requests and
+ * BOARD_TIMEOUT_MS stops one slow board from holding the whole search open.
  */
 export const BOARD_CONCURRENCY = 6;
 export const BOARD_TIMEOUT_MS = 8_000;
-export const MAX_BOARDS_PER_SEARCH = 600;
 
 /** Runs fn over items with at most `limit` in flight, preserving input order in the result. */
 export async function mapWithConcurrency<T, R>(
@@ -481,9 +485,7 @@ const CACHE_MS = 60_000;
  */
 export async function searchAtsBoards(): Promise<ParsedJob[]> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.jobs;
-  const results = await mapWithConcurrency(
-    atsCompanies.slice(0, MAX_BOARDS_PER_SEARCH), BOARD_CONCURRENCY, (company) => fetchCompany(company),
-  );
+  const results = await mapWithConcurrency(atsCompanies, BOARD_CONCURRENCY, (company) => fetchCompany(company));
   const byUrl = new Map<string, ParsedJob>();
   for (const job of results.flat()) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
   const jobs = [...byUrl.values()];

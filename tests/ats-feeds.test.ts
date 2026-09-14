@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { atsCompanies, BOARD_CONCURRENCY, fetchCompany, feedUrl, mapWithConcurrency, MAX_BOARDS_PER_SEARCH,
+import { atsCompanies, BOARD_CONCURRENCY, fetchCompany, feedUrl, mapWithConcurrency,
   parseFeed, type AtsCompany } from '../lib/ats-feeds';
 
 const greenhouse: AtsCompany = { slug: 'example', name: 'Example', platform: 'greenhouse', country: 'netherlands' };
@@ -99,13 +99,6 @@ test('a slow board times out on its own and does not fail the search', async () 
   } finally {
     globalThis.fetch = realFetch;
   }
-});
-
-test('the configured list stays inside the per-search board budget', () => {
-  // Past this, boards would be silently skipped. Raising it is a deliberate decision about the
-  // Workers subrequest budget, recorded beside MAX_BOARDS_PER_SEARCH, not an accident of growth.
-  assert.ok(atsCompanies.length <= MAX_BOARDS_PER_SEARCH,
-    `${atsCompanies.length} boards configured, budget is ${MAX_BOARDS_PER_SEARCH}`);
 });
 
 test('no employer board is configured twice', () => {

@@ -12,10 +12,24 @@ import { roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
 import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
 import type { CvSlot, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
 
-/** Page-fetching sources cost one request per job, so they stay tightly capped. */
+/**
+ * Page-fetching sources cost one request per job, so they stay tightly capped.
+ *
+ * This cap is not a performance setting and is not lifted with the others. It limits automated
+ * reading of sites whose terms prohibit it (jobs.ch, jobup.ch, JobScout24), and AGENTS.md is
+ * explicit: "Do not raise the caps to hit a volume target."
+ */
 const MAX_NEW_PER_SOURCE = 4;
-/** Bulk API sources return whole advertisements in the search response, so a far larger batch costs only a few requests. */
-const MAX_NEW_PER_BULK_SOURCE = 200;
+/**
+ * Bulk API sources return whole advertisements in the search response, and their postings are
+ * filtered to this search before this point (bulkJobIsRelevant), so nothing here is a request.
+ *
+ * Uncapped, deliberately, for now: the owner's decision on 2026-09-14 is full coverage while the
+ * app runs locally, caps later. The previous ceiling of 200 would already have deferred more than
+ * half of the 409 role-matching employer postings measured that day. A ceiling on database writes
+ * per search belongs back here before any hosted deployment.
+ */
+const MAX_NEW_PER_BULK_SOURCE = Number.POSITIVE_INFINITY;
 
 /** Employer-declared requirements are more reliable than prose, so they win when a source publishes them. */
 function languageForParsedJob(parsed: ParsedJob, description: string): LanguageResult {
