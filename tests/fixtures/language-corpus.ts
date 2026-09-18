@@ -153,6 +153,24 @@ export const languageCorpus: CorpusCase[] = [
     expected: 'pass',
     tests: 'English itself stated as mandatory must not trip the local-language rules',
   },
+  // ------------------------------------- reported by the owner, 2026-09-18
+  {
+    id: 'blocked-short-french-preview',
+    title: 'Business Analyst - Master Data (H/F)',
+    description: 'Introduction Pour notre division Systemes d-Information, nous recherchons un(e) Business Analyst - '
+      + 'Donnees de base. Votre mission sera de faire le pont entre les exigences metiers et les solutions '
+      + 'techniques pour garantir l-excellence de nos donnees de reference.',
+    expected: 'blocked',
+    tests: 'a short preview of a French advertisement. Under 900 characters, but its language is not in doubt',
+  },
+  {
+    id: 'blocked-short-german-preview',
+    title: 'Senior System Engineer',
+    description: 'Ihre neue Herausforderung Betrieb und Unterhalt der Serverinfrastruktur mit Schwerpunkt auf '
+      + 'Microsoft-Technologien. Sie bringen Erfahrung mit und arbeiten eng mit unseren Kunden zusammen.',
+    expected: 'blocked',
+    tests: 'the same for German: a preview is long enough to rule English out, though not to confirm it',
+  },
   // ------------------------------------- found by probing this corpus, 2026-09-08
   {
     id: 'blocked-unlisted-language',

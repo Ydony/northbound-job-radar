@@ -383,8 +383,11 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
  *    stop reading as "NL32B NL" and can be grouped by somewhere a person recognises.
  * 4: country re-derived, because resolving those codes removed the prefix the country was being
  *    read from and left every EURES job filed under 'unknown'.
+ * 5: an advertisement can be ruled out as not-English on far less text than it takes to confirm
+ *    English, so short previews written in German or French stop being filed as "not enough of
+ *    the ad". 172 stored jobs were carrying that verdict and are rewritten as blocked.
  */
-export const NORMALIZATION_VERSION = 4;
+export const NORMALIZATION_VERSION = 5;
 
 interface StoredJobForNormalization {
   id: string;
