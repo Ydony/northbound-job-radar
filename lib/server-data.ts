@@ -3,6 +3,7 @@ import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClust
   sourceInfoForUrl, sourceJobIdFromUrl } from './job-identity';
 import { matchesSearchCriteria } from './criteria';
 import { decodeEntities } from './jobsch';
+import { jobExcerpt } from './excerpt';
 import { extractRequirements } from './requirements';
 import { readableLocation } from './nuts';
 import { detectWorkplaceType } from './workplace';
@@ -123,6 +124,7 @@ export function cvFromRow(row: CvRow): CvProfile {
  * empty criteria set would have produced anyway.
  */
 export function jobFromRow(row: JobRow, criteria?: SearchCriteria): JobRecord {
+  const requirements = extractRequirements(row.description);
   const languageFeedback = row.feedback_verdict === 'correct' || row.feedback_verdict === 'incorrect'
     ? row.feedback_verdict
     : '';
@@ -144,7 +146,8 @@ export function jobFromRow(row: JobRow, criteria?: SearchCriteria): JobRecord {
     company: row.company,
     location: row.location,
     descriptionLength: row.description.trim().length,
-    requirements: extractRequirements(row.description),
+    requirements: requirements,
+    excerpt: jobExcerpt(row.description, requirements),
     matchesCriteria: criteria
       ? matchesSearchCriteria(
         { title: row.title, location: row.location, description: row.description }, criteria,

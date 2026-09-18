@@ -1082,6 +1082,15 @@ export default function JobRadar() {
                   {Boolean(job.duplicateCount) && <p className="duplicate-note">
                     Also posted on {job.duplicateSources?.join(', ')} — {job.duplicateCount} duplicate{job.duplicateCount === 1 ? '' : 's'} hidden
                   </p>}
+                  {/* What the employer asks for, above the language verdict, because "can I do this
+                      job?" is the question that decides whether the ad is worth opening. Labelled by
+                      where it came from: a quotation of the employer's own requirements is not the
+                      same claim as the opening line of the advertisement. */}
+                  {job.excerpt && <p className={`job-excerpt ${job.excerpt.source}`}>
+                    <b>{job.excerpt.source === 'requirements' ? 'Asks for'
+                      : job.excerpt.source === 'asked' ? 'Asks for' : 'The role'}</b>
+                    {job.excerpt.text}
+                  </p>}
                   {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
                   <p className="language-summary">{hasCorrection ? `Detector note: ${job.languageSummary}` : job.languageSummary}</p>
                   {bothCvsSaved && <p className="fit-breakdown">

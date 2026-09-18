@@ -27,6 +27,7 @@ const job: JobRecord = {
   location: 'Zürich 8000',
   descriptionLength: 84,
   requirements: null,
+  excerpt: null,
   matchesCriteria: true,
   languageStatus: 'pass',
   languageSummary: 'English sufficient.',

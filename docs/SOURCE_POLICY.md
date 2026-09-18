@@ -25,8 +25,22 @@ important thing in this document, and it applies to every public source, not jus
 **The consequence, and it is a design rule, not a caveat:**
 
 > The public tier shows **facts and our own work** — job title, employer, place, date, source name,
-> our language verdict and our own extracted requirement bullets — plus a link to the original
-> advertisement. It does **not** republish the employer's full advertisement text.
+> our language verdict, our own extracted requirement bullets, and one short line saying what the
+> job asks for — plus a link to the original advertisement. It does **not** republish the
+> employer's full advertisement text.
+
+**The short line, added 2026-09-18 (#61).** A card that shows the title, the employer and a language
+verdict does not answer the question that decides whether to open an advertisement at all: *can I do
+this job?* Requirement bullets answer it, but only 22% of full-length advertisements state
+requirements under a heading the extractor trusts. So a single line is shown, capped at **400
+characters**, drawn in this order: the employer's own requirement bullets; failing that, sentences
+that explicitly state a requirement; failing that, the opening line of the advertisement, labelled
+as describing the role rather than the requirements.
+
+This is the same exception §1 already makes for requirement bullets, at the length of a
+search-result snippet rather than a copy of the advertisement, and it travels with the link that
+names where it came from. The full text still stops at the server. `lib/excerpt.ts` holds the cap and
+`tests/excerpt.test.ts` enforces it.
 
 The full text is still fetched and still screened. It is used server-side to decide the language
 verdict, then it is not the public tier's to hand out. Administrators, working on their own

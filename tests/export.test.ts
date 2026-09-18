@@ -18,6 +18,7 @@ const job: JobRecord = {
   location: 'Zürich',
   descriptionLength: 120,
   requirements: null,
+  excerpt: null,
   matchesCriteria: true,
   languageStatus: 'review',
   languageSummary: 'German is mentioned.',

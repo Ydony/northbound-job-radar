@@ -228,3 +228,9 @@ footer { align-items:center; background:var(--ink); color:#b9c7c0; display:flex;
 @media (prefers-reduced-motion:reduce) { .setup-panel > summary::before { transition:none; } }
 .workspace-load-error { align-items:center; background:#f3ded8; border-bottom:1px solid var(--line); color:var(--danger); display:flex; flex-wrap:wrap; gap:12px 20px; padding:14px clamp(24px,7vw,112px); }
 .workspace-load-error p { font-size:14px; font-weight:700; margin:0; }
+
+/* The short "what is asked of you" line on each card. Quiet enough not to compete with the title,
+   solid enough to read before the language verdict. */
+.job-excerpt { color:var(--ink); font-size:13px; line-height:1.5; margin:0 0 10px; }
+.job-excerpt b { color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.06em; margin-right:8px; text-transform:uppercase; }
+.job-excerpt.role { color:var(--muted); }

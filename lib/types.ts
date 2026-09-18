@@ -1,5 +1,6 @@
 import type { LanguageStatus } from './analysis';
 import type { WorkplaceType } from './workplace';
+import type { JobExcerpt } from './excerpt';
 import type { ExtractedRequirements } from './requirements';
 
 export type CvSlot = 'a' | 'b';
@@ -59,6 +60,12 @@ export interface JobRecord {
   descriptionLength: number;
   /** Our own extraction, not the employer's prose. Null when the ad states none under a heading. */
   requirements: ExtractedRequirements | null;
+  /**
+   * One short line saying what the employer asks for, so the card answers "can I do this job?".
+   * Capped at MAX_EXCERPT_CHARS; `source` says how confident it is. Null when the ad says nothing
+   * usable, which is shown as nothing rather than as a guess.
+   */
+  excerpt: JobExcerpt | null;
   /** Evaluated server-side against the saved criteria, because the client no longer has the text. */
   matchesCriteria: boolean;
   languageStatus: LanguageStatus;
