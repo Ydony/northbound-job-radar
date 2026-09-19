@@ -310,6 +310,15 @@ CRMs. The same ATS endpoints are rich for direct employers.
 
 ## 8. Known risks and missing production controls
 
+- **Indeed experiment (2026-09-19, #64/#65):** an isolated backend client successfully
+  retrieved description HTML for two NL jobs across two pages and one CH job. The owner
+  approved a narrow mobile-header-profile experiment; TLS verification remains enabled.
+  No phone or personal OAuth was used. Source adapters remain disabled; normalization,
+  description-completeness validation, dashboard integration, tenancy/export checks and
+  end-to-end dev/test validation are still separate tasks. No public entitlement, stable
+  key lifetime, unlimited quota or 200-400-job yield follows from this small sample. See
+  `docs/INDEED_INTEGRATION.md`. Caller-supplied local/admin flags must come from current
+  server authorization, never browser input; refusal/cooldown state is per client instance.
 - The three enabled JobCloud adapters are unsanctioned (§2). Realistic consequences include
   IP blocking or legal demands. Caps and manual triggers limit load, not legal exposure.
 - Public-page markup and structured data can change independently for every enabled
