@@ -254,7 +254,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'eures-nl', name: 'EURES Netherlands', country: 'netherlands',
     access: 'authorized-api', availability: 'enabled',
-    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. Reuse is authorised provided the European Labour Authority is acknowledged as the source. The Commission’s CC BY 4.0 reuse decision covers EU-owned content; the advertisement text is the employer’s, so it is screened here and not republished.',
+    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key. Netherlands advertisements arrive cut at ~2,000 characters ending in "...", usually before the requirements, so cut text is screened but never confirmed as English-sufficient. Reuse is authorised provided the European Labour Authority is acknowledged as the source. The Commission’s CC BY 4.0 reuse decision covers EU-owned content; the advertisement text is the employer’s, so it is screened here and not republished.',
     searchDetailed: (terms) => searchEures(terms, 'netherlands'),
   },
   {
