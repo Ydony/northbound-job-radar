@@ -386,8 +386,11 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
  * 5: an advertisement can be ruled out as not-English on far less text than it takes to confirm
  *    English, so short previews written in German or French stop being filed as "not enough of
  *    the ad". 172 stored jobs were carrying that verdict and are rewritten as blocked.
+ * 6: a truncated advertisement can never confirm English — EURES Netherlands ads arrive cut at
+ *    ~2,000 characters ending in "..." (666/740 stored rows, measured 2026-09-18), usually
+ *    before the requirements — so stored passes on such text are rewritten as unknown.
  */
-export const NORMALIZATION_VERSION = 5;
+export const NORMALIZATION_VERSION = 6;
 
 interface StoredJobForNormalization {
   id: string;

@@ -24,6 +24,25 @@ export type LanguageStatus = 'pass' | 'unknown' | 'review' | 'blocked';
  */
 export const MIN_CHARS_TO_CONFIRM_ENGLISH = 900;
 
+/**
+ * A trailing ellipsis means the advertisement was cut off before the end — usually before the
+ * requirements section, which is where a language requirement lives.
+ *
+ * Measured 2026-09-18 on the stored corpus: 666 of 740 EURES Netherlands descriptions are
+ * 1,900–2,100 characters (p50 1,954) and end with `...`, and the public detail endpoint returns
+ * the same ~2,020 characters, so the cap is upstream (Dutch provider → EURES). EURES ads for
+ * CH/DE/AT/LU are not capped (median 3,300–4,000).
+ *
+ * A cut advertisement is incomplete evidence, like an Adzuna/Careerjet teaser: long enough to
+ * clear the length gate, but the missing tail may hold the requirement. It can never support a
+ * pass. Findings still stand — German spotted before the cut is still German — so this only
+ * downgrades the clean bill of health, exactly like the short-text rule.
+ */
+export function isTruncatedAdvertisement(description: string): boolean {
+  const trimmed = description.trimEnd();
+  return trimmed.endsWith('...') || trimmed.endsWith('…');
+}
+
 export interface LanguageResult {
   status: LanguageStatus;
   summary: string;
@@ -252,7 +271,17 @@ export function analyzeLanguage(description: string, title = ''): LanguageResult
   // 500-character preview does not fail an English check, there simply was not an advertisement
   // there to check. Saying "needs review" invites a person to go and read text that was never
   // published, while "not enough of the ad" tells them the truth and points at the source.
-  if (description.trim().length < MIN_CHARS_TO_CONFIRM_ENGLISH) {
+  // A truncated advertisement belongs in the same bucket: EURES Netherlands ads arrive cut at
+  // ~2,000 characters ending in "...", usually before the requirements, so the absent requirement
+  // was never in the text that was checked. Findings above still stand; only the pass is withheld.
+  if (description.trim().length < MIN_CHARS_TO_CONFIRM_ENGLISH || isTruncatedAdvertisement(description)) {
+    if (isTruncatedAdvertisement(description)) {
+      return {
+        status: 'unknown' as const,
+        summary: 'Not enough of the advertisement was published to confirm English is sufficient: the text was cut off, so a language requirement after the cut cannot be ruled out. Open the original to check.',
+        signals: [...signals, `The advertisement text ends mid-text ("...") after ${description.trim().length} characters`],
+      };
+    }
     return {
       status: 'unknown' as const,
       summary: 'Not enough of the advertisement was published to confirm English is sufficient. Open the original to check.',

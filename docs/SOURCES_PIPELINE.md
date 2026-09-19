@@ -88,8 +88,13 @@ detail endpoint returns the whole ad: 316 characters against 4,193 for the same 
 full. On a live test of 20 ads, **18 changed verdict** once the whole text was read — 12 turned out
 to require German or French, 6 were confirmed English-only and released from review.
 
-**EURES changes the picture entirely.** Full advertisements in the search response, no per-job
-fetching needed, and 287,000 jobs across both countries against the 1,023 currently stored.
+**EURES changes the picture entirely.** Full advertisements in the search response for most
+countries (no per-job fetching needed), and 287,000 jobs across both countries against the 1,023
+currently stored. **Exception, measured 2026-09-18: EURES Netherlands ads arrive cut at ~2,000
+characters ending in `...`** (666 of 740 stored rows at 1,900–2,100 chars, p50 1,954, usually
+before the requirements; the detail endpoint returns the same text, so the cap is upstream).
+Cut text is screened but never confirmed: the language gate withholds `pass` on a trailing
+ellipsis, like a teaser.
 
 ---
 
