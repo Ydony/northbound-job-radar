@@ -1,7 +1,10 @@
 import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
 import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
   sourceInfoForUrl, sourceJobIdFromUrl } from './job-identity';
+import { matchesSearchCriteria } from './criteria';
 import { decodeEntities } from './jobsch';
+import { jobExcerpt } from './excerpt';
+import { extractRequirements } from './requirements';
 import { readableLocation } from './nuts';
 import { detectWorkplaceType } from './workplace';
 import type { CvProfile, CvSlot, JobRecord, SearchCriteria, SearchRun, SearchRunSource } from './types';
@@ -111,7 +114,17 @@ export function cvFromRow(row: CvRow): CvProfile {
   };
 }
 
-export function jobFromRow(row: JobRow): JobRecord {
+/**
+ * Maps a stored row to what a client is allowed to see.
+ *
+ * The advertisement text stops here. It is read from the row, used to derive the three fields
+ * that replace it, and never copied onto the returned object — see docs/SOURCE_POLICY.md §1 and
+ * the note on JobRecord. `criteria` is optional only so callers that have no criteria to hand
+ * (a freshly imported job, say) still work; they get `matchesCriteria: true`, which is what an
+ * empty criteria set would have produced anyway.
+ */
+export function jobFromRow(row: JobRow, criteria?: SearchCriteria): JobRecord {
+  const requirements = extractRequirements(row.description);
   const languageFeedback = row.feedback_verdict === 'correct' || row.feedback_verdict === 'incorrect'
     ? row.feedback_verdict
     : '';
@@ -132,7 +145,14 @@ export function jobFromRow(row: JobRow): JobRecord {
     title: row.title,
     company: row.company,
     location: row.location,
-    description: row.description,
+    descriptionLength: row.description.trim().length,
+    requirements: requirements,
+    excerpt: jobExcerpt(row.description, requirements),
+    matchesCriteria: criteria
+      ? matchesSearchCriteria(
+        { title: row.title, location: row.location, description: row.description }, criteria,
+      )
+      : true,
     languageStatus: row.language_status,
     languageSummary: row.language_summary,
     languageSignals: stringArray(row.language_signals),
@@ -295,8 +315,13 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
         WHERE user_id = ? AND cluster_key = ? ORDER BY first_seen_at LIMIT 25`)
         .bind(userId, clusterKey).all<NearDuplicateCandidate>())
       .results.find((candidate) => isNearDuplicate(
-        { location: input.location, postedAt },
-        { location: candidate.location, postedAt: candidate.posted_at },
+        // The row being written has not been stored yet, so its first-seen is now.
+        { location: input.location, postedAt, firstSeenAt: now },
+        {
+          location: candidate.location,
+          postedAt: candidate.posted_at,
+          firstSeenAt: candidate.first_seen_at,
+        },
       ))
     : undefined;
   // Point at the row actually on screen, never at another copy, so the chain stays one level deep.
@@ -358,8 +383,11 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
  *    stop reading as "NL32B NL" and can be grouped by somewhere a person recognises.
  * 4: country re-derived, because resolving those codes removed the prefix the country was being
  *    read from and left every EURES job filed under 'unknown'.
+ * 5: an advertisement can be ruled out as not-English on far less text than it takes to confirm
+ *    English, so short previews written in German or French stop being filed as "not enough of
+ *    the ad". 172 stored jobs were carrying that verdict and are rewritten as blocked.
  */
-export const NORMALIZATION_VERSION = 4;
+export const NORMALIZATION_VERSION = 5;
 
 interface StoredJobForNormalization {
   id: string;
@@ -397,7 +425,7 @@ export async function normalizeStoredJobs(db: D1Database, userId: string) {
     const { country } = sourceInfoForUrl(row.source_url, location);
     return db.prepare(`UPDATE jobs SET title = ?, company = ?, location = ?, country = ?,
         language_status = ?, language_summary = ?, language_signals = ?,
-        normalized_version = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
+        normalized_version = ?, cluster_version = 0, updated_at = ? WHERE id = ? AND user_id = ?`)
       .bind(title, decodeEntities(row.company), location, country,
         language.status, language.summary, JSON.stringify(language.signals),
         NORMALIZATION_VERSION, now, row.id, userId);
@@ -406,6 +434,18 @@ export async function normalizeStoredJobs(db: D1Database, userId: string) {
     await db.batch(statements.slice(index, index + 50));
   }
   return rows.results.length;
+}
+
+// v1: re-evaluate links made before the first-seen fallback for missing posting dates (#5).
+// Bump whenever jobClusterKey, isNearDuplicate or primary selection changes. Normalization
+// separately invalidates a row's cluster version because it may change its title or place.
+export const CLUSTER_VERSION = 1;
+
+/** Recheck the entire owner group when any member was written under older rules. */
+export async function ensureCurrentJobClusters(db: D1Database, userId: string) {
+  const stale = await db.prepare('SELECT id FROM jobs WHERE user_id = ? AND cluster_version < ? LIMIT 1')
+    .bind(userId, CLUSTER_VERSION).first<{ id: string }>();
+  return stale ? reclusterJobs(db, userId) : { clusters: 0, duplicates: 0 };
 }
 
 interface ClusterableJob {
@@ -463,8 +503,8 @@ export async function reclusterJobs(db: D1Database, userId: string) {
     const groups: ClusterableJob[][] = [];
     for (const job of bucket) {
       const group = groups.find((candidate) => candidate.some((member) => isNearDuplicate(
-        { location: job.location, postedAt: job.posted_at },
-        { location: member.location, postedAt: member.posted_at },
+        { location: job.location, postedAt: job.posted_at, firstSeenAt: job.first_seen_at },
+        { location: member.location, postedAt: member.posted_at, firstSeenAt: member.first_seen_at },
       )));
       if (group) group.push(job);
       else groups.push([job]);
@@ -485,8 +525,11 @@ export async function reclusterJobs(db: D1Database, userId: string) {
   }
 
   const statements = [...assignment.entries()].map(([id, value]) =>
-    db.prepare('UPDATE jobs SET cluster_key = ?, duplicate_of = ? WHERE id = ? AND user_id = ?')
-      .bind(value.clusterKey, value.duplicateOf, id, userId));
+    db.prepare('UPDATE jobs SET cluster_key = ?, duplicate_of = ?, cluster_version = ? WHERE id = ? AND user_id = ?')
+      .bind(value.clusterKey, value.duplicateOf, CLUSTER_VERSION, id, userId));
+  // Mark only rows in this snapshot, in the same atomic batch as their links. If a later
+  // batch fails, its rows remain stale and the next read recomputes the whole owner group.
+  // A concurrently inserted row likewise remains stale; it cannot be marked without a link.
   for (let index = 0; index < statements.length; index += 50) {
     await db.batch(statements.slice(index, index + 50));
   }

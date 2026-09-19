@@ -2,6 +2,7 @@ import { searchAtsBoards } from './ats-feeds';
 import { searchAdzuna, searchCareerjet, type AggregatorCredentials } from './job-aggregators';
 import { searchEures } from './eures';
 import { searchJobRoom } from './job-room';
+import { sourceInfoForUrl } from './job-identity';
 import { delay, extractJobPosting, interleaveUnique, stripHtml, type ParsedJob } from './jobsch';
 import type { JobCountry, SourceRunStatus } from './types';
 
@@ -14,7 +15,8 @@ const REQUEST_DELAY_MS = 1200;
  * - `authorized-api`: a keyed or officially public API used as published. No terms risk.
  * - `grey-area`: a public page whose robots.txt does not disallow the paths read and whose terms
  *   say nothing either way. Not an explicit permission, but nothing forbids it, and any stated
- *   crawl-delay is honoured. Runs for everyone.
+ *   crawl-delay is honoured. Does not inherently require a VPN; `adminOnly` can still narrow its
+ *   audience.
  * - `restricted`: the site explicitly prohibits automated access, or actively blocks it. Runs only
  *   for an administrator, and only when the process was started through the VPN-enforced launcher.
  */
@@ -40,9 +42,9 @@ export interface JobSourceAdapter {
    *
    * Deliberately separate from `access: 'restricted'`, which means something narrower: page-fetching
    * that additionally requires a VPN. A source can be perfectly ordinary to call and still not be
-   * something to put in front of other people — Careerjet is licensed to one declared IP, and
-   * IamExpat is read from public pages rather than an API. Both are fine for the owner and neither
-   * is fine to offer as a feature.
+   * something to put in front of other people — Careerjet is retained only for a correctly
+   * registered local administrator setup, and IamExpat is read from public pages rather than an
+   * API. Both are fine for the owner and neither is fine to offer as a feature.
    *
    * Enforced server-side in the jobs read path, not merely hidden in the interface, so a second
    * account cannot reach these results by calling the API directly.
@@ -246,13 +248,13 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'eures-ch', name: 'EURES Switzerland', country: 'switzerland',
     access: 'authorized-api', availability: 'enabled',
-    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. europa.eu content is CC BY 4.0 under the Commission reuse decision of 12 December 2011.',
+    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. Reuse is authorised provided the European Labour Authority is acknowledged as the source. The Commission’s CC BY 4.0 reuse decision covers EU-owned content; the advertisement text is the employer’s, so it is screened here and not republished.',
     searchDetailed: (terms) => searchEures(terms, 'switzerland'),
   },
   {
     key: 'eures-nl', name: 'EURES Netherlands', country: 'netherlands',
     access: 'authorized-api', availability: 'enabled',
-    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. europa.eu content is CC BY 4.0 under the Commission reuse decision of 12 December 2011.',
+    availabilityMessage: 'The European Commission’s own job mobility portal. Public endpoint, no key, and it returns whole advertisements rather than previews - which is what makes them screenable. Reuse is authorised provided the European Labour Authority is acknowledged as the source. The Commission’s CC BY 4.0 reuse decision covers EU-owned content; the advertisement text is the employer’s, so it is screened here and not republished.',
     searchDetailed: (terms) => searchEures(terms, 'netherlands'),
   },
   {
@@ -264,14 +266,18 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'adzuna-ch', name: 'Adzuna Switzerland', country: 'switzerland',
     access: 'authorized-api', availability: 'enabled',
-    availabilityMessage: 'Authorized aggregator API. Add a free ADZUNA_APP_ID and ADZUNA_APP_KEY to enable it.',
+    adminOnly: true,
+    resultSourceKeys: ['adzuna.ch'],
+    availabilityMessage: 'Administrator coverage source. The standard API returns short teasers that cannot confirm English; add an ADZUNA_APP_ID and ADZUNA_APP_KEY to measure it privately.',
     searchDetailed: (terms, location, credentials) => searchAdzuna(terms, location, 'switzerland', credentials),
     hasCredentials: (credentials) => Boolean(credentials.adzunaAppId && credentials.adzunaAppKey),
   },
   {
     key: 'adzuna-nl', name: 'Adzuna Netherlands', country: 'netherlands',
     access: 'authorized-api', availability: 'enabled',
-    availabilityMessage: 'Authorized aggregator API. Add a free ADZUNA_APP_ID and ADZUNA_APP_KEY to enable it.',
+    adminOnly: true,
+    resultSourceKeys: ['adzuna.nl'],
+    availabilityMessage: 'Administrator coverage source. The standard API returns short teasers that cannot confirm English; add an ADZUNA_APP_ID and ADZUNA_APP_KEY to measure it privately.',
     searchDetailed: (terms, location, credentials) => searchAdzuna(terms, location, 'netherlands', credentials),
     hasCredentials: (credentials) => Boolean(credentials.adzunaAppId && credentials.adzunaAppKey),
   },
@@ -280,7 +286,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     access: 'authorized-api', availability: 'enabled',
     adminOnly: true,
     resultSourceKeys: ['careerjet', 'jobviewtrack.com'],
-    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
+    availabilityMessage: 'Local administrator discovery only. Add correctly registered Careerjet credentials to enable it; leave them unset in hosted environments.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'switzerland', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
   },
@@ -289,28 +295,28 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     access: 'authorized-api', availability: 'enabled',
     adminOnly: true,
     resultSourceKeys: ['careerjet', 'jobviewtrack.com'],
-    availabilityMessage: 'Authorized aggregator API. Add a free CAREERJET_API_KEY to enable it.',
+    availabilityMessage: 'Local administrator discovery only. Add correctly registered Careerjet credentials to enable it; leave them unset in hosted environments.',
     searchDetailed: (terms, location, credentials) => searchCareerjet(terms, location, 'netherlands', credentials),
     hasCredentials: (credentials) => Boolean(credentials.careerjetApiKey),
   },
   {
     key: 'jobs.ch', name: 'jobs.ch', country: 'switzerland',
     access: 'restricted', availability: 'enabled',
-    availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
+    availabilityMessage: 'Local administrator only; VPN required. Capped public-page adapter without JobCloud permission.',
     search: jobsChSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'jobs.ch', 'Switzerland'),
   },
   {
     key: 'jobup.ch', name: 'jobup.ch', country: 'switzerland',
     access: 'restricted', availability: 'enabled',
-    availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
+    availabilityMessage: 'Local administrator only; VPN required. Capped public-page adapter without JobCloud permission.',
     search: jobupSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'jobup.ch', 'Switzerland'),
   },
   {
     key: 'jobscout24.ch', name: 'JobScout24', country: 'switzerland',
     access: 'restricted', availability: 'enabled',
-    availabilityMessage: 'Capped public-page adapter; JobCloud permission has not been granted.',
+    availabilityMessage: 'Local administrator only; VPN required. Capped public-page adapter without JobCloud permission.',
     search: jobScoutSearch,
     fetchDetail: (url) => fetchStructuredDetail(url, 'JobScout24', 'Switzerland'),
   },
@@ -318,7 +324,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     key: 'iamexpat.nl', name: 'IamExpat', country: 'netherlands',
     access: 'grey-area', availability: 'enabled',
     adminOnly: true,
-    availabilityMessage: 'Capped public-page adapter; current public listings only.',
+    availabilityMessage: 'Local administrator only; no VPN required. Capped public career pages with the published crawl delay.',
     search: async (terms) => (await listingLinks('https://www.iamexpat.nl/career/jobs-netherlands', 'IamExpat',
       /href=["']([^"']*\/career\/jobs-netherlands\/[^"'?]+\/[^"'?]+)["']/gi, 'https://www.iamexpat.nl'))
       .filter((url) => candidateUrlMatchesRoles(url, terms)),
@@ -327,7 +333,7 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   {
     key: 'undutchables.nl', name: 'Undutchables', country: 'netherlands',
     access: 'restricted', availability: 'enabled',
-    availabilityMessage: 'Capped public listing adapter; query-string search is not used.',
+    availabilityMessage: 'Local administrator only; VPN required as a precaution after prior blocking. Plain public listing only.',
     search: async (terms) => (await listingLinks('https://undutchables.nl/vacancies', 'Undutchables',
       /href=["'](https:\/\/undutchables\.nl\/vacancies\/[^"'?]+)["']/gi, 'https://undutchables.nl'))
       .filter((url) => candidateUrlMatchesRoles(url, terms)),
@@ -357,6 +363,30 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
 
 export function sourceStatusForAvailability(availability: JobSourceAdapter['availability']): SourceRunStatus {
   return availability === 'enabled' ? 'complete' : availability;
+}
+
+/** Postings shorter than this are not worth storing; the same threshold the search applied per job. */
+export const MIN_BULK_DESCRIPTION_CHARS = 160;
+
+/**
+ * Whether a posting from a bulk source belongs to this adapter's search at all.
+ *
+ * Bulk sources — the employer boards — return every posting each employer has, worldwide, in one
+ * response. The search used to cap that list at MAX_NEW_PER_BULK_SOURCE *first* and check country,
+ * length and role *afterwards*. With the boards in board order, the first 200 were mostly other
+ * countries and other roles, so about one survived; and because rejected postings are not stored,
+ * the next search took the same first 200 again. The source was stuck on them indefinitely: 2,437
+ * postings found, one added. With 282 boards returning over 30,000 postings, everything past the
+ * first 200 would never have been looked at.
+ *
+ * The cap exists because page-fetching sources cost a request per job. A bulk source's postings are
+ * already in memory, so filtering them costs nothing and must come before the cap. Checked in
+ * order of cost: the location string, then the role match, then the text length.
+ */
+export function bulkJobIsRelevant(job: ParsedJob, country: JobCountry, roles: string[]) {
+  if (sourceInfoForUrl(job.sourceUrl, job.location).country !== country) return false;
+  if (!descriptionMatchesRoles(job, roles)) return false;
+  return stripHtml(job.descriptionHtml).length >= MIN_BULK_DESCRIPTION_CHARS;
 }
 
 export function descriptionMatchesRoles(job: ParsedJob, roles: string[]) {

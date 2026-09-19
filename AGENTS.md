@@ -1,5 +1,17 @@
 # Ik ben een appel: instructions for coding agents
 
+**2026-09-18 Indeed work ownership:** parent [#63](https://github.com/Ydony/northbound-job-radar/issues/63),
+plan [docs/INDEED_INTEGRATION.md](docs/INDEED_INTEGRATION.md). Codex owns request/auth discovery and
+connection implementation (#64/#65), explicitly assigned by the owner. Other LLMs must claim one
+of #66-69 and respect its file boundaries. The current source remains disabled until verified.
+Private assessment artifacts and credentials never go into this public repo or its issues.
+
+**2026-09-19 narrow Indeed experiment exception:** after the owner was explicitly asked
+about JobSpy's mobile identity headers, they instructed Codex to proceed. That header
+profile is permitted only for this local/admin experiment, behind explicit trusted
+configuration. TLS verification stays enabled. This is not a relaxation for other
+sources, proxy rotation, challenges, public access or unlimited collection.
+
 **Project board:** https://github.com/users/Ydony/projects/4 — what needs doing lives here now
 (migrated from Plane 2026-09-04), not in `docs/TASKS.md`. `docs/TASKS.md` stays as narrative
 history of what was found/decided; don't let it re-become a second open/closed list.
@@ -70,7 +82,7 @@ Build a private job-search companion for a user seeking roles where English alon
   anything else designed to defeat jobs.ch's bot detection. `lib/jobsch.ts` uses a plain
   `fetch()` with a standard (non-spoofed) browser User-Agent, a fixed inter-request
   delay, and hard caps (`RESULTS_PAGE`, `MAX_NEW_JOBS_PER_RUN`) — keep it that way.
-- The search is **manually triggered only** (the "Search all job sites" button calls
+- The search is **manually triggered only** (the two search buttons call
   `POST /api/scrape`) — no scheduled/cron automation exists or should be added without
   a fresh explicit decision, since unattended background fetching is a materially bigger
   step than a user-clicked action.
@@ -79,18 +91,25 @@ Build a private job-search companion for a user seeking roles where English alon
 - A full, sanctioned jobs.ch ingestion integration (higher volume, scheduled, or
   authenticated) still requires written JobCloud permission or an authorized API/feed.
   Employer-side XML ingestion is not a public job-seeker search API.
-- **2026-08-27 source expansion:** after a source-specific terms/robots/technical review,
+- **2026-08-27 source expansion; portfolio retained 2026-09-09 (#32):** after a source-specific terms/robots/technical review,
   the user explicitly asked the same manually triggered automatic behavior to cover other
   Swiss and Netherlands sites. The currently enabled adapters are jobs.ch, jobup.ch,
   JobScout24, IamExpat, and Undutchables. The three Swiss sites are JobCloud properties and
-  therefore share the known unsanctioned-automation risk. IamExpat uses current public job
-  paths. Undutchables uses only its plain public listing page, not the query-string paths
-  disallowed by its robots policy. Keep caps, fixed delays, and truthful source reporting.
+  therefore share the known unsanctioned-automation risk and remain administrator/VPN-only.
+  IamExpat is administrator-only but does not require the VPN; it uses current public job paths.
+  Undutchables remains administrator/VPN-only after prior blocking and uses only its plain public
+  listing page, not the query-string paths disallowed by its robots policy. The private portfolio
+  produced 12 measured English-confirmed jobs. Keep caps, fixed delays, truthful reporting and the
+  no-evasion rule; do not expand the volume because of that result.
 - Indeed Switzerland/Netherlands remain `blocked`: their rules prohibit automated access
-  without written permission and live requests returned HTTP 403. Job-Room is
-  `unavailable` because its documented API is for employer publication, Nationale
+  without written permission and live requests returned HTTP 403. Nationale
   Vacaturebank is `unavailable` after HTTP 403, and I amsterdam is `disabled` because it
   is a guide rather than a job feed. Never bypass these outcomes. LinkedIn is excluded.
+- **Job-Room (arbeit.swiss) is live, not unavailable.** An earlier note here called it
+  unavailable on the basis that its documented API is for employer publication. Its
+  unauthenticated public search and detail endpoints have been in use since 31 August
+  (`lib/job-room.ts`, registered in `lib/job-adapters.ts`) and it is a full-text public
+  source. See `docs/SOURCE_POLICY.md` §2.
 - Every configured source must write a truthful per-run status. Do not label a blocked,
   unavailable, disabled, or failed source as searched successfully.
 
@@ -138,8 +157,9 @@ the optional native binding. Local Miniflare/Workers state is under the environm
   with UI automation, public proxies, proxy rotation, or IP cycling.
 - Validate all manually imported URLs server-side; do not trust browser input.
 - Keep one SQL statement per D1 `prepare()` call. Add indexes for new recurring queries.
-- The schema lives in three hand-synced places: base creation in `db/runtime.ts`, ordered
-  applied upgrades in `db/migrations.ts`, and Drizzle's generation model in `db/schema.ts`.
+- The schema lives in two hand-synced places: base creation in `db/runtime.ts` and
+  ordered applied upgrades in `db/migrations.ts`. Drizzle and `db/schema.ts` were removed
+  entirely, so there is no third generation model to keep in step.
   Add a new migration version for every schema change; never edit an applied
   migration or reset `.wrangler/` as a shortcut. Back up local state and test both existing
   and fresh databases. See `docs/ARCHITECTURE.md` §7a.

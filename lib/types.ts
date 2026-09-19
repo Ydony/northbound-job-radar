@@ -1,5 +1,7 @@
 import type { LanguageStatus } from './analysis';
 import type { WorkplaceType } from './workplace';
+import type { JobExcerpt } from './excerpt';
+import type { ExtractedRequirements } from './requirements';
 
 export type CvSlot = 'a' | 'b';
 export type WorkplaceMode = 'any' | 'remote' | 'hybrid' | 'onsite';
@@ -43,7 +45,29 @@ export interface JobRecord {
   title: string;
   company: string;
   location: string;
-  description: string;
+  /**
+   * The employer's advertisement text is deliberately absent from this type.
+   *
+   * Reading a source and republishing what it holds are two different permissions
+   * (docs/SOURCE_POLICY.md §1). The advertisement is written by the employer, not by the source
+   * and not by us, so it is fetched, screened server-side, and stops there. What reaches a client
+   * is facts about the job plus our own work on it — the verdict, the extracted requirements, and
+   * whether it matches the saved criteria — and a link to the page the employer chose to publish.
+   *
+   * These three fields exist so nothing in the interface needs the text back.
+   */
+  /** Characters of advertisement the source published. Distinguishes a teaser from a full ad. */
+  descriptionLength: number;
+  /** Our own extraction, not the employer's prose. Null when the ad states none under a heading. */
+  requirements: ExtractedRequirements | null;
+  /**
+   * One short line saying what the employer asks for, so the card answers "can I do this job?".
+   * Capped at MAX_EXCERPT_CHARS; `source` says how confident it is. Null when the ad says nothing
+   * usable, which is shown as nothing rather than as a guess.
+   */
+  excerpt: JobExcerpt | null;
+  /** Evaluated server-side against the saved criteria, because the client no longer has the text. */
+  matchesCriteria: boolean;
   languageStatus: LanguageStatus;
   languageSummary: string;
   languageSignals: string[];

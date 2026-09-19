@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { atsCompanies, feedUrl, parseFeed, type AtsCompany } from '../lib/ats-feeds';
+import { atsCompanies, BOARD_CONCURRENCY, fetchCompany, feedUrl, mapWithConcurrency,
+  parseFeed, type AtsCompany } from '../lib/ats-feeds';
 
 const greenhouse: AtsCompany = { slug: 'example', name: 'Example', platform: 'greenhouse', country: 'netherlands' };
 
@@ -66,4 +67,42 @@ test('parses a Personio XML feed', () => {
 test('drops entries missing a URL, title or description', () => {
   const body = JSON.stringify({ jobs: [{ absolute_url: '', title: 'x', content: '' }, { absolute_url: 'u', title: '', content: 'c' }] });
   assert.equal(parseFeed(greenhouse, body).length, 0);
+});
+
+test('board fetching never has more requests in flight than the platform allows', async () => {
+  // Cloudflare queues a seventh simultaneous connection per invocation. Opening more buys nothing
+  // but waiting, so the pool is held to the platform's number.
+  let inFlight = 0;
+  let peak = 0;
+  const results = await mapWithConcurrency(Array.from({ length: 40 }, (_, i) => i), BOARD_CONCURRENCY, async (i) => {
+    inFlight += 1;
+    peak = Math.max(peak, inFlight);
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    inFlight -= 1;
+    return i * 2;
+  });
+  assert.ok(peak <= BOARD_CONCURRENCY, `peak concurrency ${peak} exceeded ${BOARD_CONCURRENCY}`);
+  assert.equal(peak, BOARD_CONCURRENCY, 'the pool should actually use its full width');
+  assert.deepEqual(results, Array.from({ length: 40 }, (_, i) => i * 2), 'results must keep input order');
+});
+
+test('a slow board times out on its own and does not fail the search', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = ((_url: string, init?: RequestInit) => new Promise((_, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+  })) as typeof fetch;
+  try {
+    const started = Date.now();
+    const jobs = await fetchCompany({ slug: 'slow', name: 'Slow', platform: 'greenhouse', country: 'netherlands' }, 50);
+    assert.deepEqual(jobs, []);
+    assert.ok(Date.now() - started < 1_000, 'the timeout did not cut the request short');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('no employer board is configured twice', () => {
+  const keys = atsCompanies.map((company) => `${company.platform}:${company.slug.toLowerCase()}`);
+  const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index);
+  assert.deepEqual(duplicates, []);
 });

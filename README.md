@@ -29,7 +29,7 @@ Apple Silicon/Intel macOS instructions, Windows instructions, VPN setup, and nor
 
 1. Upload up to two PDF, DOCX, or TXT CVs (e.g. a generalist and a specialist version). Ik ben een appel detects a likely target role from each CV's own content; you can override either role when the heuristic is too broad.
 2. Add up to five persisted search roles (for example Supply Chain, Data Analyst, Data Governance, Master Data, and Business Analyst), plus optional location/canton, workplace, seniority, contract, required-keyword, and exclusion filters.
-3. Click **Search all job sites**. One manually triggered run checks every configured source and records a truthful result for each. The currently enabled public-page adapters are jobs.ch, jobup.ch, JobScout24, IamExpat, and Undutchables. LinkedIn is deliberately excluded.
+3. Click **Search — VPN off** for ordinary sources. A local administrator can use the enforced VPN launcher and **Search all — VPN on** to add the private page-fetching tier. jobs.ch, jobup.ch, JobScout24 and Undutchables stay VPN-gated; IamExpat is administrator-only without a VPN requirement. Every source records a truthful result. LinkedIn is deliberately excluded.
 4. High-volume discovery uses Job-Room, Adzuna, Careerjet when configured, and verified public
    employer ATS boards. Sources that cannot be searched are still shown truthfully: Indeed is
    blocked, Nationale Vacaturebank is unavailable, and I amsterdam is a guide rather than a feed.
@@ -67,7 +67,7 @@ Open `http://localhost:3001` for test. Dev and test have different D1 databases,
 session secrets. Their local data lives under `.wrangler/dev/state` and `.wrangler/test/state`.
 See `docs/ENVIRONMENTS.md` before resetting, copying, or migrating either environment.
 
-For the optional Windows privacy launcher, run `npm run vpn:setup` once, complete the
+For the optional Windows administrator-source launcher, run `npm run vpn:setup` once, complete the
 provider's visible sign-in and Netherlands/kill-switch setup, then use
 `npm run dev:private`. That launcher refuses to start without a detected full VPN route.
 See `docs/VPN.md`; no VPN credentials are stored by Ik ben een appel.
@@ -102,6 +102,7 @@ column rename.
 - `lib/analysis.ts` — deterministic language gate and per-CV fit scoring
 - `lib/role-detection.ts` — derives a likely target role from CV text
 - `lib/job-adapters.ts` — shared Swiss/Netherlands adapter roster and source parsers
+- `lib/job-room-backfill.ts` — bounded, rerunnable repair for preview-length legacy Job-Room rows
 - `lib/job-identity.ts` — canonical URLs, source metadata, and conservative deduplication
 - `lib/jobsch.ts` — shared structured-job parsing helpers retained from the first jobs.ch adapter
 - `tests/` — language, role, scoring, export, adapter, identity, and migration regression tests

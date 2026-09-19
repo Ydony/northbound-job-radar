@@ -1,4 +1,4 @@
-import type { CvProfile, CvSlot, JobRecord, SearchCriteria } from './types';
+import type { CvProfile, CvSlot, SearchCriteria } from './types';
 
 export const defaultSearchCriteria: SearchCriteria = {
   roleOverrideA: '',
@@ -69,7 +69,15 @@ function normalized(value: string) {
  * They cost nothing there, and dropping columns is the sort of migration worth avoiding when the
  * only benefit is tidiness.
  */
-export function matchesSearchCriteria(job: JobRecord, criteria: SearchCriteria) {
+/**
+ * Takes the fields it reads rather than a JobRecord, because JobRecord no longer carries the
+ * advertisement text. This now runs server-side, where the text still exists, and only its
+ * boolean answer travels to a client.
+ */
+export function matchesSearchCriteria(
+  job: { title: string; location: string; description: string },
+  criteria: SearchCriteria,
+) {
   const text = normalized(`${job.title} ${job.location} ${job.description}`);
   if (criteria.requiredKeywords.some((keyword) => !text.includes(normalized(keyword)))) return false;
   if (criteria.excludedKeywords.some((keyword) => text.includes(normalized(keyword)))) return false;

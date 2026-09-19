@@ -1,5 +1,196 @@
 # Handover
 
+## 2026-09-19 - Standalone Indeed connector works; dashboard not connected
+
+Read the current checkpoint in [INDEED_INTEGRATION.md](INDEED_INTEGRATION.md), not the
+earlier refusal-only notes below. The owner approved the specifically discussed mobile
+identity header experiment. With certificate verification intact, one minimal probe returned
+HTTP 200 and a description-bearing Dutch job. Then the real TypeScript connector fetched two
+Dutch jobs across two pages and one Swiss job in three bounded requests. Description lengths
+were 7,534, 3,954 and 12,457 HTML characters; dates, employer and country were present.
+No phone, account login, personal token or cookies were needed by this tested path.
+
+Implemented in the existing isolated auth worktree: `lib/indeed/contracts.ts`, `auth.ts`,
+`client.ts` and synthetic tests. Credentials are explicit backend config, never tracked.
+Caps, timeouts, refusal/cooldown behavior, query escaping, response validation and partial
+result reporting are included. This is version 1 of the downstream transport interface.
+
+Verification: 212 automated tests passed, including 18 focused Indeed tests; typecheck,
+lint and production build passed. Live evidence is limited to the three connector requests
+above (plus the initial probe), not volume testing or dashboard acceptance. #64/#65 are
+ready for review; downstream tasks remain separate and no stable-test promotion occurred.
+
+The stable app has **not** been changed: #66 normalization/completeness, #67 source integration
+and tenancy, #68 reporting, #69 UI/QA remain. Do not mark the whole Indeed feature done or
+claim 200-400 results were tested. Records deliberately retain unknown completeness until
+that is validated. No owner database, account, dev/test configuration or server was touched.
+
+## 2026-09-19 - JobSpy comparison and second desktop probe
+
+Latest evidence is in [INDEED_INTEGRATION.md](INDEED_INTEGRATION.md). JobSpy's
+Indeed connector has no personal OAuth flow, so the earlier OAuth-only direction
+was too narrow. One owner-requested, modified JobSpy-style query for one job and
+its description returned non-JSON HTTP 403. No data was retrieved and no retry ran.
+
+The test kept certificate verification and a truthful client identity. It did not
+copy JobSpy's iPhone app identity headers, so it is not evidence that unmodified
+JobSpy succeeds or fails here. Preserve that distinction. Auth/client tasks remain
+incomplete, adapters disabled, and the owner servers/data untouched.
+
+## 2026-09-19 - Indeed auth evidence, not a working connector
+
+Continue from [INDEED_INTEGRATION.md](INDEED_INTEGRATION.md), especially the new
+authentication checkpoint. Static inspection found session-derived token handling,
+a renewal path and a query selecting job-description text. Private implementation
+details and research artifacts stay outside this public repository.
+
+The only desktop probe so far returned 403; no successful search/detail or token
+renewal was demonstrated. Phone diagnostics did not expose a usable live auth
+exchange. No account cookies/tokens were extracted, no source was enabled and no
+owner servers or data were changed. #64 and #65 are still incomplete. Next needs
+provider-supported dynamic evidence or provisioned desktop access, not blind
+request retries or treating the embedded app key as sufficient authentication.
+
+## 2026-09-18 - Indeed task ownership (#63)
+
+The owner requested a multi-LLM task breakdown and explicitly assigned Indeed authentication and
+connection implementation to Codex. Read [INDEED_INTEGRATION.md](INDEED_INTEGRATION.md) for the
+worker boundaries, dependencies and acceptance criteria. GitHub parent #63 and child issues #64-69
+are the execution records on Project 4. Codex owns #64/#65 in run
+`ajh-indeed-auth-connection-20260918-171415-590073`; other implementation tasks are unclaimed.
+
+This checkpoint creates coordination documents only. Indeed is still disabled; no working search,
+authentication lifecycle, unlimited quota or complete-description request has been demonstrated.
+The owner reports authorization for local assessment. Private research and credentials stay outside
+Git and public issues. Other LLMs consume a sanitized frozen contract and synthetic fixtures, not
+phone or account artifacts. Contract revision 1 is the next Codex deliverable. Do not restart the
+owner's server or enable the source merely because these tasks exist.
+
+## 2026-09-09 restricted-source decision (#32)
+
+Keep the small private source portfolio. jobs.ch, jobup.ch and JobScout24 remain local
+administrator/VPN-only; IamExpat remains local-administrator-only without a VPN requirement;
+Undutchables remains local-administrator/VPN-only because it previously blocked automation. No
+source was removed, no stored rows were deleted, and no caps, schedules or access paths were added.
+
+The reason is quality, not volume. The measured data contains 12 full-advertisement
+English-confirmed jobs from this portfolio: jobs.ch 3, jobup.ch 6, IamExpat 1 and Undutchables 2,
+alongside 114 confirmed jobs from the public tier. JobScout24 has no separate measured yield and is
+retained on probation because it shares the existing JobCloud adapter and VPN boundary. Revisit only
+after repeated successful zero-yield searches, recurring maintenance failures, changed rules or a
+block.
+
+JobCloud's current terms still prohibit automation and jobs.ch robots.txt still disallows the detail
+paths read. The owner accepted that risk only for the private administrator tier. The fixed delay,
+four-new-details-per-source cap, manual trigger, unauthenticated access, VPN gate and no-evasion rule
+remain non-negotiable. Undutchables robots.txt is readable again and permits the exact plain listing
+and detail paths used while disallowing query-string searches; its prior blocking is why the VPN
+precaution stays. Running servers and local data were not touched.
+
+## 2026-09-09 Careerjet decision (#31)
+
+Careerjet is retained as a **local administrator-only discovery source**. It is not a public or
+hosted feature. Leave `CAREERJET_API_KEY`, `CAREERJET_REFERER` and `CAREERJET_USER_IP` unset in every
+hosted environment; local use is allowed only with a correctly registered publisher site/key and
+real request details. The server-side audience gate and the `jobviewtrack.com` storage alias remain
+mandatory.
+
+The existing 237 leads were deliberately preserved. They produced zero English-confirmed jobs and
+233 `unknown` verdicts because the API supplies 279-character teasers, but they may still be useful
+for an administrator to inspect manually. A Careerjet result must never be presented as proof that
+English is sufficient. The admin conversion report is the basis for any later retirement decision.
+
+The current official publisher documentation was rechecked before recording this decision. It
+requires a unique key per publisher website, the real end-user IP and user agent, and an originating
+page Referer. The current placeholder registration remains unresolved and is not permission for a
+public integration. No database rows, credentials, environments or running servers were changed.
+
+## 2026-09-09 Adzuna public-tier decision (#30)
+
+Adzuna is retained as an administrator-only coverage measure and removed from ordinary accounts.
+The current publisher terms permit listing publication and personal research, but the standard API
+only supplies the 500-character teasers that produced zero English-confirmed jobs. Full job details
+are a separate Adzuna data service; the app does not follow redirect targets to copy third-party
+text.
+
+Both adapter keys and the stored result hosts (`adzuna.ch`, `adzuna.nl`) are in the server-derived
+administrator-only set. This hides existing jobs, future searches and per-run rows from ordinary
+accounts while preserving the administrator conversion report. No rows or detector verdicts are
+changed. The administrator result view acknowledges “The Adzuna API” and links to the relevant
+local domain. `/sources` now uses the same audience split, so it does not disclose Adzuna or the
+other private discovery sources to an ordinary visitor.
+
+Source decision and current terms links are in `docs/SOURCE_POLICY.md` §3. Verified against an
+isolated copy of the populated test database: the administrator received 346 visible Adzuna cards
+and Adzuna run rows, with all four hidden keys advertised to the client-side preview. A fresh
+ordinary account received zero jobs after importing its own `adzuna.nl` row, received no private
+source names, and its `/sources` page did not contain Adzuna; the administrator page did. All 155
+tests, lint, typecheck and the production build pass. The temporary port 3013 Worker was stopped;
+the owner's dev/test servers and databases were not touched.
+
+## 2026-09-14 — stored duplicate links (#50)
+
+Implemented in isolated branch `ai/recluster-stored-jobs-20260914-132120-382758`;
+not yet integrated into the owner's primary checkout or its saved test workspace.
+The GitHub board is https://github.com/users/Ydony/projects/4.
+
+- Previously `/api/state` reclustered only if a job had an empty `cluster_key`. Existing
+  links therefore retained the old date rules, hiding some distinct reposts indefinitely.
+- Migration 17 adds an indexed per-row `cluster_version`. Version 16 is reserved for the
+  separately pending Job-Room backfill in PR #52; do not reuse that number when integrating.
+- `ensureCurrentJobClusters` rechecks the whole signed-in account if any member is stale.
+  New imports default to stale; normalization invalidates links after changing matching fields.
+  Keyless jobs are marked complete too, so they do not force repeated full recomputation.
+- Each batch writes links and versions together. An interrupted later batch leaves stale
+  members, so the next read retries the whole group. No user actions, verdict corrections,
+  dismissal tombstones or other accounts are rewritten by clustering.
+- Validation: 159 tests, lint, typecheck and build passed. Four new tests exercise real D1
+  SQL for a populated pre-upgrade table, owner isolation, personal-state preservation,
+  a 51-row interrupted batch, new imports and normalization invalidation.
+- `scripts/verify-cluster-workflow.mjs` passed against isolated hot-reload dev and the built
+  test Worker, each with newly registered ordinary accounts and synthetic data. It checks CV
+  upload, criteria, duplicate folding, distinct reposts, actions, correction retention,
+  cross-account mutation refusal and dismissal on repeated import. No external sources are called.
+  Test verification used port 3011 and an **absolute** `--env-file` path; a relative one initially
+  omitted the session secret and returned 503. The normal test launcher already uses an absolute path.
+- Fresh owner-workspace backups were created and hash/restore-copy verified before work:
+  `local-backups/test/2026-09-14T11-22-07-004Z` and
+  `local-backups/dev/2026-09-14T11-22-07-951Z` in the primary checkout. No saved owner data was migrated.
+
+Next: review/integrate this branch with the existing unpushed primary commits, then promote to
+the owner's stable test environment. Public hosting, new sources and pagination are separate tasks.
+The historical sections below still contain older counts and superseded feature descriptions.
+
+## 2026-09-08 Job-Room legacy-description backfill (#29)
+
+Implemented on the isolated `ai/source-portfolio-20260908-165232-234475` branch; it has not been
+applied to the stable test workspace. The administrator page now has a manually triggered
+**Backfill Job-Room descriptions** action for the signed-in administrator's own stored jobs.
+
+- It selects only `job-room.ch` rows below the existing 900-character full-text threshold, fetches
+  at most 120 details per run, and keeps the existing fixed 400 ms pace. Failed details remain
+  eligible for a later retry.
+- Migration 16 adds `job_room_detail_version`. A successful detail fetch is marked even when the
+  source's complete advert is unusually short, so rerunning never loops over it forever.
+- A longer detail replaces only the description and derived language/CV/workplace analysis.
+  Saved, applied, dismissed, duplicate, and `language_feedback` state are not updated.
+- The report shows attempted, fetched, updated, already-complete, failed and remaining counts plus
+  every raw detector transition such as `unknown → blocked`. User corrections continue to control
+  the effective verdict because they remain separate.
+- The backfill's structured/prose precedence is covered with the same cases as normal Job-Room
+  search: employer-declared local requirements and explicit blocking text both win.
+
+Verification: all 128 tests on this branch, lint, typecheck and the production build pass. Migration 16 was applied
+to a verified offline backup containing 1,004 jobs and two language-feedback rows; job/action and
+feedback counts were unchanged. A fresh throwaway local Worker on port 3012 fetched one current
+Job-Room detail, expanded 215 characters to 1,476, changed `unknown → blocked`, preserved card
+state, refused an ordinary account with 403, and fetched zero rows on rerun. That temporary server
+was stopped; the owner's dev/test servers and saved state were not touched.
+
+After this branch is reviewed and merged, rebuild test, sign in as its administrator, and run the
+button until Remaining reaches zero. The issue's measured 234 short rows should require two runs,
+apart from any detail failures that need a retry.
+
 ## 2026-09-07 integration planning handover
 
 The owner now intends a free public service plus separate administrator discovery. Read
@@ -41,8 +232,9 @@ Working and verified locally:
 - Multi-user accounts with per-account isolation. Every table has an owner column and all queries
   are scoped. A second account genuinely cannot see or touch the first's data — tested.
 - Sign-in, sign-out, account settings, account deletion, and an administrator panel.
-- Seven job sources: Job-Room (67k Swiss vacancies, no key), Adzuna (CH + NL), Careerjet (CH + NL),
-  61 public company career boards, and three page-fetching sources restricted to administrators.
+- Configured sources include Job-Room (67k Swiss vacancies, no key), Adzuna (CH + NL), Careerjet
+  (CH + NL), 61 public company career boards, and five private page-fetching adapters. Four of the
+  five require the VPN launcher; all five are restricted to administrators.
 - `dev` at `http://localhost:3000` with disposable state under `.wrangler/dev/state`. **Its
   database is empty** — no jobs, no CVs. Task A3 needs an account registered and a CV uploaded
   there first, which is deliberate: testing against freshly created data is exactly what exposes
@@ -81,9 +273,9 @@ access on 2026-08-31. Do not deploy again without a new explicit owner decision;
 `user_id = 'legacy'` and are adopted by the first account registered. On an empty database this
 does nothing.
 
-**Sources sit in three tiers, and the tier decides who can run them.** `authorized-api` (keyed or
-official APIs) and `grey-area` (public pages whose robots.txt permits the paths read and whose terms
-say nothing) run for everyone. `restricted` means the site explicitly prohibits automated access or
+**Sources sit in three tiers, and the tier plus `adminOnly` decides who can run them.**
+`authorized-api` and `grey-area` are eligible without the VPN, but an adapter such as IamExpat can
+still be administrator-only. `restricted` means the site explicitly prohibits automated access or
 actively blocks it: administrator only, and refused unless the process was started through
 `npm run dev:private`, which verifies a full VPN route and sets `VPN_ENFORCED`. The button label is
 not the enforcement; that env marker is.

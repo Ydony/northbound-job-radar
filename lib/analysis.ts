@@ -107,6 +107,26 @@ export function analyzeStructuredLanguages(skills: StructuredLanguageSkill[]): L
   };
 }
 
+/**
+ * Apply structured requirements and prose screening with one shared precedence rule.
+ *
+ * Job-Room publishes employer-declared language levels. Those are stronger evidence than prose,
+ * except that an explicit blocking phrase in the title/body must still win when the structured
+ * list is incomplete. Keeping this here prevents normal search and maintenance backfills from
+ * producing different verdicts for the same advertisement.
+ */
+export function analyzeJobLanguage(
+  description: string,
+  title = '',
+  skills: StructuredLanguageSkill[] = [],
+): LanguageResult {
+  const structured = skills.length ? analyzeStructuredLanguages(skills) : null;
+  if (structured?.status === 'blocked') return structured;
+  const fromText = analyzeLanguage(description, title);
+  if (fromText.status === 'blocked') return fromText;
+  return structured ?? fromText;
+}
+
 const localLanguages = ['german', 'french', 'italian', 'dutch', 'deutsch', 'français', 'francais', 'italiano', 'nederlands'];
 
 const englishMarkers = new Set([
@@ -195,8 +215,21 @@ export function analyzeLanguage(description: string, title = ''): LanguageResult
   const englishScore = tokens.filter((token) => englishMarkers.has(token)).length;
   const localScore = tokens.filter((token) => nonEnglishMarkers.has(token)).length;
   const enoughText = tokens.length >= 55;
+  /**
+   * Ruling English *out* needs far less text than confirming it in, and the two used to share the
+   * 55-token bar. They should not: that bar exists so a thin preview cannot *confirm* English on
+   * weak evidence, which is the error this product cannot absorb. Recognising that an advertisement
+   * is French is the opposite case — forty words of French is conclusive.
+   *
+   * Found on a real job: Rolex's "Business Analyst - Master Data (H/F)", written in French, was
+   * stored twice. Adzuna's copy (500 characters, 76 tokens) was correctly blocked; Job-Room's copy
+   * of the same advertisement (263 characters, 40 tokens) fell under the bar, skipped this check
+   * entirely and was filed as "not enough of the ad" — inviting the reader to go and check an
+   * advertisement whose language was already obvious.
+   */
+  const enoughToRuleOutEnglish = tokens.length >= 12;
   const clearlyEnglish = enoughText && englishScore >= 7 && englishScore >= localScore * 1.35;
-  const clearlyLocal = enoughText && localScore >= 7 && localScore > englishScore * 0.8;
+  const clearlyLocal = enoughToRuleOutEnglish && localScore >= 7 && localScore > englishScore * 0.8;
 
   if (clearlyLocal) {
     return {

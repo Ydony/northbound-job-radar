@@ -14,9 +14,32 @@
  * regular expressions rather than being scanned one at a time, and every gap between a cue and a
  * language is expressed with a negated character class so the matcher cannot backtrack
  * exponentially over a long advertisement.
+ *
+ * Measured 2026-09-08, after the other-language table took the alternation from 5 languages to
+ * 30: 1,004 full-length advertisements screen in ~95ms, or 95µs each. It was ~49ms with five.
+ * The budget that matters is the search it runs inside, which takes tens of seconds, so there is
+ * room here — but re-measure rather than assume if these tables grow again.
  */
 
-export type LanguageName = 'German' | 'French' | 'Italian' | 'Dutch' | 'Spanish';
+/**
+ * The five languages a Swiss or Dutch advertisement is most likely to demand, plus every other
+ * language that can appear in one.
+ *
+ * The split matters. The first five are the local languages this product exists to detect, and
+ * they carry the full set of native spellings because an ad written in German calls the language
+ * "Deutsch". The rest are here for one reason: a requirement for *any* language other than
+ * English blocks a job just as firmly, and before this list existed "Fluent Polish is required"
+ * was reported as English-sufficient — a false pass, the one error this product cannot absorb.
+ */
+export type LocalLanguageName = 'German' | 'French' | 'Italian' | 'Dutch' | 'Spanish';
+
+export type OtherLanguageName =
+  | 'Portuguese' | 'Polish' | 'Czech' | 'Slovak' | 'Hungarian' | 'Romanian' | 'Bulgarian'
+  | 'Greek' | 'Turkish' | 'Russian' | 'Ukrainian' | 'Swedish' | 'Norwegian' | 'Danish'
+  | 'Finnish' | 'Croatian' | 'Serbian' | 'Slovenian' | 'Arabic' | 'Hebrew' | 'Hindi'
+  | 'Mandarin' | 'Cantonese' | 'Japanese' | 'Korean';
+
+export type LanguageName = LocalLanguageName | OtherLanguageName;
 
 /**
  * Every spelling of each language that appears in Swiss and Dutch advertisements, including the
@@ -25,7 +48,7 @@ export type LanguageName = 'German' | 'French' | 'Italian' | 'Dutch' | 'Spanish'
  * Compound forms are listed in full ("Deutschkenntnisse") because a word boundary will not find
  * "Deutsch" inside them. English is deliberately absent: it is the one language that never blocks.
  */
-const languageSpellings: Record<LanguageName, string[]> = {
+const localLanguageSpellings: Record<LocalLanguageName, string[]> = {
   German: ['german', 'germanic', 'deutsch', 'deutsche', 'deutschen', 'deutscher', 'deutschkenntnisse',
     'deutschkenntnissen', 'allemand', 'allemande', 'tedesco', 'duits', 'duitse', 'schweizerdeutsch',
     'swiss german'],
@@ -37,6 +60,45 @@ const languageSpellings: Record<LanguageName, string[]> = {
     'nederlandse', 'neerlandais', 'néerlandais', 'olandese', 'hollands'],
   Spanish: ['spanish', 'spanisch', 'spanischkenntnisse', 'espanol', 'español', 'espagnol', 'espagnole',
     'spagnolo', 'spaans', 'spaanse'],
+};
+
+/**
+ * Other languages, in the forms an English, German, French, Dutch or Italian advertisement would
+ * write them. Deliberately shallower than the table above: these do not need every declension,
+ * because the job here is only to stop a mandatory requirement slipping through as English. A
+ * requirement for one of these produces the same block as a requirement for German.
+ */
+const otherLanguageSpellings: Record<OtherLanguageName, string[]> = {
+  Portuguese: ['portuguese', 'portugiesisch', 'portugais', 'portugees', 'portoghese', 'portugues', 'português'],
+  Polish: ['polish', 'polnisch', 'polonais', 'pools', 'polacco', 'polski'],
+  Czech: ['czech', 'tschechisch', 'tcheque', 'tchèque', 'tsjechisch', 'ceco'],
+  Slovak: ['slovak', 'slowakisch', 'slovaque', 'slowaaks'],
+  Hungarian: ['hungarian', 'ungarisch', 'hongrois', 'hongaars', 'ungherese', 'magyar'],
+  Romanian: ['romanian', 'rumanisch', 'rumänisch', 'roumain', 'roemeens', 'rumeno'],
+  Bulgarian: ['bulgarian', 'bulgarisch', 'bulgare', 'bulgaars'],
+  Greek: ['greek', 'griechisch', 'grec', 'grieks', 'greco'],
+  Turkish: ['turkish', 'turkisch', 'türkisch', 'turc', 'turks', 'turco'],
+  Russian: ['russian', 'russisch', 'russe', 'russo'],
+  Ukrainian: ['ukrainian', 'ukrainisch', 'ukrainien', 'oekraiens', 'oekraïens'],
+  Swedish: ['swedish', 'schwedisch', 'suedois', 'suédois', 'zweeds', 'svedese'],
+  Norwegian: ['norwegian', 'norwegisch', 'norvegien', 'norvégien', 'noors', 'norvegese'],
+  Danish: ['danish', 'danisch', 'dänisch', 'danois', 'deens', 'danese'],
+  Finnish: ['finnish', 'finnisch', 'finnois', 'fins', 'finlandese'],
+  Croatian: ['croatian', 'kroatisch', 'croate', 'kroatisch', 'croato'],
+  Serbian: ['serbian', 'serbisch', 'serbe', 'servisch', 'serbo'],
+  Slovenian: ['slovenian', 'slowenisch', 'slovene', 'slovène', 'sloveens'],
+  Arabic: ['arabic', 'arabisch', 'arabe', 'arabo'],
+  Hebrew: ['hebrew', 'hebraisch', 'hebräisch', 'hebreu', 'hébreu', 'hebreeuws'],
+  Hindi: ['hindi'],
+  Mandarin: ['mandarin', 'mandarijn', 'putonghua'],
+  Cantonese: ['cantonese', 'kantonesisch', 'cantonais'],
+  Japanese: ['japanese', 'japanisch', 'japonais', 'japans', 'giapponese'],
+  Korean: ['korean', 'koreanisch', 'coreen', 'coréen', 'koreaans'],
+};
+
+const languageSpellings: Record<LanguageName, string[]> = {
+  ...localLanguageSpellings,
+  ...otherLanguageSpellings,
 };
 
 /**

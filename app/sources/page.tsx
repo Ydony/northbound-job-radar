@@ -3,7 +3,8 @@ import { authSecrets, bindings, ensureSchema } from '@/db/runtime';
 import { readSessionValue } from '@/lib/auth';
 import { findUserById } from '@/lib/users';
 import { atsCompanies } from '@/lib/ats-feeds';
-import { collectionPrinciples, POLICIES_VERIFIED_ON, sourcePolicies, stanceLabel } from '@/lib/source-policies';
+import { collectionPrinciples, POLICIES_VERIFIED_ON, sourcePoliciesForRole, stanceLabel } from '@/lib/source-policies';
+import { ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK } from '@/lib/attribution';
 
 export const metadata = {
   title: 'Where the jobs come from — Ik ben een appel',
@@ -42,7 +43,8 @@ const groupBlurb: Record<(typeof groups)[number], string> = {
 
 export default async function SourcesPage() {
   const isAdmin = await viewerIsAdmin();
-  const visibleGroups = groups.filter((group) => group !== 'Restricted sites' || isAdmin);
+  const visiblePolicies = sourcePoliciesForRole(isAdmin);
+  const visibleGroups = groups.filter((group) => visiblePolicies.some((policy) => policy.group === group));
   return (
     <main className="shell">
       <header className="topbar">
@@ -75,7 +77,7 @@ export default async function SourcesPage() {
             <p>{groupBlurb[group]}</p>
           </div>
           <div className="policy-list">
-            {sourcePolicies.filter((policy) => policy.group === group).map((policy) => (
+            {visiblePolicies.filter((policy) => policy.group === group).map((policy) => (
               <article className={`policy-card ${policy.stance}`} key={policy.name}>
                 <div className="policy-card-head">
                   <h3>{policy.name}</h3>
@@ -109,6 +111,14 @@ export default async function SourcesPage() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="policy-principles">
+        <h2>Required attribution</h2>
+        <p className="source-attribution">
+          {ELA_ATTRIBUTION}{' '}
+          <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a>
+        </p>
       </section>
 
       <footer>

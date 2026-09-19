@@ -184,4 +184,6 @@ These are known, tracked, and deliberately not done yet:
 | ~~**B3**~~ | **Done.** Sign-in rate limiting is held in the database and was verified across a worker restart, so it is no longer part of this pass. |
 | ~~**P2**~~ | **Built.** Per-source conversion report, administrator-only. |
 | ~~**P5b**~~ | **Built.** Places unfold under each country with counts, grouped by one name per city. |
-| **E6** | Job requirements are not shown on the card yet. |
+| ~~**E6a**~~ | **Done.** Requirements render collapsed on the card where the ad states them under a heading. |
+| ~~**E6b**~~ | **Done.** Teaser-length ads say so and point at the original page instead of showing nothing. |
+| **E6c** | Jobs stored before ingest preserved list markup have not been re-fetched, so their requirements are still unextractable. |

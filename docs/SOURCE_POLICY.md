@@ -25,8 +25,22 @@ important thing in this document, and it applies to every public source, not jus
 **The consequence, and it is a design rule, not a caveat:**
 
 > The public tier shows **facts and our own work** — job title, employer, place, date, source name,
-> our language verdict and our own extracted requirement bullets — plus a link to the original
-> advertisement. It does **not** republish the employer's full advertisement text.
+> our language verdict, our own extracted requirement bullets, and one short line saying what the
+> job asks for — plus a link to the original advertisement. It does **not** republish the
+> employer's full advertisement text.
+
+**The short line, added 2026-09-18 (#61).** A card that shows the title, the employer and a language
+verdict does not answer the question that decides whether to open an advertisement at all: *can I do
+this job?* Requirement bullets answer it, but only 22% of full-length advertisements state
+requirements under a heading the extractor trusts. So a single line is shown, capped at **400
+characters**, drawn in this order: the employer's own requirement bullets; failing that, sentences
+that explicitly state a requirement; failing that, the opening line of the advertisement, labelled
+as describing the role rather than the requirements.
+
+This is the same exception §1 already makes for requirement bullets, at the length of a
+search-result snippet rather than a copy of the advertisement, and it travels with the link that
+names where it came from. The full text still stops at the server. `lib/excerpt.ts` holds the cap and
+`tests/excerpt.test.ts` enforces it.
 
 The full text is still fetched and still screened. It is used server-side to decide the language
 verdict, then it is not the public tier's to hand out. Administrators, working on their own
@@ -44,7 +58,6 @@ one click away on a page the employer chose to publish it on.
 |---|---|---|
 | **EURES CH/NL** | Public endpoint (`/public/` in the path), `robots.txt` does not disallow `/eures/`, and the EURES legal notice states plainly: *"Re-use is authorised, provided that ELA is acknowledged as the source of the material."* | **Attribution to the European Labour Authority (ELA) is mandatory** and is currently not implemented — see §4. Metadata + link only, per §1. |
 | **Job-Room (arbeit.swiss)** | Official Swiss public employment service. Unauthenticated public search and detail API, no key. Owner-assumed permission recorded separately. | Metadata + link only. Keep the per-advertisement detail fetch paced and capped as it is now. |
-| **Adzuna CH/NL** | Licensed publisher API; terms accepted when the key was issued. | Adzuna's publisher terms require attribution — verify the exact wording against the current terms before launch. Descriptions are capped at 500 characters, so these are `unknown` by design, not `pass`. |
 | **Employer ATS boards** (Greenhouse, Lever, Ashby, Recruitee, Personio) | Endpoints the platforms publish specifically so aggregators can consume them. | Metadata + link only. The employer publishes the board; the text is still theirs. |
 
 ### Why EURES is public here and admin-only in the older plan
@@ -77,9 +90,11 @@ use a source, the second additionally requires the VPN launcher.
 
 | Source | Why |
 |---|---|
-| **Careerjet CH/NL** | Licensed to one declared IP address. Workable for the owner, not offerable as a feature. Also produces 279-character teasers, so it cannot support a `pass` regardless. |
-| **IamExpat** | Read from public pages rather than an API. No access control is worked around, but there is no published permission either — `grey-area` is the honest label. |
-| **jobs.ch, jobup.ch, JobScout24, Undutchables** | Terms prohibit automated access. Page-fetching, VPN-gated, hard caps, administrator only. Do not raise the caps to hit a volume target. |
+| **Adzuna CH/NL** | **Decision 2026-09-09 (#30): retained for administrator measurement, removed from the public tier.** Its current API terms permit publishing listings and personal research, with default limits of 25 requests/minute and 250/day. Adverts displayed under the listing-publishing permission require “Jobs by Adzuna” branding at least 116 × 23 pixels; research publication must name “The Adzuna API” and link to the relevant local domain. The standard search response caps descriptions at 500 characters and has produced 351 stored jobs with zero English-confirmed results. Adzuna advertises full job details as a separate data service, while its API terms require queries to be directed through Adzuna and treat attempts to contact third-party content providers as a breach. Therefore the app does not fetch full text through `redirect_url`. Ordinary accounts do not search Adzuna and cannot receive its existing `adzuna.ch` / `adzuna.nl` jobs or run rows. Administrators retain it in the conversion report, with a private research acknowledgement and local-domain links. No stored detector verdict is rewritten by this change. [Current API terms](https://developer.adzuna.com/docs/terms_of_service) · [API offering](https://developer.adzuna.com/) |
+| **Careerjet CH/NL** | **Retained 2026-09-09 (#31), local administrator only.** Careerjet gives each publisher website a unique key and requires the real user's IP, user agent and originating-page Referer. The current placeholder registration is not sufficient for public use, and the local account also has an IP declaration constraint. Its 279-character teasers cannot support a `pass`, so it is discovery only. Leave all Careerjet credentials unset in hosted environments. |
+| **jobs.ch, jobup.ch, JobScout24** | **Retained 2026-09-09 (#32), local administrator and VPN only.** JobCloud's current terms prohibit automation; jobs.ch also disallows its detail pages in robots.txt. Keep the hard cap, fixed delay, manual trigger, no-login boundary and no-evasion rule. Do not raise the cap to hit a volume target. |
+| **IamExpat** | **Retained 2026-09-09 (#32), local administrator only; no VPN required.** It produced one English-confirmed job. The career paths read are outside its robots.txt disallow list and the published crawl delay is honoured, but there is no explicit permission, so `grey-area` remains the honest label. |
+| **Undutchables** | **Retained 2026-09-09 (#32), local administrator and VPN only.** It produced two English-confirmed jobs from three stored advertisements. Current robots.txt permits the plain `/vacancies` and detail paths used here while disallowing query-string searches, but the site previously returned HTTP 403 to automation. Keep the precautionary VPN gate and stop on blocking. |
 | **Indeed CH/NL** | Returns HTTP 403 and prohibits automated access without written permission. Assigning it to admin does not make it usable. |
 | **Nationale Vacaturebank** | HTTP 403. |
 | **I amsterdam** | A city guide, not a vacancy feed. |
@@ -89,19 +104,86 @@ Administrator-only source names, counts, run records and links must not appear i
 response — including for jobs stored before a source was reclassified. This is already enforced and
 verified end to end with a real second account; keep it that way.
 
+### Careerjet retention decision (#31)
+
+Careerjet is retained, not promoted to a public source and not treated as a production dependency.
+The existing local workspace has 237 Careerjet leads: none are English-confirmed and 233 are
+`unknown` because the API returns short teasers. They may still help the owner discover a vacancy
+and inspect the original advertisement manually, so deleting them now would destroy potentially
+useful private history without improving the public product.
+
+The boundary is explicit:
+
+- only an administrator can search Careerjet or receive its saved jobs, source names, counts and
+  run history;
+- it is enabled only in a local environment whose publisher key, registered site, Referer and real
+  administrator IP/user details satisfy the Careerjet account and current API documentation;
+- hosted environments leave `CAREERJET_API_KEY`, `CAREERJET_REFERER` and `CAREERJET_USER_IP` unset;
+- a Careerjet teaser never establishes that English is sufficient; it remains `unknown` until the
+  owner checks the original advertisement; and
+- the conversion report remains the evidence for the next review. If the retained leads continue
+  to produce no manually useful results, retirement can be reconsidered without having exposed the
+  source to public users.
+
+Official documentation checked 2026-09-09: [Careerjet publisher API](https://www.careerjet.com/partners/api/)
+and its [request examples](https://www.careerjet.com/partners/api/javascript).
+
+### Restricted-source retention decision (#32)
+
+Keep the small private source portfolio. Its purpose is not bulk coverage: it is to add
+full-advertisement, language-screenable leads for the owner where permitted public APIs and teaser
+aggregators miss them. In the measured workspace it contributed 12 English-confirmed jobs alongside
+114 from the public tier:
+
+| Source | Stored | English confirmed | Decision |
+|---|---:|---:|---|
+| jobs.ch | 62 | 3 | Keep, administrator + VPN only |
+| jobup.ch | 27 | 6 | Keep, administrator + VPN only |
+| JobScout24 | No separate measured yield | 0 measured | Keep on probation; it shares the JobCloud adapter and VPN boundary |
+| IamExpat | 4 | 1 | Keep, administrator only; no VPN |
+| Undutchables | 3 | 2 | Keep, administrator + VPN only after prior blocking |
+
+Nine confirmed jobs from jobs.ch and jobup.ch justify retaining the already-built VPN workflow for
+the owner, but not expanding it. The three JobCloud adapters remain knowingly contrary to the
+current JobCloud terms and must never be offered to ordinary users. They stay manually triggered,
+unauthenticated, fixed-delay and capped at four new detail pages per source per run. A VPN reduces
+exposure of the owner's home address; it does not create permission.
+
+Do not re-open this decision merely because the volume is small. Revisit a source if it produces no
+English-confirmed jobs across three successful private searches, repeatedly fails, becomes costly to
+maintain, changes its published rules, or receives a complaint/block. A block is a stop signal, not
+a reason to add stealth, alternate endpoints, proxies or IP rotation.
+
+Official material rechecked 2026-09-09: [JobCloud terms](https://www.jobs.ch/en/terms/),
+[jobs.ch robots.txt](https://www.jobs.ch/robots.txt),
+[IamExpat robots.txt](https://www.iamexpat.nl/robots.txt), and
+[Undutchables robots.txt](https://undutchables.nl/robots.txt).
+
 ---
 
 ## 4. What must be built before anything is public
 
-- [ ] **ELA attribution for EURES.** The reuse permission is conditional on it and we do not
-      display it anywhere today. A line on the results page and on `/sources` naming the European
-      Labour Authority as the source of EURES vacancies.
-- [ ] **Verify Adzuna's current attribution wording** against their publisher terms and implement
-      whatever it actually requires.
-- [ ] **Stop returning full descriptions to the public tier.** `/api/state` currently sends every
-      job's complete text to the browser. That is both the §1 problem and the payload problem
-      already tracked as B4 — one change fixes both.
-- [ ] **Update `/sources` and `/privacy`** to state the split and the attributions truthfully.
+- [x] **ELA attribution for EURES.** Done 2026-09-08 (#33). The credit renders under the job list
+      when the list contains EURES jobs, and `/sources` carries a "Required attribution" section.
+      `lib/attribution.ts` holds the wording and the source keys, with a test that fails if a
+      EURES adapter is ever added that the rule does not cover.
+- [x] **Verify Adzuna's current attribution wording.** Done 2026-09-09 (#30). The standard API's
+      teasers cannot support the language evidence gate, and permission to copy full text through
+      third-party redirect targets is not supplied. Adzuna is therefore administrator-only. Its
+      private research view names “The Adzuna API” and links to the relevant Swiss/Dutch domain;
+      public users never receive an Adzuna advert, so the public-listing logo rule is not triggered.
+- [x] **Stop returning full descriptions to the public tier.** Done 2026-09-08 (#34). `JobRecord`
+      no longer carries `description`; `descriptionLength`, `requirements` and `matchesCriteria`
+      replace it, and keyword matching moved server-side, which resolved B4 as predicted.
+      `tests/job-payload.test.ts` serialises a real row through `jobFromRow` and asserts a phrase
+      unique to the advertisement appears nowhere in the result.
+- [x] **`/sources`** states the split and the attribution. Done 2026-09-08 (#33) — it also gained a
+      EURES entry, which it had never had despite EURES being the largest source of usable jobs.
+- [x] **`/privacy`** re-read and corrected 2026-09-08. It was telling a stranger their CV is stored
+      and read to score jobs, months after CV matching was shelved, and listing location and
+      filters as search settings that no longer exist. The CV disclosures are now gated on
+      `CV_MATCHING_ENABLED` rather than deleted, so they return with the feature.
+      `tests/privacy-policy.test.ts` enforces it.
 
 ---
 

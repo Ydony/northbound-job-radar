@@ -1,8 +1,15 @@
 /**
  * Privacy policy content, written from what the code actually does rather than from a template.
  * If the data handling changes, change this in the same commit.
+ *
+ * The CV entries are gated on CV_MATCHING_ENABLED rather than deleted. While the flag is false
+ * this page must not tell a stranger their CV is stored and read, because it is not — that is a
+ * false statement on the one page whose whole purpose is being true. If the feature returns, the
+ * disclosure returns with it in the same change rather than being remembered.
  */
-export const PRIVACY_UPDATED_ON = '2026-08-28';
+import { CV_MATCHING_ENABLED } from './features';
+
+export const PRIVACY_UPDATED_ON = '2026-09-08';
 
 export interface DataItem {
   what: string;
@@ -19,19 +26,13 @@ export const dataWeHold: DataItem[] = [
     kept: 'Until you delete your account, which removes it immediately.',
   },
   {
-    what: 'Your CV file and the text extracted from it',
-    why: 'To score how well each job advertisement matches your experience, and to suggest the role to search for.',
-    legalBasis: 'Performance of a contract. This is the core function you signed up for.',
-    kept: 'Until you replace or delete it. Deleting a CV removes the stored file at the same time.',
-  },
-  {
     what: 'The job advertisements you have collected, and your notes on them',
-    why: 'To keep your shortlist, application status and language corrections between visits.',
+    why: 'To keep your shortlist, application status and language corrections between visits. The advertisement text itself is read on the server to decide whether English is enough, and is not sent to your browser or shown here — it belongs to the employer who wrote it. What you see is the job’s facts, our verdict, the requirements we extracted, and a link to the original.',
     legalBasis: 'Performance of a contract.',
     kept: 'Until you delete them individually, reset the workspace, or delete your account.',
   },
   {
-    what: 'Your search settings: roles, location, keywords, filters',
+    what: 'Your search settings: the roles you are looking for, and required or excluded keywords',
     why: 'To run searches the way you configured them.',
     legalBasis: 'Performance of a contract.',
     kept: 'Until you change or delete them.',
@@ -50,11 +51,54 @@ export const dataWeHold: DataItem[] = [
   },
 ];
 
+const cvDataItem: DataItem = {
+  what: 'Your CV file and the text extracted from it',
+  why: 'To score how well each job advertisement matches your experience, and to suggest the role to search for.',
+  legalBasis: 'Performance of a contract. This is the core function you signed up for.',
+  kept: 'Until you replace or delete it. Deleting a CV removes the stored file at the same time.',
+};
+
+if (CV_MATCHING_ENABLED) dataWeHold.splice(1, 0, cvDataItem);
+
+/**
+ * The page's own headline and summary, and the "where the data lives" list.
+ *
+ * These lived as hardcoded JSX in app/privacy/page.tsx, which is how the page went on promising
+ * "Your CV stays yours" and "R2 (your CV file)" months after CV matching was shelved: the tests
+ * checked this module, the copy was somewhere else, and both looked fine. Copy that makes a
+ * factual claim about data handling belongs here, where it is covered.
+ */
+export const privacyHeadline = CV_MATCHING_ENABLED
+  ? { lead: 'Your CV stays', emphasis: 'yours.' }
+  : { lead: 'Your job search stays', emphasis: 'yours.' };
+
+export const privacySummary = CV_MATCHING_ENABLED
+  ? 'This page describes exactly what is stored, why, how long it is kept, and what you can do about it. '
+    + 'It is written from what the software actually does rather than from a template. If you only read one '
+    + 'line: your CV is never sent to any job site, aggregator, or AI service, and nothing about you is sold or shared.'
+  : 'This page describes exactly what is stored, why, how long it is kept, and what you can do about it. '
+    + 'It is written from what the software actually does rather than from a template. If you only read one '
+    + 'line: nothing you save here is sent to any job site, aggregator, or AI service, and nothing about you '
+    + 'is sold or shared.';
+
+export const whereDataLives = [
+  CV_MATCHING_ENABLED
+    ? 'Data is stored in Cloudflare D1 (database) and R2 (your CV file). Cloudflare acts as a processor and is the only third party involved in hosting.'
+    : 'Data is stored in Cloudflare D1. Cloudflare acts as a processor and is the only third party involved in hosting.',
+  CV_MATCHING_ENABLED
+    ? 'Administrators of this installation can see that an account exists, its email address, and how many jobs and CVs it holds. They cannot read your CV text or your job list.'
+    : 'Administrators of this installation can see that an account exists, its email address, and how many jobs it holds. They cannot read your job list.',
+  CV_MATCHING_ENABLED
+    ? 'Job searches send only your role keywords to the job sources listed on the sources page. They never receive your CV, your email, or anything identifying you.'
+    : 'Job searches send only your role keywords to the job sources listed on the sources page. They never receive your email or anything identifying you.',
+  'There is no automated decision-making that produces legal or similarly significant effects. The language verdict is a suggestion for you to review, and you can correct any of them.',
+];
+
 export const notCollected = [
   'No advertising, marketing or third-party analytics of any kind.',
   'No tracking cookies, pixels, fingerprinting or cross-site tracking.',
   'No profiling, no automated decisions with legal effect, and nothing sold or shared with anyone.',
-  'Your CV is never sent to a job site, an aggregator, or any AI or machine-learning service.',
+  'Nothing you store here is sent to a job site, an aggregator, or any AI or machine-learning service.',
   'No page-by-page browsing history, no referrer logging, no session recording.',
 ];
 
@@ -65,11 +109,11 @@ export const yourRights = [
   },
   {
     right: 'Rectification',
-    how: 'Change your email address and password in Settings, and edit your search criteria and CVs at any time.',
+    how: 'Change your email address and password in Settings, and edit your search criteria at any time.',
   },
   {
     right: 'Erasure',
-    how: 'Delete individual jobs, delete either CV, reset the whole workspace, or delete your account outright in Settings. Deletion is immediate and permanent, including the stored CV file.',
+    how: 'Delete individual jobs, reset the whole workspace, or delete your account outright in Settings. Deletion is immediate and permanent.',
   },
   {
     right: 'Restriction and objection',

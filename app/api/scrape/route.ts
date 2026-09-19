@@ -2,7 +2,7 @@ import { aggregatorCredentials, authSecrets, ensureSchema } from '@/db/runtime';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
 import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
-import { adminOnlySourceKeys, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
+import { adminOnlySourceKeys, bulkJobIsRelevant, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
   sourceStatusForAvailability,
   type SearchMode } from '@/lib/job-adapters';
 import { canonicalJobUrl, isGloballyStableSourceJobId, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
@@ -12,10 +12,24 @@ import { roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
 import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
 import type { CvSlot, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
 
-/** Page-fetching sources cost one request per job, so they stay tightly capped. */
+/**
+ * Page-fetching sources cost one request per job, so they stay tightly capped.
+ *
+ * This cap is not a performance setting and is not lifted with the others. It limits automated
+ * reading of sites whose terms prohibit it (jobs.ch, jobup.ch, JobScout24), and AGENTS.md is
+ * explicit: "Do not raise the caps to hit a volume target."
+ */
 const MAX_NEW_PER_SOURCE = 4;
-/** Bulk API sources return whole advertisements in the search response, so a far larger batch costs only a few requests. */
-const MAX_NEW_PER_BULK_SOURCE = 200;
+/**
+ * Bulk API sources return whole advertisements in the search response, and their postings are
+ * filtered to this search before this point (bulkJobIsRelevant), so nothing here is a request.
+ *
+ * Uncapped, deliberately, for now: the owner's decision on 2026-09-14 is full coverage while the
+ * app runs locally, caps later. The previous ceiling of 200 would already have deferred more than
+ * half of the 409 role-matching employer postings measured that day. A ceiling on database writes
+ * per search belongs back here before any hosted deployment.
+ */
+const MAX_NEW_PER_BULK_SOURCE = Number.POSITIVE_INFINITY;
 
 /** Employer-declared requirements are more reliable than prose, so they win when a source publishes them. */
 function languageForParsedJob(parsed: ParsedJob, description: string): LanguageResult {
@@ -55,7 +69,7 @@ function runSourceRow(runId: string, source: SearchRunSource) {
   };
 }
 
-type ProgressEvent = { type: 'progress'; label: string; percent: number };
+type ProgressEvent = { type: 'progress'; label: string; percent: number; step: number; steps: number };
 type Report = (event: ProgressEvent) => void;
 
 /**
@@ -150,12 +164,13 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     }, { status: 409 }) };
   }
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';
-  // Everyone gets the authorized APIs and the grey-area sources, whose robots.txt permits the
-  // paths read. Only the explicit VPN mode adds the sources that prohibit automated access.
+  // The no-VPN mode is eligible for authorized APIs and grey-area sources whose robots.txt permits
+  // the paths read. `adminOnly` below still removes private sources from ordinary accounts. Only
+  // the explicit VPN mode adds sources that prohibit automated access or previously blocked it.
   // Two separate rules, and they are not the same rule. `restricted` means page-fetching that needs
   // a verified VPN, so it is gated on the mode. `adminOnly` means a source the owner may use but
-  // that is not offered to anyone else - Careerjet is licensed to one declared IP, IamExpat is read
-  // from public pages - so it is gated on the account, in every mode.
+  // that is not offered to anyone else - Careerjet is licensed to one declared IP, while IamExpat
+  // is read from public pages - so it is gated on the account, in every mode.
   const hiddenForAccount = user.role === 'admin' ? new Set<string>() : adminOnlySourceKeys();
   const activeAdapters = jobSourceAdapters.filter((adapter) =>
     (mode === 'all' || adapter.access !== 'restricted') && !hiddenForAccount.has(adapter.key));
@@ -223,6 +238,10 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     percent: Math.min(99, Math.round(
       ((fetched / totalSteps) * FETCH_SHARE + (screened / totalSteps) * (1 - FETCH_SHARE)) * 100,
     )),
+    // Sent alongside the percentage so the run bar can say "4 of 9 sources". A percentage alone
+    // does not tell you whether a slow run is stuck or simply has six sources left to contact.
+    step: Math.min(fetched, totalSteps),
+    steps: totalSteps,
   });
 
   progress(`Contacting ${activeAdapters.length} source${activeAdapters.length === 1 ? '' : 's'}…`);
@@ -241,7 +260,11 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     }
     try {
       if (adapter.searchDetailed) {
-        const bulk = await adapter.searchDetailed(searchTerms, criteria.location, credentials);
+        // Filtered to this adapter's country and roles before anything is capped: see
+        // bulkJobIsRelevant for how capping first left the employer boards stuck on the same
+        // first 200 worldwide postings run after run.
+        const bulk = (await adapter.searchDetailed(searchTerms, criteria.location, credentials))
+          .filter((job) => bulkJobIsRelevant(job, adapter.country, searchTerms));
         return done(
           { ...empty, bulk, candidates: bulk.map((job) => canonicalJobUrl(job.sourceUrl)) },
           `${bulk.length} advertisement${bulk.length === 1 ? '' : 's'}`,

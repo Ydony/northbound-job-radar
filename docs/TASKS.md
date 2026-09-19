@@ -1,5 +1,10 @@
 # Task list
 
+**2026-09-18 Indeed workstream:** tasks and assignments are tracked under
+[#63](https://github.com/Ydony/northbound-job-radar/issues/63), with the cross-LLM handoff in
+[INDEED_INTEGRATION.md](INDEED_INTEGRATION.md). Codex owns authentication and connection (#64/#65).
+This planning entry does not enable Indeed or establish a working API connection.
+
 **2026-09-07 planning update:** the recommended integration order and task acceptance criteria are
 in [PUBLIC_ADMIN_INTEGRATION_PLAN.md](PUBLIC_ADMIN_INTEGRATION_PLAN.md). These are specifications,
 not implemented changes.
@@ -329,24 +334,32 @@ about a third of that, carried only so the client can match required/excluded ke
 - [ ] Move keyword filtering server-side, or stop sending full descriptions, then paginate.
 - [ ] Revisit before any account approaches 2,000 jobs.
 
-### B5. Undutchables is a weak, restricted source
+### B5. Small administrator-only sources — RETAINED WITH EXISTING BOUNDARIES
 
-Its `robots.txt` rejects automated requests and it yields very few jobs. Keep the adapter truthful
-and administrator/VPN-only; removal remains a reasonable product decision.
+Decision recorded 2026-09-09 in GitHub #32 and `docs/SOURCE_POLICY.md` §3. Keep the three
+JobCloud sites, IamExpat and Undutchables as a private supplement: together they produced 12
+full-text English-confirmed jobs, including nine from jobs.ch + jobup.ch, against 114 in the public
+tier.
 
-### B6. Careerjet licensing and IP scope remain unresolved
+- [x] jobs.ch, jobup.ch and JobScout24 remain local-administrator/VPN-only, fixed-delay and capped.
+- [x] IamExpat remains local-administrator-only without a VPN requirement.
+- [x] Undutchables remains local-administrator/VPN-only after prior HTTP 403 responses. Its current
+      robots.txt permits the plain listing/detail paths used and disallows query-string searches,
+      which the adapter does not use.
+- [x] No source login, scheduling, evasion, proxy rotation or cap increase.
+- [x] Revisit only on measured repeated zero yield, maintenance failure, changed rules or a block.
 
-Local execution avoids the former Cloudflare static-egress problem, but the API key is still tied
-to registered publisher/IP terms. Keep Careerjet disabled when its key or permission is absent and
-never describe an unavailable source as searched.
+### B6. Careerjet licensing and IP scope — RESOLVED AS A LOCAL-ONLY BOUNDARY
 
-**Registering the real domain closes most of this.** The intended domain is **ikbeneenappel.nl**,
-confirmed free (no DNS records as of 2026-08-31). Careerjet binds a key to one registered publisher
-website, and the key in use currently names a placeholder domain nobody here owns — that is the
-"open question" shown on `/sources`. Registering the real domain with Careerjet, and setting
-`CAREERJET_REFERER` to match, moves the integration inside its licensed scope. The declared IP
-still has to match wherever the app actually runs, which is fine while it stays local on a stable
-connection.
+Decision recorded 2026-09-09 in GitHub #31 and `docs/SOURCE_POLICY.md` §3: retain the 237 existing
+leads for private manual discovery, but keep Careerjet local-administrator-only. It has produced no
+English-confirmed jobs and its 279-character teasers cannot establish a `pass`.
+
+- [x] Server-side audience isolation already hides Careerjet jobs, source names, counts and runs.
+- [x] Hosted environments must leave all `CAREERJET_*` values unset.
+- [x] Local use requires a correctly registered publisher key/site and real request details.
+- [x] Missing credentials continue to report the source as unavailable, never searched.
+- [x] No stored rows were deleted; the admin conversion report supports a later retire/keep review.
 
 ### B7. Product name and domain — resolved 2026-08-31
 

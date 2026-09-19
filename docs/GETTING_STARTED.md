@@ -123,8 +123,10 @@ auto-connect enabled. Ik ben een appel never reads or stores the VPN credentials
 2. Review the detected role for each CV and use the role-override fields when necessary.
 3. Add up to five role keywords, then set optional location, workplace, seniority,
    contract, required keywords, and excluded keywords. Save the criteria.
-4. With a full VPN route active, choose **Search all job sites**. The source report says
-   exactly which Swiss and Netherlands adapters completed, failed, or were blocked.
+4. Use **Search — VPN off** for the ordinary sources. A local administrator may start the app with
+   the enforced VPN launcher and choose **Search all — VPN on** to add the restricted JobCloud and
+   Undutchables sources. The source report says exactly which Swiss and Netherlands adapters
+   completed, failed, or were blocked.
 5. Use country, Applied/Not applied, source, and result filters on the unified job list.
    **Analyze a job** remains available for a public HTTPS ad that could not be fetched.
 6. Read the language result:
@@ -142,12 +144,14 @@ auto-connect enabled. Ik ben een appel never reads or stores the VPN credentials
 
 ## Important source warning
 
-**Search all job sites** performs manually triggered, capped public-page fetches. The three
+**Search all — VPN on** performs manually triggered, capped public-page fetches. The three
 JobCloud adapters (jobs.ch, jobup.ch, and JobScout24) are contrary to JobCloud's published
 automation terms and are not sanctioned integrations. Indeed remains blocked. IamExpat
-and Undutchables use current public paths, but source policies and markup can change. A new
-user should read `docs/ARCHITECTURE.md` §2 and disable adapters they do not accept; manual
-**Analyze a job** remains the fallback. No source login or application is automated.
+and Undutchables use current public paths, but remain administrator-only and source policies and
+markup can change. The VPN-enabled tier was retained for 12 measured full-text English-confirmed
+jobs; it is supplementary and stays capped. A new user should read `docs/ARCHITECTURE.md` §2 and
+disable adapters they do not accept; manual **Analyze a job** remains the fallback. No source login
+or application is automated.
 
 ## Local data and troubleshooting
 

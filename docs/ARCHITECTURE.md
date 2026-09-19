@@ -1,6 +1,6 @@
 # Architecture and decision record
 
-Last updated: 2026-08-31.
+Last updated: 2026-09-09.
 
 The accepted Swiss + Netherlands multi-source architecture in
 `docs/MULTI_SOURCE_PLAN.md` is implemented. The supported runtime is now local-only with isolated
@@ -46,11 +46,14 @@ The user can still search/paste manually instead — both paths exist side by si
 
 The source roster is deliberately mixed:
 
-- jobs.ch, jobup.ch, and JobScout24 are enabled at the user's accepted risk. They are all
-  JobCloud properties covered by the same automation prohibition and are not sanctioned.
-- IamExpat is enabled against its current public career listing/detail paths.
-- Undutchables is enabled only through the plain `/vacancies` listing and public detail
-  pages; query-string vacancy search is not used because its robots policy disallows it.
+- jobs.ch, jobup.ch, and JobScout24 are retained for local administrators at the user's accepted
+  risk. They are all JobCloud properties covered by the same automation prohibition, are not
+  sanctioned, and require the VPN launcher. jobs.ch + jobup.ch produced nine English-confirmed jobs.
+- IamExpat is retained for local administrators against its current public career listing/detail
+  paths, with its published crawl delay and no VPN requirement. It produced one confirmed job.
+- Undutchables is retained for local administrators only through the plain `/vacancies` listing
+  and public detail pages; query-string vacancy search is not used because robots.txt disallows it.
+  It produced two confirmed jobs and remains VPN-gated because it previously blocked automation.
 - Indeed Switzerland and Netherlands are blocked because their rules prohibit automated
   access without written permission and live requests returned HTTP 403.
 - Job-Room is enabled and public. The line previously here said it was unavailable because
@@ -62,7 +65,7 @@ The source roster is deliberately mixed:
 - LinkedIn is not configured by user request.
 
 This is bounded on purpose:
-- Manually triggered only (`app/job-radar.tsx`'s "Search all job sites" button calling
+- Manually triggered only (`app/job-radar.tsx`'s search buttons calling
   `POST /api/scrape`) — no cron/schedule.
 - At most five distinct normalized search roles and four new detail fetches per enabled
   source per click, with fixed delays inside each adapter.
@@ -71,6 +74,12 @@ This is bounded on purpose:
   (no randomized timing, fingerprinting, headless-browser stealth, or proxy rotation) —
   that boundary held even though the automation boundary did not, and stays unchanged
   regardless of any future scope increase here.
+
+The retention decision is based on quality rather than volume. These sources contributed 12
+full-advertisement English-confirmed jobs alongside 114 from the public tier. They are a private
+supplement, not the product's coverage foundation. Do not increase the four-detail-per-source cap;
+revisit an adapter only after repeated measured zero yield, recurring failures, changed rules or a
+block. See `docs/SOURCE_POLICY.md` §3.
 
 A sanctioned, higher-volume, or scheduled integration still requires source permission or
 an authorized API/feed; see `ROADMAP.md` for that path.
@@ -82,7 +91,7 @@ React client
   ├─ PDF/DOCX/TXT text extraction in browser
   ├─ two CV-specific role overrides + five general role keywords
   ├─ persisted criteria and country/application/source/result filtering
-  ├─ "Search all job sites" trigger + manual ad import fallback
+  ├─ VPN-off / VPN-on search triggers + manual ad import fallback
   ├─ source-run and cumulative performance dashboards
   └─ saved/applied/dismissed controls
          │ JSON / multipart
@@ -179,6 +188,8 @@ neither a CV-derived/overridden role nor one of the five general roles exists.
 - `PUT /api/criteria` — validate and persist CV role overrides, five general roles, and filters
 - `POST /api/jobs` — validate and analyze one user-supplied public HTTPS job ad against every saved CV; the URL is never fetched by this route
 - `POST /api/scrape` — run every configured adapter, deduplicate, analyze, and persist the full source report
+- `POST /api/admin/job-room-backfill` — administrator-only, bounded repair of that administrator's
+  preview-length legacy Job-Room rows, with detector-transition reporting
 - `PATCH /api/jobs/:id` — independently update saved/application/visibility state and language feedback; dismissal writes a tombstone
 - `DELETE /api/jobs/:id` — delete one analyzed job and its language feedback
 - `DELETE /api/jobs` — delete selected job IDs or all jobs and their associated language feedback
@@ -193,19 +204,41 @@ visible scores, labels, and the winning CV are current.
 
 ## 7a. Schema changes and local state (read before changing a column)
 
-The schema is represented in three places and must be kept in sync:
+The schema is represented by the legacy base plus ordered upgrades:
 
 - `db/runtime.ts` creates the legacy-compatible base tables for a brand-new local state.
 - `db/migrations.ts` contains ordered, additive upgrades that `ensureSchema()` applies and
   records in `schema_migrations`.
-- `db/schema.ts` is the latest Drizzle model used by `npm run db:generate`; generated SQL
-  is review/deployment material, not the local runtime executor.
+
+Fresh databases run the same upgrades as existing ones. Do not add an already-migrated column
+to the legacy base, or its later `ALTER TABLE` will fail. The Drizzle model and generator were removed.
 
 Never edit an applied migration version. Add a new version containing one SQL statement
-per D1 `prepare()` call, update the Drizzle model, generate/inspect the SQL, and test against
+per D1 `prepare()` call, inspect the SQL, and test against
 both a copied existing `.wrangler/` state and a fresh state. The 2026-08-27 multi-source
 upgrade followed this process: all 18 local state files were copied before migration and
 the two CV profiles plus 48 jobs survived. Do not reset `.wrangler/` as a migration shortcut.
+
+### Versioned duplicate links (2026-09-14, #50)
+
+Migration 17 adds `jobs.cluster_version` and an index on `(user_id, cluster_version)`.
+Version 16 is reserved for the independently pending Job-Room backfill in PR #52.
+`CLUSTER_VERSION` in `lib/server-data.ts` must be bumped when clustering/date matching or primary
+selection changes. The authenticated state route first normalizes matching fields, then calls
+`ensureCurrentJobClusters`; any stale member causes the entire owner's group to be recomputed.
+This covers links created under older rules, new imports, and rows with no usable cluster key.
+
+Only cluster keys, duplicate links and their versions change. Saved/applied/dismissed state,
+corrections and tombstones remain untouched. Version markers are written with their corresponding
+links in each D1 batch, scoped to snapshot row IDs and owner. If a later batch fails, unprocessed
+rows remain stale and the next state request retries. No failed pass returns a partial dashboard.
+
+Real D1 tests cover a populated upgrade, account isolation, preservation and interrupted-batch
+recovery. The new workflow verifier also passed against synthetic dev and built-test accounts.
+The owner's populated workspace has been backed up but has not been migrated with this branch;
+that promotion remains pending review. This remains an account-wide recomputation on the first
+read after a rule change; large-catalogue background processing belongs to the separate pagination
+and catalogue work, not this fix.
 
 ## 7b. Authorized high-volume sources (2026-08-28)
 
@@ -223,6 +256,13 @@ there before anywhere else. Unlike jobs.ch, its `robots.txt` does not disallow t
 that file's comment reads "Do not crawl Job Adverts", so this is materially cleaner than the
 jobs.ch adapter without being an explicit grant. Re-check before increasing volume.
 
+Rows imported before Job-Room detail fetching existed are repaired through the administrator page,
+not during an ordinary search or page read. A run selects only that administrator's descriptions
+below 900 characters, requests at most 120 details with the same 400 ms fixed delay, and records a
+per-row detail version so it is safe to repeat. It updates content and derived analysis only;
+saved/application/dismissed state and explicit language corrections remain separate and survive.
+The returned report includes every raw detector transition and how many rows still need a later run.
+
 Job-Room publishes **employer-declared `languageSkills`** (ISO code plus spoken/written level from
 `NONE | BASIC | INTERMEDIATE | PROFICIENT`). `analyzeStructuredLanguages` in `lib/analysis.ts`
 consumes these and takes precedence over the prose heuristic, because a declared requirement is
@@ -232,24 +272,34 @@ any local language at INTERMEDIATE or above blocks; English at INTERMEDIATE or a
 requirement passes; anything else goes to review. Listed languages with null levels are not
 treated as requirements, so those ads fall back to prose analysis.
 
-**Adzuna and Careerjet** are authorized aggregator APIs covering both Switzerland and the
-Netherlands. Both need free credentials (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`, `CAREERJET_API_KEY`) and
-report themselves `unavailable` with setup instructions until those are set — a missing key never
-fails a run. Note their APIs return short teaser descriptions, so their jobs will usually land in
-review rather than pass; they are best understood as discovery breadth, not language evidence.
+**Adzuna and Careerjet** are administrator-only aggregator APIs covering both Switzerland and the
+Netherlands. Both need credentials (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`, `CAREERJET_API_KEY`) and report
+themselves `unavailable` with setup instructions until those are set — a missing key never fails a
+run. Their short teasers cannot support the language evidence gate, so they are retained only as
+private discovery/coverage measures and their rows and run records are withheld from ordinary
+accounts. Adzuna rows are stored under `adzuna.ch` / `adzuna.nl`, so those result-host aliases are
+part of the server-side hidden-source set as well as the adapter keys.
+
+**Adzuna decision (2026-09-09, #30).** The current API terms allow publishing listings and personal
+research but impose attribution and default free limits (25 requests/minute, 250/day). The standard
+search API supplies the 500-character teaser already used here; Adzuna presents full job details as
+a separate data service. The app will not follow `redirect_url` to copy full text from third-party
+providers. Administrators still see Adzuna in the conversion report and a “The Adzuna API”
+acknowledgement with links to the relevant local domains; no stored verdicts are changed. Careerjet is additionally local-administrator-only (#31); its credentials are deliberately
+absent from hosted environments.
 
 Careerjet's legacy `public.api.careerjet.net/search` endpoint with an `affid` query parameter is
 dead. The current API is `https://search.api.careerjet.net/v4/query`, authenticated with HTTP
 Basic where the API key is the username and the password is empty.
 
-**Open licensing question on Careerjet (2026-08-28).** Careerjet issues its key against one
-registered publisher website and states the key is "provided exclusively for integration on the
-registered website". Ik ben een appel is a local private tool with no public site, and the key in
-use was registered against a placeholder domain, so this usage sits outside the registered scope —
-this is a licensing question, not a technical one, and it is unresolved. Adzuna carries no
-equivalent per-site restriction and is the safer default of the two. If Careerjet's scope matters,
-either register the real deployment through their "add another website" flow or leave
-`CAREERJET_API_KEY` unset, which cleanly disables both Careerjet sources.
+**Careerjet decision (2026-09-09, #31): retained for local administrators only.** The current API
+documentation gives each publisher website a unique key and requires the real end-user IP and user
+agent plus an originating-page Referer. The existing placeholder registration does not establish a
+compliant public integration. Careerjet therefore stays behind the server-side administrator gate
+and is not a hosted feature: hosted environments leave all three `CAREERJET_*` values unset. A local
+administrator may enable it only with correctly registered credentials and real request details.
+Its 279-character teasers remain `unknown`; the retained 237 rows are private discovery leads, not
+English-sufficiency evidence. See `docs/SOURCE_POLICY.md` §3 for the full retention rationale.
 
 Two dead ends were confirmed and should not be re-investigated without new information: werk.nl /
 UWV (the Dutch public employment service) publishes only aggregated open data and has no vacancy
@@ -260,6 +310,15 @@ CRMs. The same ATS endpoints are rich for direct employers.
 
 ## 8. Known risks and missing production controls
 
+- **Indeed experiment (2026-09-19, #64/#65):** an isolated backend client successfully
+  retrieved description HTML for two NL jobs across two pages and one CH job. The owner
+  approved a narrow mobile-header-profile experiment; TLS verification remains enabled.
+  No phone or personal OAuth was used. Source adapters remain disabled; normalization,
+  description-completeness validation, dashboard integration, tenancy/export checks and
+  end-to-end dev/test validation are still separate tasks. No public entitlement, stable
+  key lifetime, unlimited quota or 200-400-job yield follows from this small sample. See
+  `docs/INDEED_INTEGRATION.md`. Caller-supplied local/admin flags must come from current
+  server authorization, never browser input; refusal/cooldown state is per client instance.
 - The three enabled JobCloud adapters are unsanctioned (§2). Realistic consequences include
   IP blocking or legal demands. Caps and manual triggers limit load, not legal exposure.
 - Public-page markup and structured data can change independently for every enabled

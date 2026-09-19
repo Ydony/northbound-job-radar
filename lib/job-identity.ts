@@ -38,8 +38,82 @@ const sources: Record<string, SourceInfo> = {
 const countryCodes: Record<Exclude<JobCountry, 'unknown'>, string> = { switzerland: 'ch', netherlands: 'nl' };
 
 const trackingParameters = new Set(['fbclid', 'gclid', 'trk', 'trackingid']);
-const swissLocations = /\b(?:switzerland|swiss|zürich|zurich|geneva|genève|basel|bern|lausanne|zug|lucerne|luzern|winterthur)\b/i;
-const netherlandsLocations = /\b(?:netherlands|nederland|amsterdam|rotterdam|utrecht|eindhoven|den haag|the hague|haarlem|leiden|delft|breda)\b/i;
+/*
+ * Country from a free-text location, for hosts that serve every country (the employer boards).
+ *
+ * Checked on 2026-09-14 against the real postings of 282 employer boards, old rule beside new.
+ * Three defects were fixed:
+ *
+ * - American places with Dutch or Swiss names counted as Dutch or Swiss: "Lake Zurich, Illinois",
+ *   "New Bern, NC", "Geneva, IL", "Rotterdam, NY".
+ * - Real Dutch and Swiss places outside a short list were dropped as country-unknown: Groningen,
+ *   Den Bosch, Maastricht, Hilversum, Amstelveen; Lugano, Schaffhausen, "Schweiz / Graubünden".
+ * - A first attempt at the above lost real Swiss roles, because many employers write a global
+ *   role's offices as one comma-separated list — "London, New York, Singapore, Zug, Geneva" — and
+ *   any American marker in that list threw the whole thing out. Commas cannot simply be split on,
+ *   because "Amsterdam, North Holland, Netherlands" is a single place.
+ *
+ * So evidence is ranked rather than any single marker being decisive. An explicit country name
+ * counts. A Dutch or Swiss place that exists nowhere else counts, whatever else the list names. Only
+ * a name that also exists in America (Amsterdam, Rotterdam, Geneva, Lucerne, Breda) can be
+ * cancelled, by an explicit American marker in the same segment or by that town's own state code.
+ */
+const swissCountry = /\b(?:switzerland|swiss|schweiz|suisse|svizzera)\b/i;
+const dutchCountry = /\b(?:netherlands|nederland)\b/i;
+const swissPlaces = /\b(?:zürich|zurich|genève|geneve|basel|bern|lausanne|zug|baar|luzern|winterthur|lugano|st\.? ?gallen|schaffhausen|fribourg|neuchâtel|neuchatel|aarau|chur)\b/i;
+const dutchPlaces = /\b(?:amstelveen|utrecht|eindhoven|den haag|the hague|hertogenbosch|den bosch|haarlem|hoofddorp|schiphol|leiden|delft|tilburg|groningen|zwolle|hilversum|nijmegen|arnhem|almere|maastricht|enschede|apeldoorn|zaandam|leeuwarden)\b/i;
+/** Names that exist in America too, and so need corroboration. */
+const swissSharedNames = /\b(?:geneva|lucerne)\b/i;
+const dutchSharedNames = /\b(?:amsterdam|rotterdam|breda)\b/i;
+/** Places elsewhere whose names contain a Dutch or Swiss one. Removed before anything is matched. */
+const lookAlikePlaces = /\b(?:lake zurich|new bern)\b/gi;
+/** An explicit American or Canadian place, which cancels a shared name in the same segment. */
+const explicitlyElsewhere = /\b(?:united states|usa|u\.s\.a?|canada|michigan|illinois|new york|ohio|texas)\b/i;
+/**
+ * The American towns that share a Dutch or Swiss name, each with the states it actually exists in.
+ *
+ * A two-letter code cannot rule a location out by itself, because Dutch and Swiss region codes
+ * collide with American ones: "Amsterdam, NH" and "Hilversum, NH" are Noord-Holland, not New
+ * Hampshire — there is no Amsterdam there — and UT is Utrecht as well as Utah, FL Flevoland as well
+ * as Florida, NE Neuchâtel as well as Nebraska. So a code excludes a segment only in the exact
+ * pairing where that American town exists: Amsterdam and Rotterdam in New York, Geneva in five
+ * states, Lucerne in California and Indiana, Breda in Iowa.
+ */
+const americanNamesakes: Array<[RegExp, RegExp]> = [
+  [/\bamsterdam\b/i, /,\s*NY\b/],
+  [/\brotterdam\b/i, /,\s*NY\b/],
+  [/\bgeneva\b/i, /,\s*(?:IL|NY|OH|AL|NE)\b/],
+  [/\blucerne\b/i, /,\s*(?:CA|IN)\b/],
+  [/\bbreda\b/i, /,\s*IA\b/],
+];
+
+/** A shared name counts unless the same segment says it is the American town of that name. */
+function sharedNameCounts(segment: string, sharedNames: RegExp) {
+  if (!sharedNames.test(segment)) return false;
+  if (explicitlyElsewhere.test(segment)) return false;
+  return !americanNamesakes.some(([place, state]) => place.test(segment) && state.test(segment));
+}
+
+/** Splits a multi-location string into the places it names, one segment per location. */
+function locationSegments(location: string) {
+  return location.split(/\s*(?:;|\||\/|\bOR\b|\n)\s*/).map((segment) => segment.trim()).filter(Boolean);
+}
+
+/** The supported country a free-text location names, or 'unknown' rather than a guess. */
+export function countryFromLocation(location: string): JobCountry {
+  let swiss = false;
+  let dutch = false;
+  for (const raw of locationSegments(location)) {
+    const segment = raw.replace(lookAlikePlaces, ' ');
+    if (swissCountry.test(segment) || swissPlaces.test(segment) || sharedNameCounts(segment, swissSharedNames)) {
+      swiss = true;
+    }
+    if (dutchCountry.test(segment) || dutchPlaces.test(segment) || sharedNameCounts(segment, dutchSharedNames)) {
+      dutch = true;
+    }
+  }
+  return swiss ? 'switzerland' : dutch ? 'netherlands' : 'unknown';
+}
 const outsideSupportedLocations = /\b(?:germany|deutschland|essen|belgium|belgie|belgique|france|luxembourg|austria|osterreich)\b/i;
 
 function normalizedHost(hostname: string) {
@@ -115,11 +189,7 @@ export function sourceInfoForUrl(value: string, location = ''): SourceInfo {
       ? 'switzerland'
       : host.endsWith('.nl')
         ? 'netherlands'
-        : swissLocations.test(location)
-          ? 'switzerland'
-          : netherlandsLocations.test(location)
-            ? 'netherlands'
-            : 'unknown';
+        : countryFromLocation(location);
     return { key, name: key, country };
   } catch {
     return { key: 'unknown', name: 'Unknown source', country: 'unknown' };
@@ -215,23 +285,56 @@ export function locationsCompatible(left: string, right: string) {
 export const DUPLICATE_WINDOW_DAYS = 4;
 
 /**
+ * The window applied to first-seen dates when a source publishes no posting date.
+ *
+ * Wider than the posting window on purpose. First-seen is a lagging, noisier signal — it says
+ * when this app happened to reach the advertisement, not when the employer published it — and
+ * two copies of one job can enter the catalogue several runs apart because their sources were
+ * searched on different days or one source was briefly failing. Four days would split real
+ * duplicates; a fortnight still separates a genuine repost months later.
+ */
+export const DUPLICATE_FIRST_SEEN_WINDOW_DAYS = 14;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function withinDays(left: string | undefined, right: string | undefined, days: number) {
+  const leftTime = left ? Date.parse(left) : Number.NaN;
+  const rightTime = right ? Date.parse(right) : Number.NaN;
+  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return null;
+  return Math.abs(leftTime - rightTime) <= days * DAY_MS;
+}
+
+/**
  * Whether two postings in the same cluster are the same job reposted elsewhere.
  *
  * Same employer and same role is not enough on its own — a company can advertise the identical
  * title in two cities, or reopen it months later — so the place has to be compatible and the
- * dates close. An absent date is not treated as a contradiction because several sources simply
- * do not publish one.
+ * dates close.
+ *
+ * Several sources publish no posting date at all, and the rule used to fall straight through to
+ * "assume duplicate" for those, which merges on nothing but employer, role and place. That is
+ * how one employer's long-running vacancy and its genuine reposting three months later end up
+ * as a single card with the newer copy hidden. When a posting date is missing on either side,
+ * first-seen is used instead: it is our own record rather than the employer's, but two copies
+ * that entered the catalogue a fortnight apart are poor evidence of being the same advertisement.
+ *
+ * Assume-duplicate remains the last resort, for the case where neither date exists on either
+ * side. Nothing is available there to distinguish them, and refusing to merge would put two
+ * identical cards in front of the reader.
  */
 export function isNearDuplicate(
-  left: { location: string; postedAt?: string },
-  right: { location: string; postedAt?: string },
+  left: { location: string; postedAt?: string; firstSeenAt?: string },
+  right: { location: string; postedAt?: string; firstSeenAt?: string },
   windowDays = DUPLICATE_WINDOW_DAYS,
 ) {
   if (!locationsCompatible(left.location, right.location)) return false;
-  const leftTime = left.postedAt ? Date.parse(left.postedAt) : Number.NaN;
-  const rightTime = right.postedAt ? Date.parse(right.postedAt) : Number.NaN;
-  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return true;
-  return Math.abs(leftTime - rightTime) <= windowDays * 24 * 60 * 60 * 1000;
+  const byPostedAt = withinDays(left.postedAt, right.postedAt, windowDays);
+  if (byPostedAt !== null) return byPostedAt;
+  const byFirstSeen = withinDays(
+    left.firstSeenAt, right.firstSeenAt, DUPLICATE_FIRST_SEEN_WINDOW_DAYS,
+  );
+  if (byFirstSeen !== null) return byFirstSeen;
+  return true;
 }
 
 export function countryLabel(country: JobCountry) {

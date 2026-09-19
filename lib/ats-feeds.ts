@@ -9,6 +9,17 @@ import type { JobCountry } from './types';
  *
  * Every entry below was verified live before being added. To add a company, find its slug and
  * confirm one of the platform URLs returns postings, then append it here.
+ *
+ * The 2026-09-14 additions (#56) started from leads in a public Common Crawl-derived company list
+ * (github.com/Feashliaa/job-board-aggregator). That list is CC BY-NC 4.0, so nothing was copied
+ * from it: each lead was checked against the employer's own feed, and a board was added only if,
+ * on that day, it answered, held at least one posting located in the Netherlands or Switzerland,
+ * and that posting was long enough (900+ characters) for the language gate to judge. 254 leads
+ * gave 237 that passed; 15 more were removed on review because they are not direct employers —
+ * third-party, referral and alumni boards, LinkedIn-wrapped postings, recruitment and
+ * executive-search networks. Workday boards were not considered: their endpoint is the careers
+ * page's own data call rather than a feed published for aggregators. Replacing the lead list with
+ * our own discovery is #59.
  */
 export type AtsPlatform = 'greenhouse' | 'lever' | 'recruitee' | 'ashby' | 'personio';
 
@@ -87,6 +98,230 @@ export const atsCompanies: AtsCompany[] = [
   { slug: 'sunrise', name: 'Sunrise', platform: 'greenhouse', country: 'switzerland' },
   { slug: 'comet', name: 'Comet Group', platform: 'greenhouse', country: 'switzerland' },
   { slug: 'basilea', name: 'Basilea Pharmaceutica', platform: 'personio', country: 'switzerland' },
+  // Added 2026-09-14 (#56): 170 Netherlands employers, each verified live
+  { slug: 'airapps', name: 'AirApps', platform: 'ashby', country: 'netherlands' },
+  { slug: 'airwallex', name: 'Airwallex', platform: 'ashby', country: 'netherlands' },
+  { slug: 'altura', name: 'Altura', platform: 'ashby', country: 'netherlands' },
+  { slug: 'axelera', name: 'Axelera AI', platform: 'ashby', country: 'netherlands' },
+  { slug: 'contentoo', name: 'Contentoo', platform: 'ashby', country: 'netherlands' },
+  { slug: 'dandy', name: 'Dandy', platform: 'ashby', country: 'netherlands' },
+  { slug: 'dapper', name: 'Dapper Labs', platform: 'ashby', country: 'netherlands' },
+  { slug: 'dash0', name: 'Dash0', platform: 'ashby', country: 'netherlands' },
+  { slug: 'decagon', name: 'Decagon', platform: 'ashby', country: 'netherlands' },
+  { slug: 'deeploy', name: 'Deeploy', platform: 'ashby', country: 'netherlands' },
+  { slug: 'duna', name: 'Duna', platform: 'ashby', country: 'netherlands' },
+  { slug: 'elevenlabs', name: 'ElevenLabs', platform: 'ashby', country: 'netherlands' },
+  { slug: 'equal1', name: 'Equal1', platform: 'ashby', country: 'netherlands' },
+  { slug: 'everai', name: 'Everai', platform: 'ashby', country: 'netherlands' },
+  { slug: 'eye-security', name: 'Eye Security', platform: 'ashby', country: 'netherlands' },
+  { slug: 'feedbackfruits', name: 'FeedbackFruits', platform: 'ashby', country: 'netherlands' },
+  { slug: 'fiducial', name: 'Fiducial', platform: 'ashby', country: 'netherlands' },
+  { slug: 'hawkeyeinnovations', name: 'Hawk-Eye Innovations', platform: 'ashby', country: 'netherlands' },
+  { slug: 'horizon3ai', name: 'Horizon3.ai', platform: 'ashby', country: 'netherlands' },
+  { slug: 'i3d', name: 'i3D.net', platform: 'ashby', country: 'netherlands' },
+  { slug: 'langchain', name: 'LangChain', platform: 'ashby', country: 'netherlands' },
+  { slug: 'lightspeedhq', name: 'Lightspeed', platform: 'ashby', country: 'netherlands' },
+  { slug: 'monumental', name: 'Monumental', platform: 'ashby', country: 'netherlands' },
+  { slug: 'mytomorrows', name: 'myTomorrows', platform: 'ashby', country: 'netherlands' },
+  { slug: 'polarsteps', name: 'Polarsteps', platform: 'ashby', country: 'netherlands' },
+  { slug: 'quantware', name: 'QuantWare', platform: 'ashby', country: 'netherlands' },
+  { slug: 'reaktor', name: 'Reaktor', platform: 'ashby', country: 'netherlands' },
+  { slug: 'robin-radar', name: 'Robin Radar', platform: 'ashby', country: 'netherlands' },
+  { slug: 'satispay', name: 'Satispay', platform: 'ashby', country: 'netherlands' },
+  { slug: 'sensorfact', name: 'Sensorfact', platform: 'ashby', country: 'netherlands' },
+  { slug: 'snowflake', name: 'Snowflake', platform: 'ashby', country: 'netherlands' },
+  { slug: 'stream', name: 'Stream', platform: 'ashby', country: 'netherlands' },
+  { slug: 'tandem-health', name: 'Tandem Health', platform: 'ashby', country: 'netherlands' },
+  { slug: 'tebi', name: 'Tebi', platform: 'ashby', country: 'netherlands' },
+  { slug: 'vio', name: 'Vio', platform: 'ashby', country: 'netherlands' },
+  { slug: 'vistar', name: 'Vistar Media', platform: 'ashby', country: 'netherlands' },
+  { slug: 'wetravel', name: 'WeTravel', platform: 'ashby', country: 'netherlands' },
+  { slug: 'testendouble', name: 'ACT Group', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'akqa', name: 'AKQA', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'aloyoga', name: 'ALO', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'alphafmcroles', name: 'Alpha Financial Markets Consulting', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'andurilindustries', name: 'Anduril Industries', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'artefact', name: 'Artefact', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'asm', name: 'ASM', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'atolls', name: 'Atolls', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'autoscout24', name: 'AutoScout24', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'avantium', name: 'Avantium', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'avepoint', name: 'AvePoint', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'awin', name: 'Awin', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'axon', name: 'Axon', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'workatbackbase', name: 'Backbase', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'betterhelp', name: 'BetterHelp', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'bursonglobalcareers', name: 'Burson', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'butternutbox', name: 'Butternut Box', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'carbonrobotics', name: 'Carbon Robotics', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'nlcventures', name: 'CAREERS AT NLC', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'castaigroupinc', name: 'Cast AI', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'catonetworks', name: 'Cato Networks', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'celonis', name: 'Celonis', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'chainguard', name: 'Chainguard', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'classpass', name: 'ClassPass', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'clevr', name: 'CLEVR', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'cofraholding', name: 'COFRA Holding', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'connectwise', name: 'ConnectWise', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'coveoen', name: 'Coveo', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'creativefabrica', name: 'Creative Fabrica', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'davinciderivatives', name: 'Da Vinci', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'databricks', name: 'Databricks', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'datadog', name: 'Datadog', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'devrev', name: 'DevRev', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'doitintl', name: 'DoiT', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'drweng', name: 'DRW', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'ebury', name: 'Ebury', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'edgeconnex', name: 'EdgeConneX', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'ethernovia', name: 'Ethernovia, Inc.', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'feverup', name: 'FeverUp', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'fireblocks', name: 'Fireblocks', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'fusionworldwide', name: 'Fusion Worldwide', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'gelbergroup', name: 'Gelber Group', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'genscript', name: 'GenScript/ProBio', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'geotab', name: 'Geotab', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'gigs', name: 'Gigs', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'gitlab', name: 'GitLab', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'grafanalabs', name: 'Grafana Labs', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'gymshark', name: 'Gymshark', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'hellofresh', name: 'HelloFresh', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'hightouch', name: 'Hightouch', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'housinganywhere', name: 'HousingAnywhere Group', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'imc', name: 'IMC', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'intersystems', name: 'InterSystems', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'jamf', name: 'Jamf', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'jetbrains', name: 'JetBrains', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'jumptrading', name: 'Jump Trading', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'levelworks', name: 'Level.works', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'lucanetgroup', name: 'Lucanet Group', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'lucidmotors', name: 'Lucid Motors', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'mavensecuritiesholdingltd', name: 'Maven', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'mewssystems', name: 'Mews', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'modulrfinance', name: 'Modulr', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'mongodb', name: 'MongoDB', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'monks', name: 'Monks', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'mozilla', name: 'Mozilla', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'nebius', name: 'Nebius', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'highmetric', name: 'NewRocket', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'nielenschuman', name: 'Nielen Schuman', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'nozominetworks', name: 'Nozomi Networks', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'numagroupgmbh', name: 'Numa', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'ogilvy', name: 'Ogilvy', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'okx', name: 'OKX', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'mediabrands', name: 'Omnicom Media', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'onetrust', name: 'OneTrust', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'optiverus', name: 'Optiver', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'payhawkio', name: 'Payhawk', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'teampicnic', name: 'Picnic', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'planetlabs', name: 'Planet', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'pqshield', name: 'PQShield', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'precisionmedicinegroup', name: 'Precision Medicine Group', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'qphox', name: 'QphoX', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'quixquantumbv', name: 'QuiX Quantum BV', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'radixexperienced', name: 'Radix Trading Experienced Job Board', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'reddit', name: 'Reddit', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'redwoodsoftware', name: 'Redwood Software', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'roblox', name: 'Roblox', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'sentinellabs', name: 'SentinelOne', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'sharkninjaoperatingllc', name: 'SharkNinja', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'shipbobinc', name: 'ShipBob, Inc.', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'sohohouseco', name: 'Soho House & Co.', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'speechify', name: 'Speechify', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'spektrum', name: 'Spektrum', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'stockx', name: 'StockX', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'suitsupply', name: 'Suitsupply', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'sumup', name: 'SumUp', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'supermetricsoy', name: 'Supermetrics', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'surepay', name: 'SurePay', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'systemiq', name: 'Systemiq', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'telnyx54', name: 'Telnyx', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'thefork', name: 'The Fork', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'thequalitygroupgmbh2', name: 'The Quality Group', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'thequalitygroupgmbh1', name: 'The Quality Group GmbH', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'thoughtworks', name: 'Thoughtworks', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'togetherai', name: 'Together AI', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'toogoodtogo', name: 'Too Good To Go', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'travix', name: 'Travix', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'tripadvisor', name: 'Tripadvisor', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'trustpilot', name: 'Trustpilot', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'velocityelectronics', name: 'Velocity Electronics', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'verisign', name: 'Verisign', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'gympass', name: 'Wellhub', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'wizinc', name: 'Wiz, Inc.', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'workato', name: 'Workato', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'workwize', name: 'Workwize', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'wppmedia', name: 'WPP Media', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'zscaler', name: 'Zscaler', platform: 'greenhouse', country: 'netherlands' },
+  { slug: 'thinkahead', name: 'AHEAD', platform: 'lever', country: 'netherlands' },
+  { slug: 'bloomon', name: 'Bloomon', platform: 'lever', country: 'netherlands' },
+  { slug: 'brooksrunning', name: 'Brooks Running', platform: 'lever', country: 'netherlands' },
+  { slug: 'companial', name: 'Companial', platform: 'lever', country: 'netherlands' },
+  { slug: 'extremenetworks', name: 'Extreme Networks', platform: 'lever', country: 'netherlands' },
+  { slug: 'fresha', name: 'Fresha', platform: 'lever', country: 'netherlands' },
+  { slug: 'insify', name: 'Insify', platform: 'lever', country: 'netherlands' },
+  { slug: 'mendix', name: 'Mendix', platform: 'lever', country: 'netherlands' },
+  { slug: 'mujininc', name: 'Mujin', platform: 'lever', country: 'netherlands' },
+  { slug: 'poki', name: 'Poki', platform: 'lever', country: 'netherlands' },
+  { slug: 'protolabs', name: 'Protolabs', platform: 'lever', country: 'netherlands' },
+  { slug: 'rws', name: 'RWS', platform: 'lever', country: 'netherlands' },
+  { slug: 'sambatv', name: 'Samba TV', platform: 'lever', country: 'netherlands' },
+  { slug: 'shieldai', name: 'Shield AI', platform: 'lever', country: 'netherlands' },
+  { slug: 'trevipay', name: 'TreviPay', platform: 'lever', country: 'netherlands' },
+  { slug: 'getwingapp', name: 'Wing', platform: 'lever', country: 'netherlands' },
+  { slug: 'yuno', name: 'Yuno', platform: 'lever', country: 'netherlands' },
+  // Added 2026-09-14 (#56): 52 Switzerland employers, each verified live
+  { slug: 'adaptyv', name: 'Adaptyv Bio', platform: 'ashby', country: 'switzerland' },
+  { slug: 'arrakis', name: 'Arrakis', platform: 'ashby', country: 'switzerland' },
+  { slug: 'benchling', name: 'Benchling', platform: 'ashby', country: 'switzerland' },
+  { slug: 'blockstream', name: 'Blockstream', platform: 'ashby', country: 'switzerland' },
+  { slug: 'blp-digital', name: 'BLP Digital', platform: 'ashby', country: 'switzerland' },
+  { slug: 'cradlebio', name: 'Cradlebio', platform: 'ashby', country: 'switzerland' },
+  { slug: 'deepjudge', name: 'DeepJudge', platform: 'ashby', country: 'switzerland' },
+  { slug: 'genpeach', name: 'Genpeach', platform: 'ashby', country: 'switzerland' },
+  { slug: 'harmattan-ai', name: 'Harmattan AI', platform: 'ashby', country: 'switzerland' },
+  { slug: 'jua', name: 'Jua', platform: 'ashby', country: 'switzerland' },
+  { slug: 'neuralconcept', name: 'Neural Concept', platform: 'ashby', country: 'switzerland' },
+  { slug: 'perk', name: 'Perk', platform: 'ashby', country: 'switzerland' },
+  { slug: 'point-one-navigation', name: 'Point One Navigation', platform: 'ashby', country: 'switzerland' },
+  { slug: 'proxima-fusion', name: 'Proxima Fusion', platform: 'ashby', country: 'switzerland' },
+  { slug: 'salonkee', name: 'Salonkee', platform: 'ashby', country: 'switzerland' },
+  { slug: 'skydio', name: 'Skydio', platform: 'ashby', country: 'switzerland' },
+  { slug: 'acadiapharmaceuticals', name: 'Acadia Pharmaceuticals Inc.', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'anthropic', name: 'Anthropic', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'bridgebio', name: 'BridgeBio Pharma', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'capco', name: 'Capco', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'cognite', name: 'Cognite - AI for Industry', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'dialecticch', name: 'Dialectic', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'gardacp', name: 'Garda Capital Partners', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'getyourguide', name: 'GetYourGuide', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'icapitalnetwork', name: 'iCapital', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'ionq', name: 'IonQ', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'isomorphiclabs', name: 'Isomorphic Labs', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'kao', name: 'Kao Corporation', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'mirumpharmaceuticals', name: 'Mirum Pharmaceuticals', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'opentable', name: 'OpenTable', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'proalphagroup', name: 'Proalpha Group', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'revolutionmedicines', name: 'Revolution Medicines', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'ripple', name: 'Ripple', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'squarepointcapital', name: 'Squarepoint Capital', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'stepstone', name: 'StepStone Group', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'vaxcyte', name: 'Vaxcyte', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'pia', name: 'WePractice (Psychotherapeut:in in Weiterbildung)', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'pt', name: 'WePractice (Psychotherapeut:in)', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'leit', name: 'WePractice (Psychotherapeutische Leitungsfunktionen)', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'worldquant', name: 'WorldQuant', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'xebiadach', name: 'Xebia DACH', platform: 'greenhouse', country: 'switzerland' },
+  { slug: 'anybotics', name: 'ANYbotics', platform: 'lever', country: 'switzerland' },
+  { slug: 'celerion', name: 'Celerion', platform: 'lever', country: 'switzerland' },
+  { slug: 'everbridge', name: 'Everbridge', platform: 'lever', country: 'switzerland' },
+  { slug: 'flux-mobility', name: 'Flux Mobility', platform: 'lever', country: 'switzerland' },
+  { slug: 'gravisrobotics', name: 'Gravis Robotics', platform: 'lever', country: 'switzerland' },
+  { slug: 'lyrahealth', name: 'Lyra Health', platform: 'lever', country: 'switzerland' },
+  { slug: 'rai', name: 'Rai', platform: 'lever', country: 'switzerland' },
+  { slug: 'rivr', name: 'RIVR', platform: 'lever', country: 'switzerland' },
+  { slug: 'sonarsource', name: 'SonarSource', platform: 'lever', country: 'switzerland' },
+  { slug: 'wingtra-2', name: 'Wingtra 2', platform: 'lever', country: 'switzerland' },
+  { slug: 'zurichinstruments', name: 'Zurich Instruments', platform: 'lever', country: 'switzerland' },
 ];
 
 export function feedUrl(company: AtsCompany) {
@@ -182,14 +417,60 @@ export function parseFeed(company: AtsCompany, body: string): ParsedJob[] {
   }).filter((job): job is ParsedJob => Boolean(job?.sourceUrl && job.title && job.descriptionHtml.trim()));
 }
 
-async function fetchCompany(company: AtsCompany): Promise<ParsedJob[]> {
+/**
+ * How board fetching is bounded, checked against Cloudflare's published Workers limits
+ * (developers.cloudflare.com/workers/platform/limits, read 2026-09-14):
+ *
+ * - **6 simultaneous connections** per invocation. A seventh is queued rather than failed, so
+ *   BOARD_CONCURRENCY matches the platform instead of opening connections that would only wait.
+ * - **50 subrequests per invocation on Free, 10,000 on Paid.** A search already contacts more than
+ *   50 upstreams before any employer board, so the Free plan cannot run this app whatever this
+ *   list holds.
+ * - **10 ms CPU on Free, 30 s default on Paid.** Parsing is the CPU cost here, not waiting.
+ *
+ * **No cap on the number of boards, deliberately, for now.** The app runs only in the local
+ * environments, where none of those limits apply, and the owner's decision (2026-09-14) is
+ * full coverage first, caps later. A 600-board ceiling added in #55 was removed on that decision.
+ * Before any hosted deployment the Paid subrequest budget has to be shared between these boards
+ * and every other source in the same search, and a ceiling belongs back here.
+ *
+ * Neither remaining constant limits coverage. BOARD_CONCURRENCY paces the requests and
+ * BOARD_TIMEOUT_MS stops one slow board from holding the whole search open.
+ */
+export const BOARD_CONCURRENCY = 6;
+export const BOARD_TIMEOUT_MS = 8_000;
+
+/** Runs fn over items with at most `limit` in flight, preserving input order in the result. */
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[], limit: number, fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));
+  return results;
+}
+
+export async function fetchCompany(company: AtsCompany, timeoutMs = BOARD_TIMEOUT_MS): Promise<ParsedJob[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(feedUrl(company), { headers: { accept: 'application/json, application/xml' } });
+    const response = await fetch(feedUrl(company), {
+      headers: { accept: 'application/json, application/xml' },
+      signal: controller.signal,
+    });
     if (!response.ok) return [];
     return parseFeed(company, await response.text());
   } catch {
-    // One unreachable or reshaped board must never fail the whole source.
+    // One unreachable, slow or reshaped board must never fail the whole source.
     return [];
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -204,7 +485,7 @@ const CACHE_MS = 60_000;
  */
 export async function searchAtsBoards(): Promise<ParsedJob[]> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.jobs;
-  const results = await Promise.all(atsCompanies.map(fetchCompany));
+  const results = await mapWithConcurrency(atsCompanies, BOARD_CONCURRENCY, (company) => fetchCompany(company));
   const byUrl = new Map<string, ParsedJob>();
   for (const job of results.flat()) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
   const jobs = [...byUrl.values()];
