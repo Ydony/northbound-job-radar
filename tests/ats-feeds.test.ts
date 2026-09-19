@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { atsCompanies, BOARD_CONCURRENCY, fetchCompany, feedUrl, mapWithConcurrency,
   parseFeed, type AtsCompany } from '../lib/ats-feeds';
+import { countryFromLocation } from '../lib/job-identity';
 
 const greenhouse: AtsCompany = { slug: 'example', name: 'Example', platform: 'greenhouse', country: 'netherlands' };
 
@@ -99,6 +100,53 @@ test('a slow board times out on its own and does not fail the search', async () 
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test('parses a Teamtailor JSON feed, taking the country from its ISO code', () => {
+  // Shape copied from a live board: a JSON Feed whose items carry the whole advertisement in
+  // content_html and a schema.org JobPosting with a structured address.
+  const company: AtsCompany = { slug: 'example', name: 'Example', platform: 'teamtailor', country: 'netherlands' };
+  const body = JSON.stringify({
+    version: 'https://jsonfeed.org/version/1',
+    title: 'Example',
+    items: [
+      {
+        id: 'a', title: 'Data Analyst', url: 'https://example.teamtailor.com/jobs/1-data-analyst',
+        date_published: '2026-05-26T00:00:00+02:00',
+        content_html: '<h4>About the role</h4><p>You have three years of SQL experience.</p>',
+        _jobposting: {
+          jobLocation: [{ address: { addressLocality: 'Amsterdam', addressCountry: 'NL', addressRegion: 'Netherlands' } }],
+        },
+      },
+      {
+        id: 'b', title: 'Support Engineer', url: 'https://example.teamtailor.com/jobs/2-support',
+        content_html: '<p>Some duties.</p>',
+        _jobposting: {
+          jobLocation: [
+            { address: { addressLocality: 'Zürich', addressCountry: 'CH' } },
+            { address: { addressLocality: 'Ontario', addressCountry: 'CA', addressRegion: 'Canada' } },
+          ],
+        },
+      },
+      { id: 'c', title: 'No description', url: 'https://example.teamtailor.com/jobs/3', content_html: '' },
+    ],
+  });
+
+  const jobs = parseFeed(company, body);
+  assert.equal(jobs.length, 2, 'a posting with no description is dropped, as on every other board');
+  assert.equal(jobs[0].title, 'Data Analyst');
+  assert.equal(jobs[0].location, 'Amsterdam, Netherlands');
+  assert.match(jobs[0].descriptionHtml, /three years of SQL/);
+  assert.equal(jobs[0].postedAt, '2026-05-26T00:00:00+02:00');
+  // Several locations arrive joined the way other boards send them, so one country rule reads all.
+  assert.equal(jobs[1].location, 'Zürich, Switzerland; Ontario, Canada');
+  assert.equal(countryFromLocation(jobs[1].location), 'switzerland');
+});
+
+test('a Teamtailor posting with no usable location falls back to the company country', () => {
+  const company: AtsCompany = { slug: 'example', name: 'Example', platform: 'teamtailor', country: 'switzerland' };
+  const body = JSON.stringify({ items: [{ id: 'a', title: 'Engineer', url: 'https://example.teamtailor.com/jobs/1', content_html: '<p>Work.</p>' }] });
+  assert.equal(parseFeed(company, body)[0].location, 'Switzerland');
 });
 
 test('no employer board is configured twice', () => {

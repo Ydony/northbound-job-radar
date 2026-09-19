@@ -21,7 +21,7 @@ import type { JobCountry } from './types';
  * page's own data call rather than a feed published for aggregators. Replacing the lead list with
  * our own discovery is #59.
  */
-export type AtsPlatform = 'greenhouse' | 'lever' | 'recruitee' | 'ashby' | 'personio';
+export type AtsPlatform = 'greenhouse' | 'lever' | 'recruitee' | 'ashby' | 'personio' | 'teamtailor';
 
 export interface AtsCompany {
   slug: string;
@@ -331,6 +331,10 @@ export function feedUrl(company: AtsCompany) {
     case 'recruitee': return `https://${company.slug}.recruitee.com/api/offers/`;
     case 'ashby': return `https://api.ashbyhq.com/posting-api/job-board/${company.slug}`;
     case 'personio': return `https://${company.slug}.jobs.personio.de/xml`;
+    // Teamtailor documents this feed for syndication: "go to the main jobs page of your careers
+    // site and add .rss". The .json form of the same feed is a JSON Feed carrying the whole
+    // advertisement in content_html plus an embedded schema.org JobPosting.
+    case 'teamtailor': return `https://${company.slug}.teamtailor.com/jobs.json`;
   }
 }
 
@@ -344,6 +348,43 @@ function decodeEntities(value: string) {
 function tagText(block: string, tag: string) {
   const match = block.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i'));
   return match ? decodeEntities(match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')).trim() : '';
+}
+
+/** ISO country codes this app supports, spelled out so the country rule can read them. */
+const COUNTRY_NAMES: Record<string, string> = { NL: 'Netherlands', CH: 'Switzerland' };
+
+/**
+ * Teamtailor's JSON Feed. Better structured than the other boards: every posting carries the whole
+ * advertisement in `content_html` and a schema.org JobPosting whose address has an ISO country
+ * code, so the country comes from a field rather than from reading a free-text place name.
+ *
+ * A posting can list several locations. Each becomes one entry, joined the way a multi-location
+ * string arrives from the other boards, so lib/job-identity.ts reads them with the same rule.
+ */
+function parseTeamtailor(company: AtsCompany, body: string, fallback: string): ParsedJob[] {
+  const items = (JSON.parse(body) as { items?: unknown[] }).items ?? [];
+  return (items as Array<Record<string, unknown>>).map((item): ParsedJob | null => {
+    const posting = (item._jobposting ?? {}) as Record<string, unknown>;
+    const raw = posting.jobLocation;
+    const places = (Array.isArray(raw) ? raw : raw ? [raw] : []) as Array<Record<string, unknown>>;
+    const location = places
+      .map((place) => (place.address ?? {}) as Record<string, string | null>)
+      .map((address) => {
+        const code = (address.addressCountry ?? '').toUpperCase();
+        const country = COUNTRY_NAMES[code] ?? address.addressRegion ?? code;
+        return [address.addressLocality?.trim(), country?.trim()].filter(Boolean).join(', ');
+      })
+      .filter(Boolean)
+      .join('; ');
+    return {
+      sourceUrl: String(item.url ?? ''),
+      title: String(item.title ?? posting.title ?? ''),
+      company: company.name,
+      location: location || fallback,
+      descriptionHtml: String(item.content_html ?? posting.description ?? ''),
+      postedAt: String(item.date_published ?? posting.datePosted ?? ''),
+    };
+  }).filter((job): job is ParsedJob => Boolean(job?.sourceUrl && job.title && job.descriptionHtml.trim()));
 }
 
 /** Each platform publishes a different shape; normalize them all to ParsedJob. */
@@ -365,6 +406,8 @@ export function parseFeed(company: AtsCompany, body: string): ParsedJob[] {
       };
     }).filter((job) => job.title && job.descriptionHtml.trim());
   }
+
+  if (company.platform === 'teamtailor') return parseTeamtailor(company, body, fallback);
 
   const payload: unknown = JSON.parse(body);
   const rows = Array.isArray(payload) ? payload
