@@ -1,5 +1,71 @@
 # Handover
 
+## 2026-09-19 - Standalone Indeed connector works; dashboard not connected
+
+Read the current checkpoint in [INDEED_INTEGRATION.md](INDEED_INTEGRATION.md), not the
+earlier refusal-only notes below. The owner approved the specifically discussed mobile
+identity header experiment. With certificate verification intact, one minimal probe returned
+HTTP 200 and a description-bearing Dutch job. Then the real TypeScript connector fetched two
+Dutch jobs across two pages and one Swiss job in three bounded requests. Description lengths
+were 7,534, 3,954 and 12,457 HTML characters; dates, employer and country were present.
+No phone, account login, personal token or cookies were needed by this tested path.
+
+Implemented in the existing isolated auth worktree: `lib/indeed/contracts.ts`, `auth.ts`,
+`client.ts` and synthetic tests. Credentials are explicit backend config, never tracked.
+Caps, timeouts, refusal/cooldown behavior, query escaping, response validation and partial
+result reporting are included. This is version 1 of the downstream transport interface.
+
+Verification: 212 automated tests passed, including 18 focused Indeed tests; typecheck,
+lint and production build passed. Live evidence is limited to the three connector requests
+above (plus the initial probe), not volume testing or dashboard acceptance. #64/#65 are
+ready for review; downstream tasks remain separate and no stable-test promotion occurred.
+
+The stable app has **not** been changed: #66 normalization/completeness, #67 source integration
+and tenancy, #68 reporting, #69 UI/QA remain. Do not mark the whole Indeed feature done or
+claim 200-400 results were tested. Records deliberately retain unknown completeness until
+that is validated. No owner database, account, dev/test configuration or server was touched.
+
+## 2026-09-19 - JobSpy comparison and second desktop probe
+
+Latest evidence is in [INDEED_INTEGRATION.md](INDEED_INTEGRATION.md). JobSpy's
+Indeed connector has no personal OAuth flow, so the earlier OAuth-only direction
+was too narrow. One owner-requested, modified JobSpy-style query for one job and
+its description returned non-JSON HTTP 403. No data was retrieved and no retry ran.
+
+The test kept certificate verification and a truthful client identity. It did not
+copy JobSpy's iPhone app identity headers, so it is not evidence that unmodified
+JobSpy succeeds or fails here. Preserve that distinction. Auth/client tasks remain
+incomplete, adapters disabled, and the owner servers/data untouched.
+
+## 2026-09-19 - Indeed auth evidence, not a working connector
+
+Continue from [INDEED_INTEGRATION.md](INDEED_INTEGRATION.md), especially the new
+authentication checkpoint. Static inspection found session-derived token handling,
+a renewal path and a query selecting job-description text. Private implementation
+details and research artifacts stay outside this public repository.
+
+The only desktop probe so far returned 403; no successful search/detail or token
+renewal was demonstrated. Phone diagnostics did not expose a usable live auth
+exchange. No account cookies/tokens were extracted, no source was enabled and no
+owner servers or data were changed. #64 and #65 are still incomplete. Next needs
+provider-supported dynamic evidence or provisioned desktop access, not blind
+request retries or treating the embedded app key as sufficient authentication.
+
+## 2026-09-18 - Indeed task ownership (#63)
+
+The owner requested a multi-LLM task breakdown and explicitly assigned Indeed authentication and
+connection implementation to Codex. Read [INDEED_INTEGRATION.md](INDEED_INTEGRATION.md) for the
+worker boundaries, dependencies and acceptance criteria. GitHub parent #63 and child issues #64-69
+are the execution records on Project 4. Codex owns #64/#65 in run
+`ajh-indeed-auth-connection-20260918-171415-590073`; other implementation tasks are unclaimed.
+
+This checkpoint creates coordination documents only. Indeed is still disabled; no working search,
+authentication lifecycle, unlimited quota or complete-description request has been demonstrated.
+The owner reports authorization for local assessment. Private research and credentials stay outside
+Git and public issues. Other LLMs consume a sanitized frozen contract and synthetic fixtures, not
+phone or account artifacts. Contract revision 1 is the next Codex deliverable. Do not restart the
+owner's server or enable the source merely because these tasks exist.
+
 ## 2026-09-09 restricted-source decision (#32)
 
 Keep the small private source portfolio. jobs.ch, jobup.ch and JobScout24 remain local

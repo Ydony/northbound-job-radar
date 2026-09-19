@@ -1,5 +1,17 @@
 # Ik ben een appel: instructions for coding agents
 
+**2026-09-18 Indeed work ownership:** parent [#63](https://github.com/Ydony/northbound-job-radar/issues/63),
+plan [docs/INDEED_INTEGRATION.md](docs/INDEED_INTEGRATION.md). Codex owns request/auth discovery and
+connection implementation (#64/#65), explicitly assigned by the owner. Other LLMs must claim one
+of #66-69 and respect its file boundaries. The current source remains disabled until verified.
+Private assessment artifacts and credentials never go into this public repo or its issues.
+
+**2026-09-19 narrow Indeed experiment exception:** after the owner was explicitly asked
+about JobSpy's mobile identity headers, they instructed Codex to proceed. That header
+profile is permitted only for this local/admin experiment, behind explicit trusted
+configuration. TLS verification stays enabled. This is not a relaxation for other
+sources, proxy rotation, challenges, public access or unlimited collection.
+
 **Project board:** https://github.com/users/Ydony/projects/4 — what needs doing lives here now
 (migrated from Plane 2026-09-04), not in `docs/TASKS.md`. `docs/TASKS.md` stays as narrative
 history of what was found/decided; don't let it re-become a second open/closed list.
