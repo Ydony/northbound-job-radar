@@ -21,7 +21,7 @@ import type { JobCountry } from './types';
  * page's own data call rather than a feed published for aggregators. Replacing the lead list with
  * our own discovery is #59.
  */
-export type AtsPlatform = 'greenhouse' | 'lever' | 'recruitee' | 'ashby' | 'personio' | 'teamtailor';
+export type AtsPlatform = 'greenhouse' | 'lever' | 'recruitee' | 'ashby' | 'personio' | 'teamtailor' | 'workable';
 
 export interface AtsCompany {
   slug: string;
@@ -335,6 +335,10 @@ export function feedUrl(company: AtsCompany) {
     // site and add .rss". The .json form of the same feed is a JSON Feed carrying the whole
     // advertisement in content_html plus an embedded schema.org JobPosting.
     case 'teamtailor': return `https://${company.slug}.teamtailor.com/jobs.json`;
+    // Workable's widget endpoint, the one its customers embed in their own careers pages. With
+    // details=true it returns the whole advertisement for every posting in a single request, so a
+    // board costs one call rather than one per job.
+    case 'workable': return `https://apply.workable.com/api/v1/widget/accounts/${company.slug}?details=true`;
   }
 }
 
@@ -408,6 +412,21 @@ export function parseFeed(company: AtsCompany, body: string): ParsedJob[] {
   }
 
   if (company.platform === 'teamtailor') return parseTeamtailor(company, body, fallback);
+
+  if (company.platform === 'workable') {
+    // Country arrives spelled out ("Switzerland", "Netherlands"), so city and country together
+    // read the same way as every other board's free-text location.
+    const jobs = (JSON.parse(body) as { jobs?: unknown[] }).jobs ?? [];
+    return (jobs as Array<Record<string, unknown>>).map((job): ParsedJob => ({
+      sourceUrl: String(job.url ?? job.shortlink ?? job.application_url ?? ''),
+      title: String(job.title ?? ''),
+      company: company.name,
+      location: [job.city, job.country].map((part) => String(part ?? '').trim())
+        .filter(Boolean).join(', ') || fallback,
+      descriptionHtml: String(job.description ?? ''),
+      postedAt: String(job.published_on ?? job.created_at ?? ''),
+    })).filter((job) => Boolean(job.sourceUrl && job.title && job.descriptionHtml.trim()));
+  }
 
   const payload: unknown = JSON.parse(body);
   const rows = Array.isArray(payload) ? payload

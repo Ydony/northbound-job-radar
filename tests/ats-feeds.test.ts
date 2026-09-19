@@ -20,6 +20,8 @@ test('builds the documented public endpoint for each platform', () => {
   assert.match(feedUrl({ ...greenhouse, platform: 'recruitee' }), /example\.recruitee\.com\/api\/offers\/$/);
   assert.match(feedUrl({ ...greenhouse, platform: 'ashby' }), /posting-api\/job-board\/example$/);
   assert.match(feedUrl({ ...greenhouse, platform: 'personio' }), /example\.jobs\.personio\.de\/xml$/);
+  assert.match(feedUrl({ ...greenhouse, platform: 'teamtailor' }), /example\.teamtailor\.com\/jobs\.json$/);
+  assert.match(feedUrl({ ...greenhouse, platform: 'workable' }), /apply\.workable\.com\/api\/v1\/widget\/accounts\/example\?details=true$/);
 });
 
 test('parses a Greenhouse board and decodes escaped description markup', () => {
@@ -147,6 +149,43 @@ test('a Teamtailor posting with no usable location falls back to the company cou
   const company: AtsCompany = { slug: 'example', name: 'Example', platform: 'teamtailor', country: 'switzerland' };
   const body = JSON.stringify({ items: [{ id: 'a', title: 'Engineer', url: 'https://example.teamtailor.com/jobs/1', content_html: '<p>Work.</p>' }] });
   assert.equal(parseFeed(company, body)[0].location, 'Switzerland');
+});
+
+test('parses a Workable widget feed', () => {
+  // Shape copied from live boards: the widget endpoint with details=true returns every posting
+  // with its whole advertisement, and spells the country out rather than using a code.
+  const company: AtsCompany = { slug: 'example', name: 'Example', platform: 'workable', country: 'switzerland' };
+  const body = JSON.stringify({
+    name: 'Example',
+    jobs: [
+      {
+        title: 'Analog Electronics Engineer', shortcode: '0285F85DC7',
+        url: 'https://apply.workable.com/j/0285F85DC7',
+        country: 'Switzerland', city: 'Zürich', published_on: '2026-09-15',
+        description: '<p>You have five years of experience designing analogue front ends.</p>',
+      },
+      {
+        title: 'Data & AI Engineer', shortcode: 'X', url: 'https://apply.workable.com/j/X',
+        country: 'Greece', city: 'Athens', description: '<p>Consultancy work.</p>',
+      },
+      { title: 'Empty', url: 'https://apply.workable.com/j/Y', country: 'Netherlands', city: 'Utrecht', description: '' },
+    ],
+  });
+
+  const jobs = parseFeed(company, body);
+  assert.equal(jobs.length, 2, 'a posting with no description is dropped');
+  assert.equal(jobs[0].location, 'Zürich, Switzerland');
+  assert.equal(countryFromLocation(jobs[0].location), 'switzerland');
+  assert.match(jobs[0].descriptionHtml, /five years of experience/);
+  assert.equal(jobs[0].postedAt, '2026-09-15');
+  // A board is one company but its postings are worldwide; the country comes from the posting.
+  assert.equal(countryFromLocation(jobs[1].location), 'unknown');
+});
+
+test('a Workable posting with no place falls back to the company country', () => {
+  const company: AtsCompany = { slug: 'example', name: 'Example', platform: 'workable', country: 'netherlands' };
+  const body = JSON.stringify({ jobs: [{ title: 'Engineer', url: 'https://apply.workable.com/j/Z', description: '<p>Work.</p>' }] });
+  assert.equal(parseFeed(company, body)[0].location, 'Netherlands');
 });
 
 test('no employer board is configured twice', () => {
