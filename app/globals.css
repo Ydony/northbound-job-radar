@@ -456,3 +456,31 @@ footer > a {
 @media (min-width: 851px) {
   .job-select { min-height: 24px; }
 }
+
+/* On a phone the first job sat 1.21 screens down: a header, a hero, two setup panels, a
+   heading, a data-controls drawer, a filter drawer and a sort control, all before the
+   thing you came for. The panels are consulted occasionally - what was searched, what the
+   last run found - so on a narrow screen they move below the results rather than in front
+   of them. The button that starts a search stays at the top. */
+@media (max-width: 850px) {
+  main.shell { display: flex; flex-direction: column; }
+  .setup-panels { order: 1; }
+  .promise-section { order: 2; }
+  footer { order: 3; }
+
+  /* Export, delete and reset are things you do to a list after reading it, not before.
+     They keep their place on a wide screen, where they cost nothing. */
+  .results { display: flex; flex-direction: column; }
+  .results .data-toolbar { order: 1; }
+
+  /* "Your workspace / Screened jobs" repeats the hero directly above it. The counts line
+     is the part that says something, so it is the part that stays. */
+  .results .section-heading .section-label { display: none; }
+  .results .section-heading { margin-bottom: var(--space-3); }
+  .results .section-heading h2 { font-size: 24px; }
+
+  /* The score column centres its contents, which is right when it is a 74px column beside
+     the text and wrong once the card collapses to one column and it spans the full width -
+     the Select checkbox ended up floating in the middle of the card, attached to nothing. */
+  .job-card .score-column { align-items: flex-start; }
+}
