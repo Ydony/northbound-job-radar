@@ -49,14 +49,36 @@ const askedCues = [
   'experience with', 'years of experience', 'degree in', 'background in', 'proficient',
   'proficiency', 'fluent in', 'familiar with', 'knowledge of', 'skilled in', 'must have',
   'required', 'qualifications', 'ideally you', 'ability to',
-  // German
+  // German. 'abgeschlossen' is the stem on purpose: it covers Abgeschlossenes,
+  // Abgeschlossene and Abgeschlossenen, and the feminine form is the common one
+  // ("abgeschlossene kaufmännische Ausbildung"). 'wir suchen' and 'idealerweise' are the
+  // parallels of 'wij zoeken' and 'ideally you' that were missing here.
   'sie bringen', 'du bringst', 'sie haben', 'du hast', 'erfahrung in', 'erfahrung mit',
-  'kenntnisse', 'abgeschlossenes studium', 'wir erwarten', 'vorausgesetzt',
-  // Dutch
-  'je hebt', 'jij hebt', 'je brengt', 'ervaring met', 'ervaring in', 'kennis van',
-  'wij vragen', 'wij zoeken', 'je beschikt',
-  // French / Italian
-  'vous avez', 'vous êtes', 'expérience en', 'expérience dans', 'connaissance de',
+  'kenntnisse', 'abgeschlossen', 'berufserfahrung', 'wir erwarten', 'wir suchen',
+  'vorausgesetzt', 'verfügen über', 'verfügst über', 'idealerweise',
+  // Dutch. 'ben jij' and 'heb jij' are the question forms advertisements open their profile
+  // with ("Ben jij een leidinggevende die…"). The statement forms 'je bent' and 'jij bent'
+  // stay out: they are the Dutch "you are", duties ("je bent verantwoordelijk voor") as
+  // often as requirements. 'functie-eis' is the stem covering 'functie-eis'/'functie-eisen'.
+  // Deliberately absent: 'minimaal' (also the working week: "minimaal 16 uur per week"),
+  // bare 'vereist' ("geen vereiste", "compliancevereisten") and 'gevraagd' (duties:
+  // "zoals gevraagd in de functie").
+  'je hebt', 'jij hebt', 'je brengt', 'ervaring met', 'ervaring in', 'ervaring binnen',
+  'ervaring als', 'kennis van', 'wij vragen', 'wij zoeken', 'we zoeken', 'je beschikt', 'beschikt over',
+  'beschik je over', 'ben jij', 'heb jij', 'functie-eis', 'functie eisen',
+  'aantoonbare ervaring', 'een afgerond', 'in het bezit van',
+  // French. Qualified forms only, because the bare nouns misfire: 'de formation' matches
+  // benefits ("possibilités de formation continue"), 'diplôme' matches application
+  // instructions ("vos certificats et diplômes"), and 'requis'/'requisiti' match English
+  // ("job requisition id", "process requisitions"). The d-apostrophe comes in three
+  // spellings because EURES mangles it ("d-expérience", "d’expérience").
+  'vous avez', 'vous êtes', 'vous justifiez', 'vous maîtrisez', 'vous possédez',
+  'vous disposez', 'nous recherchons', 'nous cherchons', 'expérience en', 'expérience dans',
+  'expérience de', "d'expérience", 'd’expérience', 'd-expérience', 'connaissance de',
+  'maîtrise de', 'maitrise de', 'capacité', 'formation supérieure', 'formation technique',
+  'compétences requises', 'profil recherché', 'diplôme d', 'diplôme de', 'au bénéfice d',
+  'indispensable', 'obligatoire',
+  // Italian (unchanged: no Italian cue survived the precision check above).
   'esperienza in', 'conoscenza di', 'sei in grado',
 ];
 
@@ -69,7 +91,11 @@ const gluedSectionLabels = [
   'job description', 'job responsibilities', 'responsibilities', 'role description', 'description',
   'about the role', 'the role', 'your tasks', 'tasks', 'your mission', 'what you will do',
   'qualification path', 'qualifications', 'your profile', 'introduction', 'position',
-  'stellenbeschreibung', 'ihre aufgaben', 'deine aufgaben', 'aufgaben', 'funktie', 'functieomschrijving',
+  'stellenbeschreibung', 'ihre aufgaben', 'deine aufgaben', 'aufgaben', 'dein profil',
+  'ihr profil', 'das bringst du mit', 'das bringen sie mit',
+  'functie-eisen', 'functie eisen', 'functie', 'functieomschrijving', 'wat ga je doen', 'dit ga je doen', 'wat ga je precies doen',
+  'wat breng je mee', 'dit breng je mee', 'wat neem je mee', 'wie ben jij', 'jouw profiel',
+  'jij bent succesvol als', 'votre profil', 'organisatie', 'organisation',
 ];
 
 /**
