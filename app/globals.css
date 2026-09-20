@@ -237,3 +237,38 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .job-excerpt { color:var(--ink); font-size:13px; line-height:1.5; margin:0 0 10px; }
 .job-excerpt b { color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.06em; margin-right:8px; text-transform:uppercase; }
 .job-excerpt.role { color:var(--muted); }
+
+/* Job card three-tier hierarchy (#45: findings 07, 08, 10, 12).
+   Read (title, source, one grey fact line) > Judge (two chips + verdict reason, proof behind
+   an expander) > Act (one filled pill, a save icon, an applied checkbox, the rest in "…"). */
+.job-card h3.job-title { font-family:var(--font-display); font-size:26px; font-weight:450; margin:0 0 2px; }
+.job-source { background:none; border:0; color:var(--green); cursor:pointer; display:inline-block; font-family:var(--font-display); font-size:17px; font-weight:470; margin:0 0 6px; padding:0; text-align:left; }
+.job-source:hover { text-decoration:underline; }
+.job-subline { color:var(--muted); font-size:11px; line-height:1.5; margin:0 0 10px; }
+.judge-row { align-items:center; display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; }
+.fit-chip { background:var(--paper); border:1px solid var(--line); border-radius:999px; color:var(--ink); font-size:10px; font-weight:750; padding:5px 10px; }
+.why-matched { border-top:1px solid var(--line); margin:0 0 4px; padding-top:9px; }
+.why-matched > summary { color:var(--green); cursor:pointer; font-size:10px; font-weight:800; letter-spacing:.03em; list-style:none; min-height:32px; text-transform:uppercase; }
+.why-matched > summary::-webkit-details-marker { display:none; }
+.why-matched > summary::before { content:"+ "; }
+.why-matched[open] > summary::before { content:"– "; }
+.act-row { align-items:center; display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+.apply-pill { background:var(--ink); border:1px solid var(--ink); border-radius:999px; color:white; cursor:pointer; font-size:12px; font-weight:800; padding:12px 18px; white-space:nowrap; }
+.apply-pill:hover { background:var(--green); border-color:var(--green); }
+.save-icon { align-items:center; background:transparent; border:1px solid var(--ink); border-radius:50%; cursor:pointer; display:inline-flex; font-size:16px; height:44px; justify-content:center; width:44px; }
+.save-icon.selected { background:var(--ink); color:var(--acid); }
+.applied-check { align-items:center; cursor:pointer; display:inline-flex; font-size:12px; font-weight:700; gap:8px; min-height:44px; }
+.applied-check input { accent-color:var(--green); height:18px; width:18px; }
+.card-menu { position:relative; }
+.card-menu > summary { align-items:center; border:1px solid var(--line); border-radius:50%; color:var(--ink); cursor:pointer; display:inline-flex; font-size:18px; font-weight:800; height:44px; justify-content:center; letter-spacing:.1em; list-style:none; width:44px; }
+.card-menu > summary::-webkit-details-marker { display:none; }
+.card-menu-body { background:var(--cream); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 32px rgba(24,34,28,.16); display:grid; gap:10px; min-width:240px; padding:14px; position:absolute; right:0; top:calc(100% + 6px); z-index:20; }
+.card-menu-body > button { background:transparent; border:1px solid #b9c1b7; border-radius:999px; cursor:pointer; font-size:11px; font-weight:750; min-height:38px; padding:8px 12px; text-align:left; }
+.card-menu-feedback { border-top:1px solid var(--line); display:grid; gap:8px; padding-top:10px; }
+.card-menu-feedback > span { color:var(--muted); font-size:10px; font-weight:700; }
+.card-menu-feedback button { background:transparent; border:1px solid #bac2b8; border-radius:999px; cursor:pointer; font-size:10px; font-weight:750; min-height:36px; padding:7px 10px; text-align:left; }
+.card-menu-feedback button.selected { background:var(--green); border-color:var(--green); color:white; }
+.card-menu-feedback button:disabled { cursor:wait; opacity:.6; }
+.card-menu-feedback small { color:var(--muted); font-size:10px; }
+.card-menu .feedback-form { margin-top:2px; }
+@media(max-width:580px){ .apply-pill { flex:1 1 100%; text-align:center; } }
