@@ -317,6 +317,20 @@ export function matchLanguagePhrases(text: string): LanguagePhraseResult {
   interface ExemptSpan { start: number; end: number; language: LanguageName }
   const exemptSpans: ExemptSpan[] = [];
 
+  // Collected before the requirement rules run, because a requirement cue can bind to a
+  // market or law use of a language word — "experience with the German market is required" —
+  // and that is not a language requirement. See the downgrade below.
+  const nationalitySpans: ExemptSpan[] = [];
+  /** Nationality spans a requirement cue bound to: ambiguous, so they never exempt the mention. */
+  const contestedSpans = new Set<ExemptSpan>();
+  nationalityPattern.lastIndex = 0;
+  for (const match of text.matchAll(nationalityPattern)) {
+    const language = nameFor(match[1]);
+    if (!language) continue;
+    const start = match.index ?? 0;
+    nationalitySpans.push({ start, end: start + match[0].length, language });
+  }
+
   for (const pattern of [requiredBeforePattern, requiredAfterPattern]) {
     pattern.lastIndex = 0;
     for (const match of text.matchAll(pattern)) {
@@ -347,6 +361,21 @@ export function matchLanguagePhrases(text: string): LanguagePhraseResult {
         optional.add(language);
         continue;
       }
+      // "Experience with the German market is required" is a requirement for market knowledge,
+      // not for the language, so blocking it hides a job that may well be worked in English.
+      // It is not clean either — an ad about the German market often does want German — so it
+      // lands in review rather than pass. Only an overlapping span counts: in "you will cover
+      // the German market. Fluent German is required." the second occurrence sits outside the
+      // span and still blocks.
+      const end = start + match[0].length;
+      const overlapping = nationalitySpans.filter(
+        (span) => span.language === language && start < span.end && end > span.start,
+      );
+      if (overlapping.length > 0) {
+        for (const span of overlapping) contestedSpans.add(span);
+        optional.add(language);
+        continue;
+      }
       required.add(language);
       if (evidence.length < 5) evidence.push(match[0].replace(/\s+/g, ' ').trim());
     }
@@ -367,7 +396,7 @@ export function matchLanguagePhrases(text: string): LanguagePhraseResult {
   // the mention — but only that occurrence. A second ordinary mention of the same language
   // still lands in `mentioned` below, which is what keeps
   // "we offer Dutch lessons, and fluent Dutch is required" blocked.
-  for (const pattern of [benefitBeforePattern, benefitAfterPattern, nationalityPattern]) {
+  for (const pattern of [benefitBeforePattern, benefitAfterPattern]) {
     pattern.lastIndex = 0;
     for (const match of text.matchAll(pattern)) {
       const language = nameFor(match[1]);
@@ -375,6 +404,11 @@ export function matchLanguagePhrases(text: string): LanguagePhraseResult {
       const start = match.index ?? 0;
       exemptSpans.push({ start, end: start + match[0].length, language });
     }
+  }
+  // A contested span keeps its mention, so the job lands in review rather than pass: a cue did
+  // bind to that language, and only the market reading makes it harmless.
+  for (const span of nationalitySpans) {
+    if (!required.has(span.language) && !contestedSpans.has(span)) exemptSpans.push(span);
   }
 
   anyLanguagePattern.lastIndex = 0;

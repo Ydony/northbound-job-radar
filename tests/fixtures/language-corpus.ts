@@ -207,6 +207,56 @@ export const languageCorpus: CorpusCase[] = [
     expected: 'blocked',
     tests: '"bilingual in X and Y" is a requirement for the non-English language',
   },
+  // ------------------------------------- post-merge review of #74, issue #78
+  {
+    id: 'blocked-denial-plus-requirement',
+    title: 'Platform Engineer',
+    description: body('No German is required for onboarding, but fluent German is required for client work.'),
+    expected: 'blocked',
+    tests: 'a denial and a real requirement in one sentence - the denial clears only its own occurrence',
+  },
+  {
+    id: 'review-benefit-then-ordinary-mention',
+    title: 'Platform Engineer',
+    description: body('We offer free Dutch lessons. Dutch is the day-to-day working language here.'),
+    expected: 'review',
+    tests: 'a benefit exempts only its own occurrence; a second ordinary mention still costs a glance',
+  },
+  {
+    id: 'review-cue-bound-to-market-noun',
+    title: 'Legal Counsel',
+    description: body('Knowledge of Dutch law is required for this position.'),
+    expected: 'review',
+    tests: 'a requirement cue bound to a law/market use is ambiguous - review, never blocked, because blocking hides the job',
+  },
+  {
+    id: 'review-market-knowledge-required',
+    title: 'Account Executive',
+    description: body('Experience with the German market is required for this territory.'),
+    expected: 'review',
+    tests: 'market knowledge asked with "required" is not a language requirement; it must not block',
+  },
+  {
+    id: 'pass-market-word-in-title',
+    title: 'German Market Analyst',
+    description: body('You will own pipeline reporting for the DACH region and work in English.'),
+    expected: 'pass',
+    tests: 'a language word used as a market in the job title, with a clean English body',
+  },
+  {
+    id: 'review-marketing-compound',
+    title: 'Marketing Manager',
+    description: body('You will lead German marketing campaigns from our Amsterdam office.'),
+    expected: 'review',
+    tests: "'marketing' is not the market noun - a compound word never triggers the nationality exemption",
+  },
+  {
+    id: 'review-denial-without-cue',
+    title: 'Platform Engineer',
+    description: body('Not a word of Dutch is needed; the entire company works in English.'),
+    expected: 'review',
+    tests: 'a denial with no requirement cue attached stays review - the gate cannot verify what was never bound',
+  },
 
   {
     id: 'pass-place-names-not-languages',
