@@ -1,4 +1,5 @@
 import { searchAtsBoards } from './ats-feeds';
+import { INDEED_SOURCE_KEYS } from './indeed/access';
 import { searchAdzuna, searchCareerjet, type AggregatorCredentials } from './job-aggregators';
 import { searchEures } from './eures';
 import { searchJobRoom } from './job-room';
@@ -20,11 +21,12 @@ const REQUEST_DELAY_MS = 1200;
  * - `restricted`: the site explicitly prohibits automated access, or actively blocks it. Runs only
  *   for an administrator, and only when the process was started through the VPN-enforced launcher.
  */
-export type SourceAccess = 'authorized-api' | 'grey-area' | 'restricted';
+export type SourceAccess = 'authorized-api' | 'grey-area' | 'restricted' | 'local-experiment';
 
 export type SearchMode = 'authorized' | 'all';
 
 export interface JobSourceAdapter {
+  experimentalIndeed?: boolean;
   key: string;
   name: string;
   country: JobCountry;
@@ -341,13 +343,15 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
   },
   {
     key: 'indeed-ch', name: 'Indeed Switzerland', country: 'switzerland',
-    access: 'restricted', availability: 'blocked',
-    availabilityMessage: 'Not searched: Indeed prohibits automated access without written permission and returned HTTP 403.',
+    access: 'local-experiment', availability: 'disabled', adminOnly: true, experimentalIndeed: true,
+    resultSourceKeys: INDEED_SOURCE_KEYS,
+    availabilityMessage: 'Local administrator experiment. Requires explicit configuration; VPN is optional. Description completeness is unverified.',
   },
   {
     key: 'indeed-nl', name: 'Indeed Netherlands', country: 'netherlands',
-    access: 'restricted', availability: 'blocked',
-    availabilityMessage: 'Not searched: Indeed prohibits automated access without written permission and returned HTTP 403.',
+    access: 'local-experiment', availability: 'disabled', adminOnly: true, experimentalIndeed: true,
+    resultSourceKeys: INDEED_SOURCE_KEYS,
+    availabilityMessage: 'Local administrator experiment. Requires explicit configuration; VPN is optional. Description completeness is unverified.',
   },
   {
     key: 'nationalevacaturebank.nl', name: 'Nationale Vacaturebank', country: 'netherlands',

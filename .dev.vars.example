@@ -33,3 +33,12 @@ SESSION_SECRET=
 # 'true' lets additional local accounts register. The first account on a fresh
 # environment is always allowed and becomes the administrator.
 ALLOW_SIGNUPS=false
+
+# Indeed: explicit LOCAL administrator experiment only. Never put actual values in Git.
+# VPN optional for Indeed only (owner decision 2026-09-20). See docs/INDEED_TESTING.md.
+INDEED_ENABLED=false
+INDEED_LOCAL_ONLY=false
+INDEED_APP_IDENTITY_APPROVED=false
+INDEED_API_KEY=
+INDEED_USER_AGENT=
+INDEED_APP_INFO=

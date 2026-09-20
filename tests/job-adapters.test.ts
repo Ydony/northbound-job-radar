@@ -15,8 +15,8 @@ test('configures Swiss and Netherlands adapters without LinkedIn', () => {
   assert.equal(jobSourceAdapters.filter((source) => source.availability === 'enabled' && source.country === 'netherlands').length >= 2, true);
 });
 
-test('keeps blocked and unavailable sources visible', () => {
-  assert.equal(jobSourceAdapters.find((source) => source.key === 'indeed-nl')?.availability, 'blocked');
+test('keeps disabled experiments and unavailable sources visible', () => {
+  assert.equal(jobSourceAdapters.find((source) => source.key === 'indeed-nl')?.availability, 'disabled');
   assert.equal(jobSourceAdapters.find((source) => source.key === 'nationalevacaturebank.nl')?.availability, 'unavailable');
   assert.equal(jobSourceAdapters.find((source) => source.key === 'iamsterdam.com')?.availability, 'disabled');
 });

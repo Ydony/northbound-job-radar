@@ -1,4 +1,6 @@
-import { aggregatorCredentials, authSecrets, ensureSchema } from '@/db/runtime';
+import { aggregatorCredentials, authSecrets, ensureSchema, indeedConfiguration } from '@/db/runtime';
+import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
+import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
 import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
@@ -33,6 +35,7 @@ const MAX_NEW_PER_BULK_SOURCE = Number.POSITIVE_INFINITY;
 
 /** Employer-declared requirements are more reliable than prose, so they win when a source publishes them. */
 function languageForParsedJob(parsed: ParsedJob, description: string): LanguageResult {
+  if (isIndeedUrl(parsed.sourceUrl)) return languageForIndeed(description, parsed.title);
   const skills = (parsed as { languageSkills?: Parameters<typeof analyzeStructuredLanguages>[0] }).languageSkills;
   const structured = skills && analyzeStructuredLanguages(skills);
   // A language in the title still blocks: employer-declared skill lists are occasionally left
@@ -151,7 +154,10 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   // 'authorized' runs only official or keyed APIs. 'all' additionally reads public web pages, which
   // is the mode that carries terms risk, so it is restricted to administrators and is not merely
   // hidden in the UI - a non-admin calling this directly is refused.
-  const body = await request.json().catch(() => ({})) as { mode?: SearchMode };
+  const body = await request.json().catch(() => ({})) as { mode?: SearchMode; sourceGroup?: string };
+  if (body.sourceGroup && (body.sourceGroup !== 'indeed' || user.role !== 'admin')) {
+    return { kind: 'refused', response: Response.json({ error: 'That search selection is not available.' }, { status: 403 }) };
+  }
   const requestedAll = body.mode === 'all';
   if (requestedAll && user.role !== 'admin') {
     return { kind: 'refused', response: Response.json({ error: 'That search mode is not available on this account.' }, { status: 403 }) };
@@ -173,7 +179,8 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   // is read from public pages - so it is gated on the account, in every mode.
   const hiddenForAccount = user.role === 'admin' ? new Set<string>() : adminOnlySourceKeys();
   const activeAdapters = jobSourceAdapters.filter((adapter) =>
-    (mode === 'all' || adapter.access !== 'restricted') && !hiddenForAccount.has(adapter.key));
+    (mode === 'all' || adapter.access !== 'restricted') && !hiddenForAccount.has(adapter.key)
+    && (!body.sourceGroup || adapter.experimentalIndeed));
   const [cvRows, criteriaRow, roleRows] = await Promise.all([
     db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id).all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
     db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
@@ -245,8 +252,10 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   });
 
   progress(`Contacting ${activeAdapters.length} source${activeAdapters.length === 1 ? '' : 's'}…`);
+  let indeedBatch: ReturnType<typeof collectIndeed> | undefined;
   const searchResults = await Promise.all(activeAdapters.map(async (adapter) => {
-    const empty = { adapter, candidates: [] as string[], bulk: [] as ParsedJob[], error: '', missingCredentials: false };
+    const empty = { adapter, candidates: [] as string[], bulk: [] as ParsedJob[], error: '', missingCredentials: false,
+      indeed: undefined as IndeedBatchResult | undefined };
     // Counted whichever way this ends, including skipped and failed sources: a bar that only
     // advances on success stops moving exactly when something has gone wrong.
     const done = <T>(value: T, note: string) => {
@@ -254,6 +263,19 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       progress(`${adapter.name}: ${note}`);
       return value;
     };
+    if (adapter.experimentalIndeed) {
+      try {
+        indeedBatch ??= collectIndeed(db, indeedConfiguration(request, user.role === 'admin'),
+          searchTerms, request.signal);
+        const summary = (await indeedBatch)[adapter.country === 'netherlands' ? 'NL' : 'CH'];
+        const bulk = summary.jobs.filter(job => bulkJobIsRelevant(job, adapter.country, searchTerms));
+        return done({ ...empty, bulk, candidates: bulk.map(job => canonicalJobUrl(job.sourceUrl)),
+          indeed: { ...summary, rejected: summary.rejected + summary.jobs.length - bulk.length } }, summary.status);
+      } catch {
+        return done({ ...empty, indeed: { jobs: [], status: 'failed', message: 'Indeed collection failed safely; check local configuration.',
+          roles: [], retrieved: 0, rejected: 0, duplicates: 0, requests: 0 } satisfies IndeedBatchResult }, 'failed');
+      }
+    }
     if (adapter.availability !== 'enabled') return done(empty, 'not available');
     if (adapter.hasCredentials && !adapter.hasCredentials(credentials)) {
       return done({ ...empty, missingCredentials: true }, 'no credentials');
@@ -285,7 +307,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   const sourceReports: SearchRunSource[] = [];
 
   for (const result of searchResults) {
-    const { adapter, candidates, bulk, error, missingCredentials } = result;
+    const { adapter, candidates, bulk, error, missingCredentials, indeed } = result;
     screened += 1;
     progress(`Screening ${adapter.name}…`);
     if (missingCredentials) {
@@ -305,7 +327,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       });
       continue;
     }
-    if (adapter.availability !== 'enabled') {
+    if (adapter.availability !== 'enabled' && !indeed) {
       sourceReports.push({
         sourceKey: adapter.key,
         sourceName: adapter.name,
@@ -322,7 +344,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       });
       continue;
     }
-    const isBulk = Boolean(adapter.searchDetailed);
+    const isBulk = Boolean(adapter.searchDetailed || indeed);
     if (error || (!isBulk && !adapter.fetchDetail)) {
       sourceReports.push({
         sourceKey: adapter.key,
@@ -409,16 +431,17 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       sourceKey: adapter.key,
       sourceName: adapter.name,
       country: adapter.country,
-      status: failedCount ? 'partial' : 'complete',
-      rolesSearched: searchTerms,
-      foundCount: candidates.length,
+      status: indeed ? (failedCount && indeed.status === 'complete' ? 'partial' : indeed.status) : failedCount ? 'partial' : 'complete',
+      rolesSearched: indeed?.roles ?? searchTerms,
+      foundCount: indeed?.retrieved ?? candidates.length,
       knownCount,
       newCount: newCandidates.length,
       importedCount,
-      duplicateCount,
-      skippedCount: deferredCount + failedCount,
+      duplicateCount: duplicateCount + (indeed?.duplicates ?? 0),
+      skippedCount: deferredCount + failedCount + (indeed?.rejected ?? 0),
       message: [
         adapter.availabilityMessage,
+        indeed?.message ?? '',
         deferredCount ? `${deferredCount} further new listing${deferredCount === 1 ? '' : 's'} deferred to the next run by the per-run cap.` : '',
         failedCount ? `${failedCount} listing${failedCount === 1 ? '' : 's'} could not be parsed or did not match the search.` : '',
       ].filter(Boolean).join(' '),
@@ -426,7 +449,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   }
 
   const enabledReports = sourceReports.filter((source) => activeAdapters
-    .find((adapter) => adapter.key === source.sourceKey)?.availability === 'enabled');
+    .some((adapter) => adapter.key === source.sourceKey && (adapter.availability === 'enabled' || adapter.experimentalIndeed)));
   const overallStatus: SearchRun['status'] = enabledReports.every((source) => source.status === 'failed')
     ? 'failed'
     : sourceReports.some((source) => source.status !== 'complete')

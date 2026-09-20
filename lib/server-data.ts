@@ -1,4 +1,6 @@
 import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
+import { indeedSql, isIndeedRecord } from './indeed/access';
+import { isIndeedUrl, languageForIndeed } from './indeed/normalize';
 import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
   sourceInfoForUrl, sourceJobIdFromUrl } from './job-identity';
 import { matchesSearchCriteria } from './criteria';
@@ -287,6 +289,8 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
   const now = new Date().toISOString();
   const canonicalUrl = canonicalJobUrl(input.sourceUrl);
   const source = sourceInfoForUrl(canonicalUrl, input.location);
+  // Never merge a private Indeed copy into an independently supplied public record.
+  const sameAudience = `${isIndeedUrl(canonicalUrl) ? '' : 'NOT '}${indeedSql()}`;
   const sourceJobId = sourceJobIdFromUrl(canonicalUrl);
   const globallyStableSourceJobId = isGloballyStableSourceJobId(sourceJobId);
   const postedAt = input.postedAt?.trim() ?? '';
@@ -302,7 +306,7 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
   const fingerprintMatch = !exact && identityFingerprint
     ? await db.prepare(`SELECT id, source_url, source_key, status, is_saved, application_status,
         visibility_status, created_at, first_seen_at FROM jobs
-      WHERE user_id = ? AND identity_fingerprint = ? ORDER BY updated_at DESC LIMIT 1`)
+      WHERE user_id = ? AND identity_fingerprint = ? AND ${sameAudience} ORDER BY updated_at DESC LIMIT 1`)
       .bind(userId, identityFingerprint).first<ExistingJobIdentity>()
     : null;
   const existing = exact ?? fingerprintMatch;
@@ -312,7 +316,7 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
   // comparison that the fingerprint hash cannot express happens here in TypeScript.
   const nearMatch = !existing && clusterKey
     ? (await db.prepare(`SELECT id, location, posted_at, duplicate_of, first_seen_at FROM jobs
-        WHERE user_id = ? AND cluster_key = ? ORDER BY first_seen_at LIMIT 25`)
+        WHERE user_id = ? AND cluster_key = ? AND ${sameAudience} ORDER BY first_seen_at LIMIT 25`)
         .bind(userId, clusterKey).all<NearDuplicateCandidate>())
       .results.find((candidate) => isNearDuplicate(
         // The row being written has not been stored yet, so its first-seen is now.
@@ -387,7 +391,7 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
  *    English, so short previews written in German or French stop being filed as "not enough of
  *    the ad". 172 stored jobs were carrying that verdict and are rewritten as blocked.
  */
-export const NORMALIZATION_VERSION = 5;
+export const NORMALIZATION_VERSION = 6;
 
 interface StoredJobForNormalization {
   id: string;
@@ -419,7 +423,7 @@ export async function normalizeStoredJobs(db: D1Database, userId: string) {
   const statements = rows.results.map((row) => {
     const title = decodeEntities(row.title);
     const location = readableLocation(decodeEntities(row.location));
-    const language = analyzeLanguage(row.description, title);
+    const language = isIndeedUrl(row.source_url) ? languageForIndeed(row.description, title) : analyzeLanguage(row.description, title);
     // Re-derived from the resolved location, not carried over: the country stored at ingest is
     // wrong for any EURES row written between the NUTS resolver landing and this fix.
     const { country } = sourceInfoForUrl(row.source_url, location);
@@ -439,7 +443,7 @@ export async function normalizeStoredJobs(db: D1Database, userId: string) {
 // v1: re-evaluate links made before the first-seen fallback for missing posting dates (#5).
 // Bump whenever jobClusterKey, isNearDuplicate or primary selection changes. Normalization
 // separately invalidates a row's cluster version because it may change its title or place.
-export const CLUSTER_VERSION = 1;
+export const CLUSTER_VERSION = 2;
 
 /** Recheck the entire owner group when any member was written under older rules. */
 export async function ensureCurrentJobClusters(db: D1Database, userId: string) {
@@ -450,6 +454,7 @@ export async function ensureCurrentJobClusters(db: D1Database, userId: string) {
 
 interface ClusterableJob {
   id: string;
+  source_url: string;
   title: string;
   company: string;
   location: string;
@@ -475,7 +480,7 @@ interface ClusterableJob {
  * teasers stop displacing the full advertisement.
  */
 export async function reclusterJobs(db: D1Database, userId: string) {
-  const rows = await db.prepare(`SELECT id, title, company, location, posted_at, first_seen_at, source_key,
+  const rows = await db.prepare(`SELECT id, source_url, title, company, location, posted_at, first_seen_at, source_key,
       is_saved, application_status, description FROM jobs WHERE user_id = ? ORDER BY first_seen_at, created_at`)
     .bind(userId).all<ClusterableJob>();
   if (!rows.results.length) return { clusters: 0, duplicates: 0 };
@@ -486,9 +491,10 @@ export async function reclusterJobs(db: D1Database, userId: string) {
     const key = jobClusterKey(row);
     assignment.set(row.id, { clusterKey: key, duplicateOf: '' });
     if (!key) continue;
-    const bucket = buckets.get(key) ?? [];
+    const audienceKey = `${isIndeedRecord(row.source_key, row.source_url) ? 'indeed' : 'other'}:${key}`;
+    const bucket = buckets.get(audienceKey) ?? [];
     bucket.push(row);
-    buckets.set(key, bucket);
+    buckets.set(audienceKey, bucket);
   }
 
   const rank = (job: ClusterableJob) =>
@@ -537,12 +543,12 @@ export async function reclusterJobs(db: D1Database, userId: string) {
 }
 
 export async function rescoreAllJobs(db: D1Database, userId: string, cvs: CvInput[]) {
-  const jobs = await db.prepare('SELECT id, title, description FROM jobs WHERE user_id = ?').bind(userId)
-    .all<{ id: string; title: string; description: string }>();
+  const jobs = await db.prepare('SELECT id, source_url, title, description FROM jobs WHERE user_id = ?').bind(userId)
+    .all<{ id: string; source_url: string; title: string; description: string }>();
   if (!jobs.results.length) return 0;
 
   const updates = jobs.results.map((job) => {
-    const language = analyzeLanguage(job.description, job.title);
+    const language = isIndeedUrl(job.source_url) ? languageForIndeed(job.description, job.title) : analyzeLanguage(job.description, job.title);
     const fit = scoreFitAcrossCvs(job.description, job.title, cvs);
     return db.prepare(`UPDATE jobs SET language_status = ?, language_summary = ?, language_signals = ?,
       fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, matched_keywords = ?, missing_keywords = ?,

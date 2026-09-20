@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import IndeedStatusPanel from './indeed-status';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
 import { defaultSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
 import { jobsToCsv, workspaceToJson } from '@/lib/export';
@@ -522,7 +523,7 @@ export default function JobRadar() {
     }
   }
 
-  async function findJobs(mode: 'authorized' | 'all') {
+  async function findJobs(mode: 'authorized' | 'all', sourceGroup?: 'indeed') {
     setScrapeBusy(mode);
     setRunSummaryDismissed(true);
     setScrapeMessage(mode === 'all'
@@ -532,7 +533,7 @@ export default function JobRadar() {
       const response = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ mode }),
+        body: JSON.stringify({ mode, sourceGroup }),
       });
       // Refusals still come back as an ordinary response with a real status code, so they are read
       // the same way as any other error rather than being buried in the stream.
@@ -857,6 +858,7 @@ export default function JobRadar() {
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
+        {isAdmin && <IndeedStatusPanel busy={loading || Boolean(loadError) || Boolean(scrapeBusy)} search={() => { void findJobs('authorized', 'indeed'); }} />}
         {isAdmin && <div className="health-panel">
           <div className="health-head">
             <b>Source health</b>
