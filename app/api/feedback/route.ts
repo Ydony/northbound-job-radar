@@ -1,5 +1,6 @@
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
+import { adminOnlySourceKeys } from '@/lib/job-adapters';
 
 interface FeedbackRow {
   job_id: string;
@@ -31,12 +32,22 @@ export async function GET(request: Request) {
   if (response) return response;
   const { db, user } = session;
 
+  // An export is a read of the same rows /api/state hides, so it needs the same two guards.
+  // Without them an account demoted from administrator kept a way to read back the names, titles
+  // and stored evidence of page-fetching sources through its own old corrections — which ordinary
+  // accounts must never learn exist. Excluded in SQL and before the LIMIT, like /api/state, so the
+  // rows are never fetched rather than dropped afterwards.
+  const hiddenSourceKeys = user.role === 'admin' ? [] : [...adminOnlySourceKeys()];
+  const hiddenClause = hiddenSourceKeys.length
+    ? ` AND j.source_key NOT IN (${hiddenSourceKeys.map(() => '?').join(',')})`
+    : '';
+
   const rows = await db.prepare(`SELECT f.job_id, f.verdict, f.corrected_status, f.reason, f.updated_at,
       f.detected_status, f.detected_summary, f.detected_signals, f.evidence,
       j.title, j.company, j.location, j.source_name
-    FROM language_feedback f JOIN jobs j ON j.id = f.job_id
-    WHERE f.user_id = ? ORDER BY f.updated_at DESC LIMIT 500`)
-    .bind(user.id).all<FeedbackRow>();
+    FROM language_feedback f JOIN jobs j ON j.id = f.job_id AND j.user_id = f.user_id
+    WHERE f.user_id = ?${hiddenClause} ORDER BY f.updated_at DESC LIMIT 500`)
+    .bind(user.id, ...hiddenSourceKeys).all<FeedbackRow>();
 
   const entries = rows.results.map((row) => ({
     jobId: row.job_id,
