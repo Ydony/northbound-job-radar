@@ -207,6 +207,44 @@ export const languageCorpus: CorpusCase[] = [
     expected: 'blocked',
     tests: '"bilingual in X and Y" is a requirement for the non-English language',
   },
+  // ------------------------- independent review of the gate, issues #79 / #80
+  // Six exhibits, each reproduced by hand before the rule was touched. Two were false passes,
+  // which cost a wasted application; two were false blocks, which hide the job entirely.
+  {
+    id: 'blocked-denial-from-previous-sentence',
+    title: 'Platform Engineer',
+    description: body('No travel. German is required.'),
+    expected: 'blocked',
+    tests: 'a denial belongs to its own sentence - "No travel." must not clear "German is required"',
+  },
+  {
+    id: 'review-language-used-for-regulatory-work',
+    title: 'Compliance Analyst',
+    description: body('You will read and write Dutch for regulatory reports.'),
+    expected: 'review',
+    tests: 'a preposition breaks the noun phrase, so this is Dutch the language, not a market use',
+  },
+  {
+    id: 'review-qualified-optional',
+    title: 'Client Advisor',
+    description: body('Fluent Dutch is a plus for this role.'),
+    expected: 'review',
+    tests: 'a qualifier must not outrank what the sentence goes on to say - "is a plus" still counts',
+  },
+  {
+    id: 'blocked-cue-does-not-cross-a-clause',
+    title: 'Client Advisor',
+    description: body('Fluent German is required, but Dutch is a plus.'),
+    expected: 'blocked',
+    tests: 'German blocks; the cue must not also bind forward across ", but" onto Dutch',
+  },
+  {
+    id: 'pass-non-english-denial',
+    title: 'Platform Engineer',
+    description: body('Geen Duits vereist; wij werken volledig in het Engels.'),
+    expected: 'pass',
+    tests: 'a Dutch-language denial still clears, so narrowing the window did not break other languages',
+  },
   // ------------------------------------- post-merge review of #74, issue #78
   {
     id: 'blocked-denial-plus-requirement',

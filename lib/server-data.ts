@@ -406,7 +406,12 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
  */
 // 8: Indeed descriptions retain unknown completeness on normalization/rescoring.
 // Also re-evaluates version-7 rows using the current nationality precedence (#78).
-export const NORMALIZATION_VERSION = 8;
+// 9: language cues now bind within a clause rather than within a character distance (#79). A
+// denial in the previous sentence no longer clears this one, a market or law use must really
+// qualify its noun, a cue no longer carries across ", but" onto the next language, and optional
+// wording trailing a qualifier is seen. Two false passes and two false blocks were corrected, so
+// stored verdicts move in both directions and every row is re-screened.
+export const NORMALIZATION_VERSION = 9;
 
 interface StoredJobForNormalization {
   id: string;

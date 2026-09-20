@@ -252,10 +252,34 @@ for (const [name, spellings] of Object.entries(languageSpellings) as [LanguageNa
  */
 const gap = (limit = 45) => `(?:(?!\\b(?:${languageAlternation})\\b)[^.;!?\\n\\u2022]){0,${limit}}`;
 
+/**
+ * Words that end a qualifying relationship between a language name and the noun after it.
+ *
+ * "Dutch financial regulation" is one noun phrase: Dutch qualifies regulation, so it is a
+ * nationality, not a language. "Dutch for regulatory reports" is not - the preposition breaks
+ * the phrase, and what follows is a separate thing the Dutch is used *for*. Without this,
+ * "You will read and write Dutch for regulatory reports" was exempted and passed as English.
+ */
+const qualifierBreakers = ['for', 'in', 'on', 'with', 'to', 'of', 'about', 'and', 'or', 'but'];
+
+/** A gap that stays inside one noun phrase, for rules that depend on a word qualifying another. */
+const qualifierGap = (limit = 25) =>
+  `(?:(?!\\b(?:${languageAlternation}|${alternation(qualifierBreakers)})\\b)[^.;!?,\\n\\u2022]){0,${limit}}`;
+
+/**
+ * A gap that will not cross into the next clause.
+ *
+ * "Fluent German is required, but Dutch is a plus" blocked *Dutch*, because the cue `required`
+ * bound forward across the comma to the next language named. A comma followed by a conjunction
+ * starts a new claim, and a cue does not carry into it.
+ */
+const clauseGap = (limit = 45) =>
+  `(?:(?!\\b(?:${languageAlternation})\\b)(?!,\\s*(?:but|and|or|while|though|although)\\b)[^.;!?\\n\\u2022]){0,${limit}}`;
+
 const requiredBeforePattern = new RegExp(
-  `\\b(?:${alternation(requirementCuesBefore)})\\b${gap()}\\b(${languageAlternation})\\b`, 'gi');
+  `\\b(?:${alternation(requirementCuesBefore)})\\b${clauseGap()}\\b(${languageAlternation})\\b`, 'gi');
 const requiredAfterPattern = new RegExp(
-  `\\b(${languageAlternation})\\b${gap()}\\b(?:${alternation(requirementCuesAfter)})\\b`, 'gi');
+  `\\b(${languageAlternation})\\b${clauseGap()}\\b(?:${alternation(requirementCuesAfter)})\\b`, 'gi');
 /** Optional wording bound to one language, so the summary can say what the ad actually claimed. */
 const optionalBeforePattern = new RegExp(
   `\\b(?:${alternation(optionalCues)})\\b${gap(25)}\\b(${languageAlternation})\\b`, 'gi');
@@ -271,7 +295,31 @@ const benefitAfterPattern = new RegExp(
   `\\b(${languageAlternation})\\b${gap(25)}\\b(?:${alternation(lessonNouns)})\\b${gap(30)}\\b(?:${alternation(benefitVerbs)})\\b`, 'gi');
 /** A language word used as a market or regulation, not a language: "the German market". */
 const nationalityPattern = new RegExp(
-  `\\b(${languageAlternation})\\b${gap(25)}\\b(?:${alternation(nonLanguageNouns)})\\b`, 'gi');
+  `\\b(${languageAlternation})\\b${qualifierGap(25)}\\b(?:${alternation(nonLanguageNouns)})\\b`, 'gi');
+
+/** How far past a match optional wording may sit and still describe it. */
+const OPTIONAL_LOOKAHEAD = 30;
+
+/** Everything within reach before `start`, cut at the nearest sentence end. */
+function clauseWindowBefore(text: string, start: number, reach = DENIAL_LOOKBACK) {
+  const window = text.slice(Math.max(0, start - reach), start);
+  let boundary = -1;
+  for (const mark of ['.', ';', '!', '?', '\n', '\u2022']) {
+    boundary = Math.max(boundary, window.lastIndexOf(mark));
+  }
+  return boundary === -1 ? window : window.slice(boundary + 1);
+}
+
+/** The match plus what follows it in the same sentence, for wording that trails the cue. */
+function clauseWindowAfter(text: string, end: number, matched: string) {
+  const window = text.slice(end, end + OPTIONAL_LOOKAHEAD);
+  let boundary = window.length;
+  for (const mark of ['.', ';', '!', '?', '\n', '\u2022']) {
+    const found = window.indexOf(mark);
+    if (found !== -1) boundary = Math.min(boundary, found);
+  }
+  return matched + window.slice(0, boundary);
+}
 
 /** How far back a denial can sit and still clear the cue it precedes. */
 const DENIAL_LOOKBACK = 12;
@@ -343,12 +391,19 @@ export function matchLanguagePhrases(text: string): LanguagePhraseResult {
       // "without any X" with word boundaries. A negation further out still softens to
       // optional (review), which is what the gate did before and what keeps a second
       // ordinary mention in review rather than blocked or passed.
-      const closeBefore = text.slice(Math.max(0, start - DENIAL_LOOKBACK), start + match[0].length);
+      // Trimmed at the nearest sentence end, because 12 characters is a distance and a denial is
+      // a claim about *this* sentence. "No travel. German is required." was read as a denial of
+      // German and passed as English - the "No" belonged to the sentence before it.
+      const closeBefore = clauseWindowBefore(text, start) + match[0];
       // "German is a plus" is optional wording inside the match itself — that stays review,
       // so it wins over a nearby negation. This is what keeps "German is not required"
       // (which contains the optional phrase "not required") in review, while
       // "No German is required" (no optional phrase inside) becomes an explicit denial.
-      if (optionalPattern.test(match[0])) {
+      // Looks a little past the match as well as inside it. `requiredBefore` matches only
+      // "Fluent Dutch", so "Fluent Dutch is a plus" saw no optional wording and blocked, while
+      // the bare "Dutch is a plus" correctly went to review. The qualifier should not outrank
+      // what the sentence goes on to say.
+      if (optionalPattern.test(clauseWindowAfter(text, start + match[0].length, match[0]))) {
         optional.add(language);
         continue;
       }
@@ -356,7 +411,10 @@ export function matchLanguagePhrases(text: string): LanguagePhraseResult {
         exemptSpans.push({ start, end: start + match[0].length, language });
         continue;
       }
-      const wideBefore = text.slice(Math.max(0, start - NEGATION_LOOKBACK), start + match[0].length);
+      // Trimmed at the sentence end for the same reason the denial window is. A negation in the
+      // previous sentence is not a softening of this one: "No travel. German is required."
+      // reads as a requirement, and reporting it as merely optional understates the bar.
+      const wideBefore = clauseWindowBefore(text, start, NEGATION_LOOKBACK) + match[0];
       if (negationPattern.test(wideBefore)) {
         optional.add(language);
         continue;
@@ -443,5 +501,5 @@ export const languageRuleCounts = {
   spellings: allSpellings.length,
   cuesBefore: requirementCuesBefore.length,
   cuesAfter: requirementCuesAfter.length,
-  compiledPatterns: 10,
+  compiledPatterns: 10,  // gap variants share the same compiled set
 };
