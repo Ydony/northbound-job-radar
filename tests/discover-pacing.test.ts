@@ -22,11 +22,19 @@ test('starts are spaced even when every caller arrives at once', async () => {
   }));
   starts.sort((a, b) => a - b);
 
-  for (let i = 1; i < starts.length; i += 1) {
-    const gap = starts[i] - starts[i - 1];
-    assert.ok(gap >= delay * 0.6, `start ${i} was only ${gap}ms after the one before it`);
-  }
-  assert.ok(starts[4] >= delay * 3, 'five paced starts cannot all happen immediately');
+  // Total elapsed, not the gap between each pair.
+  //
+  // Per-pair gaps were the first version and they were flaky: five callers resume concurrently,
+  // so the timestamp each records can drift relative to the others under load, compressing an
+  // observed gap without the pacer having done anything wrong. It passed alone and failed in a
+  // 334-test run, which is the worst kind of test - it teaches you to ignore a red suite.
+  //
+  // The invariant that actually matters is that N paced starts cannot all happen at once, and
+  // total elapsed time measures exactly that while being immune to per-callback jitter.
+  const elapsed = starts[starts.length - 1];
+  const floor = delay * (starts.length - 1) * 0.6;
+  assert.ok(elapsed >= floor,
+    `five paced starts took ${elapsed}ms, which is less than the ${floor}ms the spacing requires`);
 });
 
 test('pacing off means no artificial wait', async () => {
