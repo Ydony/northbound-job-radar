@@ -3,7 +3,7 @@ import test from 'node:test';
 import { defaultSearchCriteria } from '../lib/criteria';
 import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, criteriaToDraft,
   DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, isNewJob, jobInView, languageStatusLabel,
-  newSinceCutoff, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, statusLabel } from '../lib/dashboard';
+  newSinceCutoff, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, statusLabel, workspaceCountCopy } from '../lib/dashboard';
 import type { JobRecord, SearchCriteria, SearchRun, SourceRunStatus } from '../lib/types';
 import type { LanguageStatus } from '../lib/analysis';
 
@@ -255,6 +255,33 @@ test('emptyStateCopy names the culprit instead of shrugging', () => {
   assert.equal(emptyStateCopy('triage', base).title, 'Nothing needs a look');
   assert.equal(emptyStateCopy('dismissed', base).title, 'Nothing dismissed');
   assert.equal(emptyStateCopy('pipeline', base).title, 'Pipeline is empty');
+});
+
+test('workspaceCountCopy never calls shown rows matching when they are folded duplicates', () => {
+  // The issue's case: no keywords set, so matching equals total and the 25-gap is folding.
+  const folded = workspaceCountCopy({ shown: 306, matching: 331, total: 331, hiddenDuplicates: 25, hasMorePages: false });
+  assert.equal(folded, '306 jobs · 25 duplicates folded · 331 analyzed');
+  assert.doesNotMatch(folded, /matching/);
+  // With criteria set both effects are live, so the line distinguishes shown from matching.
+  assert.equal(
+    workspaceCountCopy({ shown: 222, matching: 237, total: 331, hiddenDuplicates: 15, hasMorePages: false }),
+    '222 shown · 237 matching · 331 analyzed',
+  );
+  // Nothing filtered, nothing folded: a single quiet number.
+  assert.equal(
+    workspaceCountCopy({ shown: 5, matching: 5, total: 5, hiddenDuplicates: 0, hasMorePages: false }),
+    '5 analyzed',
+  );
+  // Singular forms read as written.
+  assert.equal(
+    workspaceCountCopy({ shown: 1, matching: 2, total: 2, hiddenDuplicates: 1, hasMorePages: false }),
+    '1 job · 1 duplicate folded · 2 analyzed',
+  );
+  // While pages remain, shown is partial and matching is the server-exact total to converge to.
+  assert.equal(
+    workspaceCountCopy({ shown: 200, matching: 331, total: 331, hiddenDuplicates: 10, hasMorePages: true }),
+    'Showing 200 of 331 matching — more below',
+  );
 });
 
 test('criteriaToDraft round-trips every SearchCriteria field', () => {

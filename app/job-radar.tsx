@@ -15,7 +15,7 @@ import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, criteriaToDraft, DASHBOARD_VIEW_LABELS,
   emptyStateCopy, formatDate, jobInView, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
-  sourceRunStatusLabel, statusLabel, type CriteriaDraft, type DashboardView, type FilterPill,
+  sourceRunStatusLabel, statusLabel, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
   type SortMode } from '@/lib/dashboard';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
@@ -220,6 +220,7 @@ export default function JobRadar() {
           jobs: [...current.jobs, ...appended],
           totalJobs: next.totalJobs ?? current.totalJobs,
           matchingJobs: next.matchingJobs ?? current.matchingJobs,
+          hiddenDuplicates: (current.hiddenDuplicates ?? 0) + (next.hiddenDuplicates ?? 0),
           nextCursor: next.nextCursor ?? null,
         };
       });
@@ -1178,11 +1179,16 @@ export default function JobRadar() {
 
       <section className="results" id="jobs">
         <div className="section-heading"><div><span className="section-label coral">Your workspace</span><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…'
-          : state.nextCursor
-            // More pages remain: the server keeps keyword-excluded jobs out of the count, so
-            // this says what is on screen against what matches, not against everything owned.
-            ? `Showing ${state.jobs.length} of ${state.matchingJobs ?? state.jobs.length} matching — more below`
-            : `${state.jobs.length} matching of ${state.totalJobs ?? state.jobs.length} analyzed`}</span></div>
+          // Shown rows are deduplicated on screen, so the count names each live effect
+          // separately: keyword filtering (matching, from the server) and duplicate
+          // folding (folded copies), rather than calling the shown rows "matching" (#92).
+          : workspaceCountCopy({
+            shown: state.jobs.length,
+            matching: state.matchingJobs ?? state.jobs.length,
+            total: state.totalJobs ?? state.jobs.length,
+            hiddenDuplicates: state.hiddenDuplicates ?? 0,
+            hasMorePages: Boolean(state.nextCursor),
+          })}</span></div>
         <details className="data-toolbar" open={selectedJobIds.length > 0}>
           <summary>{selectedJobIds.length ? `${selectedJobIds.length} selected` : 'Data controls'}</summary>
           <button type="button" disabled={!selectedJobIds.length || dataBusy} onClick={() => deleteJobs(selectedJobIds)}>Delete selected</button>

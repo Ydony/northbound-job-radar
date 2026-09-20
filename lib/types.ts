@@ -140,6 +140,8 @@ export interface AppState {
   totalJobs?: number;
   /** Jobs the saved keywords keep, across every page. Counts converge to this as pages load. */
   matchingJobs?: number;
+  /** Copies folded into the jobs on screen, on the loaded pages. Accumulate across pages. */
+  hiddenDuplicates?: number;
   jobLimit?: number;
   /** Keyset cursor for the next page of /api/state, or null/undefined when this page is the end. */
   nextCursor?: string | null;

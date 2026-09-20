@@ -213,6 +213,44 @@ export function activeFilterPills(filters: {
   return pills;
 }
 
+export interface WorkspaceCountFacts {
+  /** Visible (deduplicated) rows on the loaded pages. */
+  shown: number;
+  /** Server-exact keyword matches across every page, duplicates included. */
+  matching: number;
+  /** Every row owned across every page, duplicates included. */
+  total: number;
+  /** Copies folded into the shown rows, on the loaded pages. */
+  hiddenDuplicates: number;
+  /** More pages remain below; shown and hiddenDuplicates are partial. */
+  hasMorePages: boolean;
+}
+
+/**
+ * The one line summarising the whole workspace. `shown` is deduplicated rows on
+ * screen, so calling it "matching" invents a criteria effect that never happened
+ * (#92): with no keywords set, the gap between shown and total is folded
+ * duplicates, not failed matches. Name each live effect instead — keyword
+ * filtering via matching, duplicate folding via the folded count — and drop a
+ * number when it claims nothing.
+ */
+export function workspaceCountCopy(facts: WorkspaceCountFacts): string {
+  const shown = Math.max(0, facts.shown);
+  const matching = Math.max(0, facts.matching);
+  const total = Math.max(0, facts.total);
+  const folded = Math.max(0, facts.hiddenDuplicates);
+  if (facts.hasMorePages) {
+    return `Showing ${shown} of ${matching} matching — more below`;
+  }
+  if (matching < total) {
+    return `${shown} shown · ${matching} matching · ${total} analyzed`;
+  }
+  if (folded > 0) {
+    return `${shown} job${shown === 1 ? '' : 's'} · ${folded} duplicate${folded === 1 ? '' : 's'} folded · ${total} analyzed`;
+  }
+  return `${total} analyzed`;
+}
+
 export interface EmptyStateFacts {
   /** Every job owned (and visible to this role), from the server total, not the loaded page. */
   totalJobs: number;
