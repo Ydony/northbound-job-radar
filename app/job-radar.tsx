@@ -1338,7 +1338,11 @@ export default function JobRadar() {
                       everything proving the match sits behind the expander. */}
                   <div className="judge-row">
                     {showLanguageChip && <span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span>}
-                    <span className="fit-chip" title="Fit against your saved search roles">Fit {bestFitScore(job)}</span>
+                    {/* bestFitScore is the better of the two CV slot scores, so with CV matching
+                        shelved it is 0 on every card - 140 chips all reading "Fit 0", implying a
+                        score the product does not currently compute. Gated like every other
+                        CV-derived element on this card. */}
+                    {CV_MATCHING_ENABLED && <span className="fit-chip" title="Fit against your saved search roles">Fit {bestFitScore(job)}</span>}
                   </div>
                   {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
                   <p className="language-summary">{hasCorrection ? `Detector note: ${job.languageSummary}` : job.languageSummary}</p>
