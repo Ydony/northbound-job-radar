@@ -608,6 +608,15 @@ let cached: { at: number; jobs: ParsedJob[] } | undefined;
 const CACHE_MS = 60_000;
 
 /**
+ * Collection already running but not yet finished. The 60-second result cache above only
+ * serves finished results, which never helps the second adapter arriving while the first
+ * collection is still running — exactly when ats-ch and ats-nl arrive. This entry covers
+ * that window; it is cleared on settle, so only finished results are ever cached.
+ */
+let detailedInFlight: Promise<BoardFetchOutcome[]> | undefined;
+let boardsInFlight: Promise<ParsedJob[]> | undefined;
+
+/**
  * Reads every configured board once, keeping the per-board outcome so callers can tell a
  * board with no jobs apart from a board that failed. Used by the measurement script and by
  * searchAtsBoards below; boards are independent, so a failure stays isolated to one company.
@@ -630,7 +639,19 @@ async function fetchCompanyWithRetry(company: AtsCompany): Promise<BoardFetchOut
 }
 
 export async function searchAtsBoardsDetailed(): Promise<BoardFetchOutcome[]> {
-  return mapWithConcurrency(atsCompanies, BOARD_CONCURRENCY, (company) => fetchCompanyWithRetry(company));
+  // The scrape route runs every adapter under Promise.all, so the ats-ch and ats-nl adapters
+  // start together and neither sees a finished result yet. Without sharing here each of them
+  // would launch its own 282-board batch. The second caller awaits the collection already in
+  // flight instead of starting another; the entry is cleared as soon as the collection settles,
+  // so a failed collection is never cached and the next search tries again.
+  if (detailedInFlight) return detailedInFlight;
+  const collection = mapWithConcurrency(atsCompanies, BOARD_CONCURRENCY, (company) => fetchCompanyWithRetry(company));
+  detailedInFlight = collection;
+  try {
+    return await collection;
+  } finally {
+    if (detailedInFlight === collection) detailedInFlight = undefined;
+  }
 }
 
 /**
@@ -638,13 +659,27 @@ export async function searchAtsBoardsDetailed(): Promise<BoardFetchOutcome[]> {
  * international company contributes its Swiss and its Dutch roles rather than only its home
  * market. Boards are independent, so a failure is isolated to one company. The scrape route
  * assigns each posting a country from its own location, which is what filters this list.
+ *
+ * Finished results are cached for 60 seconds, and a collection already in flight is shared
+ * the same way: concurrent callers await it instead of starting their own batch. A rejected
+ * collection clears the in-flight entry without touching the result cache, so the next
+ * search tries again rather than reusing the failure.
  */
 export async function searchAtsBoards(): Promise<ParsedJob[]> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.jobs;
-  const outcomes = await searchAtsBoardsDetailed();
-  const byUrl = new Map<string, ParsedJob>();
-  for (const outcome of outcomes) for (const job of outcome.jobs) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
-  const jobs = [...byUrl.values()];
-  cached = { at: Date.now(), jobs };
-  return jobs;
+  if (boardsInFlight) return boardsInFlight;
+  const collection = (async (): Promise<ParsedJob[]> => {
+    const outcomes = await searchAtsBoardsDetailed();
+    const byUrl = new Map<string, ParsedJob>();
+    for (const outcome of outcomes) for (const job of outcome.jobs) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
+    const jobs = [...byUrl.values()];
+    cached = { at: Date.now(), jobs };
+    return jobs;
+  })();
+  boardsInFlight = collection;
+  try {
+    return await collection;
+  } finally {
+    if (boardsInFlight === collection) boardsInFlight = undefined;
+  }
 }
