@@ -23,6 +23,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
   const [backfillReport, setBackfillReport] = useState<JobRoomBackfillReport | null>(null);
+  const [postedAtReport, setPostedAtReport] = useState<JobRoomBackfillReport | null>(null);
 
   const [reloadToken, setReloadToken] = useState(0);
   const load = () => setReloadToken((token) => token + 1);
@@ -108,6 +109,26 @@ export default function AdminPage() {
     }
   }
 
+  async function backfillJobRoomPostedAt() {
+    setBusy('job-room-posted-at-backfill');
+    setMessage('');
+    setPostedAtReport(null);
+    try {
+      const response = await fetch('/api/admin/job-room-posting-date-backfill', { method: 'POST' });
+      const body = await response.json().catch(() => ({ error: 'The server returned an unreadable response.' })) as
+        JobRoomBackfillReport & { error?: string };
+      if (!response.ok) throw new Error(body.error || 'Job-Room posting-date backfill failed.');
+      setPostedAtReport(body);
+      setMessage(body.remainingCount
+        ? `Job-Room posting-date backfill finished. ${body.remainingCount} dateless advert${body.remainingCount === 1 ? '' : 's'} remain; run it again to continue.`
+        : 'Job-Room posting-date backfill finished. No dateless adverts remain.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Job-Room posting-date backfill failed.');
+    } finally {
+      setBusy('');
+    }
+  }
+
   const peak = Math.max(1, ...(data?.visits ?? []).map((day) => day.totalVisits));
 
   return (
@@ -142,7 +163,15 @@ export default function AdminPage() {
             <button type="button" disabled={busy === 'job-room-backfill'} onClick={backfillJobRoom}>
               {busy === 'job-room-backfill' ? 'Backfilling Job-Room…' : 'Backfill Job-Room descriptions'}
             </button>
+            <button type="button" disabled={busy === 'job-room-posted-at-backfill'} onClick={backfillJobRoomPostedAt}>
+              {busy === 'job-room-posted-at-backfill' ? 'Backfilling posting dates…' : 'Backfill Job-Room posting dates'}
+            </button>
           </div>
+          <p className="settings-hint">
+            The posting-date repair re-reads stored Job-Room adverts that were saved without a date
+            and fills in the publication start date, so old postings stop arriving as new ones.
+            It writes only the date and the duplicate grouping derived from it; verdicts and actions stay intact.
+          </p>
           {backfillReport && <div className="backfill-report" aria-live="polite">
             <span><b>{backfillReport.attemptedCount}</b> attempted</span>
             <span><b>{backfillReport.fetchedCount}</b> fetched</span>
@@ -154,6 +183,14 @@ export default function AdminPage() {
             {Object.entries(backfillReport.verdictDirections).map(([direction, count]) => (
               <small key={direction}>{direction}: {count}</small>
             ))}
+          </div>}
+          {postedAtReport && <div className="backfill-report" aria-live="polite">
+            <span><b>{postedAtReport.attemptedCount}</b> attempted</span>
+            <span><b>{postedAtReport.fetchedCount}</b> fetched</span>
+            <span><b>{postedAtReport.updatedCount}</b> dates filled</span>
+            <span><b>{postedAtReport.unchangedCount}</b> no date published</span>
+            <span><b>{postedAtReport.failedCount}</b> failed</span>
+            <span><b>{postedAtReport.remainingCount}</b> remaining</span>
           </div>}
         </section>
 
