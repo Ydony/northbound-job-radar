@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { analyzeLanguage } from '../lib/analysis';
-import { euresJobToParsedJob } from '../lib/eures';
+import { EURES_PAGE_SIZE, euresJobToParsedJob, euresSortFor, MAX_EURES_PAGES_PER_TERM, searchEures } from '../lib/eures';
 import { stripHtml } from '../lib/jobsch';
 
 // A real-shaped EURES record: the portal shows "Working languages: Dutch" for this, and the
@@ -77,4 +77,111 @@ test('never confirms English on a Netherlands advertisement cut off with an elli
   const verdict = analyzeLanguage(stripHtml(parsed.descriptionHtml), parsed.title);
   assert.equal(verdict.status, 'unknown');
   assert.match(verdict.summary, /cut off/i);
+});
+
+test('EURES paging limits stay explicit and bounded', () => {
+  assert.equal(EURES_PAGE_SIZE, 50);
+  // Raised from 2 on the same measurement that moved Job-Room (#95/#96): BEST_MATCH mixes
+  // dates across months on every page while totals run to 2,192 (CH) and 12,306 (NL) for a
+  // single term, so fresh advertisements sat past the 100 being read and were never found.
+  assert.equal(MAX_EURES_PAGES_PER_TERM, 6);
+});
+
+test('Switzerland searches newest-first, the Netherlands by relevance', () => {
+  // Measured 2026-09-20 across three terms, not assumed: MOST_RECENT puts every fresh CH
+  // advertisement on page 1, while NL is not date-ordered under either value and BEST_MATCH
+  // surfaces roughly twice as many fresh NL advertisements per page.
+  assert.equal(euresSortFor('switzerland'), 'MOST_RECENT');
+  assert.equal(euresSortFor('netherlands'), 'BEST_MATCH');
+});
+
+function euresRecord(id: string) {
+  return {
+    id,
+    title: `Role ${id}`,
+    description: '<p>A complete advertisement.</p>',
+    creationDate: 1786800601812,
+    employer: { name: 'Example BV' },
+    locationMap: { NL: ['NL32B'] },
+  };
+}
+
+async function withFetch(
+  impl: (url: string, init?: RequestInit) => Promise<Response>,
+  run: () => Promise<void>,
+) {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = impl as typeof fetch;
+  try {
+    await run();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+function sortsSeen(calls: string[]) {
+  return calls.map((body) => (JSON.parse(body) as { sortSearch: string }).sortSearch);
+}
+
+test('each country asks for its own ordering', async () => {
+  for (const [country, expected] of [['switzerland', 'MOST_RECENT'], ['netherlands', 'BEST_MATCH']] as const) {
+    const bodies: string[] = [];
+    await withFetch(async (_url, init) => {
+      bodies.push(String(init?.body ?? ''));
+      return new Response(JSON.stringify({ jvs: [] }), { status: 200 });
+    }, async () => {
+      await searchEures(['analyst'], country, 1);
+    });
+    assert.deepEqual(sortsSeen(bodies), [expected]);
+  }
+});
+
+test('a rejected undocumented ordering falls back to relevance rather than failing', async () => {
+  const bodies: string[] = [];
+  await withFetch(async (_url, init) => {
+    bodies.push(String(init?.body ?? ''));
+    if (bodies.length === 1) return new Response('malformed', { status: 400 });
+    return new Response(JSON.stringify({ jvs: [euresRecord('fallback-1')] }), { status: 200 });
+  }, async () => {
+    const jobs = await searchEures(['analyst'], 'switzerland', 1);
+    assert.equal(jobs.length, 1);
+  });
+  assert.deepEqual(sortsSeen(bodies), ['MOST_RECENT', 'BEST_MATCH']);
+});
+
+test('a refused search still fails instead of returning nothing', async () => {
+  await withFetch(async () => new Response('denied', { status: 403 }), async () => {
+    await assert.rejects(searchEures(['analyst'], 'netherlands', 1), /EURES request failed \(403\)/);
+  });
+});
+
+test('paging stops at the first short page', async () => {
+  let calls = 0;
+  await withFetch(async () => {
+    calls += 1;
+    const size = calls === 1 ? EURES_PAGE_SIZE : 3;
+    return new Response(
+      JSON.stringify({ jvs: Array.from({ length: size }, (_, i) => euresRecord(`p${calls}-${i}`)) }),
+      { status: 200 },
+    );
+  }, async () => {
+    const jobs = await searchEures(['analyst'], 'netherlands', MAX_EURES_PAGES_PER_TERM);
+    assert.equal(jobs.length, EURES_PAGE_SIZE + 3);
+  });
+  assert.equal(calls, 2);
+});
+
+test('a full page keeps reading up to the per-term cap', async () => {
+  let calls = 0;
+  await withFetch(async () => {
+    calls += 1;
+    return new Response(
+      JSON.stringify({ jvs: Array.from({ length: EURES_PAGE_SIZE }, (_, i) => euresRecord(`c${calls}-${i}`)) }),
+      { status: 200 },
+    );
+  }, async () => {
+    const jobs = await searchEures(['analyst'], 'netherlands');
+    assert.equal(jobs.length, EURES_PAGE_SIZE * MAX_EURES_PAGES_PER_TERM);
+  });
+  assert.equal(calls, MAX_EURES_PAGES_PER_TERM);
 });
