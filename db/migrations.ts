@@ -444,4 +444,19 @@ export const runtimeMigrations: RuntimeMigration[] = [
       "ALTER TABLE jobs ADD COLUMN search_text TEXT NOT NULL DEFAULT ''",
     ],
   },
+  {
+    // Version 16 belongs to the Job-Room description backfill; this is the posting-date half of
+    // the same repair, tracked separately so a row already upgraded to full text is still
+    // eligible for its missing date, and a full-length row stored dateless is eligible at all.
+    version: 22,
+    name: 'track_job_room_posted_at_backfill',
+    statements: [
+      // Every Job-Room row stored before #88 carries posted_at = '' because the parser read a
+      // field the API never sends. A successful detail fetch is recorded even when the source
+      // carries no date, so rerunning terminates instead of requesting the same row forever.
+      'ALTER TABLE jobs ADD COLUMN job_room_posted_at_version INTEGER NOT NULL DEFAULT 0',
+      `CREATE INDEX IF NOT EXISTS jobs_job_room_posted_at_idx
+        ON jobs(user_id, source_key, job_room_posted_at_version)`,
+    ],
+  },
 ];

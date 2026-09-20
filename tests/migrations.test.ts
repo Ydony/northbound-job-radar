@@ -4,7 +4,7 @@ import test from 'node:test';
 import { runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
@@ -15,6 +15,15 @@ test('Job-Room backfill migration records successful detail fetches per owned jo
   const sql = runtimeMigrations[15].statements.join('\n');
   assert.match(sql, /job_room_detail_version INTEGER NOT NULL DEFAULT 0/);
   assert.match(sql, /jobs\(user_id, source_key, job_room_detail_version\)/);
+});
+
+test('Job-Room posting-date backfill tracks date repair separately from text repair', () => {
+  // A row upgraded to full text is still dateless until re-fetched for its date, and a
+  // full-length row stored dateless was never eligible for the text repair at all — so the
+  // date repair needs its own version marker rather than reusing job_room_detail_version.
+  const sql = runtimeMigrations[21].statements.join('\n');
+  assert.match(sql, /job_room_posted_at_version INTEGER NOT NULL DEFAULT 0/);
+  assert.match(sql, /jobs\(user_id, source_key, job_room_posted_at_version\)/);
 });
 
 test('cross-source fingerprints require a posting day', () => {
