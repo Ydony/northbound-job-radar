@@ -390,8 +390,17 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
  * 5: an advertisement can be ruled out as not-English on far less text than it takes to confirm
  *    English, so short previews written in German or French stop being filed as "not enough of
  *    the ad". 172 stored jobs were carrying that verdict and are rewritten as blocked.
+ * 6: a truncated advertisement can never confirm English — EURES Netherlands ads arrive cut at
+ *    ~2,000 characters ending in "..." (666/740 stored rows, measured 2026-09-18), usually
+ *    before the requirements — so stored passes on such text are rewritten as unknown.
+ * 7: a language mention can now be exempt rather than only required or optional (#74), so an
+ *    explicit denial, a language offered as lessons, and a nationality/market use stop costing
+ *    a review, while "bilingual in X" starts blocking. Stored rows were screened under the
+ *    older rules and are re-screened rather than keeping a verdict those rules produced.
  */
-export const NORMALIZATION_VERSION = 6;
+// 8: Indeed descriptions retain unknown completeness on normalization/rescoring.
+// Also re-evaluates version-7 rows using the current nationality precedence (#78).
+export const NORMALIZATION_VERSION = 8;
 
 interface StoredJobForNormalization {
   id: string;

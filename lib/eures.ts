@@ -10,10 +10,16 @@ import type { JobCountry } from './types';
  * - **Scale.** Two million advertisements across the EU/EEA; 245,000 for the Netherlands and
  *   41,900 for Switzerland, which participates through EFTA. Everything else the app reads is a
  *   rounding error next to it.
- * - **Completeness.** The search response carries the whole advertisement, median ~2,000-3,300
- *   characters. It does not truncate, which is precisely what makes Adzuna (capped at 500) and
- *   Careerjet (279) unscreenable — a language requirement lives near the end of an ad, so a
- *   preview leaves the filter deciding on text that never contained the answer.
+ * - **Completeness.** The search response carries the whole advertisement for most countries
+ *   (median ~2,000-3,300 characters, CH/DE/AT/LU median 3,300–4,000) — unlike Adzuna (capped at
+ *   500) and Careerjet (279), whose previews leave the filter deciding on text that never
+ *   contained the answer. **Exception: the Netherlands.** Measured 2026-09-18: 666 of 740 stored
+ *   EURES Netherlands descriptions are 1,900–2,100 characters (p50 1,954) and end with `...`,
+ *   usually before the requirements section, and the public detail endpoint returns the same
+ *   ~2,020 characters, so the cap is upstream (Dutch provider → EURES). Truncated text is
+ *   incomplete evidence like a teaser: the language gate (`isTruncatedAdvertisement` in
+ *   lib/analysis.ts) withholds `pass` on anything ending in `...`/`…`, while findings before the
+ *   cut still stand.
  * - **Standing to read it.** The endpoint path is literally `/public/`, `robots.txt` does not
  *   disallow `/eures/`, and the EURES legal notice authorises reuse provided the European Labour
  *   Authority is credited. Nothing here works around an access control, and the portal exists

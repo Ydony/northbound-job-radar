@@ -396,7 +396,8 @@ export const runtimeMigrations: RuntimeMigration[] = [
     ],
   },
   {
-    version: 18,
+    // 18 is reserved for the independent #72 branch. This additive table has no dependency on it.
+    version: 19,
     name: 'indeed_collection_guard',
     statements: [
       // Installation-wide operational state, NOT user data. Shared by both countries/admins.

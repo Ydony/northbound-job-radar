@@ -101,9 +101,9 @@ test('enabled adapters can either fetch details per job or return them in bulk',
   }
 });
 
-test('every adapter declares one of the three access tiers', () => {
+test('every adapter declares a known access tier', () => {
   for (const adapter of jobSourceAdapters) {
-    assert.ok(['authorized-api', 'grey-area', 'restricted'].includes(adapter.access),
+    assert.ok(['authorized-api', 'grey-area', 'restricted', 'local-experiment'].includes(adapter.access),
       `${adapter.key} has no access classification`);
   }
 });

@@ -115,3 +115,92 @@ test('a bare heading is never shown as if it were the answer', () => {
   const excerpt = jobExcerpt('Requirements\n\nWhat we offer\n\nYou have five years of experience in data engineering.', null);
   assert.equal(excerpt?.text, 'You have five years of experience in data engineering.');
 });
+
+test('a Dutch advertisement states its requirements as questions', () => {
+  const ad = 'Wij zijn een middelgroot logistiek bedrijf met klanten in heel Europa en een product waarop men vertrouwt.\n\n'
+    + 'Ben jij een leidinggevende die energie krijgt van dynamiek en verantwoordelijkheid?\n\n'
+    + 'Heb jij ervaring binnen supply chain en kun je goed analyseren en rapporteren aan het team?';
+  const excerpt = jobExcerpt(ad, null);
+  assert.equal(excerpt?.source, 'asked');
+  assert.match(excerpt!.text, /Ben jij een leidinggevende/);
+  assert.match(excerpt!.text, /ervaring binnen supply chain/);
+  assert.doesNotMatch(excerpt!.text, /middelgroot logistiek bedrijf/,
+    'the company description is not what the reader is judging themselves against');
+});
+
+test('Dutch requirement forms beyond the question are quoted', () => {
+  const ad = 'Daarnaast beschik je over aantoonbare ervaring als planner in een productieomgeving met SAP.\n\n'
+    + 'De functie-eisen zijn een afgeronde mbo-opleiding en je bent in het bezit van een rijbewijs.';
+  const excerpt = jobExcerpt(ad, null);
+  assert.equal(excerpt?.source, 'asked');
+  assert.match(excerpt!.text, /aantoonbare ervaring als planner/);
+  assert.match(excerpt!.text, /afgeronde mbo-opleiding/);
+});
+
+test('a Dutch working week and duties are not requirements', () => {
+  // 'minimaal' also counts the hours ("minimaal 16 uur per week") and 'je bent' states duties
+  // ("je bent verantwoordelijk voor"), so neither is a cue: without one the card falls back to
+  // the role line rather than presenting hours as what the job asks for.
+  const ad = 'Je bent verantwoordelijk voor de dagelijkse planning en rapportage aan het team.\n\n'
+    + 'De werkweek is 32 uur, minimaal 16 uur per week.';
+  const excerpt = jobExcerpt(ad, null);
+  assert.equal(excerpt?.source, 'role');
+});
+
+test('a French advertisement states its requirements plainly', () => {
+  const ad = 'Pour l\u2019un de nos clients bas\u00e9 \u00e0 Lausanne, nous recherchons un supply chain manager exp\u00e9riment\u00e9.\n\n'
+    + 'Vous justifiez d\u2019une exp\u00e9rience de 3 ans dans la logistique et vous ma\u00eetrisez les outils SAP.\n\n'
+    + 'Profil recherch\u00e9 : au b\u00e9n\u00e9fice d\u2019une formation sup\u00e9rieure en supply chain ou \u00e9quivalent.';
+  const excerpt = jobExcerpt(ad, null);
+  assert.equal(excerpt?.source, 'asked');
+  assert.match(excerpt!.text, /nous recherchons/);
+  assert.match(excerpt!.text, /justifiez/);
+  assert.match(excerpt!.text, /Profil recherch\u00e9/);
+  assert.match(excerpt!.text, /formation sup\u00e9rieure/);
+});
+
+test('French benefits and application prose are not requirements', () => {
+  // Bare 'de formation' matches "possibilit\u00e9s de formation continue" and bare 'dipl\u00f4me'
+  // matches "vos dipl\u00f4mes", so only the qualified forms are cues.
+  const ad = 'Vous justifiez d\u2019une exp\u00e9rience de 3 ans dans la logistique et la planification des flux.\n\n'
+    + 'Des possibilit\u00e9s de formation continue et de d\u00e9veloppement personnel sont offertes \u00e0 tous les employ\u00e9s.\n\n'
+    + 'Merci d\u2019adresser votre dossier de candidature complet avec votre curriculum vitae et vos dipl\u00f4mes.';
+  const excerpt = jobExcerpt(ad, null);
+  assert.equal(excerpt?.source, 'asked');
+  assert.match(excerpt!.text, /justifiez/);
+  assert.doesNotMatch(excerpt!.text, /formation continue/);
+  assert.doesNotMatch(excerpt!.text, /dipl\u00f4mes/);
+});
+
+test('German requirement forms beyond the original list are quoted', () => {
+  const ad = 'Wir suchen eine erfahrene Pers\u00f6nlichkeit f\u00fcr unser Supply Chain Team in Z\u00fcrich.\n\n'
+    + 'Du verf\u00fcgst idealerweise \u00fcber mehrj\u00e4hrige Berufserfahrung in Logistik und hast ein abgeschlossenes Studium.';
+  const excerpt = jobExcerpt(ad, null);
+  assert.equal(excerpt?.source, 'asked');
+  assert.match(excerpt!.text, /Wir suchen/);
+  assert.match(excerpt!.text, /Berufserfahrung/);
+});
+
+test('English purchase orders are not Italian requirements', () => {
+  // "Process requisitions" contains 'requisiti', so that stem can never be a cue.
+  const ad = 'We run inbound supply for three manufacturing sites across Europe and keep every line fed.\n\n'
+    + 'You will process requisitions, place purchase orders globally and manage vendor inventory.';
+  const excerpt = jobExcerpt(ad, null);
+  assert.equal(excerpt?.source, 'role');
+});
+
+test('a Dutch section label glued to the sentence is removed, not shown', () => {
+  // Stripping HTML turns "<h3>Dit ga je doen</h3><p>Ben jij…</p>" into one line, the same
+  // defect the English glued labels were added for.
+  const excerpt = jobExcerpt('Dit ga je doen Ben jij een leidinggevende die energie krijgt van dynamiek en verantwoordelijkheid?', null);
+  assert.ok(excerpt);
+  assert.doesNotMatch(excerpt!.text, /^Dit ga je doen/);
+  assert.match(excerpt!.text, /^Ben jij een leidinggevende/);
+});
+
+test('a German profile label glued to the sentence is removed, not shown', () => {
+  const excerpt = jobExcerpt('Dein Profil Du verfügst über ausgewiesene Erfahrung als Business Analyst und hast steuerrechtliches Fachwissen.', null);
+  assert.ok(excerpt);
+  assert.doesNotMatch(excerpt!.text, /^Dein Profil/);
+  assert.match(excerpt!.text, /^Du verf\u00fcgst/);
+});

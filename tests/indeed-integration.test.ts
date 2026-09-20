@@ -24,7 +24,7 @@ async function fixture() {
   const db = await mf.getD1Database('DB') as unknown as D1Database;
   const base = runtimeMigrations.find(m => m.version === 7)!.statements[0].replace('CREATE TABLE jobs_rebuilt', 'CREATE TABLE jobs');
   await db.prepare(base).run();
-  for (const version of [13, 14, 17, 18]) {
+  for (const version of [13, 14, 17, 19]) {
     await db.batch(runtimeMigrations.find(m => m.version === version)!.statements.map(sql => db.prepare(sql)));
   }
   await db.prepare(`CREATE TABLE language_feedback (job_id TEXT PRIMARY KEY, user_id TEXT, verdict TEXT,
@@ -67,20 +67,20 @@ test('Indeed collection shares four requests across countries, and persists cool
       pageInfo: { nextCursor: 'more' } } } });
   };
   try {
-    const result = await collectIndeed(db, config, true, ['data analyst', 'master data', 'supply chain'], undefined, fetcher);
+    const result = await collectIndeed(db, config, ['data analyst', 'master data', 'supply chain'], undefined, fetcher);
     assert.equal(calls, 4);
     assert.equal(result.NL.jobs.length, 2);
     assert.equal(result.CH.jobs.length, 2);
     assert.equal(result.NL.status, 'partial');
     assert.deepEqual(result.NL.roles, ['data analyst', 'master data']);
-    assert.equal((await indeedStatus(db, config, true)).state, 'cooldown');
-    assert.equal((await collectIndeed(db, config, true, ['analyst'], undefined, fetcher)).NL.requests, 0);
+    assert.equal((await indeedStatus(db, config)).state, 'cooldown');
+    assert.equal((await collectIndeed(db, config, ['analyst'], undefined, fetcher)).NL.requests, 0);
     assert.equal(calls, 4);
     assert.equal(JSON.stringify(result).includes(config.credentials.apiKey), false);
   } finally { await dispose(); }
 });
 
-test('Indeed refusal, malformed challenge and 429 stop both countries durably; default/remote/user/VPN gates do not fetch', async () => {
+test('Indeed refusal, malformed challenge and 429 stop both countries durably; default/remote/user gates do not fetch', async () => {
   for (const status of [403, 429, 200]) {
     const { db, dispose } = await fixture();
     let calls = 0;
@@ -89,16 +89,15 @@ test('Indeed refusal, malformed challenge and 429 stop both countries durably; d
     try {
       for (const access of [{ ...config.access, enabled: false }, { ...config.access, administrator: false },
         { ...config.access, localExecution: false }, { ...config.access, appIdentityExperimentApproved: false }]) {
-        await collectIndeed(db, { ...config, access }, true, ['analyst'], undefined, fetcher);
+        await collectIndeed(db, { ...config, access }, ['analyst'], undefined, fetcher);
       }
-      await collectIndeed(db, config, false, ['analyst'], undefined, fetcher);
       assert.equal(calls, 0);
-      await collectIndeed(db, config, true, ['analyst'], undefined, fetcher);
+      await collectIndeed(db, config, ['analyst'], undefined, fetcher);
       assert.equal(calls, 1);
-      const state = await indeedStatus(db, config, true);
+      const state = await indeedStatus(db, config);
       assert.equal(state.state, status === 429 ? 'cooldown' : 'refused');
       if (status === 429) assert.ok(state.retryAfterSeconds > 800);
-      await collectIndeed(db, config, true, ['analyst'], undefined, fetcher);
+      await collectIndeed(db, config, ['analyst'], undefined, fetcher);
       assert.equal(calls, 1);
     } finally { await dispose(); }
   }

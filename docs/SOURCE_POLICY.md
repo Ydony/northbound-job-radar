@@ -58,7 +58,33 @@ one click away on a page the employer chose to publish it on.
 |---|---|---|
 | **EURES CH/NL** | Public endpoint (`/public/` in the path), `robots.txt` does not disallow `/eures/`, and the EURES legal notice states plainly: *"Re-use is authorised, provided that ELA is acknowledged as the source of the material."* | **Attribution to the European Labour Authority (ELA) is mandatory** and is currently not implemented — see §4. Metadata + link only, per §1. |
 | **Job-Room (arbeit.swiss)** | Official Swiss public employment service. Unauthenticated public search and detail API, no key. Owner-assumed permission recorded separately. | Metadata + link only. Keep the per-advertisement detail fetch paced and capped as it is now. |
-| **Employer ATS boards** (Greenhouse, Lever, Ashby, Recruitee, Personio) | Endpoints the platforms publish specifically so aggregators can consume them. | Metadata + link only. The employer publishes the board; the text is still theirs. |
+| **Employer ATS boards** (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable) | Endpoints the platforms publish specifically so aggregators can consume them. Teamtailor documents a syndication feed on every career site it hosts (jobs page plus `.rss`, same feed as JSON Feed at `.json`): no key, full descriptions, ISO country codes per posting (#57). Workable publishes the same kind of feed for each account it hosts (#58). | Metadata + link only. The employer publishes the board; the text is still theirs. |
+
+### Why employer boards carry the public tier
+
+Measured on the stored corpus, the employer boards are the best source for
+English-confirmed jobs: Greenhouse boards returned 96% English-confirmed at
+~5,200 characters average, against EURES 15–19%, Job-Room 7%, and Adzuna and
+Careerjet 0% — the two aggregator APIs return 245–499 character previews that
+cannot support a confirmed pass. 222 verified Dutch and Swiss employers were
+added in #56, taking the configured list from 60 to 282.
+
+**Workday is excluded from the public tier.** Its endpoint is the careers
+page's own data call, not a feed published for aggregators. It was about half
+the discovered leads, so the reason is stated here to stop someone re-adding
+it later.
+
+**How employers are verified before being added.** Each lead is checked
+against the employer's own feed, and added only if the board answers, holds
+at least one posting located in the Netherlands or Switzerland, and that
+posting is at least 900 characters — the same threshold the language gate
+uses. Boards that are not direct employers are excluded on review:
+third-party, referral and alumni boards, LinkedIn-wrapped postings, and
+recruitment and executive-search networks.
+
+**Lead provenance.** Leads came from a public Common Crawl–derived company
+list under CC BY-NC 4.0. Nothing was copied from it: each lead was verified
+against the employer's own feed as above. Our own board discovery is #59.
 
 ### Why EURES is public here and admin-only in the older plan
 
@@ -95,7 +121,7 @@ use a source, the second additionally requires the VPN launcher.
 | **jobs.ch, jobup.ch, JobScout24** | **Retained 2026-09-09 (#32), local administrator and VPN only.** JobCloud's current terms prohibit automation; jobs.ch also disallows its detail pages in robots.txt. Keep the hard cap, fixed delay, manual trigger, no-login boundary and no-evasion rule. Do not raise the cap to hit a volume target. |
 | **IamExpat** | **Retained 2026-09-09 (#32), local administrator only; no VPN required.** It produced one English-confirmed job. The career paths read are outside its robots.txt disallow list and the published crawl delay is honoured, but there is no explicit permission, so `grey-area` remains the honest label. |
 | **Undutchables** | **Retained 2026-09-09 (#32), local administrator and VPN only.** It produced two English-confirmed jobs from three stored advertisements. Current robots.txt permits the plain `/vacancies` and detail paths used here while disallowing query-string searches, but the site previously returned HTTP 403 to automation. Keep the precautionary VPN gate and stop on blocking. |
-| **Indeed CH/NL** | Returns HTTP 403 and prohibits automated access without written permission. Assigning it to admin does not make it usable. |
+| **Indeed CH/NL** | **Never public, administrator only (owner decision 2026-09-20).** Its terms prohibit automated access without written permission, and unauthenticated requests returned HTTP 403. The owner reports holding authorisation for their own assessment, which is recorded as owner-reported scope and has not been independently verified here — see #63. That covers one administrator reading Indeed locally. It does not establish a public redistribution licence, so Indeed rows, source names, counts and run records must never reach an ordinary account or the public tier, whatever the integration eventually supports. |
 | **Nationale Vacaturebank** | HTTP 403. |
 | **I amsterdam** | A city guide, not a vacancy feed. |
 | **eurojobs.com** | **Refuses us by name.** `robots.txt` carries `User-agent: ClaudeBot / Disallow: /` alongside GPTBot and CCBot, plus `Content-Signal: ai-train=no` and an express Article 4 reservation under EU Directive 2019/790. Not to be revisited without written permission from the operator. |

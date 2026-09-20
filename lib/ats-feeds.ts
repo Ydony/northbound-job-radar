@@ -21,7 +21,7 @@ import type { JobCountry } from './types';
  * page's own data call rather than a feed published for aggregators. Replacing the lead list with
  * our own discovery is #59.
  */
-export type AtsPlatform = 'greenhouse' | 'lever' | 'recruitee' | 'ashby' | 'personio';
+export type AtsPlatform = 'greenhouse' | 'lever' | 'recruitee' | 'ashby' | 'personio' | 'teamtailor' | 'workable';
 
 export interface AtsCompany {
   slug: string;
@@ -331,6 +331,14 @@ export function feedUrl(company: AtsCompany) {
     case 'recruitee': return `https://${company.slug}.recruitee.com/api/offers/`;
     case 'ashby': return `https://api.ashbyhq.com/posting-api/job-board/${company.slug}`;
     case 'personio': return `https://${company.slug}.jobs.personio.de/xml`;
+    // Teamtailor documents this feed for syndication: "go to the main jobs page of your careers
+    // site and add .rss". The .json form of the same feed is a JSON Feed carrying the whole
+    // advertisement in content_html plus an embedded schema.org JobPosting.
+    case 'teamtailor': return `https://${company.slug}.teamtailor.com/jobs.json`;
+    // Workable's widget endpoint, the one its customers embed in their own careers pages. With
+    // details=true it returns the whole advertisement for every posting in a single request, so a
+    // board costs one call rather than one per job.
+    case 'workable': return `https://apply.workable.com/api/v1/widget/accounts/${company.slug}?details=true`;
   }
 }
 
@@ -344,6 +352,43 @@ function decodeEntities(value: string) {
 function tagText(block: string, tag: string) {
   const match = block.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i'));
   return match ? decodeEntities(match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')).trim() : '';
+}
+
+/** ISO country codes this app supports, spelled out so the country rule can read them. */
+const COUNTRY_NAMES: Record<string, string> = { NL: 'Netherlands', CH: 'Switzerland' };
+
+/**
+ * Teamtailor's JSON Feed. Better structured than the other boards: every posting carries the whole
+ * advertisement in `content_html` and a schema.org JobPosting whose address has an ISO country
+ * code, so the country comes from a field rather than from reading a free-text place name.
+ *
+ * A posting can list several locations. Each becomes one entry, joined the way a multi-location
+ * string arrives from the other boards, so lib/job-identity.ts reads them with the same rule.
+ */
+function parseTeamtailor(company: AtsCompany, body: string, fallback: string): ParsedJob[] {
+  const items = (JSON.parse(body) as { items?: unknown[] }).items ?? [];
+  return (items as Array<Record<string, unknown>>).map((item): ParsedJob | null => {
+    const posting = (item._jobposting ?? {}) as Record<string, unknown>;
+    const raw = posting.jobLocation;
+    const places = (Array.isArray(raw) ? raw : raw ? [raw] : []) as Array<Record<string, unknown>>;
+    const location = places
+      .map((place) => (place.address ?? {}) as Record<string, string | null>)
+      .map((address) => {
+        const code = (address.addressCountry ?? '').toUpperCase();
+        const country = COUNTRY_NAMES[code] ?? address.addressRegion ?? code;
+        return [address.addressLocality?.trim(), country?.trim()].filter(Boolean).join(', ');
+      })
+      .filter(Boolean)
+      .join('; ');
+    return {
+      sourceUrl: String(item.url ?? ''),
+      title: String(item.title ?? posting.title ?? ''),
+      company: company.name,
+      location: location || fallback,
+      descriptionHtml: String(item.content_html ?? posting.description ?? ''),
+      postedAt: String(item.date_published ?? posting.datePosted ?? ''),
+    };
+  }).filter((job): job is ParsedJob => Boolean(job?.sourceUrl && job.title && job.descriptionHtml.trim()));
 }
 
 /** Each platform publishes a different shape; normalize them all to ParsedJob. */
@@ -364,6 +409,23 @@ export function parseFeed(company: AtsCompany, body: string): ParsedJob[] {
         postedAt: tagText(block, 'createdAt'),
       };
     }).filter((job) => job.title && job.descriptionHtml.trim());
+  }
+
+  if (company.platform === 'teamtailor') return parseTeamtailor(company, body, fallback);
+
+  if (company.platform === 'workable') {
+    // Country arrives spelled out ("Switzerland", "Netherlands"), so city and country together
+    // read the same way as every other board's free-text location.
+    const jobs = (JSON.parse(body) as { jobs?: unknown[] }).jobs ?? [];
+    return (jobs as Array<Record<string, unknown>>).map((job): ParsedJob => ({
+      sourceUrl: String(job.url ?? job.shortlink ?? job.application_url ?? ''),
+      title: String(job.title ?? ''),
+      company: company.name,
+      location: [job.city, job.country].map((part) => String(part ?? '').trim())
+        .filter(Boolean).join(', ') || fallback,
+      descriptionHtml: String(job.description ?? ''),
+      postedAt: String(job.published_on ?? job.created_at ?? ''),
+    })).filter((job) => Boolean(job.sourceUrl && job.title && job.descriptionHtml.trim()));
   }
 
   const payload: unknown = JSON.parse(body);
@@ -456,19 +518,87 @@ export async function mapWithConcurrency<T, R>(
   return results;
 }
 
-export async function fetchCompany(company: AtsCompany, timeoutMs = BOARD_TIMEOUT_MS): Promise<ParsedJob[]> {
+export type BoardFetchStatus = 'ok' | 'timeout' | 'http-error' | 'network-error' | 'parse-error';
+
+export interface BoardFetchOutcome {
+  company: AtsCompany;
+  status: BoardFetchStatus;
+  /** Present when the board answered with a non-2xx status. */
+  httpStatus?: number;
+  /** Postings read from this board; empty unless status is 'ok'. */
+  jobs: ParsedJob[];
+  durationMs: number;
+  /** Safe, non-sensitive reason for non-ok outcomes (no credentials or tokens). */
+  error?: string;
+}
+
+/**
+ * Whether a refused board must be left alone rather than retried. A 429, 403, 404 or other
+ * client refusal is a stop signal from the other side; pushing through it with retries is
+ * hammering a source that told us to stop. Only timeouts, network failures and 5xx responses
+ * may be retried, and then at most once.
+ */
+export function isBoardRefusal(outcome: Pick<BoardFetchOutcome, 'status' | 'httpStatus'>) {
+  if (outcome.status !== 'http-error' || outcome.httpStatus === undefined) return false;
+  // A 429 is a 4xx like any other refusal; it needs no special case beside the range.
+  return outcome.httpStatus >= 400 && outcome.httpStatus < 500;
+}
+
+export function isBoardRetryable(outcome: Pick<BoardFetchOutcome, 'status' | 'httpStatus'>) {
+  if (outcome.status === 'timeout' || outcome.status === 'network-error') return true;
+  if (outcome.status === 'http-error' && outcome.httpStatus !== undefined) {
+    return outcome.httpStatus >= 500 && outcome.httpStatus < 600;
+  }
+  return false;
+}
+
+function isTimeoutError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError'
+    || error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
+}
+
+/**
+ * Reads one board, classifying the outcome instead of collapsing every failure to an empty
+ * list. A board with no jobs and a board that timed out used to look identical, which hid the
+ * successive-fetch decline in #75. Resolves in every case — one unreachable, slow or reshaped
+ * board must never fail the whole source.
+ */
+export async function fetchCompany(company: AtsCompany, timeoutMs = BOARD_TIMEOUT_MS): Promise<BoardFetchOutcome> {
+  const started = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const done = (outcome: Omit<BoardFetchOutcome, 'company' | 'durationMs'>): BoardFetchOutcome =>
+    ({ company, durationMs: Date.now() - started, ...outcome });
   try {
-    const response = await fetch(feedUrl(company), {
-      headers: { accept: 'application/json, application/xml' },
-      signal: controller.signal,
-    });
-    if (!response.ok) return [];
-    return parseFeed(company, await response.text());
-  } catch {
-    // One unreachable, slow or reshaped board must never fail the whole source.
-    return [];
+    let response: Response;
+    try {
+      response = await fetch(feedUrl(company), {
+        headers: { accept: 'application/json, application/xml' },
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (isTimeoutError(error) || controller.signal.aborted) {
+        return done({ status: 'timeout', jobs: [], error: `timed out after ${timeoutMs}ms` });
+      }
+      return done({ status: 'network-error', jobs: [], error: error instanceof Error ? error.message.slice(0, 160) : 'network request failed' });
+    }
+    if (!response.ok) {
+      return done({ status: 'http-error', httpStatus: response.status, jobs: [], error: `HTTP ${response.status}` });
+    }
+    let body: string;
+    try {
+      body = await response.text();
+    } catch (error) {
+      if (isTimeoutError(error) || controller.signal.aborted) {
+        return done({ status: 'timeout', jobs: [], error: `timed out after ${timeoutMs}ms` });
+      }
+      return done({ status: 'network-error', jobs: [], error: error instanceof Error ? error.message.slice(0, 160) : 'body read failed' });
+    }
+    try {
+      return done({ status: 'ok', jobs: parseFeed(company, body) });
+    } catch (error) {
+      return done({ status: 'parse-error', jobs: [], error: error instanceof Error ? error.message.slice(0, 160) : 'response could not be parsed' });
+    }
   } finally {
     clearTimeout(timer);
   }
@@ -478,6 +608,32 @@ let cached: { at: number; jobs: ParsedJob[] } | undefined;
 const CACHE_MS = 60_000;
 
 /**
+ * Reads every configured board once, keeping the per-board outcome so callers can tell a
+ * board with no jobs apart from a board that failed. Used by the measurement script and by
+ * searchAtsBoards below; boards are independent, so a failure stays isolated to one company.
+ *
+ * A board that fails transiently — timeout, network failure, or a 5xx response — is retried
+ * exactly once after a short pause. Measured for #75: without a retry, 1–2 of the 282 boards
+ * timed out per pass (a different board each time, so the loss moved around and totals
+ * wobbled); with one retry, 6 consecutive passes returned 281/282 boards and an identical
+ * 30,057 postings every time, with zero 429s across ~1,700 fetches. The retry is what recovers
+ * the transient loss, and the measurement is why there is exactly one of it: refusals
+ * (429/4xx) are never retried, and no pacing was added because no rate limiting was observed.
+ */
+const BOARD_RETRY_DELAY_MS = 1_000;
+
+async function fetchCompanyWithRetry(company: AtsCompany): Promise<BoardFetchOutcome> {
+  const first = await fetchCompany(company);
+  if (first.status === 'ok' || isBoardRefusal(first) || !isBoardRetryable(first)) return first;
+  await new Promise((resolve) => setTimeout(resolve, BOARD_RETRY_DELAY_MS));
+  return fetchCompany(company);
+}
+
+export async function searchAtsBoardsDetailed(): Promise<BoardFetchOutcome[]> {
+  return mapWithConcurrency(atsCompanies, BOARD_CONCURRENCY, (company) => fetchCompanyWithRetry(company));
+}
+
+/**
  * Reads every configured board once and serves both country adapters from that result, so an
  * international company contributes its Swiss and its Dutch roles rather than only its home
  * market. Boards are independent, so a failure is isolated to one company. The scrape route
@@ -485,9 +641,9 @@ const CACHE_MS = 60_000;
  */
 export async function searchAtsBoards(): Promise<ParsedJob[]> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.jobs;
-  const results = await mapWithConcurrency(atsCompanies, BOARD_CONCURRENCY, (company) => fetchCompany(company));
+  const outcomes = await searchAtsBoardsDetailed();
   const byUrl = new Map<string, ParsedJob>();
-  for (const job of results.flat()) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
+  for (const outcome of outcomes) for (const job of outcome.jobs) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
   const jobs = [...byUrl.values()];
   cached = { at: Date.now(), jobs };
   return jobs;

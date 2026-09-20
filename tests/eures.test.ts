@@ -63,3 +63,18 @@ test('refuses a record with no usable advertisement', () => {
   assert.equal(euresJobToParsedJob({ id: 'x', title: '', description: 'body' }, 'Netherlands'), null);
   assert.equal(euresJobToParsedJob({ id: 'x', title: 'Role', description: '' }, 'Netherlands'), null);
 });
+
+test('never confirms English on a Netherlands advertisement cut off with an ellipsis', () => {
+  // Shape of the measured NL truncation: ~2,000 characters ending in "...", usually before the
+  // requirements. The requirement after the cut is never in the checked text, so this is
+  // incomplete evidence (unknown), not a pass — even though the visible text is English.
+  const truncated = {
+    ...dutchFlaggedEnglishJob,
+    description: `${dutchFlaggedEnglishJob.description}...`,
+  };
+  const parsed = euresJobToParsedJob(truncated, 'Netherlands');
+  assert.ok(parsed);
+  const verdict = analyzeLanguage(stripHtml(parsed.descriptionHtml), parsed.title);
+  assert.equal(verdict.status, 'unknown');
+  assert.match(verdict.summary, /cut off/i);
+});
