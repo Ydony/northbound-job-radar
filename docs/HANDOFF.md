@@ -1,5 +1,46 @@
 # Handover
 
+## 2026-09-20 second session: Indeed merged, the gate corrected, the worker hang found
+
+Master is green: lint, typecheck, **257/257**, build, and `npm run verify:dev` end to end.
+
+**Indeed (#66-#69) is merged** as `18ab801`, taken over after codex-lead ran out of credits
+mid-reconciliation. Its work was captured in two commits first, because all 24 files were sitting
+uncommitted. It ships `disabled`, `adminOnly`, loopback-only, and all nine Indeed host aliases are
+confirmed in `adminOnlySourceKeys()` - the defect class that once exposed 218 Careerjet rows under
+`jobviewtrack.com`. **Not claimed:** no live upstream search, no browser or API acceptance, and
+stable promotion is a separate decision.
+
+**The language gate was wrong in four places (#79)**, found by an independent review and each one
+reproduced by hand before anything was changed. All four were the same mistake: a rule measured its
+reach in *characters* when it meant "this sentence" or "this noun phrase". Two false passes
+(`No travel. German is required.` passed; `read and write Dutch for regulatory reports` passed) and
+two false blocks (`Fluent German is required, but Dutch is a plus` blocked Dutch; `Fluent Dutch is
+a plus` blocked). `NORMALIZATION_VERSION` 8 -> 9, because verdicts move in both directions.
+
+**Source conduct (#80).** The Common Crawl index is now queried one request at a time, paced before
+each start rather than after, obeying `Retry-After`; the per-request timeout covers the body; and
+the two country adapters share one board collection instead of each launching a 282-board batch.
+
+**Why workers kept producing nothing.** `pm.py` ran them with inherited stdin, so a worker that
+stopped to ask permission for a tool call waited for input that could never arrive, with its output
+redirected to a file so nothing was ever flushed to say so. Two runs died that way. stdin is now
+closed and runs are bounded at 45 minutes. The same session's `progress` command reported such a
+run as "just started" forever, which is why it went unnoticed - that label now says when there is
+no log at all.
+
+**`npm run verify:dev` had been failing on a working app**, for two unrelated reasons, both
+pre-existing: it parsed only `application/json` while `/api/scrape` streams NDJSON, and it still
+asserted the CV gate that `CV_MATCHING_ENABLED = false` removed. `CLAUDE.md` names that harness as
+the way to check a change locally and nothing tests `app/job-radar.tsx`, so a harness that cries
+wolf is worse than none. #85 covers testing the harness itself.
+
+**Still not done, deliberately:** #2 (nonce CSP) needs a signed-in browser check and is not worker
+work; #81 asks for a second opinion on the lead's own merges and cannot be answered by a worker the
+lead dispatches; #43-#48 and #35 are direction decisions; #8 (publishing ~60 local commits) remains
+the owner's call, and the remote master is a stale squash base still at `NORMALIZATION_VERSION` 5,
+so `git merge origin/master` conflicts and must not be run blind.
+
 ## 2026-09-19 - Standalone Indeed connector works; dashboard not connected
 
 Read the current checkpoint in [INDEED_INTEGRATION.md](INDEED_INTEGRATION.md), not the
