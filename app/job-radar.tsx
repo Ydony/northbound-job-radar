@@ -14,7 +14,7 @@ import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
   ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, criteriaToDraft, DASHBOARD_VIEW_LABELS,
-  emptyStateCopy, formatDate, jobInView, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
+  emptyStateCopy, formatDate, formatSourceReconciliation, jobInView, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
   sourceRunStatusLabel, statusLabel, type CriteriaDraft, type DashboardView, type FilterPill,
   type SortMode } from '@/lib/dashboard';
 import type { HealthReport } from '@/app/api/health/route';
@@ -1141,9 +1141,11 @@ export default function JobRadar() {
                 .map((source) => <article className={`source-report ${source.status}`} key={source.sourceKey}>
                 <div><span>{countryLabel(source.country)}</span><b>{sourceRunStatusLabel(source.status)}</b></div>
                 <h3>{source.sourceName}</h3>
-                {/* One line answers the question people actually ask of this panel. The other four
-                    numbers are diagnostics and now sit behind the expander. */}
-                <p className="source-headline">{source.foundCount} found · {source.newCount} new</p>
+                {/* The headline is the reconciliation, not just two totals: `new` must visibly
+                    account for itself as added + duplicates + skipped, so an excerpt of this line
+                    can never read as jobs lost (#94). The cells behind the expander stay as the
+                    exact diagnostic numbers. */}
+                <p className="source-headline">{source.foundCount} found · {formatSourceReconciliation(source)}</p>
                 <details className="source-counts">
                   <summary>All counts</summary>
                   <dl><div><dt>Found</dt><dd>{source.foundCount}</dd></div><div><dt>Known</dt><dd>{source.knownCount}</dd></div><div><dt>New</dt><dd>{source.newCount}</dd></div><div><dt>Added</dt><dd>{source.importedCount}</dd></div><div><dt>Duplicates</dt><dd>{source.duplicateCount}</dd></div><div><dt>Skipped</dt><dd>{source.skippedCount}</dd></div></dl>
