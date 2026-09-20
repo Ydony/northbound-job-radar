@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { atsCompanies, BOARD_CONCURRENCY, fetchCompany, feedUrl, isBoardRefusal, isBoardRetryable,
-  mapWithConcurrency, parseFeed, searchAtsBoardsDetailed, type AtsCompany } from '../lib/ats-feeds';
+  mapWithConcurrency, parseFeed, searchAtsBoards, searchAtsBoardsDetailed, type AtsCompany } from '../lib/ats-feeds';
 import { countryFromLocation } from '../lib/job-identity';
 
 const greenhouse: AtsCompany = { slug: 'example', name: 'Example', platform: 'greenhouse', country: 'netherlands' };
@@ -277,4 +277,29 @@ test('no employer board is configured twice', () => {
   const keys = atsCompanies.map((company) => `${company.platform}:${company.slug.toLowerCase()}`);
   const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index);
   assert.deepEqual(duplicates, []);
+});
+
+test('two concurrent board searches share one underlying collection', async () => {
+  // #83: the ats-ch and ats-nl adapters start together under Promise.all while no finished
+  // result is cached yet. The second caller must await the collection already in flight
+  // instead of launching its own 282-board batch. (This test populates the 60-second result
+  // cache, so it stays last and no other test calls searchAtsBoards.)
+  const realFetch = globalThis.fetch;
+  const calls = new Map<string, number>();
+  try {
+    globalThis.fetch = (async (url: string) => {
+      calls.set(url, (calls.get(url) ?? 0) + 1);
+      // Hold every board open briefly so both callers are guaranteed to overlap in flight.
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      return new Response(JSON.stringify({ jobs: [] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const [first, second] = await Promise.all([searchAtsBoards(), searchAtsBoards()]);
+    assert.deepEqual(second, first, 'concurrent callers must see the same collection');
+    assert.equal(calls.size, atsCompanies.length, 'every board is still collected');
+    for (const [url, count] of calls) {
+      assert.equal(count, 1, `duplicate collection for ${url}`);
+    }
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
