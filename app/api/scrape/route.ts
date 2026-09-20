@@ -10,6 +10,8 @@ import { adminOnlySourceKeys, bulkJobIsRelevant, descriptionMatchesRoles, jobSou
 import { canonicalJobUrl, isGloballyStableSourceJobId, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { isSafeManualJobUrl } from '@/lib/job-sources';
 import { delay, stripHtml, type ParsedJob } from '@/lib/jobsch';
+import { isRejectedUrl, loadRejectedListings, rejectionRolesKey, rememberRejection,
+  type RejectionReason } from '@/lib/rejected-listings';
 import { roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
 import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
 import type { CvSlot, JobCountry, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
@@ -243,11 +245,16 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   await db.prepare('INSERT INTO search_runs (id, user_id, status, started_at, completed_at) VALUES (?, ?, ?, ?, ?)')
     .bind(runId, user.id, 'partial', startedAt, '').run();
 
-  const [jobIdentities, dismissedIdentities] = await Promise.all([
+  const [jobIdentities, dismissedIdentities, rejectedIdentities] = await Promise.all([
     db.prepare('SELECT source_key, source_job_id, canonical_url FROM jobs WHERE user_id = ?').bind(user.id).all<KnownIdentity>(),
     db.prepare('SELECT source_key, source_job_id, canonical_url FROM dismissed_jobs WHERE user_id = ?').bind(user.id).all<KnownIdentity>(),
+    loadRejectedListings(db, user.id),
   ]);
   const known = [...jobIdentities.results, ...dismissedIdentities.results];
+  const rejected = [...rejectedIdentities];
+  // A role mismatch only counts while the searched roles are unchanged, so the key travels
+  // with every check below and every row written in the detail loop.
+  const rolesKey = rejectionRolesKey(searchTerms);
 
   const credentials = aggregatorCredentials();
 
@@ -391,12 +398,23 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     }
 
     const bulkByUrl = new Map(bulk.map((job) => [canonicalJobUrl(job.sourceUrl), job]));
-    const knownCount = candidates.filter((url) => isKnownUrl(url, known)).length;
-    const newCandidates = candidates.filter((url) => !isKnownUrl(url, known));
+    // Remembered rejections count as known: the listing was already fetched and judged, so it
+    // no longer occupies one of the four per-run slots. Without this, four permanently
+    // unimportable listings at the head of a page-fetching source starved everything behind
+    // them on every run (#93). The cap itself is unchanged.
+    const isKnownCandidate = (url: string) => isKnownUrl(url, known) || isRejectedUrl(url, rejected, rolesKey);
+    const knownCount = candidates.filter(isKnownCandidate).length;
+    const rememberedCount = candidates.filter((url) => !isKnownUrl(url, known) && isRejectedUrl(url, rejected, rolesKey)).length;
+    const newCandidates = candidates.filter((url) => !isKnownCandidate(url));
     const attempted = newCandidates.slice(0, isBulk ? MAX_NEW_PER_BULK_SOURCE : MAX_NEW_PER_SOURCE);
     let importedCount = 0;
     let duplicateCount = 0;
     // Deferring candidates because of the per-run cap is normal; only real parse/filter failures make a run partial.
+    // The deferred list itself is deliberately not persisted (#93): postedAt is only known
+    // after the detail fetch, so no recency ordering is possible before it, and a stored queue
+    // would need per-owner ordering and merge semantics for the narrow case of more than four
+    // new listings plus a page reorder between runs. Remembered rejections already let a stable
+    // page drain run over run, and the deferred count stays visible in the message below.
     const deferredCount = newCandidates.length - attempted.length;
     let failedCount = 0;
 
@@ -406,10 +424,23 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         parsed = bulkByUrl.get(url) ?? null;
       } else {
         if (index > 0) await delay(REQUEST_DELAY_MS);
-        parsed = await adapter.fetchDetail!(url);
+        try {
+          parsed = await adapter.fetchDetail!(url);
+        } catch {
+          // Transient: the request never completed, so nothing is known about the listing. It
+          // stays retryable and is never remembered; the safe direction is a wasted slot next
+          // run, never a silently lost job.
+          failedCount += 1;
+          continue;
+        }
       }
       if (!parsed) {
         failedCount += 1;
+        // The page answered but holds no parseable posting: a property of the page, so it is
+        // remembered rather than re-read on every run. Bulk sources never reach this branch
+        // with a null (their postings arrive in the search response); the guard keeps their
+        // pre-cap filtering untouched.
+        if (!isBulk) rejected.push(await rememberRejection(db, user.id, url, 'unparseable', rolesKey));
         continue;
       }
       // The apply link is rendered as a clickable href, and for several sources it comes straight
@@ -419,12 +450,24 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       // manual import path has always validated this; the search path did not.
       if (!isSafeManualJobUrl(parsed.sourceUrl)) {
         failedCount += 1;
+        // The scheme is a property of the listing and will not change between runs.
+        if (!isBulk) rejected.push(await rememberRejection(db, user.id, url, 'unsafe-url', rolesKey));
         continue;
       }
       const description = stripHtml(parsed.descriptionHtml);
       const parsedCountry = sourceInfoForUrl(parsed.sourceUrl, parsed.location).country;
       if (description.length < 160 || parsedCountry !== adapter.country || !descriptionMatchesRoles(parsed, searchTerms)) {
         failedCount += 1;
+        if (!isBulk) {
+          // All three are properties of the fetched advertisement, not of the attempt: a short
+          // ad will not lengthen, a wrong-country listing will not move, and a role mismatch
+          // holds for as long as the searched roles do (the stored roles key re-opens it when
+          // they change). Scope stays page-fetching only; bulk filtering already happens
+          // before the cap and is not touched.
+          const reason: RejectionReason = description.length < 160 ? 'too-short'
+            : parsedCountry !== adapter.country ? 'wrong-country' : 'role-mismatch';
+          rejected.push(await rememberRejection(db, user.id, url, reason, rolesKey));
+        }
         continue;
       }
       const language = languageForParsedJob(parsed, description);
@@ -473,6 +516,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         adapter.availabilityMessage,
         indeed?.message ?? '',
         deferredCount ? `${deferredCount} further new listing${deferredCount === 1 ? '' : 's'} deferred to the next run by the per-run cap.` : '',
+        rememberedCount ? `${rememberedCount} previously rejected listing${rememberedCount === 1 ? '' : 's'} skipped without re-reading.` : '',
         failedCount ? `${failedCount} listing${failedCount === 1 ? '' : 's'} could not be parsed or did not match the search.` : '',
       ].filter(Boolean).join(' '),
     });

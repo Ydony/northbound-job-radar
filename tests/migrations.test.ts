@@ -4,7 +4,7 @@ import test from 'node:test';
 import { runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
@@ -32,6 +32,18 @@ test('expiry is a stored date, not a re-fetch', () => {
   // derive expiry, and empty means "no expiry published", never "expired".
   const sql = runtimeMigrations[22].statements.join('\n');
   assert.match(sql, /ALTER TABLE jobs ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''/);
+});
+
+test('page-fetch rejections are remembered per owner, with roles for role mismatches', () => {
+  // #93: four permanently-unimportable listings at the head of a page-fetching source starved
+  // everything behind them, because a rejected URL was written nowhere. The table keys a
+  // rejection to its owner like jobs and dismissed_jobs do, and carries the roles a
+  // role-mismatch was judged against so a later change of roles reconsiders the listing.
+  const sql = runtimeMigrations[23].statements.join('\n');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS rejected_listings/);
+  assert.match(sql, /user_id TEXT NOT NULL/);
+  assert.match(sql, /CREATE UNIQUE INDEX IF NOT EXISTS rejected_user_canonical_idx ON rejected_listings\(user_id, canonical_url\)/);
+  assert.match(sql, /rejected_user_source_identity_idx ON rejected_listings\(user_id, source_key, source_job_id\)/);
 });
 
 test('cross-source fingerprints require a posting day', () => {

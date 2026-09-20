@@ -9,7 +9,7 @@
  */
 import { CV_MATCHING_ENABLED } from './features';
 
-export const PRIVACY_UPDATED_ON = '2026-09-19';
+export const PRIVACY_UPDATED_ON = '2026-09-20';
 
 export interface DataItem {
   what: string;
@@ -36,6 +36,12 @@ export const dataWeHold: DataItem[] = [
     why: 'To run searches the way you configured them.',
     legalBasis: 'Performance of a contract.',
     kept: 'Until you change or delete them.',
+  },
+  {
+    what: 'The listings your searches have already judged and set aside',
+    why: 'So a repeated search does not re-read the same dead ends: when a page-fetching source returns a listing that cannot be imported — an unreadable page, an unsafe apply link, or an advertisement in the wrong country, too short to screen, or outside your searched roles — its address and the reason are kept, and later runs skip it without fetching it again.',
+    legalBasis: 'Performance of a contract.',
+    kept: 'Until you reset the workspace or delete your account.',
   },
   {
     what: 'Sign-in records: the email tried, the IP address, and whether it succeeded',
