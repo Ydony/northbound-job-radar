@@ -42,7 +42,45 @@ import type { JobCountry } from './types';
  */
 const SEARCH_ENDPOINT = 'https://europa.eu/eures/api/jv-searchengine/public/jv-search/search?lang=en';
 const DETAIL_URL = 'https://europa.eu/eures/portal/jv-se/jv-details';
-const PAGE_SIZE = 50;
+export const EURES_PAGE_SIZE = 50;
+
+/**
+ * How far into a term's results to read.
+ *
+ * Raised from 2 on the same measurement that moved Job-Room (#95/#96): EURES does not
+ * return results newest-first under `BEST_MATCH` — a live probe showed page 1 for "analyst"
+ * spanning 2026-03-12 to 2026-09-04 and page 2 containing a 2022 outlier, a mix across
+ * months on every page just like Job-Room's. Totals dwarf the window (2,192 for "analyst"
+ * in CH, 12,306 in NL at the time of writing), so an advertisement posted yesterday can sit
+ * past position 100 and never be discovered at all. Six pages cost six requests of about
+ * half a second each, and the loop still stops at the first short page, so a term with
+ * fewer results ends early.
+ */
+export const MAX_EURES_PAGES_PER_TERM = 6;
+
+/**
+ * Which ordering to ask the endpoint for, per country.
+ *
+ * Measured 2026-09-20, one live probe per country across three terms (analyst, engineer,
+ * manager), 4–12 pages each — not assumed. `BY_PUBLICATION_DESC` and the other date-shaped
+ * values are rejected as malformed (HTTP 400), but `MOST_RECENT` is accepted and returns the
+ * same result set in a different order (identical totals). For Switzerland it is
+ * newest-first in practice: every advertisement posted within the last 7 days sat on page 1
+ * (12, 21 and 13 across the three terms) with nothing fresher on pages 2–12, against 0–4
+ * scattered across 12 pages under `BEST_MATCH`. For the Netherlands it is not date-ordered
+ * at all (page openers ran Jul/Aug/Sep/Aug), and `BEST_MATCH` surfaces roughly twice as many
+ * fresh advertisements per page there (67 vs 39 fresh-of-300 for "analyst" over six pages,
+ * consistent across all three terms) — so NL keeps it. Re-measure before changing this:
+ * `MOST_RECENT` is undocumented and behaves differently per country for no stated reason.
+ */
+const sortByCountry: Record<Exclude<JobCountry, 'unknown'>, string> = {
+  switzerland: 'MOST_RECENT',
+  netherlands: 'BEST_MATCH',
+};
+
+export function euresSortFor(country: Exclude<JobCountry, 'unknown'>) {
+  return sortByCountry[country];
+}
 
 /** Lowercase ISO-3166 alpha-2. Three-letter codes are accepted by the API but silently match nothing. */
 const countryCodes: Record<Exclude<JobCountry, 'unknown'>, string> = {
@@ -124,21 +162,30 @@ export function euresJobToParsedJob(job: EuresJob, fallbackLocation: string): Eu
 }
 
 async function searchPage(term: string, country: Exclude<JobCountry, 'unknown'>, page: number) {
-  const response = await fetch(SEARCH_ENDPOINT, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json' },
-    body: JSON.stringify({
-      page,
-      resultsPerPage: PAGE_SIZE,
-      // The only ordering the endpoint accepts; BY_PUBLICATION_DESC is rejected as malformed.
-      sortSearch: 'BEST_MATCH',
-      locationCodes: [countryCodes[country]],
-      keywords: term.trim() ? [{ keyword: term.trim(), specificSearchCode: 'EVERYWHERE' }] : [],
-    }),
-  });
-  if (!response.ok) throw new Error(`EURES request failed (${response.status}).`);
-  const payload = await response.json() as { jvs?: EuresJob[] };
-  return payload.jvs ?? [];
+  const sorts = [euresSortFor(country), 'BEST_MATCH'].filter((value, index, all) => all.indexOf(value) === index);
+  let lastError = '';
+  for (const sortSearch of sorts) {
+    const response = await fetch(SEARCH_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        page,
+        resultsPerPage: EURES_PAGE_SIZE,
+        sortSearch,
+        locationCodes: [countryCodes[country]],
+        keywords: term.trim() ? [{ keyword: term.trim(), specificSearchCode: 'EVERYWHERE' }] : [],
+      }),
+    });
+    if (response.ok) {
+      const payload = await response.json() as { jvs?: EuresJob[] };
+      return payload.jvs ?? [];
+    }
+    lastError = `EURES request failed (${response.status}).`;
+    // `MOST_RECENT` is undocumented: if it ever stops being accepted, fall back to the
+    // documented relevance ordering rather than failing the country's whole search.
+    if (sortSearch === 'BEST_MATCH') break;
+  }
+  throw new Error(lastError || 'EURES request failed.');
 }
 
 /**
@@ -149,7 +196,7 @@ async function searchPage(term: string, country: Exclude<JobCountry, 'unknown'>,
 export async function searchEures(
   terms: string[],
   country: Exclude<JobCountry, 'unknown'>,
-  pagesPerTerm = 2,
+  pagesPerTerm = MAX_EURES_PAGES_PER_TERM,
 ): Promise<EuresParsedJob[]> {
   const queries = terms.length ? terms : [''];
   const byUrl = new Map<string, EuresParsedJob>();
@@ -161,7 +208,7 @@ export async function searchEures(
         const parsed = euresJobToParsedJob(job, fallback);
         if (parsed && !byUrl.has(parsed.sourceUrl)) byUrl.set(parsed.sourceUrl, parsed);
       }
-      if (jobs.length < PAGE_SIZE) break;
+      if (jobs.length < EURES_PAGE_SIZE) break;
     }
   }
   return [...byUrl.values()];
