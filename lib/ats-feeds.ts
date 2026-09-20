@@ -518,19 +518,86 @@ export async function mapWithConcurrency<T, R>(
   return results;
 }
 
-export async function fetchCompany(company: AtsCompany, timeoutMs = BOARD_TIMEOUT_MS): Promise<ParsedJob[]> {
+export type BoardFetchStatus = 'ok' | 'timeout' | 'http-error' | 'network-error' | 'parse-error';
+
+export interface BoardFetchOutcome {
+  company: AtsCompany;
+  status: BoardFetchStatus;
+  /** Present when the board answered with a non-2xx status. */
+  httpStatus?: number;
+  /** Postings read from this board; empty unless status is 'ok'. */
+  jobs: ParsedJob[];
+  durationMs: number;
+  /** Safe, non-sensitive reason for non-ok outcomes (no credentials or tokens). */
+  error?: string;
+}
+
+/**
+ * Whether a refused board must be left alone rather than retried. A 429, 403, 404 or other
+ * client refusal is a stop signal from the other side; pushing through it with retries is
+ * hammering a source that told us to stop. Only timeouts, network failures and 5xx responses
+ * may be retried, and then at most once.
+ */
+export function isBoardRefusal(outcome: Pick<BoardFetchOutcome, 'status' | 'httpStatus'>) {
+  if (outcome.status !== 'http-error' || outcome.httpStatus === undefined) return false;
+  return outcome.httpStatus === 429 || (outcome.httpStatus >= 400 && outcome.httpStatus < 500);
+}
+
+export function isBoardRetryable(outcome: Pick<BoardFetchOutcome, 'status' | 'httpStatus'>) {
+  if (outcome.status === 'timeout' || outcome.status === 'network-error') return true;
+  if (outcome.status === 'http-error' && outcome.httpStatus !== undefined) {
+    return outcome.httpStatus >= 500 && outcome.httpStatus < 600;
+  }
+  return false;
+}
+
+function isTimeoutError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError'
+    || error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
+}
+
+/**
+ * Reads one board, classifying the outcome instead of collapsing every failure to an empty
+ * list. A board with no jobs and a board that timed out used to look identical, which hid the
+ * successive-fetch decline in #75. Resolves in every case — one unreachable, slow or reshaped
+ * board must never fail the whole source.
+ */
+export async function fetchCompany(company: AtsCompany, timeoutMs = BOARD_TIMEOUT_MS): Promise<BoardFetchOutcome> {
+  const started = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const done = (outcome: Omit<BoardFetchOutcome, 'company' | 'durationMs'>): BoardFetchOutcome =>
+    ({ company, durationMs: Date.now() - started, ...outcome });
   try {
-    const response = await fetch(feedUrl(company), {
-      headers: { accept: 'application/json, application/xml' },
-      signal: controller.signal,
-    });
-    if (!response.ok) return [];
-    return parseFeed(company, await response.text());
-  } catch {
-    // One unreachable, slow or reshaped board must never fail the whole source.
-    return [];
+    let response: Response;
+    try {
+      response = await fetch(feedUrl(company), {
+        headers: { accept: 'application/json, application/xml' },
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (isTimeoutError(error) || controller.signal.aborted) {
+        return done({ status: 'timeout', jobs: [], error: `timed out after ${timeoutMs}ms` });
+      }
+      return done({ status: 'network-error', jobs: [], error: error instanceof Error ? error.message.slice(0, 160) : 'network request failed' });
+    }
+    if (!response.ok) {
+      return done({ status: 'http-error', httpStatus: response.status, jobs: [], error: `HTTP ${response.status}` });
+    }
+    let body: string;
+    try {
+      body = await response.text();
+    } catch (error) {
+      if (isTimeoutError(error) || controller.signal.aborted) {
+        return done({ status: 'timeout', jobs: [], error: `timed out after ${timeoutMs}ms` });
+      }
+      return done({ status: 'network-error', jobs: [], error: error instanceof Error ? error.message.slice(0, 160) : 'body read failed' });
+    }
+    try {
+      return done({ status: 'ok', jobs: parseFeed(company, body) });
+    } catch (error) {
+      return done({ status: 'parse-error', jobs: [], error: error instanceof Error ? error.message.slice(0, 160) : 'response could not be parsed' });
+    }
   } finally {
     clearTimeout(timer);
   }
@@ -540,6 +607,32 @@ let cached: { at: number; jobs: ParsedJob[] } | undefined;
 const CACHE_MS = 60_000;
 
 /**
+ * Reads every configured board once, keeping the per-board outcome so callers can tell a
+ * board with no jobs apart from a board that failed. Used by the measurement script and by
+ * searchAtsBoards below; boards are independent, so a failure stays isolated to one company.
+ *
+ * A board that fails transiently — timeout, network failure, or a 5xx response — is retried
+ * exactly once after a short pause. Measured for #75: without a retry, 1–2 of the 282 boards
+ * timed out per pass (a different board each time, so the loss moved around and totals
+ * wobbled); with one retry, 6 consecutive passes returned 281/282 boards and an identical
+ * 30,057 postings every time, with zero 429s across ~1,700 fetches. The retry is what recovers
+ * the transient loss, and the measurement is why there is exactly one of it: refusals
+ * (429/4xx) are never retried, and no pacing was added because no rate limiting was observed.
+ */
+const BOARD_RETRY_DELAY_MS = 1_000;
+
+async function fetchCompanyWithRetry(company: AtsCompany): Promise<BoardFetchOutcome> {
+  const first = await fetchCompany(company);
+  if (first.status === 'ok' || isBoardRefusal(first) || !isBoardRetryable(first)) return first;
+  await new Promise((resolve) => setTimeout(resolve, BOARD_RETRY_DELAY_MS));
+  return fetchCompany(company);
+}
+
+export async function searchAtsBoardsDetailed(): Promise<BoardFetchOutcome[]> {
+  return mapWithConcurrency(atsCompanies, BOARD_CONCURRENCY, (company) => fetchCompanyWithRetry(company));
+}
+
+/**
  * Reads every configured board once and serves both country adapters from that result, so an
  * international company contributes its Swiss and its Dutch roles rather than only its home
  * market. Boards are independent, so a failure is isolated to one company. The scrape route
@@ -547,9 +640,9 @@ const CACHE_MS = 60_000;
  */
 export async function searchAtsBoards(): Promise<ParsedJob[]> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.jobs;
-  const results = await mapWithConcurrency(atsCompanies, BOARD_CONCURRENCY, (company) => fetchCompany(company));
+  const outcomes = await searchAtsBoardsDetailed();
   const byUrl = new Map<string, ParsedJob>();
-  for (const job of results.flat()) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
+  for (const outcome of outcomes) for (const job of outcome.jobs) if (!byUrl.has(job.sourceUrl)) byUrl.set(job.sourceUrl, job);
   const jobs = [...byUrl.values()];
   cached = { at: Date.now(), jobs };
   return jobs;
