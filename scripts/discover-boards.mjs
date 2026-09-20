@@ -24,10 +24,14 @@
  * - It never edits the employer list. It writes `scripts/output/discovered-boards.csv`, a list
  *   of leads for a human to verify before any employer is added to `lib/ats-feeds.ts`.
  * - It never runs inside a search request. It is a manually triggered local script.
- * - It touches no file outside `scripts/`. It reads public CDX indexes and public employer
+ * - It writes only its CSV, which defaults inside `scripts/output/`. `--output` can point that
+ *   anywhere, so this is where the output goes by default, not an invariant the code enforces.
+ *   It edits nothing else. It reads public CDX indexes and public employer
  *   feeds only: no logins, no HTML job-page scraping, no detection evasion.
  *
- * Politeness: at most 4 requests in flight, a short pause between request starts, a real
+ * Politeness: the Common Crawl index is queried one request at a time - it is a single shared
+ * service and asks for no parallel threads - while feed verification stays at 4 in flight
+ * because those go to many different employers. A minimum gap between request starts, a real
  * User-Agent naming this tool, and a per-request timeout. One bad board or one failed index
  * page never stops the run; failures are counted and reported.
  *
@@ -86,7 +90,8 @@ Options:
   --output <path>      CSV destination (default scripts/output/discovered-boards.csv).
   --max-pages <n>      Index pages fetched per pattern per crawl (default ${DEFAULTS.maxPages}).
   --max-verify <n>     Verify at most N candidates per platform, 0 = all (default ${DEFAULTS.maxVerify}).
-  --delay-ms <n>       Pause between request starts (default ${DEFAULTS.delayMs}).
+  --delay-ms <n>       Minimum gap between request starts, shared across all
+                       requests (default ${DEFAULTS.delayMs}).
   --timeout-ms <n>     Per-request timeout (default ${DEFAULTS.timeoutMs}).
   --index-only         List candidates without verifying feeds (no CSV postings columns).
   --include-known      Keep boards already listed in lib/ats-feeds.ts (default: excluded).
@@ -96,7 +101,8 @@ Options:
 The run writes the survivors to the CSV with columns:
   platform, slug, suggested name, country, postings in NL/CH, example job URL.
 It prints a summary (candidates per platform, verified, rejected and why) and touches
-no file outside scripts/. The CSV is leads for a human to verify, not an employer list.
+only the CSV, which defaults inside scripts/output/ and follows --output
+wherever it is pointed. The CSV is leads for a human to verify, not an employer list.
 
 Known limit: Common Crawl does not crawl jobs.lever.co, so expect near-zero Lever
 candidates from this route.`);
@@ -161,6 +167,38 @@ function describeError(error) {
   return cause && !message.includes(cause) ? `${message} (${cause})` : message;
 }
 
+/**
+ * A pause before a request starts, shared by every caller.
+ *
+ * The old arrangement slept *after* each item inside each worker, which is not the same thing:
+ * with four workers, the first four requests still left together in the same instant, and only
+ * the fifth onwards was paced. Against an index that asks for no parallel threads, the opening
+ * burst is exactly the part that matters. Holding the next start time in one place means the
+ * spacing is real no matter how many callers there are.
+ */
+let nextAllowedStart = 0;
+
+/** Test seam: the pacer holds process-wide state, so a test must be able to reset it. */
+export function resetPacing() {
+  nextAllowedStart = 0;
+}
+
+/**
+ * The pacing applied to Common Crawl index requests, set once the options are known.
+ *
+ * Module state rather than a threaded parameter because the pacing is a property of the
+ * service being called, not of any one call site, and every index request must share it.
+ */
+let indexDelayMs = DEFAULTS.delayMs;
+
+export async function paceStart(delayMs) {
+  if (!(delayMs > 0)) return;
+  const now = Date.now();
+  const start = Math.max(now, nextAllowedStart);
+  nextAllowedStart = start + delayMs;
+  if (start > now) await sleep(start - now);
+}
+
 /** Runs fn over items with at most `limit` in flight and a pause between starts. */
 async function mapWithConcurrency(items, limit, fn, delayMs = 0) {
   const results = new Array(items.length);
@@ -183,14 +221,25 @@ async function mapWithConcurrency(items, limit, fn, delayMs = 0) {
   return results;
 }
 
+/**
+ * One request, with the timeout covering the whole exchange.
+ *
+ * Clearing the timer as soon as `fetch()` resolved only ever guarded the headers: a server that
+ * sends a status line and then stalls mid-body would hang the run indefinitely, which is the one
+ * failure a timeout exists to prevent. The body is read here, under the same signal, and the
+ * timer is cleared only once there is nothing left to wait for. `lib/ats-feeds.ts` already does
+ * this; the script was the odd one out.
+ */
 async function politeFetch(url, { timeoutMs, accept } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs ?? DEFAULTS.timeoutMs);
   try {
-    return await fetch(url, {
+    const response = await fetch(url, {
       headers: { 'user-agent': USER_AGENT, accept: accept ?? '*/*' },
       signal: controller.signal,
     });
+    const body = response.ok ? await response.text() : '';
+    return { response, body, ok: response.ok, status: response.status };
   } finally {
     clearTimeout(timer);
   }
@@ -201,27 +250,42 @@ async function politeFetch(url, { timeoutMs, accept } = {}) {
  * growing pauses instead of recording a failure at the first busy signal; other statuses and
  * employer feeds keep single-attempt semantics via politeFetch.
  */
-async function fetchWithRetry(url, { timeoutMs, accept } = {}, attempts = 4) {
-  let response;
+function retryAfterMs(response) {
+  const header = response?.headers?.get?.('retry-after');
+  if (!header) return 0;
+  const seconds = Number(header.trim());
+  if (Number.isFinite(seconds)) return Math.max(0, Math.min(60_000, seconds * 1000));
+  const when = Date.parse(header);
+  return Number.isFinite(when) ? Math.max(0, Math.min(60_000, when - Date.now())) : 0;
+}
+
+async function fetchWithRetry(url, { timeoutMs, accept, delayMs = 0 } = {}, attempts = 4) {
+  let result;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    response = await politeFetch(url, { timeoutMs, accept });
-    if (response.status !== 429 && response.status !== 503) return response;
-    if (attempt < attempts) await sleep(2000 * attempt);
+    await paceStart(delayMs);
+    result = await politeFetch(url, { timeoutMs, accept });
+    if (result.status !== 429 && result.status !== 503) return result;
+    if (attempt < attempts) {
+      // When the server says how long to wait, that number wins over our own guess. Backing off
+      // for less than we were asked to is the part that turns a busy signal into a complaint.
+      const asked = retryAfterMs(result.response);
+      await sleep(Math.max(asked, 2000 * attempt));
+    }
   }
-  return response;
+  return result;
 }
 
 async function newestCrawlIds(count) {
   let response;
   try {
     response = await fetchWithRetry('https://index.commoncrawl.org/collinfo.json', {
-      accept: 'application/json',
+      accept: 'application/json', delayMs: indexDelayMs,
     });
   } catch (error) {
     throw new Error(`collinfo.json unreachable (${describeError(error)}).`);
   }
   if (!response.ok) throw new Error(`collinfo.json answered HTTP ${response.status}.`);
-  const list = await response.json();
+  const list = JSON.parse(response.body);
   if (!Array.isArray(list) || list.length === 0) throw new Error('collinfo.json held no crawls.');
   // collinfo.json is ordered newest first; the first entries are the newest crawls.
   return list.slice(0, Math.max(1, count)).map((entry) => String(entry.id));
@@ -236,19 +300,18 @@ async function indexPageCount(crawlId, pattern) {
   const url =
     `https://index.commoncrawl.org/${crawlId}-index` +
     `?url=${encodeURIComponent(queryPattern(pattern))}&output=json&fl=url&collapse=urlkey&showNumPages=true`;
-  const response = await fetchWithRetry(url, { accept: 'application/json' });
+  const response = await fetchWithRetry(url, { accept: 'application/json', delayMs: indexDelayMs });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const body = await response.json();
-  return Number(body.pages ?? 0);
+  return Number(JSON.parse(response.body).pages ?? 0);
 }
 
 async function indexPage(crawlId, pattern, page) {
   const url =
     `https://index.commoncrawl.org/${crawlId}-index` +
     `?url=${encodeURIComponent(queryPattern(pattern))}&output=json&fl=url&collapse=urlkey&page=${page}`;
-  const response = await fetchWithRetry(url, { accept: 'application/json' });
+  const response = await fetchWithRetry(url, { accept: 'application/json', delayMs: indexDelayMs });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const text = await response.text();
+  const text = response.body;
   const urls = [];
   for (const line of text.split('\n')) {
     const trimmed = line.trim();
@@ -458,22 +521,17 @@ async function knownBoards() {
 }
 
 async function verifyBoard(platform, slug, timeoutMs) {
-  let response;
+  let result;
   try {
-    response = await politeFetch(feedUrlFor(platform, slug), {
+    result = await politeFetch(feedUrlFor(platform, slug), {
       timeoutMs,
       accept: 'application/json, application/xml',
     });
   } catch (error) {
     return { kept: false, reason: error?.name === 'AbortError' ? 'feed-timeout' : 'feed-network-error' };
   }
-  if (!response.ok) return { kept: false, reason: `feed-http-${response.status}` };
-  let body;
-  try {
-    body = await response.text();
-  } catch {
-    return { kept: false, reason: 'feed-network-error' };
-  }
+  if (!result.ok) return { kept: false, reason: `feed-http-${result.status}` };
+  const body = result.body;
   let postings;
   try {
     postings = postingsFromFeed(platform, body);
@@ -519,6 +577,7 @@ function printIndexWarnings(indexFailures) {
 
 async function main() {
   const parsed = parseArgs(process.argv.slice(2));
+  indexDelayMs = parsed.delayMs ?? DEFAULTS.delayMs;
   if (parsed.help) {
     printHelp();
     return;
@@ -547,15 +606,19 @@ async function main() {
     const crawlIds = options.crawlIds.length > 0 ? options.crawlIds : await newestCrawlIds(options.crawls);
     console.log(`Crawls: ${crawlIds.join(', ')}`);
 
-    // 1. Candidates from the index. Pages of one pattern run sequentially (the index
-    // paginates); patterns run with at most 4 requests in flight and a pause between starts.
+    // 1. Candidates from the index, one request at a time.
+    //
+    // Common Crawl asks that the index not be queried with parallel threads, and it is a single
+    // shared service rather than a collection of separate employers' servers, so concurrency here
+    // is load on one host. Verification below stays at four in flight because those requests go
+    // to many different employers, one each.
     const patternJobs = [];
     for (const { platform, pattern } of patterns) {
       for (const crawlId of crawlIds) {
         patternJobs.push({ platform, pattern, crawlId });
       }
     }
-    await mapWithConcurrency(patternJobs, 4, async ({ platform, pattern, crawlId }) => {
+    await mapWithConcurrency(patternJobs, 1, async ({ platform, pattern, crawlId }) => {
       let pages = 0;
       try {
         pages = await indexPageCount(crawlId, pattern);

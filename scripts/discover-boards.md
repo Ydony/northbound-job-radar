@@ -38,11 +38,16 @@ use a small `--max-verify` for smoke tests.
 
 ## Rules the script keeps
 
-- New files only: it never edits the employer list, never modifies anything outside
-  `scripts/`, and never runs inside a search request. The CSV is leads for a human to
-  verify before any employer is added.
-- Polite: at most 4 requests in flight, a pause between requests, a User-Agent naming
-  the tool, per-request timeouts. Public indexes and public feeds only — no logins, no
+- New files only: it never edits the employer list and never runs inside a search request. It
+  writes only its CSV, which defaults inside `scripts/output/` and follows `--output` wherever
+  that is pointed — the default is where output goes, not an invariant the code enforces. The
+  CSV is leads for a human to verify before any employer is added.
+- Polite: **the Common Crawl index is queried one request at a time**, because it is a single
+  shared service and its own guidance asks for no parallel threads. Feed verification stays at
+  four in flight, since those requests go to many different employers, one each. A minimum gap
+  is held between request *starts*, shared across all callers, a `Retry-After` is obeyed when
+  one is sent, and the per-request timeout covers the body as well as the headers. A User-Agent
+  names the tool and links the repository. Public indexes and public feeds only — no logins, no
   HTML job-page scraping, no detection evasion.
 - One bad board or index page never stops the run; failures are counted in the summary.
 
