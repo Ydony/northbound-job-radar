@@ -24,7 +24,7 @@ async function fixture() {
   const db = await mf.getD1Database('DB') as unknown as D1Database;
   const base = runtimeMigrations.find(m => m.version === 7)!.statements[0].replace('CREATE TABLE jobs_rebuilt', 'CREATE TABLE jobs');
   await db.prepare(base).run();
-  for (const version of [13, 14, 17, 19]) {
+  for (const version of [13, 14, 17, 19, 21]) {
     await db.batch(runtimeMigrations.find(m => m.version === version)!.statements.map(sql => db.prepare(sql)));
   }
   await db.prepare(`CREATE TABLE language_feedback (job_id TEXT PRIMARY KEY, user_id TEXT, verdict TEXT,

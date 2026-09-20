@@ -9,6 +9,7 @@ import {
   type JobRoomParsedJob,
 } from './job-room';
 import { delay, stripHtml } from './jobsch';
+import { searchTextForJob } from './criteria';
 import { NORMALIZATION_VERSION } from './server-data';
 
 export const JOB_ROOM_DETAIL_BACKFILL_VERSION = 1;
@@ -17,6 +18,7 @@ interface BackfillJobRow {
   id: string;
   source_url: string;
   title: string;
+  location: string;
   description: string;
   language_status: LanguageStatus;
 }
@@ -91,7 +93,7 @@ export async function backfillJobRoomDescriptions(
   const pause = options.pause ?? delay;
   const eligibleCount = await remainingCount(db, userId);
   const [jobs, cvRows, criteria] = await Promise.all([
-    db.prepare(`SELECT id, source_url, title, description, language_status FROM jobs
+    db.prepare(`SELECT id, source_url, title, location, description, language_status FROM jobs
       WHERE user_id = ? AND source_key = 'job-room.ch' AND length(description) < ?
         AND job_room_detail_version < ?
       ORDER BY updated_at, id LIMIT ?`)
@@ -140,11 +142,13 @@ export async function backfillJobRoomDescriptions(
     const result = await db.prepare(`UPDATE jobs SET description = ?, language_status = ?,
       language_summary = ?, language_signals = ?, fit_score_a = ?, fit_score_b = ?,
       best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
+      search_text = ?,
       normalized_version = ?, job_room_detail_version = ?, updated_at = ?
       WHERE id = ? AND user_id = ? AND length(description) < ? AND job_room_detail_version < ?`)
       .bind(description, language.status, language.summary, JSON.stringify(language.signals),
         fit.fitScoreA, fit.fitScoreB, fit.bestCvSlot, workplaceType,
         JSON.stringify(fit.matchedKeywords), JSON.stringify(fit.missingKeywords),
+        searchTextForJob({ title: job.title, location: job.location, description }),
         NORMALIZATION_VERSION, JOB_ROOM_DETAIL_BACKFILL_VERSION, new Date().toISOString(),
         job.id, userId, JOB_ROOM_FULL_TEXT_THRESHOLD, JOB_ROOM_DETAIL_BACKFILL_VERSION).run();
     if ((result.meta.changes ?? 0) < 1) continue;

@@ -60,6 +60,67 @@ function normalized(value: string) {
 }
 
 /**
+ * The text keyword filtering runs against, folded exactly the way matchesSearchCriteria reads
+ * it. Stored per row in `jobs.search_text` (migration 21) because SQLite LIKE cannot fold
+ * accents itself: matching 'zurich' against 'Zürich' in SQL needs the folded text on disk.
+ */
+export function searchTextForJob(job: { title: string; location: string; description: string }) {
+  return normalized(`${job.title} ${job.location} ${job.description}`);
+}
+
+/** Escape the three LIKE metacharacters so a keyword like '100%' matches itself, not anything. */
+export function escapeLikePattern(value: string) {
+  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+/**
+ * The SQL half of the keyword filter, against the stored `search_text` column. Semantically
+ * identical to matchesSearchCriteria: every required keyword must occur, no excluded keyword
+ * may occur. Keywords are folded with the same normalized() so the two cannot disagree — note
+ * matchesSearchCriteria does not trim either, so neither does this; stored keywords are
+ * already cleaned at write time, and mirroring the exact comparison keeps legacy rows honest.
+ *
+ * Returns a fragment starting with ' AND …' (empty when there is nothing to filter) plus its
+ * bound parameters, so callers splice it into an existing WHERE clause without renumbering.
+ */
+export function keywordFilterClause(
+  criteria: Pick<SearchCriteria, 'requiredKeywords' | 'excludedKeywords'>,
+  column = 'search_text',
+): { clause: string; params: string[] } {
+  const parts: string[] = [];
+  const params: string[] = [];
+  for (const keyword of criteria.requiredKeywords) {
+    parts.push(` AND ${column} LIKE ? ESCAPE '\\'`);
+    params.push(`%${escapeLikePattern(normalized(keyword))}%`);
+  }
+  for (const keyword of criteria.excludedKeywords) {
+    parts.push(` AND ${column} NOT LIKE ? ESCAPE '\\'`);
+    params.push(`%${escapeLikePattern(normalized(keyword))}%`);
+  }
+  return { clause: parts.join(''), params };
+}
+
+/**
+ * The jobs-page half of the keyword filter. Same keyword predicates as keywordFilterClause,
+ * but a job someone already saved, applied to, or dismissed always rides along even when the
+ * current keywords would exclude it: Pipeline and Dismissed are views of what the person did,
+ * not of what the current keywords keep, and dropping those rows would silently undo their
+ * work. With no keywords there is nothing to filter, so this is empty too.
+ */
+export function pageFilterClause(
+  criteria: Pick<SearchCriteria, 'requiredKeywords' | 'excludedKeywords'>,
+): { clause: string; params: string[] } {
+  const keywords = keywordFilterClause(criteria, 'jobs.search_text');
+  if (!keywords.clause) return { clause: '', params: [] };
+  const inner = keywords.clause.replace(/^ AND /, '');
+  return {
+    clause: ` AND (${inner} OR jobs.is_saved = 1`
+      + ` OR jobs.application_status = 'applied' OR jobs.visibility_status = 'dismissed')`,
+    params: keywords.params,
+  };
+}
+
+/**
  * Does this job survive the search criteria?
  *
  * Three rules, and deliberately only three. Location, workplace, seniority and contract type were

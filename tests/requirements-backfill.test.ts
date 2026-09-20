@@ -92,8 +92,9 @@ async function fixture() {
   )`).run();
   await db.prepare("CREATE TABLE cvs (user_id TEXT, slot TEXT, cv_text TEXT, derived_role TEXT)").run();
   await db.prepare("CREATE TABLE search_settings (user_id TEXT, role_override_a TEXT DEFAULT '', role_override_b TEXT DEFAULT '')").run();
-  // The column under test arrives through its own migration, as it does in the real database.
+  // The columns under test arrive through their own migrations, as they do in the real database.
   await db.batch(runtimeMigrations.find((entry) => entry.version === 20)!.statements.map((sql) => db.prepare(sql)));
+  await db.batch(runtimeMigrations.find((entry) => entry.version === 21)!.statements.map((sql) => db.prepare(sql)));
   return { db, dispose: () => runtime.dispose() };
 }
 

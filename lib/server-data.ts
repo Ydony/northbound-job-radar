@@ -3,7 +3,8 @@ import { indeedSql, isIndeedRecord } from './indeed/access';
 import { isIndeedUrl, languageForIndeed } from './indeed/normalize';
 import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
   sourceInfoForUrl, sourceJobIdFromUrl } from './job-identity';
-import { matchesSearchCriteria } from './criteria';
+import { keywordFilterClause, matchesSearchCriteria, pageFilterClause, searchTextForJob } from './criteria';
+import { encodeJobsCursor, type JobsCursor } from './paging';
 import { decodeEntities } from './jobsch';
 import { jobExcerpt } from './excerpt';
 import { extractRequirements } from './requirements';
@@ -348,27 +349,30 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
     .first<{ id: string }>();
   const visibilityStatus = existing?.visibility_status === 'dismissed' || tombstone ? 'dismissed' : 'active';
   const id = existing?.id ?? crypto.randomUUID();
+  // Folded title + location + description for the SQL keyword filter (lib/criteria.ts). Written
+  // on every insert and text-changing update so the filter never reads stale text.
+  const searchText = searchTextForJob(input);
   if (wasDuplicate && existing) {
     await db.prepare('UPDATE jobs SET last_seen_at = ?, updated_at = ? WHERE id = ? AND user_id = ?').bind(now, now, id, userId).run();
   } else if (existing) {
     await db.prepare(`UPDATE jobs SET canonical_url = ?, source_key = ?, source_name = ?, source_job_id = ?,
-      country = ?, title = ?, company = ?, location = ?, description = ?, language_status = ?, language_summary = ?,
+      country = ?, title = ?, company = ?, location = ?, description = ?, search_text = ?, language_status = ?, language_summary = ?,
       language_signals = ?, fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
       identity_fingerprint = ?, cluster_key = ?, visibility_status = ?, posted_at = CASE WHEN ? = '' THEN posted_at ELSE ? END,
       last_seen_at = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
       .bind(canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company, input.location,
-        input.description, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals), input.fitScoreA,
+        input.description, searchText, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals), input.fitScoreA,
         input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords), JSON.stringify(input.missingKeywords),
         identityFingerprint, clusterKey, visibilityStatus, postedAt, postedAt, now, now, id, userId).run();
   } else {
     await db.prepare(`INSERT INTO jobs (id, user_id, source_url, canonical_url, source_key, source_name, source_job_id, country,
-      title, company, location, description, language_status, language_summary, language_signals, fit_score_a, fit_score_b,
+      title, company, location, description, search_text, language_status, language_summary, language_signals, fit_score_a, fit_score_b,
       best_cv_slot, workplace_type, matched_keywords, missing_keywords, identity_fingerprint, cluster_key, duplicate_of,
       is_saved, application_status,
       visibility_status, posted_at, first_seen_at, last_seen_at, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(id, userId, canonicalUrl, canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company,
-        input.location, input.description, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals),
+        input.location, input.description, searchText, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals),
         input.fitScoreA, input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords),
         JSON.stringify(input.missingKeywords), identityFingerprint, clusterKey, duplicateOf, 0, 'not_applied', visibilityStatus, postedAt, now, now,
         visibilityStatus === 'dismissed' ? 'ignored' : 'new', now, now).run();
@@ -449,15 +453,43 @@ export async function normalizeStoredJobs(db: D1Database, userId: string) {
     const { country } = sourceInfoForUrl(row.source_url, location);
     return db.prepare(`UPDATE jobs SET title = ?, company = ?, location = ?, country = ?,
         language_status = ?, language_summary = ?, language_signals = ?,
+        search_text = ?,
         normalized_version = ?, cluster_version = 0, updated_at = ? WHERE id = ? AND user_id = ?`)
       .bind(title, decodeEntities(row.company), location, country,
         language.status, language.summary, JSON.stringify(language.signals),
+        searchTextForJob({ title, location, description: row.description }),
         NORMALIZATION_VERSION, now, row.id, userId);
   });
   for (let index = 0; index < statements.length; index += 50) {
     await db.batch(statements.slice(index, index + 50));
   }
   return rows.results.length;
+}
+
+/**
+ * Fill `search_text` for rows written before migration 21, without touching anything else.
+ *
+ * Unlike normalizeStoredJobs this never rescreens language, never invalidates clusters and
+ * never bumps versions: the folded text is derived from the same fields matchesSearchCriteria
+ * already reads, so backfilled rows filter exactly as freshly written ones do. Rows whose
+ * title, location and description are all empty keep their empty text — the SQL filter and
+ * the TypeScript check agree on those too — and are excluded from the scan so the loop
+ * always terminates.
+ */
+export async function ensureSearchText(db: D1Database, userId: string) {
+  let filled = 0;
+  for (;;) {
+    const rows = await db.prepare(`SELECT id, title, location, description FROM jobs
+      WHERE user_id = ? AND search_text = '' AND (title || location || description) != ''
+      LIMIT 100`)
+      .bind(userId).all<{ id: string; title: string; location: string; description: string }>();
+    if (!rows.results.length) return filled;
+    const statements = rows.results.map((row) => db.prepare(
+      'UPDATE jobs SET search_text = ? WHERE id = ? AND user_id = ?')
+      .bind(searchTextForJob(row), row.id, userId));
+    await db.batch(statements);
+    filled += rows.results.length;
+  }
 }
 
 // v1: re-evaluate links made before the first-seen fallback for missing posting dates (#5).
@@ -562,8 +594,7 @@ export async function reclusterJobs(db: D1Database, userId: string) {
   return { clusters, duplicates };
 }
 
-export async function rescoreAllJobs(db: D1Database, userId: string, cvs: CvInput[]) {
-  const jobs = await db.prepare('SELECT id, source_url, title, description FROM jobs WHERE user_id = ?').bind(userId)
+export async function rescoreAllJobs(db: D1Database, userId: string, cvs: CvInput[]) {  const jobs = await db.prepare('SELECT id, source_url, title, description FROM jobs WHERE user_id = ?').bind(userId)
     .all<{ id: string; source_url: string; title: string; description: string }>();
   if (!jobs.results.length) return 0;
 
@@ -581,6 +612,88 @@ export async function rescoreAllJobs(db: D1Database, userId: string, cvs: CvInpu
     await db.batch(updates.slice(start, start + 50));
   }
   return updates.length;
+}
+
+export interface JobsPageQuery {
+  /** Source keys this account must never see. Empty for an administrator. */
+  hiddenSourceKeys: string[];
+  /** When true, Indeed rows are excluded too (ordinary accounts never learn they exist). */
+  hideIndeedRecords: boolean;
+  criteria: SearchCriteria;
+  cursor: JobsCursor | null;
+  limit: number;
+}
+
+export interface JobsPage {
+  rows: JobRow[];
+  /** Cursor for the following page, or null when this page is the end. */
+  nextCursor: string | null;
+  /** Every row owned (and visible to this role), regardless of keywords or paging. */
+  total: number;
+  /** Rows the saved keywords keep, regardless of paging. Saved, applied and dismissed rows
+   *  ride along on the page but are not counted here: this is the number the dashboard
+   *  converges to as pages load. */
+  matching: number;
+}
+
+/**
+ * One page of this account's jobs with the keyword filter applied in SQL, before the limit.
+ *
+ * The page carries saved, applied and dismissed rows even when the current keywords exclude
+ * them (see pageFilterClause); the matching total counts keyword matches only. Hidden sources
+ * are excluded in SQL before both the filter and the limit, so they never spend either.
+ * Ordered by updated_at then id, newest first, with the cursor continuing exactly there.
+ */
+export async function queryJobsPage(
+  db: D1Database,
+  userId: string,
+  query: JobsPageQuery,
+): Promise<JobsPage> {
+  const hiddenClause = query.hiddenSourceKeys.length
+    ? ` AND jobs.source_key NOT IN (${query.hiddenSourceKeys.map(() => '?').join(',')})`
+    : '';
+  // Indeed rows are hidden from ordinary accounts by audience, not by key alone: legacy rows
+  // may carry a missing or wrong source key, so the URL patterns count too. Same predicate as
+  // /api/state has always used, now shared by the page and both counts.
+  const indeedClause = query.hideIndeedRecords ? ` AND NOT ${indeedSql('jobs')}` : '';
+  const unprefixedIndeedClause = query.hideIndeedRecords ? ` AND NOT ${indeedSql()}` : '';
+  const page = pageFilterClause(query.criteria);
+  const matching = keywordFilterClause(query.criteria, 'search_text');
+  const cursorClause = query.cursor
+    ? ' AND (jobs.updated_at < ? OR (jobs.updated_at = ? AND jobs.id < ?))'
+    : '';
+  const cursorParams = query.cursor
+    ? [query.cursor.updatedAt, query.cursor.updatedAt, query.cursor.id]
+    : [];
+  const unprefixedHidden = hiddenClause.replace(/jobs\./g, '');
+  const audienceClause = `${hiddenClause}${indeedClause}`;
+  const unprefixedAudienceClause = `${unprefixedHidden}${unprefixedIndeedClause}`;
+  // One row past the page: whether it exists is what decides nextCursor. Ending exactly on a
+  // full page must not send the client after an empty one.
+  const probe = query.limit + 1;
+  const [jobs, total, matchingTotal] = await Promise.all([
+    db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,
+      language_feedback.corrected_status AS feedback_corrected_status,
+      language_feedback.reason AS feedback_reason, language_feedback.updated_at AS feedback_updated_at
+      FROM jobs LEFT JOIN language_feedback ON language_feedback.job_id = jobs.id
+      WHERE jobs.user_id = ?${audienceClause}${page.clause}${cursorClause}
+      ORDER BY jobs.updated_at DESC, jobs.id DESC LIMIT ?`)
+      .bind(userId, ...query.hiddenSourceKeys, ...page.params, ...cursorParams, probe)
+      .all<JobRow>(),
+    db.prepare(`SELECT COUNT(*) AS total FROM jobs WHERE user_id = ?${unprefixedAudienceClause}`)
+      .bind(userId, ...query.hiddenSourceKeys).first<{ total: number }>(),
+    db.prepare(`SELECT COUNT(*) AS total FROM jobs WHERE user_id = ?${unprefixedAudienceClause}${matching.clause}`)
+      .bind(userId, ...query.hiddenSourceKeys, ...matching.params).first<{ total: number }>(),
+  ]);
+  const hasMore = jobs.results.length > query.limit;
+  const rows = hasMore ? jobs.results.slice(0, query.limit) : jobs.results;
+  const lastRow = rows[rows.length - 1];
+  return {
+    rows,
+    nextCursor: hasMore && lastRow ? encodeJobsCursor(lastRow.updated_at, lastRow.id) : null,
+    total: total?.total ?? rows.length,
+    matching: matchingTotal?.total ?? rows.length,
+  };
 }
 
 export type { CriteriaRow, CvRow, JobRow, SearchRoleRow, SearchRunRow, SearchRunSourceRow };

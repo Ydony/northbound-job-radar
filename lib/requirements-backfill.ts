@@ -3,6 +3,7 @@ import { searchAtsBoards } from './ats-feeds';
 import { canonicalJobUrl } from './job-identity';
 import { stripHtml, type ParsedJob } from './jobsch';
 import { extractRequirements } from './requirements';
+import { searchTextForJob } from './criteria';
 import { detectWorkplaceType } from './workplace';
 import { NORMALIZATION_VERSION } from './server-data';
 
@@ -202,11 +203,13 @@ export async function backfillFlattenedDescriptions(
     const result = await db.prepare(`UPDATE jobs SET description = ?, language_status = ?,
       language_summary = ?, language_signals = ?, fit_score_a = ?, fit_score_b = ?,
       best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
+      search_text = ?,
       normalized_version = ?, structure_version = ?, updated_at = ?
       WHERE id = ? AND user_id = ? AND structure_version < ?`)
       .bind(description, language.status, language.summary, JSON.stringify(language.signals),
         fit.fitScoreA, fit.fitScoreB, fit.bestCvSlot, workplaceType,
         JSON.stringify(fit.matchedKeywords), JSON.stringify(fit.missingKeywords),
+        searchTextForJob({ title: job.title, location: job.location, description }),
         NORMALIZATION_VERSION, STRUCTURE_BACKFILL_VERSION, now,
         job.id, userId, STRUCTURE_BACKFILL_VERSION).run();
     if ((result.meta.changes ?? 0) < 1) continue;

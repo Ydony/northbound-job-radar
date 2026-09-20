@@ -28,8 +28,10 @@ async function fixture() {
 }
 
 async function upgrade(db: D1Database) {
-  await db.batch(runtimeMigrations.find((m) => m.name === 'track_cluster_rule_version')!
-    .statements.map((sql) => db.prepare(sql)));
+  for (const name of ['track_cluster_rule_version', 'keyword_search_text']) {
+    await db.batch(runtimeMigrations.find((m) => m.name === name)!
+      .statements.map((sql) => db.prepare(sql)));
+  }
 }
 
 async function add(db: D1Database, id: string, userId = 'alice', firstSeen = '2026-09-01', company = 'Example') {
