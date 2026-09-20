@@ -17,5 +17,11 @@ declare namespace Cloudflare {
     ALLOW_SIGNUPS?: string;
     /** Set only by the VPN-enforced launcher, after it verifies a full tunnel route. Without it the restricted sources refuse to run. */
     VPN_ENFORCED?: string;
+    INDEED_ENABLED?: string;
+    INDEED_LOCAL_ONLY?: string;
+    INDEED_APP_IDENTITY_APPROVED?: string;
+    INDEED_API_KEY?: string;
+    INDEED_USER_AGENT?: string;
+    INDEED_APP_INFO?: string;
   }
 }

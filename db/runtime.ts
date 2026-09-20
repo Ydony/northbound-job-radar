@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers';
+import { isLoopbackRequest } from '../lib/indeed/access';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
 import { detectWorkplaceType } from '../lib/workplace';
 import { runtimeMigrations } from './migrations';
@@ -129,6 +130,16 @@ export function aggregatorCredentials() {
     careerjetApiKey: env.CAREERJET_API_KEY ?? '',
     careerjetReferer: env.CAREERJET_REFERER ?? '',
     careerjetUserIp: env.CAREERJET_USER_IP ?? '',
+  };
+}
+
+/** Never serialize this backend configuration into a response or client component. */
+export function indeedConfiguration(request: Request, administrator: boolean) {
+  return {
+    access: { enabled: env.INDEED_ENABLED === 'true', administrator,
+      localExecution: env.INDEED_LOCAL_ONLY === 'true' && isLoopbackRequest(request),
+      appIdentityExperimentApproved: env.INDEED_APP_IDENTITY_APPROVED === 'true' },
+    credentials: { apiKey: env.INDEED_API_KEY ?? '', userAgent: env.INDEED_USER_AGENT ?? '', appInfo: env.INDEED_APP_INFO ?? '' },
   };
 }
 

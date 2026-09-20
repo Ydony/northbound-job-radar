@@ -7,6 +7,8 @@ import { canonicalJobUrl } from '@/lib/job-identity';
 import { criteriaFromRow, upsertJob, type CriteriaRow } from '@/lib/server-data';
 import type { CvSlot } from '@/lib/types';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
+import { indeedSql } from '@/lib/indeed/access';
+import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 
 function clean(value: unknown, max: number) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
   const postedAt = clean(payload.postedAt, 80);
 
   if (!isSafeManualJobUrl(sourceUrl)) return Response.json({ error: 'Paste a valid public HTTPS job-ad URL.' }, { status: 400 });
+  if (isIndeedUrl(sourceUrl) && user.role !== 'admin') return Response.json({ error: 'This source is not available.' }, { status: 403 });
   if (!title) return Response.json({ error: 'Add the job title.' }, { status: 400 });
   if (description.length < 160) return Response.json({ error: 'Paste the full job advertisement so the language gate has enough evidence.' }, { status: 400 });
 
@@ -44,7 +47,7 @@ export async function POST(request: Request) {
     derivedRole: roleForSlot(row.slot, row.derived_role, criteria),
   }));
 
-  const language = analyzeLanguage(description, title);
+  const language = isIndeedUrl(sourceUrl) ? languageForIndeed(description, title) : analyzeLanguage(description, title);
   const fit = scoreFitAcrossCvs(description, title, cvs);
   const result = await upsertJob(db, user.id, {
     sourceUrl, title, company, location, description,
@@ -61,6 +64,7 @@ export async function DELETE(request: Request) {
   if (response) return response;
   const { db, user } = session;
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+  const visible = user.role === 'admin' ? '' : ` AND NOT ${indeedSql()}`;
   const all = body.all === true;
   const ids = Array.isArray(body.ids)
     ? [...new Set(body.ids.filter((id): id is string => typeof id === 'string' && id.length > 0))].slice(0, 250)
@@ -69,16 +73,16 @@ export async function DELETE(request: Request) {
 
   if (all) {
     const results = await db.batch([
-      db.prepare('DELETE FROM language_feedback WHERE user_id = ?').bind(user.id),
-      db.prepare('DELETE FROM jobs WHERE user_id = ?').bind(user.id),
+      db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (SELECT id FROM jobs WHERE user_id = ?${visible})`).bind(user.id, user.id),
+      db.prepare(`DELETE FROM jobs WHERE user_id = ?${visible}`).bind(user.id),
     ]);
     return Response.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
   }
 
   const placeholders = ids.map(() => '?').join(',');
   const results = await db.batch([
-    db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (${placeholders})`).bind(user.id, ...ids),
-    db.prepare(`DELETE FROM jobs WHERE user_id = ? AND id IN (${placeholders})`).bind(user.id, ...ids),
+    db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (SELECT id FROM jobs WHERE user_id = ? AND id IN (${placeholders})${visible})`).bind(user.id, user.id, ...ids),
+    db.prepare(`DELETE FROM jobs WHERE user_id = ? AND id IN (${placeholders})${visible}`).bind(user.id, ...ids),
   ]);
   return Response.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
 }

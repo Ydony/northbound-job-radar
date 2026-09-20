@@ -9,7 +9,7 @@
  */
 import { CV_MATCHING_ENABLED } from './features';
 
-export const PRIVACY_UPDATED_ON = '2026-09-08';
+export const PRIVACY_UPDATED_ON = '2026-09-19';
 
 export interface DataItem {
   what: string;
@@ -78,8 +78,7 @@ export const privacySummary = CV_MATCHING_ENABLED
     + 'line: your CV is never sent to any job site, aggregator, or AI service, and nothing about you is sold or shared.'
   : 'This page describes exactly what is stored, why, how long it is kept, and what you can do about it. '
     + 'It is written from what the software actually does rather than from a template. If you only read one '
-    + 'line: nothing you save here is sent to any job site, aggregator, or AI service, and nothing about you '
-    + 'is sold or shared.';
+    + 'line: search keywords and locations are sent to selected job sources; account credentials and saved advertisements are not sent to job sites or AI services.';
 
 export const whereDataLives = [
   CV_MATCHING_ENABLED
@@ -98,7 +97,7 @@ export const notCollected = [
   'No advertising, marketing or third-party analytics of any kind.',
   'No tracking cookies, pixels, fingerprinting or cross-site tracking.',
   'No profiling, no automated decisions with legal effect, and nothing sold or shared with anyone.',
-  'Nothing you store here is sent to a job site, an aggregator, or any AI or machine-learning service.',
+  'Your account credentials and saved advertisements are not sent to job sites or AI services. Search keywords and locations are sent to the sources you search.',
   'No page-by-page browsing history, no referrer logging, no session recording.',
 ];
 

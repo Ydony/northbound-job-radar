@@ -1,6 +1,7 @@
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
+import { indeedSql } from '@/lib/indeed/access';
 
 interface FeedbackRow {
   job_id: string;
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
   // rows are never fetched rather than dropped afterwards.
   const hiddenSourceKeys = user.role === 'admin' ? [] : [...adminOnlySourceKeys()];
   const hiddenClause = hiddenSourceKeys.length
-    ? ` AND j.source_key NOT IN (${hiddenSourceKeys.map(() => '?').join(',')})`
+    ? ` AND j.source_key NOT IN (${hiddenSourceKeys.map(() => '?').join(',')}) AND NOT ${indeedSql('j')}`
     : '';
 
   const rows = await db.prepare(`SELECT f.job_id, f.verdict, f.corrected_status, f.reason, f.updated_at,

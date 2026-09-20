@@ -1,5 +1,10 @@
 # Task list
 
+**2026-09-18 Indeed workstream:** tasks and assignments are tracked under
+[#63](https://github.com/Ydony/northbound-job-radar/issues/63), with the cross-LLM handoff in
+[INDEED_INTEGRATION.md](INDEED_INTEGRATION.md). Codex owns authentication and connection (#64/#65).
+This planning entry does not enable Indeed or establish a working API connection.
+
 **2026-09-07 planning update:** the recommended integration order and task acceptance criteria are
 in [PUBLIC_ADMIN_INTEGRATION_PLAN.md](PUBLIC_ADMIN_INTEGRATION_PLAN.md). These are specifications,
 not implemented changes.

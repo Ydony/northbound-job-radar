@@ -1,5 +1,6 @@
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
+import { indeedSql, isIndeedRecord } from '@/lib/indeed/access';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { normalizeLanguageFeedback } from '@/lib/language-feedback';
 import type { ApplicationStatus, VisibilityStatus } from '@/lib/types';
@@ -50,6 +51,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       posted_at: string;
     }>();
   if (!job) return Response.json({ error: 'Job not found.' }, { status: 404 });
+  if (user.role !== 'admin' && isIndeedRecord(job.source_key, job.source_url)) return Response.json({ error: 'Job not found.' }, { status: 404 });
 
   const statements: D1PreparedStatement[] = [];
   const now = new Date().toISOString();
@@ -122,8 +124,9 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   const { db, user } = session;
   const { id } = await context.params;
   await db.batch([
-    db.prepare('DELETE FROM language_feedback WHERE job_id = ? AND user_id = ?').bind(id, user.id),
-    db.prepare('DELETE FROM jobs WHERE id = ? AND user_id = ?').bind(id, user.id),
+    db.prepare(`DELETE FROM language_feedback WHERE job_id = ? AND user_id = ? AND job_id IN
+      (SELECT id FROM jobs WHERE user_id = ?${user.role === 'admin' ? '' : ` AND NOT ${indeedSql()}`})`).bind(id, user.id, user.id),
+    db.prepare(`DELETE FROM jobs WHERE id = ? AND user_id = ?${user.role === 'admin' ? '' : ` AND NOT ${indeedSql()}`}`).bind(id, user.id),
   ]);
   return Response.json({ ok: true });
 }

@@ -395,4 +395,21 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE INDEX IF NOT EXISTS jobs_cluster_version_idx ON jobs(user_id, cluster_version)',
     ],
   },
+  {
+    // 18 is reserved for the independent #72 branch. This additive table has no dependency on it.
+    version: 19,
+    name: 'indeed_collection_guard',
+    statements: [
+      // Installation-wide operational state, NOT user data. Shared by both countries/admins.
+      `CREATE TABLE indeed_control (
+        id TEXT PRIMARY KEY NOT NULL,
+        paused INTEGER NOT NULL DEFAULT 0,
+        cooldown_until INTEGER NOT NULL DEFAULT 0,
+        lease_token TEXT NOT NULL DEFAULT '',
+        lease_until INTEGER NOT NULL DEFAULT 0,
+        last_success TEXT NOT NULL DEFAULT ''
+      )`,
+      "INSERT INTO indeed_control (id) VALUES ('indeed')",
+    ],
+  },
 ];

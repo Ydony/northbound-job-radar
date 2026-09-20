@@ -2,6 +2,7 @@ import { authSecrets, ensureSchema } from '@/db/runtime';
 import { recordVisit } from '@/lib/analytics';
 import { clientIp, requireSession } from '@/lib/guard';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
+import { indeedSql } from '@/lib/indeed/access';
 import { criteriaFromRow, cvFromRow, ensureCurrentJobClusters, jobFromRow, normalizeStoredJobs, searchRunsFromRows, type CriteriaRow, type CvRow,
   type JobRow, type SearchRoleRow, type SearchRunRow, type SearchRunSourceRow } from '@/lib/server-data';
 
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
   // endpoint directly, and so they never count towards the page limit either.
   const hiddenSourceKeys = user.role === 'admin' ? [] : [...adminOnlySourceKeys()];
   const hiddenClause = hiddenSourceKeys.length
-    ? ` AND jobs.source_key NOT IN (${hiddenSourceKeys.map(() => '?').join(',')})`
+    ? ` AND jobs.source_key NOT IN (${hiddenSourceKeys.map(() => '?').join(',')}) AND NOT ${indeedSql('jobs')}`
     : '';
 
   const [cvs, jobs, criteria, roles, runs, jobTotal] = await Promise.all([
@@ -96,6 +97,10 @@ export async function GET(request: Request) {
       ? runSources.results
       // Same rule as the jobs above, from the same derived list: an ordinary account is not told
       // that these sources were searched, let alone what they returned.
-      : runSources.results.filter((row) => !hiddenSourceKeys.includes(row.source_key))),
+      : runSources.results.filter((row) => !hiddenSourceKeys.includes(row.source_key)))
+      .filter(run => user.role === 'admin' || run.sources.length > 0)
+      .map(run => user.role === 'admin' ? run : { ...run,
+        status: run.sources.every(source => source.status === 'complete') ? 'complete'
+          : run.sources.every(source => source.status === 'failed') ? 'failed' : 'partial' }),
   });
 }

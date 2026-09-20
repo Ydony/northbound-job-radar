@@ -1,4 +1,5 @@
 import { countryForPlaceName } from './nuts';
+import { isIndeedUrl } from './indeed/normalize';
 import type { JobCountry } from './types';
 
 export interface JobIdentityInput {
@@ -159,6 +160,10 @@ export function canonicalJobUrl(value: string) {
 export function sourceInfoForUrl(value: string, location = ''): SourceInfo {
   try {
     const host = new URL(value).hostname.toLowerCase();
+    if (isIndeedUrl(value) && !sources[host]) {
+      const country = countryFromLocation(location);
+      return { key: 'indeed', name: 'Indeed', country };
+    }
     // EURES is one host serving both countries, so the country has to come from the advertisement
     // rather than the domain. Two spellings have to be read, because the location may or may not
     // have been resolved yet: a raw NUTS code carries its country as a prefix ("CH031 CH"), while

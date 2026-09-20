@@ -117,11 +117,12 @@ export const sourcePolicies: SourcePolicy[] = [
   },
   {
     name: 'Indeed (Switzerland and Netherlands)',
-    group: 'Not used',
-    stance: 'not-used',
-    collected: 'Nothing.',
-    theirRules: 'Indeed prohibits automated access without written permission and returns HTTP 403 to it.',
-    ourPosition: 'Not searched. Listed in the app as blocked so an empty result is never mistaken for "no jobs found".',
+    group: 'Restricted sites',
+    stance: 'unresolved',
+    adminOnly: true,
+    collected: 'When explicitly enabled for a local administrator: role searches, job title, employer, location, posting date and description from the experimental API connection.',
+    theirRules: 'The owner reports permission for this local assessment. This has not been independently verified as partner access or public redistribution permission.',
+    ourPosition: 'Disabled by default; local administrators only. The owner made VPN optional for this experiment on 2026-09-20. The specifically approved mobile-header profile uses verified HTTPS without personal OAuth or phone cookies. Four requests maximum per run across both countries, fixed delays, persistent cooldown and stop-on-refusal. Completeness remains unverified, so results do not automatically qualify as English sufficient. Ordinary users cannot search or receive these records.',
   },
   {
     name: 'Nationale Vacaturebank',
