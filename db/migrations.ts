@@ -421,4 +421,15 @@ export const runtimeMigrations: RuntimeMigration[] = [
       "INSERT INTO indeed_control (id) VALUES ('indeed')",
     ],
   },
+  {
+    version: 20,
+    name: 'track_structure_backfill',
+    statements: [
+      // Zero on every existing row: none of them has been re-read against its employer's board
+      // yet, and a row that was ingested with its structure intact simply never becomes eligible,
+      // because the eligibility test is "no line break at all".
+      'ALTER TABLE jobs ADD COLUMN structure_version INTEGER NOT NULL DEFAULT 0',
+      'CREATE INDEX IF NOT EXISTS jobs_structure_version_idx ON jobs(user_id, structure_version)',
+    ],
+  },
 ];
