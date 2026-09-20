@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { defaultSearchCriteria } from '../lib/criteria';
 import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, criteriaToDraft,
-  DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, isNewJob, jobInView, languageStatusLabel,
+  DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, formatSourceReconciliation, isNewJob, jobInView, languageStatusLabel,
   newSinceCutoff, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, statusLabel } from '../lib/dashboard';
 import type { JobRecord, SearchCriteria, SearchRun, SourceRunStatus } from '../lib/types';
 import type { LanguageStatus } from '../lib/analysis';
@@ -94,6 +94,28 @@ test('every source run status has a label and a rank, with failures first', () =
 
 test('sourceRunStatusLabel falls back to the raw status for unknown values', () => {
   assert.equal(sourceRunStatusLabel('bogus' as SourceRunStatus), 'bogus');
+});
+
+test('formatSourceReconciliation accounts every new listing as an equation', () => {
+  // The measured run from #94, which read as 28 lost jobs when the duplicate
+  // share was omitted: new = imported + duplicate + skipped holds exactly.
+  const cases = [
+    { newCount: 150, importedCount: 126, duplicateCount: 24, skippedCount: 0,
+      text: '150 new = 126 added + 24 duplicates + 0 skipped' },
+    { newCount: 100, importedCount: 99, duplicateCount: 1, skippedCount: 0,
+      text: '100 new = 99 added + 1 duplicate + 0 skipped' },
+    { newCount: 31, importedCount: 28, duplicateCount: 3, skippedCount: 0,
+      text: '31 new = 28 added + 3 duplicates + 0 skipped' },
+  ];
+  for (const { text, ...counts } of cases) {
+    assert.equal(counts.newCount, counts.importedCount + counts.duplicateCount + counts.skippedCount);
+    assert.equal(formatSourceReconciliation(counts), text);
+  }
+  // An unsearched source still reconciles, trivially.
+  assert.equal(
+    formatSourceReconciliation({ newCount: 0, importedCount: 0, duplicateCount: 0, skippedCount: 0 }),
+    '0 new = 0 added + 0 duplicates + 0 skipped',
+  );
 });
 
 test('languageStatusLabel never phrases unknown as a near-miss', () => {

@@ -2,7 +2,7 @@ import type { LanguageStatus } from './analysis';
 import { effectiveLanguageStatus } from './language-feedback';
 import { countryLabel } from './job-identity';
 import { workplaceLabel } from './workplace';
-import type { JobCountry, JobRecord, SearchCriteria, SearchRun, SourceRunStatus } from './types';
+import type { JobCountry, JobRecord, SearchCriteria, SearchRun, SearchRunSource, SourceRunStatus } from './types';
 import type { WorkplaceType } from './workplace';
 
 export interface CriteriaDraft extends Omit<SearchCriteria, 'requiredKeywords' | 'excludedKeywords' | 'updatedAt'> {
@@ -58,6 +58,26 @@ export const SOURCE_RUN_STATUS_RANK: Record<SourceRunStatus, number> = {
 
 export function sourceRunStatusLabel(status: SourceRunStatus) {
   return SOURCE_RUN_STATUS_LABELS[status] ?? status;
+}
+
+/**
+ * One line that accounts for every new listing a source returned (#94).
+ *
+ * A run report excerpt once read as having lost 28 jobs: `new` was compared
+ * against `added` with the duplicate share omitted, and nothing on screen made
+ * that omission obvious. `new` always accounts for itself as
+ * `imported + duplicate + skipped` — a listing that passes the known-URL
+ * pre-check as new can still fold into a duplicate at insert (identity or
+ * cluster near-duplicate, e.g. the same advertisement under different ids from
+ * overlapping role-term queries), which is correct behaviour, not a loss.
+ * Rendering the three parts as an equation keeps any excerpt honest.
+ */
+export function formatSourceReconciliation(source: Pick<
+  SearchRunSource, 'newCount' | 'importedCount' | 'duplicateCount' | 'skippedCount'
+>): string {
+  const duplicates = `${source.duplicateCount} duplicate${source.duplicateCount === 1 ? '' : 's'}`;
+  return `${source.newCount} new = ${source.importedCount} added`
+    + ` + ${duplicates} + ${source.skippedCount} skipped`;
 }
 
 export function bestFitScore(job: JobRecord) {
