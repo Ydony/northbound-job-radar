@@ -1,5 +1,35 @@
 # Handover
 
+## 2026-09-20 close-out: CSP on a nonce, filtering in SQL, the dashboard partly tested
+
+Master is green: lint, typecheck, **289/289**, build, and `npm run verify:dev` end to end.
+
+- **#2 `'unsafe-inline'` is gone.** `middleware.ts` mints a per-request nonce; the header is set on
+  the *request* as well as the response, because that is where vinext reads it to stamp the script
+  tags. The policy builder is in `lib/security-policy.ts` so the tests read the same one the
+  middleware uses, and a test asserts `next.config.ts` never sends a second policy - two policies
+  means the browser enforces the intersection. Verified in a browser, not inferred: nonce rotates
+  per request, all 79 script tags carry it, and the page hydrates.
+- **#3 filtering and paging are in SQL** (migration 21, `search_text`, accent-folded because SQLite
+  LIKE cannot fold). The audience rules moved but did not change, and are now shared by the page and
+  both counts: administrator keys excluded in SQL, Indeed hidden from ordinary accounts by URL
+  pattern as well as by key.
+- **#17, #72, #79, #80, #83, #84, #85, #86** all merged. The Indeed epic **#63 is closed**.
+
+**Two things that are true and easy to forget:**
+
+- A **blob-URL Web Worker is blocked** by `worker-src 'self'` (#87). Pre-existing, not from the CSP
+  change. The only worker in app code is pdf.js for PDF CV parsing, which is dormant behind
+  `CV_MATCHING_ENABLED = false` - so if that flag is turned back on, check this first.
+- Workers wedge silently when they stop to ask permission for a tool call. `pm.py` now closes their
+  stdin and bounds each run at 45 minutes; before that, two runs sat for over ten minutes producing
+  a zero-byte log while `progress` reported them as "just started".
+
+**Nothing dispatchable is left in the queue.** What remains is yours: #1 credentials, #8 publishing
+~60 local commits, #9 branding, #7 Apify, #18-#20 (a Jooble key), #35 and #43-#48 (direction),
+#73 (VPN), #81 (an independent read of the lead's own merges, which no worker the lead dispatches
+can give), and #6, which is Postponed pending a source-permissions decision rather than unbuilt.
+
 ## 2026-09-20 third session: keyword filtering moved into SQL, /api/state paginates
 
 Branch `ai/server-side-filtering-20260920-071028-819440`, unmerged. `/api/state` used to
