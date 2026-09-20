@@ -58,7 +58,33 @@ one click away on a page the employer chose to publish it on.
 |---|---|---|
 | **EURES CH/NL** | Public endpoint (`/public/` in the path), `robots.txt` does not disallow `/eures/`, and the EURES legal notice states plainly: *"Re-use is authorised, provided that ELA is acknowledged as the source of the material."* | **Attribution to the European Labour Authority (ELA) is mandatory** and is currently not implemented — see §4. Metadata + link only, per §1. |
 | **Job-Room (arbeit.swiss)** | Official Swiss public employment service. Unauthenticated public search and detail API, no key. Owner-assumed permission recorded separately. | Metadata + link only. Keep the per-advertisement detail fetch paced and capped as it is now. |
-| **Employer ATS boards** (Greenhouse, Lever, Ashby, Recruitee, Personio) | Endpoints the platforms publish specifically so aggregators can consume them. | Metadata + link only. The employer publishes the board; the text is still theirs. |
+| **Employer ATS boards** (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable) | Endpoints the platforms publish specifically so aggregators can consume them. Teamtailor documents a syndication feed on every career site it hosts (jobs page plus `.rss`, same feed as JSON Feed at `.json`): no key, full descriptions, ISO country codes per posting (#57). Workable publishes the same kind of feed for each account it hosts (#58). | Metadata + link only. The employer publishes the board; the text is still theirs. |
+
+### Why employer boards carry the public tier
+
+Measured on the stored corpus, the employer boards are the best source for
+English-confirmed jobs: Greenhouse boards returned 96% English-confirmed at
+~5,200 characters average, against EURES 15–19%, Job-Room 7%, and Adzuna and
+Careerjet 0% — the two aggregator APIs return 245–499 character previews that
+cannot support a confirmed pass. 222 verified Dutch and Swiss employers were
+added in #56, taking the configured list from 60 to 282.
+
+**Workday is excluded from the public tier.** Its endpoint is the careers
+page's own data call, not a feed published for aggregators. It was about half
+the discovered leads, so the reason is stated here to stop someone re-adding
+it later.
+
+**How employers are verified before being added.** Each lead is checked
+against the employer's own feed, and added only if the board answers, holds
+at least one posting located in the Netherlands or Switzerland, and that
+posting is at least 900 characters — the same threshold the language gate
+uses. Boards that are not direct employers are excluded on review:
+third-party, referral and alumni boards, LinkedIn-wrapped postings, and
+recruitment and executive-search networks.
+
+**Lead provenance.** Leads came from a public Common Crawl–derived company
+list under CC BY-NC 4.0. Nothing was copied from it: each lead was verified
+against the employer's own feed as above. Our own board discovery is #59.
 
 ### Why EURES is public here and admin-only in the older plan
 
