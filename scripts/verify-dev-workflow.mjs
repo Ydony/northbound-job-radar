@@ -33,6 +33,24 @@ function session() {
       const setCookie = response.headers.get('set-cookie');
       if (setCookie) cookie = setCookie.split(';', 1)[0];
       const contentType = response.headers.get('content-type') ?? '';
+      // /api/scrape streams NDJSON: progress events, then the result as the last line. This
+      // verifier only understood application/json, so ever since progress streaming landed it
+      // read the whole stream as text, found no `run` on a string, and failed on a working app.
+      // A harness that cries wolf is worse than none, because it teaches you to ignore it.
+      if (contentType.includes('x-ndjson')) {
+        const lines = (await response.text()).split('\n').map((line) => line.trim()).filter(Boolean);
+        let data = {};
+        for (const line of lines) {
+          try {
+            const event = JSON.parse(line);
+            // Progress events are chatter; the outcome is whatever came last that is not one.
+            if (event && event.type !== 'progress') data = event;
+          } catch {
+            // A truncated final line is not worth failing the run over.
+          }
+        }
+        return { response, data };
+      }
       const data = contentType.includes('application/json')
         ? await response.json()
         : await response.text();
