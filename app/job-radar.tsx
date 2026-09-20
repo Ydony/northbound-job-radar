@@ -92,6 +92,30 @@ export default function JobRadar() {
   const [cityFilter, setCityFilter] = useState('all');
 
   /**
+   * The filters are a sidebar on a wide screen and a disclosure on a narrow one.
+   *
+   * Below 850px the layout drops to one column, so the filter column stops sitting beside the
+   * results and starts sitting on top of them - about twenty buttons between you and the first
+   * job, on every visit. Collapsed, the current view stays visible in the summary, so nothing
+   * is hidden that you would otherwise be reading.
+   *
+   * Starts open so a desktop render is correct on first paint, and closes itself on a narrow
+   * viewport once the media query can be read.
+   */
+  const viewLabels: Record<View, string> = {
+    matches: 'English confirmed', unknown: 'Not enough of the ad', review: 'Needs review',
+    pipeline: 'Pipeline', dismissed: 'Dismissed', all: 'All matching',
+  };
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  useEffect(() => {
+    const wide = window.matchMedia('(min-width: 851px)');
+    const apply = () => setFiltersOpen(wide.matches);
+    apply();
+    wide.addEventListener('change', apply);
+    return () => wide.removeEventListener('change', apply);
+  }, []);
+
+  /**
    * Switching country clears the chosen place.
    *
    * A place belongs to one country, so keeping "Zürich" selected while switching to the
@@ -381,6 +405,15 @@ export default function JobRadar() {
   // Read from the saved criteria rather than the draft: a search uses what was saved, so an
   // untouched tick in the form must not change whether the button works.
   const noCountrySearched = !state.criteria.searchNetherlands && !state.criteria.searchSwitzerland;
+  // The most recent finished run, for the compact bar. A returning user's first question is
+  // "what happened last time", and until now the only answer was inside a collapsed panel.
+  const lastRun = state.searchRuns.find((run) => run.completedAt)?.completedAt ?? '';
+  const lastRunAdded = (() => {
+    const run = state.searchRuns.find((entry) => entry.completedAt);
+    if (!run) return '';
+    const added = run.sources.reduce((sum, source) => sum + source.importedCount, 0);
+    return added ? ` · ${added} added` : ' · nothing new';
+  })();
   const latestRun = useMemo(() => {
     const run = state.searchRuns[0];
     if (!run || !viewAsUser) return run;
@@ -816,7 +849,15 @@ export default function JobRadar() {
       </header>
 
       <section className="workflow">
-        <div className="workflow-copy"><h2>Find new jobs</h2><p>One search runs every enabled Swiss and Netherlands source, records what each returned, removes duplicates, and applies the English gate.</p></div>
+        <div className="workflow-copy">
+          <h2>Find new jobs</h2>
+          {/* Explaining what a search does is worth a lot on the first run and nothing on the
+              two hundredth, where it is only distance between you and your results. It stays
+              while the workspace is empty, which is exactly when it is read. */}
+          {!state.jobs.length
+            ? <p>One search runs every enabled Swiss and Netherlands source, records what each returned, removes duplicates, and applies the English gate.</p>
+            : lastRun && <p className="last-run">Last search {formatDate(lastRun).replace(/^Posted /, '')}{lastRunAdded}</p>}
+        </div>
         <button className="jobs-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
           {scrapeBusy === 'authorized' ? 'Searching…' : isAdmin ? 'Search — VPN off' : 'Find new jobs'} <span>⚡</span>
         </button>
@@ -996,17 +1037,24 @@ export default function JobRadar() {
             // this says what is on screen against what matches, not against everything owned.
             ? `Showing ${state.jobs.length} of ${state.matchingJobs ?? state.jobs.length} matching — more below`
             : `${state.jobs.length} matching of ${state.totalJobs ?? state.jobs.length} analyzed`}</span></div>
-        <div className="data-toolbar">
-          <span>{selectedJobIds.length ? `${selectedJobIds.length} selected` : 'Data controls'}</span>
+        <details className="data-toolbar" open={selectedJobIds.length > 0}>
+          <summary>{selectedJobIds.length ? `${selectedJobIds.length} selected` : 'Data controls'}</summary>
           <button type="button" disabled={!selectedJobIds.length || dataBusy} onClick={() => deleteJobs(selectedJobIds)}>Delete selected</button>
           <button type="button" disabled={!state.jobs.length || dataBusy} onClick={() => exportWorkspace('json')}>Export JSON</button>
           <button type="button" disabled={!state.jobs.length || dataBusy} onClick={() => exportWorkspace('csv')}>Export CSV</button>
           <button className="danger" type="button" disabled={!state.jobs.length || dataBusy} onClick={() => deleteJobs([], true)}>Clear all jobs</button>
           <button className="danger" type="button" disabled={dataBusy || (!state.jobs.length && !state.profiles.length)} onClick={resetWorkspace}>Reset workspace</button>
           <p aria-live="polite">{dataMessage}</p>
-        </div>
+        </details>
         <div className="result-layout">
-          <aside className="filters" id="pipeline">
+          <details
+            className="filters"
+            id="pipeline"
+            open={filtersOpen}
+            onToggle={(event) => setFiltersOpen(event.currentTarget.open)}
+          >
+            {/* Names the view you are in, so collapsing it does not hide where you are. */}
+            <summary>Filters<span>{viewLabels[view]}</span></summary>
             <b>Views</b>
             <button className={view === 'matches' ? 'active' : ''} onClick={() => setView('matches')} title="English confirmed against the full advertisement."><span>English confirmed</span><i>{counts.matches}</i></button>
             <button className={view === 'unknown' ? 'active' : ''} onClick={() => setView('unknown')} title="The advertisement was too short to judge - usually an aggregator preview rather than the full ad."><span>Not enough of the ad</span><i>{counts.unknown}</i></button>
@@ -1052,7 +1100,7 @@ export default function JobRadar() {
                 rather than listed at zero - offering a filter that can only empty the list is not
                 a filter. The selected one always stays, so choosing it never makes it vanish. */}
             {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites — {facets.source.all} job{facets.source.all === 1 ? '' : 's'}</option>{sourceOptions.filter(([key]) => facets.source.get(key) > 0 || key === sourceFilter).map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
-          </aside>
+          </details>
           <div className="job-list">
             {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>No jobs in this view yet</h3><p>Add a role keyword in <a href="#criteria" onClick={() => setSettingsOpen(true)}>Search settings</a>, run a search, or widen the filters.</p></div>}
             {visibleJobs.map((job) => {
