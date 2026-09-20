@@ -13,8 +13,8 @@ import { MIN_CHARS_TO_CONFIRM_ENGLISH } from '@/lib/analysis';
 import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
   ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
-import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, criteriaToDraft, DASHBOARD_VIEW_LABELS,
-  emptyStateCopy, formatDate, jobInView, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
+import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday, criteriaToDraft, DASHBOARD_VIEW_LABELS,
+  emptyStateCopy, formatDate, isJobExpired, jobInView, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
   sourceRunStatusLabel, statusLabel, type CriteriaDraft, type DashboardView, type FilterPill,
   type SortMode } from '@/lib/dashboard';
 import type { HealthReport } from '@/app/api/health/route';
@@ -1314,6 +1314,10 @@ export default function JobRadar() {
               const { place: jobCity } = normalizePlace(job.location);
               const sourceDisplayName = job.sourceName || sourceNameForUrl(job.sourceUrl);
               const applied = job.applicationStatus === 'applied';
+              // #97: derived from the stored end date, no request. The card stays - the person
+              // may have applied - but it must not look current when the advertisement is gone.
+              const expired = isJobExpired(job);
+              const closing = !expired && closesToday(job);
               // The unseen accent edge is #46's; the verdict's own edge is untouched by it.
               return <article className={`job-card ${displayedLanguageStatus}${openedJobs.has(job.id) ? '' : ' is-unseen'}`} key={job.id}>
                 <div className="score-column"><label className="job-select"><input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /><span>Select</span></label></div>
@@ -1337,6 +1341,12 @@ export default function JobRadar() {
                       underneath (the language decision is never shown without its reason);
                       everything proving the match sits behind the expander. */}
                   <div className="judge-row">
+                    {/* #97: an advertisement can expire after it was collected, and the card
+                        kept looking current until the link led to "no longer active". The
+                        row is never hidden or deleted for it - the person may have applied -
+                        so the expiry is a chip, derived from the stored end date. */}
+                    {expired && <span className="expired-chip" title={`This advertisement closed on ${job.expiresAt.slice(0, 10)}. The link may lead to a page saying it is no longer active.`}>Expired</span>}
+                    {closing && <span className="expired-chip closing" title="This advertisement closes today. The link may stop working at any time.">Closes today</span>}
                     {showLanguageChip && <span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span>}
                     {/* bestFitScore is the better of the two CV slot scores, so with CV matching
                         shelved it is 0 on every card - 140 chips all reading "Fit 0", implying a
@@ -1385,6 +1395,7 @@ export default function JobRadar() {
                       href={job.sourceUrl}
                       target="_blank"
                       rel="noreferrer"
+                      title={expired ? `This advertisement closed on ${job.expiresAt.slice(0, 10)} — the page may say it is no longer active.` : undefined}
                       onClick={() => { openedApply.current.set(job.id, sourceDisplayName); markJobOpened(job.id); }}
                     >Apply on {sourceDisplayName} ↗</a>
                     <button

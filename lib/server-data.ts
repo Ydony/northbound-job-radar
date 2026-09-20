@@ -52,6 +52,7 @@ interface JobRow {
   application_status: JobRecord['applicationStatus'];
   visibility_status: JobRecord['visibilityStatus'];
   posted_at: string;
+  expires_at: string;
   first_seen_at: string;
   last_seen_at: string;
   created_at: string;
@@ -183,6 +184,7 @@ export function jobFromRow(row: JobRow, criteria?: SearchCriteria): JobRecord {
     applicationStatus: row.application_status === 'applied' ? 'applied' : 'not_applied',
     visibilityStatus: row.visibility_status === 'dismissed' ? 'dismissed' : 'active',
     postedAt: row.posted_at,
+    expiresAt: row.expires_at ?? '',
     firstSeenAt: row.first_seen_at || row.created_at,
     lastSeenAt: row.last_seen_at || row.updated_at,
     createdAt: row.created_at,
@@ -253,6 +255,11 @@ export interface UpsertJobInput {
   matchedKeywords: string[];
   missingKeywords: string[];
   postedAt?: string;
+  /**
+   * Publication end date when the source publishes one (Job-Room does, #97). Stored with
+   * the same never-clear rule as postedAt: an empty value keeps what the row holds.
+   */
+  expiresAt?: string;
 }
 
 export interface UpsertJobResult {
@@ -301,6 +308,7 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
   const sourceJobId = sourceJobIdFromUrl(canonicalUrl);
   const globallyStableSourceJobId = isGloballyStableSourceJobId(sourceJobId);
   const postedAt = input.postedAt?.trim() ?? '';
+  const expiresAt = input.expiresAt?.trim() ?? '';
   const workplaceType = detectWorkplaceType(`${input.title} ${input.location} ${input.description}`);
   const identityFingerprint = jobIdentityFingerprint({ ...input, sourceUrl: canonicalUrl, postedAt });
   const exact = await db.prepare(`SELECT id, source_url, source_key, status, is_saved, application_status,
@@ -359,22 +367,23 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
       country = ?, title = ?, company = ?, location = ?, description = ?, search_text = ?, language_status = ?, language_summary = ?,
       language_signals = ?, fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
       identity_fingerprint = ?, cluster_key = ?, visibility_status = ?, posted_at = CASE WHEN ? = '' THEN posted_at ELSE ? END,
+      expires_at = CASE WHEN ? = '' THEN expires_at ELSE ? END,
       last_seen_at = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
       .bind(canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company, input.location,
         input.description, searchText, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals), input.fitScoreA,
         input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords), JSON.stringify(input.missingKeywords),
-        identityFingerprint, clusterKey, visibilityStatus, postedAt, postedAt, now, now, id, userId).run();
+        identityFingerprint, clusterKey, visibilityStatus, postedAt, postedAt, expiresAt, expiresAt, now, now, id, userId).run();
   } else {
     await db.prepare(`INSERT INTO jobs (id, user_id, source_url, canonical_url, source_key, source_name, source_job_id, country,
       title, company, location, description, search_text, language_status, language_summary, language_signals, fit_score_a, fit_score_b,
       best_cv_slot, workplace_type, matched_keywords, missing_keywords, identity_fingerprint, cluster_key, duplicate_of,
       is_saved, application_status,
-      visibility_status, posted_at, first_seen_at, last_seen_at, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      visibility_status, posted_at, expires_at, first_seen_at, last_seen_at, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(id, userId, canonicalUrl, canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company,
         input.location, input.description, searchText, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals),
         input.fitScoreA, input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords),
-        JSON.stringify(input.missingKeywords), identityFingerprint, clusterKey, duplicateOf, 0, 'not_applied', visibilityStatus, postedAt, now, now,
+        JSON.stringify(input.missingKeywords), identityFingerprint, clusterKey, duplicateOf, 0, 'not_applied', visibilityStatus, postedAt, expiresAt, now, now,
         visibilityStatus === 'dismissed' ? 'ignored' : 'new', now, now).run();
   }
   const row = await db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,

@@ -248,6 +248,10 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .job-subline { color:var(--muted); font-size:11px; line-height:1.5; margin:0 0 10px; }
 .judge-row { align-items:center; display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; }
 .fit-chip { background:var(--paper); border:1px solid var(--line); border-radius:999px; color:var(--ink); font-size:10px; font-weight:750; padding:5px 10px; }
+/* #97: the advertisement closed after it was collected. Same chip grammar as the language
+   badges, in the danger colour: the card stays, but must not look current. */
+.expired-chip { background:#f3ded8; border-radius:999px; color:var(--danger); font-size:8px; font-weight:800; letter-spacing:.05em; padding:5px 8px; text-transform:uppercase; }
+.expired-chip.closing { background:#f2e7cb; color:#805b18; }
 .why-matched { border-top:1px solid var(--line); margin:0 0 4px; padding-top:9px; }
 .why-matched > summary { color:var(--green); cursor:pointer; font-size:10px; font-weight:800; letter-spacing:.03em; list-style:none; min-height:32px; text-transform:uppercase; }
 .why-matched > summary::-webkit-details-marker { display:none; }

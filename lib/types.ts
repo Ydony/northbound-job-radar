@@ -95,6 +95,12 @@ export interface JobRecord {
   visibilityStatus: VisibilityStatus;
   workplaceType: WorkplaceType;
   postedAt: string;
+  /**
+   * Publication end date (YYYY-MM-DD) when the source published one (#97). Empty means no
+   * expiry was published, not that the advertisement expired. Compared against today on the
+   * card; the row is never deleted or hidden because of it.
+   */
+  expiresAt: string;
   firstSeenAt: string;
   lastSeenAt: string;
   createdAt: string;

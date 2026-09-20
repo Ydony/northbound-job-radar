@@ -4,7 +4,7 @@ import test from 'node:test';
 import { runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
@@ -24,6 +24,14 @@ test('Job-Room posting-date backfill tracks date repair separately from text rep
   const sql = runtimeMigrations[21].statements.join('\n');
   assert.match(sql, /job_room_posted_at_version INTEGER NOT NULL DEFAULT 0/);
   assert.match(sql, /jobs\(user_id, source_key, job_room_posted_at_version\)/);
+});
+
+test('expiry is a stored date, not a re-fetch', () => {
+  // #97: publication.endDate was checked at import and discarded, so a stored card kept
+  // looking current after its window closed. The date is now kept; no request is needed to
+  // derive expiry, and empty means "no expiry published", never "expired".
+  const sql = runtimeMigrations[22].statements.join('\n');
+  assert.match(sql, /ALTER TABLE jobs ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''/);
 });
 
 test('cross-source fingerprints require a posting day', () => {

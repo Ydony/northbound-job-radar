@@ -459,4 +459,17 @@ export const runtimeMigrations: RuntimeMigration[] = [
         ON jobs(user_id, source_key, job_room_posted_at_version)`,
     ],
   },
+  {
+    // #97: publication.endDate was read to refuse expired imports (#88) and then discarded, so
+    // a stored advertisement kept looking current after its window closed. The date is now
+    // kept at collection; the card derives expiry from it with no further request. Old rows
+    // stay dateless until the Job-Room backfill re-reads them in its existing capped pass.
+    version: 23,
+    name: 'store_job_room_expiry',
+    statements: [
+      // Date-only YYYY-MM-DD like posted_at. Empty means the source published no expiry,
+      // which is not the same as being expired.
+      "ALTER TABLE jobs ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''",
+    ],
+  },
 ];

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { backfillJobRoomDescriptions, backfillJobRoomPostingDates } from '../lib/job-room-backfill';
-import type { JobRoomParsedJob } from '../lib/job-room';
+import { isPublicationOpen } from '../lib/job-room';
+import type { JobRoomAdvertisement, JobRoomParsedJob } from '../lib/job-room';
 import { jobIdentityFingerprint } from '../lib/job-identity';
 
 interface FakeJob {
@@ -15,6 +16,7 @@ interface FakeJob {
   location: string;
   description: string;
   posted_at: string;
+  expires_at: string;
   identity_fingerprint: string;
   cluster_version: number;
   language_status: 'pass' | 'unknown' | 'review' | 'blocked';
@@ -37,6 +39,7 @@ function makeJob(overrides: Partial<FakeJob> & { id: string }): FakeJob {
     location: 'Zürich 8001 ZH',
     description: 'Short English preview for a data role.',
     posted_at: '',
+    expires_at: '',
     identity_fingerprint: '',
     cluster_version: 2,
     language_status: 'unknown',
@@ -77,14 +80,14 @@ class FakeStatement {
   }
 
   async all<T>() {
-    if (this.sql.includes('SELECT id, source_url, title, company, location, description, posted_at, language_status FROM jobs')) {
+    if (this.sql.includes('SELECT id, source_url, title, company, location, description, posted_at')) {
       const [userId, threshold, version, limit] = this.bindings as [string, number, number, number];
       return {
         results: this.database.eligible(userId, threshold, version)
           .slice(0, limit).map((row) => ({ ...row })) as T[],
       };
     }
-    if (this.sql.includes('SELECT id, source_url, title, company, location FROM jobs')) {
+    if (this.sql.includes('SELECT id, source_url, title, company, location')) {
       const [userId, version, limit] = this.bindings as [string, number, number];
       return {
         results: this.database.dateless(userId, version)
@@ -99,19 +102,38 @@ class FakeStatement {
 
   async run() {
     // Description backfill, short-detail branch: always marks the text version; fills the date
-    // (plus fingerprint and cluster invalidation) when the fetch answered the date question.
+    // (plus fingerprint and cluster invalidation) when the fetch answered the date question,
+    // and the expiry when the fetch answered that one. The closed-advertisement branch shares
+    // the shape with one fewer bind pair: its expiry is observed, not filled, so it is set
+    // unconditionally.
     if (this.sql.includes('SET job_room_detail_version = ?')) {
-      const [, dateFill, , , fingerprint, , postedAtVersion, updatedAt, id, userId] = this.bindings as
-        [number, string, string, string, string, string, number, string, string, string];
-      const row = this.database.jobs.find((job) => job.id === id && job.user_id === userId);
+      const row = this.database.jobs.find((job) => job.id === this.bindings[this.bindings.length - 3]
+        && job.user_id === this.bindings[this.bindings.length - 2]);
       if (!row) return { meta: { changes: 0 } };
-      row.job_room_detail_version = 1;
-      row.job_room_posted_at_version = postedAtVersion;
-      row.updated_at = updatedAt;
-      if (dateFill) {
-        row.posted_at = dateFill;
-        row.identity_fingerprint = fingerprint;
-        row.cluster_version = 0;
+      if (this.bindings.length === 13) {
+        const [, dateFill, , expiresFill, , , fingerprint, , postedAtVersion, updatedAt] = this.bindings as
+          [number, string, string, string, string, string, string, string, number, string, string, string, number];
+        row.job_room_detail_version = 1;
+        row.job_room_posted_at_version = postedAtVersion;
+        row.updated_at = updatedAt;
+        if (dateFill) {
+          row.posted_at = dateFill;
+          row.identity_fingerprint = fingerprint;
+          row.cluster_version = 0;
+        }
+        if (expiresFill) row.expires_at = expiresFill;
+      } else {
+        const [, dateFill, , observed, , fingerprint, , postedAtVersion, updatedAt] = this.bindings as
+          [number, string, string, string, string, string, string, number, string, string, string, number];
+        row.job_room_detail_version = 1;
+        row.job_room_posted_at_version = postedAtVersion;
+        row.updated_at = updatedAt;
+        row.expires_at = observed;
+        if (dateFill) {
+          row.posted_at = dateFill;
+          row.identity_fingerprint = fingerprint;
+          row.cluster_version = 0;
+        }
       }
       return { meta: { changes: 1 } };
     }
@@ -119,11 +141,12 @@ class FakeStatement {
       const description = this.bindings[0] as string;
       const languageStatus = this.bindings[1] as FakeJob['language_status'];
       const dateFill = this.bindings[11] as string;
-      const fingerprint = this.bindings[14] as string;
-      const postedAtVersion = this.bindings[18] as number;
-      const updatedAt = this.bindings[19] as string;
-      const id = this.bindings[20] as string;
-      const userId = this.bindings[21] as string;
+      const expiresFill = this.bindings[13] as string;
+      const fingerprint = this.bindings[16] as string;
+      const postedAtVersion = this.bindings[20] as number;
+      const updatedAt = this.bindings[21] as string;
+      const id = this.bindings[22] as string;
+      const userId = this.bindings[23] as string;
       const row = this.database.jobs.find((job) => job.id === id && job.user_id === userId);
       if (!row) return { meta: { changes: 0 } };
       row.description = description;
@@ -136,15 +159,35 @@ class FakeStatement {
         row.identity_fingerprint = fingerprint;
         row.cluster_version = 0;
       }
+      if (expiresFill) row.expires_at = expiresFill;
+      return { meta: { changes: 1 } };
+    }
+    // Posting-date backfill, closed advertisement: the same request that proved it records
+    // the observed expiry and answers the date question, so the row leaves eligibility.
+    if (this.sql.includes('expires_at = ?,') && this.sql.includes('job_room_posted_at_version = ?')) {
+      const [published, , observed, fingerprint, , dateMoved, postedAtVersion, updatedAt, id, userId] = this.bindings as
+        [string, string, string, string, string, string, number, string, string, string, number];
+      const row = this.database.jobs.find((job) => job.id === id && job.user_id === userId);
+      if (!row) return { meta: { changes: 0 } };
+      if (published) {
+        row.posted_at = published;
+        row.identity_fingerprint = fingerprint;
+        row.cluster_version = 0;
+      }
+      void dateMoved;
+      row.expires_at = observed;
+      row.job_room_posted_at_version = postedAtVersion;
+      row.updated_at = updatedAt;
       return { meta: { changes: 1 } };
     }
     // Posting-date backfill, date filled.
     if (this.sql.includes('UPDATE jobs SET posted_at = ?')) {
-      const [published, fingerprint, , updatedAt, id, userId] = this.bindings as
-        [string, string, number, string, string, string];
+      const [published, expiresFill, , fingerprint, , updatedAt, id, userId] = this.bindings as
+        [string, string, string, string, number, string, string, string];
       const row = this.database.jobs.find((job) => job.id === id && job.user_id === userId);
       if (!row) return { meta: { changes: 0 } };
       row.posted_at = published;
+      if (expiresFill) row.expires_at = expiresFill;
       row.identity_fingerprint = fingerprint;
       row.cluster_version = 0;
       row.job_room_posted_at_version = 1;
@@ -153,9 +196,11 @@ class FakeStatement {
     }
     // Posting-date backfill, source publishes no date: answered, not failed.
     if (this.sql.includes('SET job_room_posted_at_version = ?')) {
-      const [, updatedAt, id, userId] = this.bindings as [number, string, string, string];
+      const [, expiresFill, , updatedAt, id, userId] = this.bindings as
+        [number, string, string, string, string, string, number];
       const row = this.database.jobs.find((job) => job.id === id && job.user_id === userId);
       if (!row) return { meta: { changes: 0 } };
+      if (expiresFill) row.expires_at = expiresFill;
       row.job_room_posted_at_version = 1;
       row.updated_at = updatedAt;
       return { meta: { changes: 1 } };
@@ -182,7 +227,7 @@ class FakeD1 {
   }
 }
 
-function parsed(descriptionHtml: string, postedAt = '2026-09-01'): JobRoomParsedJob {
+function parsed(descriptionHtml: string, postedAt = '2026-09-01', expiresAt = '2099-01-01'): JobRoomParsedJob {
   return {
     sourceUrl: 'https://www.job-room.ch/job-search/job-1',
     title: 'Data Analyst',
@@ -190,10 +235,28 @@ function parsed(descriptionHtml: string, postedAt = '2026-09-01'): JobRoomParsed
     location: 'Zürich',
     descriptionHtml,
     postedAt,
+    expiresAt,
     languageSkills: [
       { languageIsoCode: 'de', spokenLevel: 'PROFICIENT', writtenLevel: 'PROFICIENT' },
       { languageIsoCode: 'en', spokenLevel: 'PROFICIENT', writtenLevel: 'PROFICIENT' },
     ],
+  };
+}
+
+function advertisement(overrides: Partial<JobRoomAdvertisement> = {}): JobRoomAdvertisement {
+  return {
+    id: 'job-1',
+    publication: { startDate: '2026-09-01', endDate: '2099-01-01' },
+    status: 'PUBLISHED_PUBLIC',
+    jobContent: {
+      externalUrl: null,
+      jobDescriptions: [{ languageIsoCode: 'en', title: 'Data Analyst',
+        description: `<p>${'We need a data specialist for our international team. '.repeat(25)}</p>` }],
+      company: { name: 'Example AG' },
+      location: { city: 'Zürich' },
+      languageSkills: [],
+    },
+    ...overrides,
   };
 }
 
@@ -386,4 +449,130 @@ test('posting-date backfill route is administrator-only and writes only the date
       `${protectedColumn} must never move because a date was filled`);
   }
   assert.match(dateUpdate, /WHERE id = \? AND user_id = \? AND posted_at = ''/);
+});
+
+/**
+ * #97: the end date is kept wherever the backfill already looks.
+ *
+ * Storing it costs no request at all - it arrived in the same response as the posting date
+ * and the description - and it is what lets the card say the advertisement expired without
+ * re-fetching every stored job. Like the posting date, an empty value never overwrites one held.
+ */
+test('an open re-fetch stores the expiry alongside the date', async () => {
+  const jobs: FakeJob[] = [makeJob({ id: 'job-1' })];
+  const db = new FakeD1(jobs);
+  const report = await backfillJobRoomPostingDates(db as unknown as D1Database, 'owner-1', {
+    delayMs: 0,
+    fetchDetail: async () => parsed('<p>Body.</p>', '2026-08-18', '2026-10-01'),
+  });
+  assert.equal(report.updatedCount, 1);
+  assert.equal(jobs[0].posted_at, '2026-08-18');
+  assert.equal(jobs[0].expires_at, '2026-10-01');
+});
+
+test('a held expiry is never overwritten by a re-fetch', async () => {
+  const jobs: FakeJob[] = [makeJob({ id: 'job-1', expires_at: '2026-09-15' })];
+  const db = new FakeD1(jobs);
+  await backfillJobRoomPostingDates(db as unknown as D1Database, 'owner-1', {
+    delayMs: 0,
+    fetchDetail: async () => parsed('<p>Body.</p>', '2026-08-18', '2026-10-01'),
+  });
+  assert.equal(jobs[0].expires_at, '2026-09-15');
+});
+
+test('the description backfill stores the expiry from the same fetch', async () => {
+  const jobs: FakeJob[] = [makeJob({ id: 'job-1' })];
+  const db = new FakeD1(jobs);
+  await backfillJobRoomDescriptions(db as unknown as D1Database, 'owner-1', {
+    delayMs: 0,
+    fetchDetail: async () => parsed(`<p>${'We need a data specialist for our international team. '.repeat(25)}</p>`,
+      '2026-08-18', '2026-10-01'),
+  });
+  assert.equal(jobs[0].expires_at, '2026-10-01');
+  assert.equal(jobs[0].posted_at, '2026-08-18');
+});
+
+/**
+ * A stored advertisement that has since closed (#97).
+ *
+ * This is the case the owner hit: the card looked current and the link led to "no longer
+ * active". The raw advertisement is read in the same single capped request that was already
+ * going to re-fetch the row - the parsed-detail fetch cannot see it, because the parser
+ * refuses closed advertisements by design, which used to make them look like failures and
+ * retry forever. The row is marked, never deleted: the person may have applied to it.
+ */
+test('a re-fetch that finds the advertisement closed marks it expired, not failed', async () => {
+  const before = 'Short English preview for a data role.';
+  const jobs: FakeJob[] = [makeJob({ id: 'job-1' })];
+  const db = new FakeD1(jobs);
+  let fetched = 0;
+  const report = await backfillJobRoomDescriptions(db as unknown as D1Database, 'owner-1', {
+    delayMs: 0,
+    fetchAdvertisement: async () => {
+      fetched += 1;
+      return advertisement({ publication: { startDate: '2026-08-01', endDate: '2026-08-15' } });
+    },
+  });
+  assert.equal(fetched, 1, 'closure must be learned in the same single request, not a second one');
+  assert.equal(report.fetchedCount, 1);
+  assert.equal(report.expiredCount, 1);
+  assert.equal(report.failedCount, 0);
+  assert.equal(report.remainingCount, 0, 'a marked row must leave eligibility, not retry forever');
+  assert.equal(jobs[0].expires_at, '2026-08-15');
+  assert.equal(jobs[0].posted_at, '2026-08-01', 'the closed body still publishes its start date');
+  assert.equal(jobs[0].description, before, 'a closed advertisement has no new text worth storing');
+  assert.equal(jobs[0].language_status, 'unknown', 'expiry must never rescreen a verdict');
+  assert.equal(jobs[0].job_room_detail_version, 1);
+  assert.equal(jobs[0].job_room_posted_at_version, 1);
+  assert.ok(!isPublicationOpen(advertisement(
+    { publication: { startDate: '2026-08-01', endDate: jobs[0].expires_at } })),
+    'the stored expiry must actually read as closed');
+});
+
+test('a closed advertisement also answers the posting-date pass in the same request', async () => {
+  const jobs: FakeJob[] = [makeJob({ id: 'job-1' })];
+  const db = new FakeD1(jobs);
+  const report = await backfillJobRoomPostingDates(db as unknown as D1Database, 'owner-1', {
+    delayMs: 0,
+    fetchAdvertisement: async () => advertisement({
+      publication: { startDate: '2026-08-01', endDate: '2026-08-15' },
+    }),
+  });
+  assert.equal(report.expiredCount, 1);
+  assert.equal(report.failedCount, 0);
+  assert.equal(report.remainingCount, 0);
+  assert.equal(jobs[0].expires_at, '2026-08-15');
+  assert.equal(jobs[0].posted_at, '2026-08-01', 'the closed body still publishes its start date');
+  assert.equal(jobs[0].job_room_posted_at_version, 1);
+});
+
+test('a cancellation without an end date is observed today, not invented', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const jobs: FakeJob[] = [makeJob({ id: 'job-1' })];
+  const db = new FakeD1(jobs);
+  const report = await backfillJobRoomPostingDates(db as unknown as D1Database, 'owner-1', {
+    delayMs: 0,
+    fetchAdvertisement: async () => advertisement({
+      publication: { startDate: '2026-08-01' },
+      status: 'CANCELLED',
+      cancellationDate: '',
+    }),
+  });
+  assert.equal(report.expiredCount, 1);
+  assert.equal(jobs[0].expires_at, today,
+    'with no published date the observation day is stored, which the card reads as closing today');
+});
+
+test('a failed raw fetch stays eligible for a later retry', async () => {
+  const jobs: FakeJob[] = [makeJob({ id: 'job-1' })];
+  const db = new FakeD1(jobs);
+  const report = await backfillJobRoomPostingDates(db as unknown as D1Database, 'owner-1', {
+    delayMs: 0,
+    fetchAdvertisement: async () => null,
+  });
+  assert.equal(report.failedCount, 1);
+  assert.equal(report.expiredCount, 0);
+  assert.equal(report.remainingCount, 1);
+  assert.equal(jobs[0].expires_at, '', 'a failure must not invent an expiry');
+  assert.equal(jobs[0].job_room_posted_at_version, 0);
 });

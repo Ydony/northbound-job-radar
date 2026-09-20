@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { defaultSearchCriteria } from '../lib/criteria';
-import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, criteriaToDraft,
-  DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, isNewJob, jobInView, languageStatusLabel,
-  newSinceCutoff, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, statusLabel } from '../lib/dashboard';
+import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday,
+  criteriaToDraft, DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, isJobExpired, isNewJob, jobInView,
+  languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, statusLabel } from '../lib/dashboard';
 import type { JobRecord, SearchCriteria, SearchRun, SourceRunStatus } from '../lib/types';
 import type { LanguageStatus } from '../lib/analysis';
 
@@ -42,6 +42,7 @@ function job(overrides: Partial<JobRecord> = {}): JobRecord {
     applicationStatus: 'not_applied',
     visibilityStatus: 'active',
     postedAt: '2026-08-25T00:00:00.000Z',
+    expiresAt: '',
     firstSeenAt: '2026-08-26T00:00:00.000Z',
     lastSeenAt: '2026-08-26T00:00:00.000Z',
     createdAt: '2026-08-26T00:00:00.000Z',
@@ -290,4 +291,32 @@ test('criteriaToDraft round-trips every SearchCriteria field', () => {
   // The keyword list is copied, so editing the draft never mutates the saved criteria.
   draft.roleKeywords.push('Extra');
   assert.deepEqual(criteria.roleKeywords, ['Master Data', 'Supply Chain']);
+});
+
+test('an expired advertisement is marked from its stored end date, without a request', () => {
+  // #97: the card derives this from expires_at kept at collection. Empty means the source
+  // published no expiry, which is not the same as being expired.
+  const today = new Date('2026-09-20T12:00:00.000Z');
+  assert.equal(isJobExpired(job({ expiresAt: '' }), today), false);
+  assert.equal(isJobExpired(job({ expiresAt: '2026-10-01' }), today), false);
+  assert.equal(isJobExpired(job({ expiresAt: '2026-09-20' }), today), false,
+    'the end date is inclusive: the advertisement is still open on the day it closes');
+  assert.equal(isJobExpired(job({ expiresAt: '2026-09-19' }), today), true);
+  assert.equal(isJobExpired(job({ expiresAt: '2026-08-15' }), today), true);
+});
+
+test('an advertisement closing today warns rather than reading as expired', () => {
+  const today = new Date('2026-09-20T12:00:00.000Z');
+  assert.equal(closesToday(job({ expiresAt: '2026-09-20' }), today), true);
+  assert.equal(closesToday(job({ expiresAt: '2026-09-19' }), today), false);
+  assert.equal(closesToday(job({ expiresAt: '2026-10-01' }), today), false);
+  assert.equal(closesToday(job({ expiresAt: '' }), today), false);
+});
+
+test('expiry never moves a job between views', () => {
+  // Marking beats hiding (#97): the person may have applied, so an expired row stays where
+  // it is and only gains a chip. The cutoff below predates the fixture's first sighting.
+  const cutoff = '2026-08-01T00:00:00.000Z';
+  assert.equal(jobInView(job({ expiresAt: '2026-08-15' }), 'all', cutoff), true);
+  assert.equal(jobInView(job({ expiresAt: '2026-08-15' }), 'new', cutoff), true);
 });

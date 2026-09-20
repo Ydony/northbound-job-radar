@@ -263,6 +263,19 @@ per-row detail version so it is safe to repeat. It updates content and derived a
 saved/application/dismissed state and explicit language corrections remain separate and survive.
 The returned report includes every raw detector transition and how many rows still need a later run.
 
+**Expired advertisements (#97, 2026-09-20).** Refusing expired imports (#88) did nothing for rows
+already stored: a card looked current and its link led to "no longer active". The decision, as the
+issue framed it: store `publication.endDate` at collection (migration 23, `expires_at`) rather than
+re-fetch every stored job — one request per job against someone else's server is exactly the traffic
+this project caps. The card derives an `Expired` / `Closes today` chip from that date with no
+request; the row is never hidden or deleted for it, since the person may have applied. Whatever the
+posting-date backfill (#91) already re-reads records its expiry in the same single request — a
+re-fetch that finds the advertisement closed marks it expired (counted as `expiredCount`, leaving
+eligibility so reruns terminate) instead of looking like a failure and retrying forever. Not done:
+sources other than Job-Room publish no end date the app reads, so their cards carry no expiry; a
+closed advertisement whose detail endpoint answers 404 rather than a closed body still reads as a
+failed fetch and retries, because a missing body carries no date to store.
+
 Job-Room publishes **employer-declared `languageSkills`** (ISO code plus spoken/written level from
 `NONE | BASIC | INTERMEDIATE | PROFICIENT`). `analyzeStructuredLanguages` in `lib/analysis.ts`
 consumes these and takes precedence over the prose heuristic, because a declared requirement is
