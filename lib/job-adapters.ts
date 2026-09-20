@@ -34,6 +34,15 @@ export interface JobSourceAdapter {
   availability: 'enabled' | 'blocked' | 'disabled' | 'unavailable';
   availabilityMessage: string;
   search?: (terms: string[], location: string) => Promise<string[]>;
+  /**
+   * Reads one listing page in full.
+   *
+   * The two failure modes mean different things and the caller treats them differently (#93).
+   * A throw is a transient fetch failure — the request never completed — so the listing stays
+   * retryable and is attempted again next run. A `null` return means the page answered but
+   * holds no parseable posting, which is a property of the page and is remembered as a
+   * permanent rejection instead of being re-read forever.
+   */
   fetchDetail?: (url: string) => Promise<ParsedJob | null>;
   /** Sources whose search response already carries whole advertisements: one request yields many jobs, with no per-job fetch. */
   searchDetailed?: (terms: string[], location: string, credentials: AggregatorCredentials) => Promise<ParsedJob[]>;
@@ -147,11 +156,11 @@ export function postingToParsed(sourceUrl: string, html: string, fallbackLocatio
 }
 
 async function fetchStructuredDetail(url: string, sourceName: string, fallbackLocation: string) {
-  try {
-    return postingToParsed(url, await fetchHtml(url, sourceName), fallbackLocation);
-  } catch {
-    return null;
-  }
+  // Fetch errors propagate: a request that never completed is transient, and the caller keeps
+  // the listing retryable rather than recording it as rejected (#93). Only a page that
+  // answered without a parseable posting returns null, which the caller remembers permanently.
+  const html = await fetchHtml(url, sourceName);
+  return postingToParsed(url, html, fallbackLocation);
 }
 
 function jobCloudSearchAdapter(options: {

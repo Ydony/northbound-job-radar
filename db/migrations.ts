@@ -472,4 +472,31 @@ export const runtimeMigrations: RuntimeMigration[] = [
       "ALTER TABLE jobs ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''",
     ],
   },
+  {
+    // #93: page-fetching sources re-attempted the same permanently-unimportable listings every
+    // run, and four of them at the head of a source starved everything behind them for good.
+    // Their URLs were written nowhere, so each run sliced the same first four off the top.
+    // Rejections that are a property of the listing are now remembered per owner and skipped
+    // like any other known URL; transient fetch failures stay retryable and are never stored.
+    version: 24,
+    name: 'remember_page_fetch_rejections',
+    statements: [
+      // `reason` is one of unparseable | unsafe-url | wrong-country | too-short |
+      // role-mismatch. `roles` carries the sorted role keywords a role-mismatch was judged
+      // against, so a later change of roles reconsiders the listing instead of hiding it
+      // forever; every other reason is listing-intrinsic and holds regardless of roles.
+      `CREATE TABLE IF NOT EXISTS rejected_listings (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL DEFAULT '',
+        source_key TEXT NOT NULL DEFAULT '',
+        source_job_id TEXT NOT NULL DEFAULT '',
+        canonical_url TEXT NOT NULL DEFAULT '',
+        reason TEXT NOT NULL DEFAULT '',
+        roles TEXT NOT NULL DEFAULT '[]',
+        rejected_at TEXT NOT NULL DEFAULT ''
+      )`,
+      'CREATE UNIQUE INDEX IF NOT EXISTS rejected_user_canonical_idx ON rejected_listings(user_id, canonical_url)',
+      'CREATE INDEX IF NOT EXISTS rejected_user_source_identity_idx ON rejected_listings(user_id, source_key, source_job_id)',
+    ],
+  },
 ];

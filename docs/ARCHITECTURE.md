@@ -358,6 +358,11 @@ CRMs. The same ATS endpoints are rich for direct employers.
 - User-triggered CV/job deletion, full reset, and JSON/CSV export are available. There is still no automated retention schedule, encryption policy, consent screen, or audit log.
 - No scheduled discovery, alerts, or expiry checks. Scheduling remains restricted to
   authorized sources.
+- Page-fetch rejection memory (2026-09-20, #93): remembered rejections, the
+  transient/permanent split, and the run-report counts are covered by real-D1 tests plus
+  lint/typecheck/build, but no live page-fetching search was run — that path needs
+  `npm run dev:private` with an active VPN route, which was unavailable here. The first live
+  private search should confirm remembered rows accumulate and the queue head advances.
 - Source URLs, rules, and availability can change; revalidate them before releases and
   keep the adapter feature states truthful. LinkedIn remains excluded.
 
