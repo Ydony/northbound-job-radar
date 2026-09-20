@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { atsCompanies, BOARD_CONCURRENCY, fetchCompany, feedUrl, mapWithConcurrency,
-  parseFeed, type AtsCompany } from '../lib/ats-feeds';
+import { atsCompanies, BOARD_CONCURRENCY, fetchCompany, feedUrl, isBoardRefusal, isBoardRetryable,
+  mapWithConcurrency, parseFeed, searchAtsBoardsDetailed, type AtsCompany } from '../lib/ats-feeds';
 import { countryFromLocation } from '../lib/job-identity';
 
 const greenhouse: AtsCompany = { slug: 'example', name: 'Example', platform: 'greenhouse', country: 'netherlands' };
@@ -96,9 +96,94 @@ test('a slow board times out on its own and does not fail the search', async () 
   })) as typeof fetch;
   try {
     const started = Date.now();
-    const jobs = await fetchCompany({ slug: 'slow', name: 'Slow', platform: 'greenhouse', country: 'netherlands' }, 50);
-    assert.deepEqual(jobs, []);
+    const outcome = await fetchCompany({ slug: 'slow', name: 'Slow', platform: 'greenhouse', country: 'netherlands' }, 50);
+    assert.equal(outcome.status, 'timeout');
+    assert.deepEqual(outcome.jobs, []);
     assert.ok(Date.now() - started < 1_000, 'the timeout did not cut the request short');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('a board failure is classified, never collapsed to an empty list', async () => {
+  const realFetch = globalThis.fetch;
+  const company: AtsCompany = { slug: 'example', name: 'Example', platform: 'greenhouse', country: 'netherlands' };
+  const okBody = JSON.stringify({ jobs: [{
+    absolute_url: 'https://boards.greenhouse.io/example/jobs/1', title: 'Data Analyst',
+    location: { name: 'Amsterdam, Netherlands' }, content: '<p>Work.</p>',
+  }] });
+  try {
+    globalThis.fetch = (async () => new Response(okBody, { status: 200 })) as typeof fetch;
+    const ok = await fetchCompany(company);
+    assert.equal(ok.status, 'ok');
+    assert.equal(ok.jobs.length, 1);
+    assert.equal(ok.httpStatus, undefined);
+
+    globalThis.fetch = (async () => new Response('gone', { status: 404 })) as typeof fetch;
+    const missing = await fetchCompany(company);
+    assert.equal(missing.status, 'http-error');
+    assert.equal(missing.httpStatus, 404);
+    assert.deepEqual(missing.jobs, []);
+
+    globalThis.fetch = (async () => new Response('slow down', { status: 429 })) as typeof fetch;
+    const limited = await fetchCompany(company);
+    assert.equal(limited.status, 'http-error');
+    assert.equal(limited.httpStatus, 429);
+
+    globalThis.fetch = (async () => { throw new TypeError('fetch failed'); }) as typeof fetch;
+    const network = await fetchCompany(company);
+    assert.equal(network.status, 'network-error');
+    assert.deepEqual(network.jobs, []);
+
+    globalThis.fetch = (async () => new Response('not json{{{', { status: 200 })) as typeof fetch;
+    const unparseable = await fetchCompany(company);
+    assert.equal(unparseable.status, 'parse-error');
+    assert.deepEqual(unparseable.jobs, []);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('a refusal stops the retry, a transient failure gets exactly one more try', () => {
+  assert.equal(isBoardRefusal({ status: 'http-error', httpStatus: 429 }), true);
+  assert.equal(isBoardRefusal({ status: 'http-error', httpStatus: 403 }), true);
+  assert.equal(isBoardRefusal({ status: 'http-error', httpStatus: 404 }), true);
+  assert.equal(isBoardRefusal({ status: 'http-error', httpStatus: 500 }), false);
+  assert.equal(isBoardRefusal({ status: 'timeout' }), false);
+  assert.equal(isBoardRefusal({ status: 'ok' }), false);
+  assert.equal(isBoardRetryable({ status: 'timeout' }), true);
+  assert.equal(isBoardRetryable({ status: 'network-error' }), true);
+  assert.equal(isBoardRetryable({ status: 'http-error', httpStatus: 500 }), true);
+  assert.equal(isBoardRetryable({ status: 'http-error', httpStatus: 429 }), false);
+  assert.equal(isBoardRetryable({ status: 'http-error', httpStatus: 404 }), false);
+  assert.equal(isBoardRetryable({ status: 'ok' }), false);
+  assert.equal(isBoardRetryable({ status: 'parse-error' }), false);
+});
+
+test('the board search retries a transient failure once but never a refusal', async () => {
+  const realFetch = globalThis.fetch;
+  const flakyUrl = feedUrl(atsCompanies[0]);
+  const limitedUrl = feedUrl(atsCompanies[1]);
+  const calls = new Map<string, number>();
+  try {
+    globalThis.fetch = (async (url: string) => {
+      const count = (calls.get(url) ?? 0) + 1;
+      calls.set(url, count);
+      if (url === flakyUrl && count === 1) throw new TypeError('fetch failed');
+      if (url === limitedUrl) return new Response('slow down', { status: 429 });
+      return new Response(JSON.stringify({ jobs: [] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const outcomes = await searchAtsBoardsDetailed();
+    assert.equal(outcomes.length, atsCompanies.length);
+    // Every configured board resolves an outcome; no rejection escapes the search.
+    assert.ok(outcomes.every((outcome) => outcome.jobs !== undefined && outcome.durationMs >= 0));
+    const flaky = outcomes.find((outcome) => outcome.company.slug === atsCompanies[0].slug)!;
+    assert.equal(flaky.status, 'ok', 'one retry recovers a transient network failure');
+    assert.equal(calls.get(flakyUrl), 2, 'a transient failure is retried exactly once');
+    const limited = outcomes.find((outcome) => outcome.company.slug === atsCompanies[1].slug)!;
+    assert.equal(limited.status, 'http-error');
+    assert.equal(limited.httpStatus, 429);
+    assert.equal(calls.get(limitedUrl), 1, 'a 429 refusal is a stop signal, never retried');
   } finally {
     globalThis.fetch = realFetch;
   }
