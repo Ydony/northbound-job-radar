@@ -1,0 +1,3 @@
+# Human-review leads from scripts/discover-boards.mjs; never commit the CSV itself.
+*
+!.gitignore
