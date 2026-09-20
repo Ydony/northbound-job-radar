@@ -29,6 +29,27 @@ test('stops at the next section rather than running into the offer', () => {
   assert.ok(!result.items.some((item) => /competitive salary/i.test(item)));
 });
 
+test('finds the requirements under "what we ask"', () => {
+  // The literal translation of the Dutch 'wat wij vragen', which was already recognised while
+  // the English was not (#84). The excerpt fixture uses it the same way, between the role and
+  // the offer, so this is a heading that introduces what the employer asks for — never the
+  // company, the offer, or the process.
+  const asked = [
+    'We are hiring a data analyst to join our team in Amsterdam.',
+    'What we ask',
+    '• University degree in a numerate subject',
+    '• Three years of experience with SQL and Power BI',
+    '• Comfortable presenting findings to senior stakeholders',
+    'What we offer',
+    '• A competitive salary and a training budget',
+  ].join('\n');
+  const result = extractRequirements(asked);
+  assert.ok(result, 'an ad headed "What we ask" must yield requirements');
+  assert.equal(result.heading, 'What we ask');
+  assert.equal(result.items.length, 3);
+  assert.ok(!result.items.some((item) => /competitive salary/i.test(item)));
+});
+
 test('strips the markdown rules Job-Room wraps its headings in', () => {
   const result = extractRequirements(ad.replace('Your profile', '### Your profile ###'));
   assert.equal(result?.heading, 'Your profile');

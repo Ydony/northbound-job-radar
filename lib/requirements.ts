@@ -32,7 +32,7 @@
 const requirementHeadings = [
   // English
   'requirements', 'your profile', 'about you', 'what you bring', 'what you will bring',
-  'what we are looking for', "what we're looking for", 'we are looking for', 'you have',
+  'what we are looking for', "what we're looking for", 'we are looking for', 'what we ask', 'you have',
   'your skills', 'your experience', 'qualifications', 'your qualifications', 'skills and experience',
   'required skills', 'must have', 'your background', 'what you need', 'who you are',
   // German
