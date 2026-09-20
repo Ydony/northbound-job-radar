@@ -20,7 +20,7 @@ need Dutch, German, French or Italian. Everything below either serves that or ge
 Already built. Jobs come from APIs and public endpoints, never from working around an access
 control. The interface keeps showing what each run scanned and added, as it does now.
 
-- [x] Public: EURES ×2, Job-Room, and the public ATS boards. Administrator measurement also retains
+- [x] Public: EURES ×2, Job-Room, and the employer ATS boards (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable) — the measured best source at 96% English-confirmed on Greenhouse boards, against EURES 15–19%, Job-Room 7%, and Adzuna/Careerjet 0%. Administrator measurement also retains
       Adzuna ×2 and Careerjet; their permanently inconclusive teasers are not public results.
 - [x] Per-run counts: found, known, new, imported, duplicate, skipped.
 
@@ -252,6 +252,7 @@ enough.** Every aim below serves that; where they conflict, this one wins.
 Not more jobs. More *screenable* jobs, and fewer lost to a filter that could not see enough of the
 advertisement to decide.
 
+- **Employer boards carry the public tier.** Greenhouse boards returned 96% English-confirmed at ~5,200 characters average in the stored corpus; the list grew from 60 to 282 verified Dutch and Swiss employers in #56. Workday is excluded: its endpoint is the careers page's own data call, not a feed published for aggregators. Teamtailor (#57) and Workable (#58) are supported: both publish a documented no-key feed with full descriptions and a country per posting. New employers are verified board by board — the feed must answer, hold a Netherlands/Switzerland posting of 900+ characters — and non-employer boards stay out. See `docs/SOURCE_POLICY.md` §2.
 - **Adzuna and Careerjet cannot contribute public matches.** Their standard APIs cap descriptions at
   about 500 and 279 characters, so their jobs sit in `unknown` rather than `pass` — 626 of them at
   the last count. Both are administrator-only measurements. Adzuna (#30) is retained for the
