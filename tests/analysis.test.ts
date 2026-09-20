@@ -108,6 +108,48 @@ test('routes an unexplained local-language mention to review', () => {
   assert.equal(analyzeLanguage(`${englishAd} Languages: English, German.`).status, 'review');
 });
 
+// C1c: the four recorded language-gate limitations, each pinned with its safe counterpart.
+test('passes an explicit denial of a language requirement', () => {
+  assert.equal(analyzeLanguage(`${englishAd} No German is required for this role.`).status, 'pass');
+});
+
+test('keeps a second ordinary mention in review after an explicit denial', () => {
+  // The denial clears only its own occurrence: a later bare mention still costs a glance.
+  assert.equal(
+    analyzeLanguage(`${englishAd} No German is required for onboarding, but you will support German customers.`).status,
+    'review',
+  );
+});
+
+test('passes a language offered as lessons, but not one taught as a requirement', () => {
+  assert.equal(
+    analyzeLanguage(`${englishAd} We offer free Dutch lessons to everyone who joins us from abroad.`).status,
+    'pass',
+  );
+  assert.equal(analyzeLanguage(`${englishAd} Dutch lessons are mandatory for this role.`).status, 'blocked');
+  assert.equal(
+    analyzeLanguage(`${englishAd} We offer free Dutch lessons, and fluent Dutch is required.`).status,
+    'blocked',
+  );
+});
+
+test('passes a language word used as a market or regulation, but not a real requirement', () => {
+  assert.equal(
+    analyzeLanguage(`${englishAd} Experience with Dutch financial regulation and the German market is welcome.`).status,
+    'pass',
+  );
+  assert.equal(
+    analyzeLanguage(`${englishAd} You will cover the German market. Fluent German is required.`).status,
+    'blocked',
+  );
+});
+
+test('blocks a bilingual requirement for a local language', () => {
+  const result = analyzeLanguage(`${englishAd} You are bilingual in English and French.`);
+  assert.equal(result.status, 'blocked');
+  assert.match(result.summary, /French/);
+});
+
 test('reports the better fitting CV slot', () => {
   const result = scoreFitAcrossCvs('We need Python, SQL, machine learning and data analysis experience.', 'Data Analyst', [
     { slot: 'a', cvText: 'Project manager with stakeholder management and sales.', derivedRole: 'Project Manager' },

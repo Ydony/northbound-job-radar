@@ -110,6 +110,7 @@ const languageSpellings: Record<LanguageName, string[]> = {
 const requirementCuesBefore = [
   // English
   'fluent in', 'fluency in', 'fluent', 'fluently', 'proficient in', 'proficiency in', 'proficient',
+  'bilingual in', 'bilingual',
   'native', 'native level', 'native speaker of', 'mother tongue', 'command of', 'good command of',
   'excellent command of', 'excellent', 'very good', 'strong', 'solid', 'advanced', 'business fluent',
   'business level', 'working knowledge of', 'knowledge of', 'must speak', 'must have', 'you speak',
@@ -182,6 +183,36 @@ const optionalCues = [
   'ein plus', 'pre', 'pré', 'een pre', 'atout', 'un atout', 'gradito',
 ];
 
+/**
+ * Wording where a language is offered as help, not asked as a requirement:
+ * "we offer free Dutch lessons".
+ *
+ * Both halves must be present — a benefit verb *and* a lesson noun — so that
+ * "Dutch lessons are mandatory" (no benefit verb) and "we offer Dutch support"
+ * (no lesson noun) never clear. A real requirement elsewhere still blocks,
+ * because exemption only removes the mention; it never removes a requirement.
+ */
+const benefitVerbs = [
+  'offer', 'offers', 'offered', 'offering', 'provide', 'provides', 'provided', 'providing',
+  'free', 'available', 'subsidised', 'subsidized', 'funded', 'reimbursed', 'paid',
+];
+
+const lessonNouns = [
+  'lesson', 'lessons', 'course', 'courses', 'class', 'classes', 'training', 'tuition', 'coaching',
+];
+
+/**
+ * Nouns where a language word is a nationality or market, not a language:
+ * "Dutch financial regulation", "the German market".
+ *
+ * Deliberately narrow. "Customers", "clients", "colleagues" and "team" are not here:
+ * supporting German customers usually does need German, while knowing German market
+ * regulation does not. Only the market/regulation/legislation/law family clears.
+ */
+const nonLanguageNouns = [
+  'market', 'markets', 'regulation', 'regulations', 'regulatory', 'legislation', 'law', 'laws',
+];
+
 function alternation(values: string[]) {
   // Longest first so "fluent in" wins over "fluent", and every literal is escaped because the list
   // contains apostrophes and accented characters.
@@ -233,8 +264,18 @@ const optionalAfterPattern = new RegExp(
 const anyLanguagePattern = new RegExp(`\\b(${languageAlternation})\\b`, 'gi');
 const negationPattern = new RegExp(`\\b(?:${alternation(negations)})\\b`, 'i');
 const optionalPattern = new RegExp(`\\b(?:${alternation(optionalCues)})\\b`, 'i');
+/** A language offered with lessons, so it is help rather than a bar: "we offer free Dutch lessons". */
+const benefitBeforePattern = new RegExp(
+  `\\b(?:${alternation(benefitVerbs)})\\b${gap(30)}\\b(${languageAlternation})\\b${gap(25)}\\b(?:${alternation(lessonNouns)})\\b`, 'gi');
+const benefitAfterPattern = new RegExp(
+  `\\b(${languageAlternation})\\b${gap(25)}\\b(?:${alternation(lessonNouns)})\\b${gap(30)}\\b(?:${alternation(benefitVerbs)})\\b`, 'gi');
+/** A language word used as a market or regulation, not a language: "the German market". */
+const nationalityPattern = new RegExp(
+  `\\b(${languageAlternation})\\b${gap(25)}\\b(?:${alternation(nonLanguageNouns)})\\b`, 'gi');
 
-/** How far back a negation can sit and still flip the cue it precedes. */
+/** How far back a denial can sit and still clear the cue it precedes. */
+const DENIAL_LOOKBACK = 12;
+/** How far back a negation can sit and still soften a requirement to optional (review). */
 const NEGATION_LOOKBACK = 45;
 
 function nameFor(spelling: string): LanguageName | null {
@@ -255,8 +296,16 @@ export interface LanguagePhraseResult {
 /**
  * Apply the phrase rules to one piece of text.
  *
- * Runs four bounded regular expressions over the text regardless of how many phrases the lists
+ * Runs bounded regular expressions over the text regardless of how many phrases the lists
  * above contain, so the tables can grow without the filter getting slower.
+ *
+ * Three outcomes for a language mention, strictest first:
+ *   1. Required (blocked) — a requirement cue binds to it with no denial.
+ *   2. Exempt (as if not named) — every occurrence is an explicit denial ("No German is
+ *      required"), a benefit ("free Dutch lessons") or a nationality/market use
+ *      ("German market"). Only then may the gate pass; one ordinary mention keeps review.
+ *   3. Otherwise mentioned (review) — including explicitly optional wording ("a plus",
+ *      "not required"), which stays review so a glance confirms it.
  */
 export function matchLanguagePhrases(text: string): LanguagePhraseResult {
   const required = new Set<LanguageName>();
@@ -265,15 +314,36 @@ export function matchLanguagePhrases(text: string): LanguagePhraseResult {
   const evidence: string[] = [];
   if (!text) return { required: [], mentioned: [], optional: [], evidence: [] };
 
+  interface ExemptSpan { start: number; end: number; language: LanguageName }
+  const exemptSpans: ExemptSpan[] = [];
+
   for (const pattern of [requiredBeforePattern, requiredAfterPattern]) {
     pattern.lastIndex = 0;
     for (const match of text.matchAll(pattern)) {
       const language = nameFor(match[1]);
       if (!language) continue;
       const start = match.index ?? 0;
-      const before = text.slice(Math.max(0, start - NEGATION_LOOKBACK), start + match[0].length);
-      // "no German required" and "German is a plus" both describe a job that is still open.
-      if (negationPattern.test(before) || optionalPattern.test(match[0])) {
+      // Narrow denial on purpose. A 45-character window let a stale cue ("required ... German
+      // customers" across a comma) steal the "No" from an earlier denied sentence and clear
+      // a later ordinary mention — a false pass. 12 covers "No X", "without X" and
+      // "without any X" with word boundaries. A negation further out still softens to
+      // optional (review), which is what the gate did before and what keeps a second
+      // ordinary mention in review rather than blocked or passed.
+      const closeBefore = text.slice(Math.max(0, start - DENIAL_LOOKBACK), start + match[0].length);
+      // "German is a plus" is optional wording inside the match itself — that stays review,
+      // so it wins over a nearby negation. This is what keeps "German is not required"
+      // (which contains the optional phrase "not required") in review, while
+      // "No German is required" (no optional phrase inside) becomes an explicit denial.
+      if (optionalPattern.test(match[0])) {
+        optional.add(language);
+        continue;
+      }
+      if (negationPattern.test(closeBefore)) {
+        exemptSpans.push({ start, end: start + match[0].length, language });
+        continue;
+      }
+      const wideBefore = text.slice(Math.max(0, start - NEGATION_LOOKBACK), start + match[0].length);
+      if (negationPattern.test(wideBefore)) {
         optional.add(language);
         continue;
       }
@@ -286,18 +356,46 @@ export function matchLanguagePhrases(text: string): LanguagePhraseResult {
   // recognised even though no requirement cue ever fired for it. It does not clear the job — a
   // mention still goes to review — but it lets the summary repeat what the advertisement claimed.
   for (const pattern of [optionalBeforePattern, optionalAfterPattern]) {
+    pattern.lastIndex = 0;
     for (const match of text.matchAll(pattern)) {
       const language = nameFor(match[1]);
       if (language && !required.has(language)) optional.add(language);
     }
   }
 
-  for (const match of text.matchAll(anyLanguagePattern)) {
-    const language = nameFor(match[1]);
-    if (language) mentioned.add(language);
+  // Benefit and nationality uses are not language requirements at all, so their spans exempt
+  // the mention — but only that occurrence. A second ordinary mention of the same language
+  // still lands in `mentioned` below, which is what keeps
+  // "we offer Dutch lessons, and fluent Dutch is required" blocked.
+  for (const pattern of [benefitBeforePattern, benefitAfterPattern, nationalityPattern]) {
+    pattern.lastIndex = 0;
+    for (const match of text.matchAll(pattern)) {
+      const language = nameFor(match[1]);
+      if (!language || required.has(language)) continue;
+      const start = match.index ?? 0;
+      exemptSpans.push({ start, end: start + match[0].length, language });
+    }
   }
 
-  for (const language of required) optional.delete(language);
+  anyLanguagePattern.lastIndex = 0;
+  for (const match of text.matchAll(anyLanguagePattern)) {
+    const language = nameFor(match[1]);
+    if (!language) continue;
+    const index = match.index ?? 0;
+    const exempt = exemptSpans.some(
+      (span) => span.language === language && index >= span.start && index < span.end,
+    );
+    if (!exempt) mentioned.add(language);
+  }
+
+  for (const language of required) {
+    optional.delete(language);
+  }
+  // A fully exempt language leaves no mention and no requirement, so drop its optional flag
+  // too — there is nothing left to review. A language with a surviving mention keeps its flag.
+  for (const language of [...optional]) {
+    if (!required.has(language) && !mentioned.has(language)) optional.delete(language);
+  }
   return {
     required: [...required],
     mentioned: [...mentioned],
@@ -311,5 +409,5 @@ export const languageRuleCounts = {
   spellings: allSpellings.length,
   cuesBefore: requirementCuesBefore.length,
   cuesAfter: requirementCuesAfter.length,
-  compiledPatterns: 7,
+  compiledPatterns: 10,
 };
