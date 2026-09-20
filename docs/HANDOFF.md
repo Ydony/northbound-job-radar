@@ -1,5 +1,39 @@
 # Handover
 
+## 2026-09-20 five worker changes merged (#59, #60, #74, #75, #76)
+
+Five isolated worker runs landed on master together. Gate green afterwards: lint, typecheck,
+**220/220 tests**, build.
+
+- **#74 loosened the language gate**, which is the change to watch. A language mention can now be
+  *exempt* as well as required or optional, so an explicit denial ("No German is required"), a
+  language offered as lessons, and a nationality or market use stop costing a review. Exemption is
+  per-occurrence: one ordinary mention elsewhere still means review, and a requirement anywhere
+  still blocks. `NORMALIZATION_VERSION` 6 -> 7 so stored rows are re-screened rather than keeping
+  verdicts the old rules produced. "bilingual in X" now blocks, where it used to under-block to
+  review.
+- **#76** taught the excerpt where the requirements section starts in Dutch, German and French ads.
+  Chosen for precision over recall; the rejected near-misses are recorded in `lib/excerpt.ts` so
+  they are not re-added.
+- **#75** made `fetchCompany` return an outcome rather than an empty array on every failure, and
+  added exactly one retry of timeouts, network failures and 5xx. Never retries a 429 or any 4xx:
+  a refusal is a stop signal. Measured at 281/282 boards and an identical 30,057 postings across
+  six consecutive passes, zero 429s in ~1,700 fetches.
+- **#59** added `scripts/discover-boards.mjs`, board discovery we own. **Its index half has never
+  returned a candidate** - `index.commoncrawl.org` answered 502/504 all day - so a zero-candidate
+  run currently means the index did not answer, not that there is nothing to find. The verification
+  half is proven against live boards.
+- **#60** recorded in `docs/SOURCE_POLICY.md` why employer boards carry the public tier, what an
+  employer must pass to be added, and why Workday is excluded.
+
+Epic **#54 is closed**: 60 -> 282 verified boards, Teamtailor and Workable adapters, our own
+discovery, and the policy written down. No Workable *employer* is configured - every account probed
+answered with an empty `jobs` array.
+
+**No pull requests.** The remote master is far behind local master, so a PR against it reads as
+thousands of unrelated additions; PR #77 was opened by the tooling and closed for that reason.
+Publishing those commits is #8 and remains the owner's decision.
+
 ## 2026-09-09 restricted-source decision (#32)
 
 Keep the small private source portfolio. jobs.ch, jobup.ch and JobScout24 remain local
