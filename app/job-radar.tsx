@@ -13,14 +13,15 @@ import { MIN_CHARS_TO_CONFIRM_ENGLISH } from '@/lib/analysis';
 import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
   ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
-import { SOURCE_RUN_STATUS_RANK, bestFitScore, criteriaToDraft, formatDate, languageStatusLabel,
-  sourceRunStatusLabel, statusLabel, type CriteriaDraft } from '@/lib/dashboard';
+import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, criteriaToDraft, DASHBOARD_VIEW_LABELS,
+  emptyStateCopy, formatDate, jobInView, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
+  sourceRunStatusLabel, statusLabel, type CriteriaDraft, type DashboardView, type FilterPill,
+  type SortMode } from '@/lib/dashboard';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, ApplicationStatus, CvSlot, JobCountry, JobRecord, SearchCriteria,
   SearchRun } from '@/lib/types';
 
-type View = 'matches' | 'unknown' | 'review' | 'pipeline' | 'dismissed' | 'all';
 type CountryFilter = 'all' | Exclude<JobCountry, 'unknown'>;
 type ApplicationFilter = 'all' | ApplicationStatus;
 
@@ -84,7 +85,10 @@ export default function JobRadar() {
   const [loadError, setLoadError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
-  const [view, setView] = useState<View>('matches');
+  // New is the default landing view: a returning user's first question is what arrived
+  // since the last search, and that inbox is where the day starts.
+  const [view, setView] = useState<DashboardView>('new');
+  const [sortMode, setSortMode] = useState<SortMode>('fit');
   const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
   const [applicationFilter, setApplicationFilter] = useState<ApplicationFilter>('all');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -102,10 +106,6 @@ export default function JobRadar() {
    * Starts open so a desktop render is correct on first paint, and closes itself on a narrow
    * viewport once the media query can be read.
    */
-  const viewLabels: Record<View, string> = {
-    matches: 'English confirmed', unknown: 'Not enough of the ad', review: 'Needs review',
-    pipeline: 'Pipeline', dismissed: 'Dismissed', all: 'All matching',
-  };
   const [filtersOpen, setFiltersOpen] = useState(true);
   useEffect(() => {
     const wide = window.matchMedia('(min-width: 851px)');
@@ -260,25 +260,25 @@ export default function JobRadar() {
     [visibleToRole],
   );
 
-  const counts = useMemo(() => ({
-    matches: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'pass' && job.visibilityStatus === 'active').length,
-    unknown: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'unknown' && job.visibilityStatus === 'active').length,
-    review: criteriaFilteredJobs.filter((job) => effectiveLanguageStatus(job) === 'review' && job.visibilityStatus === 'active').length,
-    pipeline: visibleToRole.filter((job) => job.visibilityStatus === 'active' && (job.isSaved || job.applicationStatus === 'applied')).length,
-    dismissed: visibleToRole.filter((job) => job.visibilityStatus === 'dismissed').length,
-  }), [criteriaFilteredJobs, visibleToRole]);
+  // The "what's new since last run" baseline: the latest finished run's start, or the
+  // last seven days before any run. Read at render so the fallback tracks today.
+  const newCutoff = useMemo(
+    () => newSinceCutoff(state.searchRuns, new Date().toISOString()),
+    [state.searchRuns],
+  );
 
-  const passesView = useMemo(() => (job: JobRecord) => {
-    const matchesCriteria = job.matchesCriteria;
-    const languageStatus = effectiveLanguageStatus(job);
-    if (view === 'dismissed') return job.visibilityStatus === 'dismissed';
-    if (job.visibilityStatus !== 'active') return false;
-    if (view === 'matches') return matchesCriteria && languageStatus === 'pass';
-    if (view === 'unknown') return matchesCriteria && languageStatus === 'unknown';
-    if (view === 'review') return matchesCriteria && languageStatus === 'review';
-    if (view === 'pipeline') return job.isSaved || job.applicationStatus === 'applied';
-    return matchesCriteria;
-  }, [view]);
+  const counts = useMemo(() => ({
+    new: visibleToRole.filter((job) => jobInView(job, 'new', newCutoff)).length,
+    all: visibleToRole.filter((job) => jobInView(job, 'all', newCutoff)).length,
+    triage: visibleToRole.filter((job) => jobInView(job, 'triage', newCutoff)).length,
+    pipeline: visibleToRole.filter((job) => jobInView(job, 'pipeline', newCutoff)).length,
+    dismissed: visibleToRole.filter((job) => jobInView(job, 'dismissed', newCutoff)).length,
+  }), [newCutoff, visibleToRole]);
+
+  const passesView = useMemo(
+    () => (job: JobRecord) => jobInView(job, view, newCutoff),
+    [newCutoff, view],
+  );
 
   /**
    * Facet counts: each dimension is counted with every *other* filter applied, so a number shows
@@ -308,18 +308,106 @@ export default function JobRadar() {
       source: tally(except('source'), (job) => job.sourceKey),
       workType: tally(except('workType'), (job) => job.workplaceType),
       city: tally(except('city'), (job) => normalizePlace(job.location).place),
+      // Jobs in this view before the facets narrow them: the empty state reads this to
+      // tell facet-hiding apart from keyword-hiding.
+      inViewCount: inView.length,
       visible: inView.filter((job) => byCountry(job) && byApplication(job) && bySource(job) && byWorkType(job) && byCity(job)),
     };
   }, [applicationFilter, cityFilter, countryFilter, passesView, sourceFilter, visibleToRole, workTypeFilter]);
 
   const visibleJobs = useMemo(
-    () => [...facets.visible].sort((a, b) => bestFitScore(b) - bestFitScore(a)),
-    [facets.visible],
+    () => sortJobs(facets.visible, sortMode),
+    [facets.visible, sortMode],
   );
   const visibleAdzunaSources = useMemo(() => adzunaSourcesOnScreen(visibleJobs), [visibleJobs]);
 
   const sourceOptions = useMemo(() => [...new Map(visibleToRole.map((job) => [job.sourceKey, job.sourceName])).entries()]
     .sort((a, b) => a[1].localeCompare(b[1])), [visibleToRole]);
+
+  /**
+   * The one filter surface: every active constraint, saved keywords and temporary facets
+   * alike, as a single removable row above the list. Saved keywords come first because
+   * they are the ones that silently empty the list from another screen.
+   */
+  const pills = useMemo(() => activeFilterPills({
+    country: countryFilter,
+    city: cityFilter,
+    source: sourceFilter,
+    sourceName: sourceOptions.find(([key]) => key === sourceFilter)?.[1] ?? '',
+    workType: workTypeFilter,
+    application: applicationFilter,
+    requiredKeywords: state.criteria.requiredKeywords,
+    excludedKeywords: state.criteria.excludedKeywords,
+  }), [applicationFilter, cityFilter, countryFilter, sourceFilter, sourceOptions, state.criteria, workTypeFilter]);
+
+  function removePill(key: FilterPill['key']) {
+    if (key === 'country') chooseCountry('all');
+    else if (key === 'city') setCityFilter('all');
+    else if (key === 'source') setSourceFilter('all');
+    else if (key === 'workType') setWorkTypeFilter('all');
+    else if (key === 'application') setApplicationFilter('all');
+    else if (key === 'required') void clearSavedKeywords('required');
+    else void clearSavedKeywords('excluded');
+  }
+
+  function clearAllFilters() {
+    chooseCountry('all');
+    setSourceFilter('all');
+    setWorkTypeFilter('all');
+    setApplicationFilter('all');
+    // Facets alone may not be the culprit: the keywords empty the list from the
+    // settings screen, so clearing everything means clearing those too.
+    if (state.criteria.requiredKeywords.length || state.criteria.excludedKeywords.length) {
+      void clearSavedKeywords('both');
+    }
+  }
+
+  /**
+   * Jobs the person has opened, per account, in this browser only. The New tab's
+   * accent edge is "not yet looked at", and opening the advertisement is what
+   * clears it — acting on the card (save, applied, dismiss) counts as looking too.
+   */
+  const accountEmail = state.account?.email ?? '';
+  const [openedJobIds, setOpenedJobIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!accountEmail) return;
+    try {
+      const raw = window.localStorage.getItem(`ajh-opened-jobs:${accountEmail}`);
+      setOpenedJobIds(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+      setOpenedJobIds([]);
+    }
+  }, [accountEmail]);
+  useEffect(() => {
+    if (!accountEmail) return;
+    try {
+      window.localStorage.setItem(`ajh-opened-jobs:${accountEmail}`, JSON.stringify(openedJobIds.slice(-2000)));
+    } catch {
+      // A browser that refuses storage still gets a working list, just without memory.
+    }
+  }, [accountEmail, openedJobIds]);
+  const openedJobs = useMemo(() => new Set(openedJobIds), [openedJobIds]);
+
+  function markJobOpened(id: string) {
+    setOpenedJobIds((current) => (current.includes(id) ? current : [...current.slice(-1999), id]));
+  }
+
+  /**
+   * Dismissed jobs no longer have a primary tab, so dismissing offers its own way
+   * back: a short-lived note above the list with an undo, for the click that meant
+   * "not now" rather than "never". The quiet Dismissed link below keeps the rest.
+   */
+  const [undoDismiss, setUndoDismiss] = useState<{ id: string; title: string } | null>(null);
+  const undoTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (undoTimer.current !== null) window.clearTimeout(undoTimer.current);
+  }, []);
+
+  function offerUndo(id: string, title: string) {
+    setUndoDismiss({ id, title });
+    if (undoTimer.current !== null) window.clearTimeout(undoTimer.current);
+    undoTimer.current = window.setTimeout(() => setUndoDismiss(null), 9000);
+  }
 
   /**
    * Places to narrow by, grouped under their country.
@@ -445,6 +533,30 @@ export default function JobRadar() {
       setCriteriaMessage('Criteria saved and applied to search and results.');
     } catch (error) {
       setCriteriaMessage(error instanceof Error ? error.message : 'Could not save criteria.');
+    } finally {
+      setCriteriaBusy(false);
+    }
+  }
+
+  /**
+   * Removing a keyword pill edits the *saved* criteria, not just the screen: the pills
+   * name what is actually hiding jobs, so taking one off must bring those jobs back.
+   * The draft follows the save, so the settings form never disagrees with the list.
+   */
+  async function clearSavedKeywords(which: 'required' | 'excluded' | 'both') {
+    const draft = criteriaToDraft(state.criteria);
+    if (which !== 'required') draft.excludedKeywords = '';
+    if (which !== 'excluded') draft.requiredKeywords = '';
+    setCriteriaDraft(draft);
+    setCriteriaBusy(true);
+    setCriteriaMessage('Updating keywords…');
+    try {
+      await persistCriteria(draft);
+      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
+      setState(refreshed);
+      setCriteriaMessage('Keywords cleared — the list now shows everything they hid.');
+    } catch (error) {
+      setCriteriaMessage(error instanceof Error ? error.message : 'Could not update keywords.');
     } finally {
       setCriteriaBusy(false);
     }
@@ -621,6 +733,13 @@ export default function JobRadar() {
 
   async function updateJobState(id: string, patch: Partial<Pick<JobRecord, 'isSaved' | 'applicationStatus' | 'visibilityStatus'>>) {
     const previous = state.jobs;
+    // Acting on a card counts as looking at it: the unseen edge clears either way.
+    markJobOpened(id);
+    if (patch.visibilityStatus === 'dismissed') {
+      offerUndo(id, previous.find((job) => job.id === id)?.title ?? 'Job');
+    } else if (patch.visibilityStatus === 'active') {
+      setUndoDismiss((current) => (current?.id === id ? null : current));
+    }
     setState((current) => ({ ...current, jobs: current.jobs.map((job) => job.id === id ? { ...job, ...patch } : job) }));
     flash(id, actionMessage(patch));
     try {
@@ -631,6 +750,7 @@ export default function JobRadar() {
       }));
     } catch (error) {
       setState((current) => ({ ...current, jobs: previous }));
+      setUndoDismiss((current) => (current?.id === id && patch.visibilityStatus === 'dismissed' ? null : current));
       // The optimistic update has been rolled back, so the confirmation must be too - saying
       // "Saved" next to a card that quietly reverted is worse than saying nothing.
       flash(id, error instanceof Error ? `Not saved: ${error.message}` : 'Not saved — the change was undone.');
@@ -1054,14 +1174,8 @@ export default function JobRadar() {
             onToggle={(event) => setFiltersOpen(event.currentTarget.open)}
           >
             {/* Names the view you are in, so collapsing it does not hide where you are. */}
-            <summary>Filters<span>{viewLabels[view]}</span></summary>
-            <b>Views</b>
-            <button className={view === 'matches' ? 'active' : ''} onClick={() => setView('matches')} title="English confirmed against the full advertisement."><span>English confirmed</span><i>{counts.matches}</i></button>
-            <button className={view === 'unknown' ? 'active' : ''} onClick={() => setView('unknown')} title="The advertisement was too short to judge - usually an aggregator preview rather than the full ad."><span>Not enough of the ad</span><i>{counts.unknown}</i></button>
-            <button className={view === 'review' ? 'active' : ''} onClick={() => setView('review')}><span>Needs review</span><i>{counts.review}</i></button>
-            <button className={view === 'pipeline' ? 'active' : ''} onClick={() => setView('pipeline')}><span>Pipeline</span><i>{counts.pipeline}</i></button>
-            <button className={view === 'dismissed' ? 'active' : ''} onClick={() => setView('dismissed')}><span>Dismissed</span><i>{counts.dismissed}</i></button>
-            <button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><span>All matching</span><i>{criteriaFilteredJobs.filter((job) => job.visibilityStatus === 'active').length}</i></button>
+            <summary>Filters<span>{DASHBOARD_VIEW_LABELS[view]}</span></summary>
+            {/* Views moved above the list as three primary tabs; this column keeps the facets. */}
             <b className="filter-group">Country</b>
             <button className={countryFilter === 'all' ? 'active' : ''} onClick={() => chooseCountry('all')}><span>All countries</span><i>{facets.country.all}</i></button>
             {/* Places unfold under the country they belong to, rather than sitting in a separate
@@ -1102,7 +1216,61 @@ export default function JobRadar() {
             {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites — {facets.source.all} job{facets.source.all === 1 ? '' : 's'}</option>{sourceOptions.filter(([key]) => facets.source.get(key) > 0 || key === sourceFilter).map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
           </details>
           <div className="job-list">
-            {!loading && visibleJobs.length === 0 && <div className="empty-state"><span>◎</span><h3>No jobs in this view yet</h3><p>Add a role keyword in <a href="#criteria" onClick={() => setSettingsOpen(true)}>Search settings</a>, run a search, or widen the filters.</p></div>}
+            {/* Three primary tabs. Review and too-short ads wait behind one quieter link;
+                dismissed jobs behind an undo note plus their own quiet link. */}
+            <div className="view-tabs" role="group" aria-label="Views">
+              <button type="button" className={view === 'new' ? 'active' : ''} onClick={() => setView('new')} title="Jobs first seen since the last search."><span>New</span><i>{counts.new}</i></button>
+              <button type="button" className={view === 'all' ? 'active' : ''} onClick={() => setView('all')} title="English confirmed against the full advertisement."><span>All matches</span><i>{counts.all}</i></button>
+              <button type="button" className={view === 'pipeline' ? 'active' : ''} onClick={() => setView('pipeline')}><span>Pipeline</span><i>{counts.pipeline}</i></button>
+            </div>
+            <div className="quiet-links">
+              <button type="button" className={view === 'triage' ? 'active' : ''} onClick={() => setView('triage')}>
+                {counts.triage ? `${counts.triage} need a look` : 'Nothing needs a look'}
+              </button>
+              <button type="button" className={view === 'dismissed' ? 'active' : ''} onClick={() => setView('dismissed')}>
+                {counts.dismissed ? `Dismissed (${counts.dismissed})` : 'Dismissed'}
+              </button>
+            </div>
+            {/* One filter surface: every active constraint as a removable pill, saved
+                keywords first. "Clear all" appears once there is more than one. */}
+            <div className="list-toolbar">
+              {pills.length > 0 && <div className="pills" aria-label="Active filters">
+                {pills.map((pill) => <button
+                  key={pill.key}
+                  type="button"
+                  className="pill"
+                  onClick={() => removePill(pill.key)}
+                  title={pill.key === 'required' || pill.key === 'excluded'
+                    ? 'Remove these keywords from your saved criteria'
+                    : 'Remove this filter'}
+                ><span>{pill.label}</span><i aria-hidden="true">×</i></button>)}
+                {pills.length > 1 && <button type="button" className="pill-clear" onClick={clearAllFilters}>Clear all</button>}
+              </div>}
+              <label className="sort-control"><span>Sort</span><select
+                value={sortMode}
+                onChange={(event) => setSortMode(event.target.value as SortMode)}
+              >{(Object.keys(SORT_MODE_LABELS) as SortMode[]).map((mode) => <option value={mode} key={mode}>{SORT_MODE_LABELS[mode]}</option>)}</select></label>
+            </div>
+            {undoDismiss && <div className="undo-bar" role="status">
+              <span>Dismissed “{undoDismiss.title}”.</span>
+              <button type="button" onClick={() => updateJobState(undoDismiss.id, { visibilityStatus: 'active' })}>Undo</button>
+              <button type="button" className="undo-close" onClick={() => setUndoDismiss(null)} aria-label="Dismiss this notice">×</button>
+            </div>}
+            {!loading && visibleJobs.length === 0 && (() => {
+              // Server-exact keyword count: total minus matching across every page, not the
+              // loaded one — the culprit it names is measured, not guessed.
+              const totalJobs = state.totalJobs ?? state.jobs.length;
+              const matchingJobs = state.matchingJobs ?? state.jobs.length;
+              const copy = emptyStateCopy(view, {
+                totalJobs,
+                removedByKeywords: Math.max(0, totalJobs - matchingJobs),
+                inViewCount: facets.inViewCount,
+                hasExcludedKeywords: state.criteria.excludedKeywords.length > 0,
+                hasRequiredKeywords: state.criteria.requiredKeywords.length > 0,
+                hasMorePages: Boolean(state.nextCursor),
+              });
+              return <div className="empty-state"><span>◎</span><h3>{copy.title}</h3><p>{copy.detail}</p></div>;
+            })()}
             {visibleJobs.map((job) => {
               const bothCvsSaved = CV_MATCHING_ENABLED && state.profiles.filter((profile) => profile.hasCvText).length > 1;
               const displayedLanguageStatus = effectiveLanguageStatus(job);
@@ -1112,7 +1280,9 @@ export default function JobRadar() {
                 correctedStatus: job.correctedLanguageStatus || (job.languageStatus === 'pass' ? 'review' : 'pass'),
                 reason: job.languageFeedbackReason,
               };
-              return <article className={`job-card ${displayedLanguageStatus}`} key={job.id}>
+              // Unseen cards carry a soft accent edge until the advertisement is opened
+              // (or the card is acted on) — the verdict's own edge stays untouched.
+              return <article className={`job-card ${displayedLanguageStatus}${openedJobs.has(job.id) ? '' : ' is-unseen'}`} key={job.id}>
                 <div className="score-column"><label className="job-select"><input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /><span>Select</span></label>{CV_MATCHING_ENABLED && <div className="score"><strong>{bestFitScore(job)}</strong><span>CV fit</span></div>}</div>
                 <div className="job-body">
                   <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span></div>
@@ -1174,7 +1344,7 @@ export default function JobRadar() {
                   </div>
                   {jobFlash[job.id] && <p className="card-flash" role="status">{jobFlash[job.id]}</p>}
                 </div>
-                <a className="apply-link" href={job.sourceUrl} target="_blank" rel="noreferrer">Apply on {job.sourceName || sourceNameForUrl(job.sourceUrl)} ↗</a>
+                <a className="apply-link" href={job.sourceUrl} target="_blank" rel="noreferrer" onClick={() => markJobOpened(job.id)}>Apply on {job.sourceName || sourceNameForUrl(job.sourceUrl)} ↗</a>
                 {statusLabel(job) && <span className="status-chip">{statusLabel(job)}</span>}
               </article>;
             })}
