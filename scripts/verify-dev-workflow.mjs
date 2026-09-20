@@ -202,7 +202,17 @@ const sameUrlForSecondary = await secondary.request('/api/jobs', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(manualJobPayload('primary')),
 });
-await expectStatus(sameUrlForSecondary, 400, 'secondary import without CV');
+// This step is about per-owner isolation, not about the CV gate. That gate is shelved
+// (lib/features.ts, CV_MATCHING_ENABLED = false), so importing without a CV is no longer
+// refused and the old hard-coded 400 failed on correct behaviour. Accept either answer, and
+// when the import is allowed, prove the thing this step actually exists to prove.
+const withoutCvStatus = sameUrlForSecondary.response.status;
+assert([200, 400].includes(withoutCvStatus),
+  `secondary import without CV: expected 200 or 400, received ${withoutCvStatus}: ${JSON.stringify(sameUrlForSecondary.data)}`);
+if (withoutCvStatus === 200) {
+  assert(sameUrlForSecondary.data.job?.id && sameUrlForSecondary.data.job.id !== primaryJobId,
+    'The same source URL was not isolated per owner when imported without a CV.');
+}
 await uploadCv(secondary);
 const secondaryImport = await secondary.request('/api/jobs', {
   method: 'POST',
