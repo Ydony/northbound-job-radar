@@ -54,6 +54,8 @@ function criteriaToDraft(criteria: SearchCriteria): CriteriaDraft {
     contractType: criteria.contractType,
     requiredKeywords: criteria.requiredKeywords.join(', '),
     excludedKeywords: criteria.excludedKeywords.join(', '),
+    searchNetherlands: criteria.searchNetherlands,
+    searchSwitzerland: criteria.searchSwitzerland,
   };
 }
 
@@ -106,12 +108,15 @@ const SOURCE_RUN_STATUS_LABELS: Record<SourceRunStatus, string> = {
   blocked: 'Blocked',
   disabled: 'Turned off',
   unavailable: 'Unavailable',
+  skipped: 'Not searched',
 };
 
 // Failed and blocked sources are the only rows anyone can act on, so they sort to the front.
 // Everything below them is a source that did its job and needs no attention.
 const SOURCE_RUN_STATUS_RANK: Record<SourceRunStatus, number> = {
-  failed: 0, blocked: 1, unavailable: 2, disabled: 3, partial: 4, complete: 5,
+  // 'skipped' sorts last with 'complete': the person switched that country off, so there is
+  // nothing to act on and it should not compete for attention with a source that failed.
+  failed: 0, blocked: 1, unavailable: 2, disabled: 3, partial: 4, complete: 5, skipped: 6,
 };
 
 function sourceRunStatusLabel(status: SourceRunStatus) {
@@ -415,6 +420,9 @@ export default function JobRadar() {
    * the one thing it exists to check.
    */
   const savedRoleKeywords = state.criteria.roleKeywords.map((keyword) => keyword.trim()).filter(Boolean);
+  // Read from the saved criteria rather than the draft: a search uses what was saved, so an
+  // untouched tick in the form must not change whether the button works.
+  const noCountrySearched = !state.criteria.searchNetherlands && !state.criteria.searchSwitzerland;
   const latestRun = useMemo(() => {
     const run = state.searchRuns[0];
     if (!run || !viewAsUser) return run;
@@ -851,12 +859,15 @@ export default function JobRadar() {
 
       <section className="workflow">
         <div className="workflow-copy"><h2>Find new jobs</h2><p>One search runs every enabled Swiss and Netherlands source, records what each returned, removes duplicates, and applies the English gate.</p></div>
-        <button className="jobs-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy)} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
+        <button className="jobs-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
           {scrapeBusy === 'authorized' ? 'Searching…' : isAdmin ? 'Search — VPN off' : 'Find new jobs'} <span>⚡</span>
         </button>
-        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy)} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
+        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
+        {noCountrySearched && <p className="form-message" role="status">Both countries are switched off in
+          {' '}<a href="#criteria" onClick={() => setSettingsOpen(true)}>Search settings</a>, so there is
+          nowhere to search. Turn the Netherlands or Switzerland back on.</p>}
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
         {isAdmin && <IndeedStatusPanel busy={loading || Boolean(loadError) || Boolean(scrapeBusy)} search={() => { void findJobs('authorized', 'indeed'); }} />}
         {isAdmin && <div className="health-panel">
@@ -921,6 +932,27 @@ export default function JobRadar() {
               <p>Role keywords are what get searched. Required and excluded keywords then narrow what comes back — an ad must contain every required word, and is dropped if it contains an excluded one.</p>
             </div>
             <form className="criteria-form" onSubmit={saveCriteria}>
+              <fieldset className="country-switches">
+                <legend>Countries to search</legend>
+                {([['searchNetherlands', 'The Netherlands'], ['searchSwitzerland', 'Switzerland']] as const)
+                  .map(([key, label]) => <label className="switch" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={criteriaDraft[key]}
+                      onChange={(event) => setCriteriaDraft({ ...criteriaDraft, [key]: event.target.checked })}
+                    />
+                    <span>{label}</span>
+                  </label>)}
+                {/* The UX audit's finding 02: two filtering systems that do not know about each
+                    other leave someone unable to tell which one emptied the list. So this says
+                    plainly which one it is. */}
+                <p>This decides which countries a search contacts. It does not hide jobs you have
+                  already collected — to narrow what is on screen, use the country filter above the
+                  results.</p>
+                {!criteriaDraft.searchNetherlands && !criteriaDraft.searchSwitzerland
+                  && <p className="switch-warning">With both off there is nowhere to search, so the
+                    search button stays disabled until you turn one back on.</p>}
+              </fieldset>
               <div className="role-keywords">
                 <span>Additional search roles · up to five</span>
                 <div>{Array.from({ length: 5 }, (_, index) => <label className="field" key={index}>

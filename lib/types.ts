@@ -29,6 +29,9 @@ export interface SearchCriteria {
   contractType: ContractType;
   requiredKeywords: string[];
   excludedKeywords: string[];
+  /** Which countries a search contacts sources for. Both default to on. */
+  searchNetherlands: boolean;
+  searchSwitzerland: boolean;
   updatedAt: string;
 }
 
@@ -98,7 +101,11 @@ export interface JobRecord {
   updatedAt: string;
 }
 
-export type SourceRunStatus = 'complete' | 'partial' | 'failed' | 'blocked' | 'disabled' | 'unavailable';
+// 'skipped' is the person's own choice not to search a country, which is not a fault and must
+// not be counted as one. 'disabled' already means the source itself is off; conflating the two
+// would make Search statistics report a deliberate setting as something that went wrong.
+export type SourceRunStatus = 'complete' | 'partial' | 'failed' | 'blocked' | 'disabled'
+  | 'unavailable' | 'skipped';
 
 export interface SearchRunSource {
   sourceKey: string;

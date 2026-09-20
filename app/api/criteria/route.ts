@@ -12,6 +12,12 @@ function cleanText(value: unknown, max = 160) {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : '';
 }
 
+// Absent means on, for the same reason the column defaults to 1: an older client that does not
+// know about this setting must not silently narrow someone's search to nothing.
+function cleanSwitch(value: unknown) {
+  return value === undefined || value === null ? true : value !== false;
+}
+
 function cleanKeywords(value: unknown) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map((item) => cleanText(item, 60).toLowerCase()).filter(Boolean))].slice(0, 20);
@@ -45,18 +51,24 @@ export async function PUT(request: Request) {
     contractType,
     requiredKeywords: cleanKeywords(body.requiredKeywords),
     excludedKeywords: cleanKeywords(body.excludedKeywords),
+    searchNetherlands: cleanSwitch(body.searchNetherlands),
+    searchSwitzerland: cleanSwitch(body.searchSwitzerland),
   };
   const now = new Date().toISOString();
   const statements = [db.prepare(`INSERT INTO search_settings (id, user_id, role_override_a, role_override_b, location, workplace,
-      seniority, contract_type, required_keywords, excluded_keywords, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      seniority, contract_type, required_keywords, excluded_keywords, search_netherlands,
+      search_switzerland, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(user_id) DO UPDATE SET role_override_a = excluded.role_override_a,
       role_override_b = excluded.role_override_b, location = excluded.location, workplace = excluded.workplace,
       seniority = excluded.seniority, contract_type = excluded.contract_type,
       required_keywords = excluded.required_keywords, excluded_keywords = excluded.excluded_keywords,
+      search_netherlands = excluded.search_netherlands,
+      search_switzerland = excluded.search_switzerland,
       updated_at = excluded.updated_at`)
     .bind(`settings:${user.id}`, user.id, input.roleOverrideA, input.roleOverrideB, input.location, input.workplace, input.seniority,
-      input.contractType, JSON.stringify(input.requiredKeywords), JSON.stringify(input.excludedKeywords), now),
+      input.contractType, JSON.stringify(input.requiredKeywords), JSON.stringify(input.excludedKeywords),
+      input.searchNetherlands ? 1 : 0, input.searchSwitzerland ? 1 : 0, now),
     db.prepare('DELETE FROM search_roles WHERE user_id = ?').bind(user.id)];
   input.roleKeywords.forEach((role, position) => statements.push(db.prepare(
     'INSERT INTO search_roles (id, user_id, position, role, updated_at) VALUES (?, ?, ?, ?, ?)',

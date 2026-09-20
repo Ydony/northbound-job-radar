@@ -12,7 +12,7 @@ import { isSafeManualJobUrl } from '@/lib/job-sources';
 import { delay, stripHtml, type ParsedJob } from '@/lib/jobsch';
 import { roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
 import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
-import type { CvSlot, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
+import type { CvSlot, JobCountry, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
 
 /**
  * Page-fetching sources cost one request per job, so they stay tightly capped.
@@ -178,7 +178,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   // that is not offered to anyone else - Careerjet is licensed to one declared IP, while IamExpat
   // is read from public pages - so it is gated on the account, in every mode.
   const hiddenForAccount = user.role === 'admin' ? new Set<string>() : adminOnlySourceKeys();
-  const activeAdapters = jobSourceAdapters.filter((adapter) =>
+  const permittedAdapters = jobSourceAdapters.filter((adapter) =>
     (mode === 'all' || adapter.access !== 'restricted') && !hiddenForAccount.has(adapter.key)
     && (!body.sourceGroup || adapter.experimentalIndeed));
   const [cvRows, criteriaRow, roleRows] = await Promise.all([
@@ -194,6 +194,33 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   }
 
   const criteria = criteriaFromRow(criteriaRow, roleRows.results);
+
+  /**
+   * Two switches decide which countries a search contacts (#72).
+   *
+   * This is about what gets *collected*, not what the results list shows - the country facet on
+   * the dashboard is a separate thing that narrows what is already stored. Jobs already collected
+   * from a country that is now off are untouched: nobody expects a search setting to delete work
+   * they have saved.
+   *
+   * A country neither switch names is always searched, so adding a third country later cannot be
+   * silently switched off by a setting written before it existed.
+   */
+  const countrySearched = (country: JobCountry) =>
+    country === 'netherlands' ? criteria.searchNetherlands
+      : country === 'switzerland' ? criteria.searchSwitzerland
+        : true;
+  if (!criteria.searchNetherlands && !criteria.searchSwitzerland) {
+    // Refused rather than run: a search that contacts nothing looks identical to a search that
+    // found nothing, and the person would have no way to tell which had happened.
+    return { kind: 'refused', response: Response.json({
+      error: 'Both countries are switched off in Search settings, so a search has nowhere to look.'
+        + ' Switch the Netherlands or Switzerland back on, then search again.',
+    }, { status: 400 }) };
+  }
+  const activeAdapters = permittedAdapters.filter((adapter) => countrySearched(adapter.country));
+  const skippedAdapters = permittedAdapters.filter((adapter) => !countrySearched(adapter.country));
+
   const searchTerms = searchTermsForProfiles(cvRows.results.map((row) => ({
     slot: row.slot,
     derivedRole: row.derived_role,
@@ -448,11 +475,34 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     });
   }
 
+  // A country switched off is reported, not omitted. Leaving it out would make Search statistics
+  // quietly shrink and look like sources had vanished; reporting it as failed would blame the
+  // source for the person's own setting.
+  for (const adapter of skippedAdapters) {
+    sourceReports.push({
+      sourceKey: adapter.key,
+      sourceName: adapter.name,
+      country: adapter.country,
+      status: 'skipped',
+      rolesSearched: [],
+      foundCount: 0,
+      knownCount: 0,
+      newCount: 0,
+      importedCount: 0,
+      duplicateCount: 0,
+      skippedCount: 0,
+      message: `${adapter.country === 'netherlands' ? 'The Netherlands' : 'Switzerland'} is switched`
+        + ' off in Search settings, so this source was not contacted.',
+    });
+  }
+
   const enabledReports = sourceReports.filter((source) => activeAdapters
     .some((adapter) => adapter.key === source.sourceKey && (adapter.availability === 'enabled' || adapter.experimentalIndeed)));
   const overallStatus: SearchRun['status'] = enabledReports.every((source) => source.status === 'failed')
     ? 'failed'
-    : sourceReports.some((source) => source.status !== 'complete')
+    // 'skipped' is excluded on purpose: switching a country off is a choice, and a run that did
+    // exactly what it was asked to do is complete, not partial.
+    : sourceReports.some((source) => source.status !== 'complete' && source.status !== 'skipped')
       ? 'partial'
       : 'complete';
   const completedAt = new Date().toISOString();

@@ -396,7 +396,16 @@ export const runtimeMigrations: RuntimeMigration[] = [
     ],
   },
   {
-    // 18 is reserved for the independent #72 branch. This additive table has no dependency on it.
+    version: 18,
+    name: 'country_search_switches',
+    statements: [
+      // Default 1 on both, so an existing account keeps searching exactly what it searched
+      // yesterday. A person who has never seen this setting has not asked for less.
+      'ALTER TABLE search_settings ADD COLUMN search_netherlands INTEGER NOT NULL DEFAULT 1',
+      'ALTER TABLE search_settings ADD COLUMN search_switzerland INTEGER NOT NULL DEFAULT 1',
+    ],
+  },
+  {
     version: 19,
     name: 'indeed_collection_guard',
     statements: [

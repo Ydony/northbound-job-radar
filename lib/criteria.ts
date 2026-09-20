@@ -10,6 +10,8 @@ export const defaultSearchCriteria: SearchCriteria = {
   contractType: 'any',
   requiredKeywords: [],
   excludedKeywords: [],
+  searchNetherlands: true,
+  searchSwitzerland: true,
   updatedAt: '',
 };
 

@@ -66,6 +66,8 @@ interface CriteriaRow {
   contract_type: SearchCriteria['contractType'];
   required_keywords: string;
   excluded_keywords: string;
+  search_netherlands: number;
+  search_switzerland: number;
   updated_at: string;
 }
 
@@ -198,6 +200,10 @@ export function criteriaFromRow(row: CriteriaRow | null, roleRows: SearchRoleRow
     contractType: row?.contract_type ?? 'any',
     requiredKeywords: stringArray(row?.required_keywords ?? '[]'),
     excludedKeywords: stringArray(row?.excluded_keywords ?? '[]'),
+    // A row written before migration 18 has no value here, and absence is not a request to
+    // search less, so undefined reads as on.
+    searchNetherlands: (row?.search_netherlands ?? 1) !== 0,
+    searchSwitzerland: (row?.search_switzerland ?? 1) !== 0,
     updatedAt: row?.updated_at ?? '',
   };
 }
