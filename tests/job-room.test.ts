@@ -159,3 +159,20 @@ test('a cancelled or withdrawn advertisement is refused', () => {
   assert.equal(advertisementToParsedJob({ ...advertisement, cancellationDate: '2026-09-01' }), null);
   assert.equal(advertisementToParsedJob({ ...advertisement, status: 'CANCELLED' }), null);
 });
+
+test('the end date is kept at collection so expiry needs no further request', () => {
+  // #97: the date was checked to refuse expired imports and then discarded, so a stored
+  // card kept looking current after its window closed. Open advertisements now carry it.
+  const parsed = advertisementToParsedJob({
+    ...advertisement,
+    publication: { startDate: '2026-08-18', endDate: '2026-10-01' },
+  });
+  assert.ok(parsed);
+  assert.equal(parsed.expiresAt, '2026-10-01');
+  const dateless = advertisementToParsedJob({
+    ...advertisement,
+    publication: { startDate: '2026-08-18' },
+  });
+  assert.ok(dateless);
+  assert.equal(dateless.expiresAt, '', 'no published expiry is not an expiry');
+});

@@ -100,6 +100,27 @@ export function formatDate(value: string) {
   return `Posted ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)}`;
 }
 
+/**
+ * Whether the stored advertisement has outlived its publication window (#97).
+ *
+ * Derived on read from the end date kept at collection, never fetched: an advertisement can
+ * expire at any time after it was collected, and re-fetching every stored job to check would
+ * be one request per job against other people's servers. Empty means the source published
+ * no expiry, which is not the same as being expired. The end date is inclusive - the
+ * advertisement is still open on the day it closes - so only a strictly past date counts,
+ * matching isPublicationOpen in lib/job-room.ts.
+ */
+export function isJobExpired(job: Pick<JobRecord, 'expiresAt'>, today = new Date()): boolean {
+  if (!job.expiresAt) return false;
+  return job.expiresAt.slice(0, 10) < today.toISOString().slice(0, 10);
+}
+
+/** Whether the advertisement closes today: still open, but the link may die under it. */
+export function closesToday(job: Pick<JobRecord, 'expiresAt'>, today = new Date()): boolean {
+  if (!job.expiresAt) return false;
+  return job.expiresAt.slice(0, 10) === today.toISOString().slice(0, 10);
+}
+
 // ---------------------------------------------------------------------------
 // One filter surface and a New default view (#46).
 //

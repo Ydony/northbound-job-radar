@@ -436,6 +436,9 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         location: parsed.location,
         description,
         postedAt: parsed.postedAt,
+        // Only Job-Room publishes an end date today; every other adapter leaves it absent,
+        // which stores as '' meaning "no expiry published".
+        expiresAt: parsed.expiresAt ?? '',
         languageStatus: language.status,
         languageSummary: language.summary,
         languageSignals: language.signals,

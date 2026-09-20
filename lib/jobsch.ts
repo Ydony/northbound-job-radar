@@ -13,6 +13,12 @@ export interface ParsedJob {
   location: string;
   descriptionHtml: string;
   postedAt: string;
+  /**
+   * Publication end date (YYYY-MM-DD) when the source publishes one. Only Job-Room sets
+   * this today (#97); every other adapter leaves it absent, which stores as '' meaning
+   * "the source published no expiry", not "expired".
+   */
+  expiresAt?: string;
 }
 
 export interface JobPostingLd {

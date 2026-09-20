@@ -59,6 +59,7 @@ function row(overrides: Record<string, unknown> = {}) {
     application_status: 'not_applied' as const,
     visibility_status: 'active' as const,
     posted_at: '2026-09-01T00:00:00Z',
+    expires_at: '',
     first_seen_at: '2026-09-01T00:00:00Z',
     last_seen_at: '2026-09-01T00:00:00Z',
     created_at: '2026-09-01T00:00:00Z',

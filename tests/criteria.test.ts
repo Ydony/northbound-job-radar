@@ -47,6 +47,7 @@ const job: JobRecord = {
   applicationStatus: 'not_applied',
   visibilityStatus: 'active',
   postedAt: '2026-08-25T00:00:00.000Z',
+  expiresAt: '',
   firstSeenAt: '2026-08-26T00:00:00.000Z',
   lastSeenAt: '2026-08-26T00:00:00.000Z',
   createdAt: '2026-08-26T00:00:00.000Z',

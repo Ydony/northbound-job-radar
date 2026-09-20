@@ -46,7 +46,7 @@ interface JobRoomDescription {
   description?: string;
 }
 
-interface JobRoomAdvertisement {
+export interface JobRoomAdvertisement {
   id?: string;
   /**
    * The publication window, and the reason every stored Job-Room row had no posting date.
@@ -75,6 +75,13 @@ interface JobRoomAdvertisement {
 
 export interface JobRoomParsedJob extends ParsedJob {
   languageSkills: StructuredLanguageSkill[];
+  /**
+   * The publication end date kept at collection (#97). Refusing an expired advertisement
+   * at parse time (#88) is not enough: an open one can close the day after it is stored,
+   * and without this the card keeps looking current until someone clicks through to a
+   * page saying "no longer active".
+   */
+  expiresAt: string;
 }
 
 /** Search highlighting wraps matched terms in <em>; strip it so titles stay clean. */
@@ -124,6 +131,10 @@ export function advertisementToParsedJob(advertisement: JobRoomAdvertisement): J
     location,
     descriptionHtml: body,
     postedAt: advertisement.publication?.startDate ?? '',
+    // Kept, not just checked: isPublicationOpen above refused the closed ones, and the open
+    // ones carry the date their card goes stale by. Costs nothing - it arrived in the same
+    // response - and makes expiry knowable without another request.
+    expiresAt: advertisement.publication?.endDate ?? '',
     languageSkills: content.languageSkills ?? [],
   };
 }
@@ -159,17 +170,31 @@ async function searchPage(term: string, page: number): Promise<JobRoomAdvertisem
  * Same public API, same terms, no key, one GET. Returns null on any failure so a single bad
  * advertisement leaves the preview in place rather than failing the batch.
  */
-export async function fetchJobRoomDetail(id: string): Promise<JobRoomParsedJob | null> {
+/**
+ * Read one raw advertisement.
+ *
+ * Split out from fetchJobRoomDetail so the backfill can see a closed advertisement in the
+ * same single request (#97): the parser refuses those by design, which made a re-fetched
+ * closed row indistinguishable from a network failure and left it retrying forever. Null
+ * still means the request itself failed - a closed advertisement answers 200 with a past
+ * end date, a cancellation, or a non-published status.
+ */
+export async function fetchJobRoomAdvertisement(id: string): Promise<JobRoomAdvertisement | null> {
   try {
     const response = await fetch(`${DETAIL_ENDPOINT}/${encodeURIComponent(id)}`, {
       headers: { accept: 'application/json' },
     });
     if (!response.ok) return null;
     const payload = await response.json() as { jobAdvertisement?: JobRoomAdvertisement } & JobRoomAdvertisement;
-    return advertisementToParsedJob(payload.jobAdvertisement ?? payload);
+    return payload.jobAdvertisement ?? payload;
   } catch {
     return null;
   }
+}
+
+export async function fetchJobRoomDetail(id: string): Promise<JobRoomParsedJob | null> {
+  const advertisement = await fetchJobRoomAdvertisement(id);
+  return advertisement ? advertisementToParsedJob(advertisement) : null;
 }
 
 export function jobRoomIdFromUrl(sourceUrl: string) {

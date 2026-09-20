@@ -15,6 +15,7 @@ interface Overview {
 interface JobRoomBackfillReport {
   eligibleCount: number; attemptedCount: number; fetchedCount: number; updatedCount: number;
   unchangedCount: number; failedCount: number; remainingCount: number;
+  expiredCount?: number;
   verdictChangeCount: number; verdictDirections: Record<string, number>;
 }
 
@@ -178,6 +179,7 @@ export default function AdminPage() {
             <span><b>{backfillReport.updatedCount}</b> updated</span>
             <span><b>{backfillReport.unchangedCount}</b> already complete</span>
             <span><b>{backfillReport.verdictChangeCount}</b> verdicts changed</span>
+            {!!backfillReport.expiredCount && <span><b>{backfillReport.expiredCount}</b> expired</span>}
             <span><b>{backfillReport.failedCount}</b> failed</span>
             <span><b>{backfillReport.remainingCount}</b> remaining</span>
             {Object.entries(backfillReport.verdictDirections).map(([direction, count]) => (
@@ -189,6 +191,7 @@ export default function AdminPage() {
             <span><b>{postedAtReport.fetchedCount}</b> fetched</span>
             <span><b>{postedAtReport.updatedCount}</b> dates filled</span>
             <span><b>{postedAtReport.unchangedCount}</b> no date published</span>
+            {!!postedAtReport.expiredCount && <span><b>{postedAtReport.expiredCount}</b> expired</span>}
             <span><b>{postedAtReport.failedCount}</b> failed</span>
             <span><b>{postedAtReport.remainingCount}</b> remaining</span>
           </div>}

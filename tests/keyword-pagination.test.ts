@@ -147,7 +147,7 @@ async function fixture() {
   const base = runtimeMigrations.find((entry) => entry.version === 7)!.statements[0]
     .replace('CREATE TABLE jobs_rebuilt', 'CREATE TABLE jobs');
   await db.prepare(base).run();
-  for (const version of [13, 14, 16, 17, 20, 21]) {
+  for (const version of [13, 14, 16, 17, 20, 21, 22, 23]) {
     const migration = runtimeMigrations.find((entry) => entry.version === version)!;
     await db.batch(migration.statements.map((sql) => db.prepare(sql)));
   }
@@ -365,6 +365,39 @@ test('upserted jobs carry folded search text that follows later edits', async ()
       .first<{ search_text: string }>();
     assert.ok(!(restored?.search_text ?? '').includes('power bi'), 'edited text must replace the old fold');
     assert.ok((restored?.search_text ?? '').includes('kubernetes'));
+  } finally { await dispose(); }
+});
+
+test('upserted jobs keep the published expiry and never clear one held', async () => {
+  // #97 on real D1: migration 23 must have applied for the write to exist at all, the expiry
+  // must survive the round trip through jobFromRow, and an empty re-import must not clear it.
+  const { db, dispose } = await fixture();
+  try {
+    const input = {
+      sourceUrl: 'https://www.job-room.ch/job-search/expiry-1',
+      title: 'Data Analyst',
+      company: 'Example AG',
+      location: 'Zürich',
+      description: 'English working language, permanent role.',
+      languageStatus: 'pass' as const,
+      languageSummary: 'English sufficient.',
+      languageSignals: [] as string[],
+      fitScoreA: 0,
+      fitScoreB: 0,
+      bestCvSlot: '' as const,
+      matchedKeywords: [] as string[],
+      missingKeywords: [] as string[],
+      postedAt: '2026-09-01',
+      expiresAt: '2026-10-01',
+    };
+    const first = await upsertJob(db, 'alice', input);
+    assert.equal(first.job.expiresAt, '2026-10-01');
+    const stored = await db.prepare('SELECT expires_at FROM jobs WHERE id = ?').bind(first.job.id)
+      .first<{ expires_at: string }>();
+    assert.equal(stored?.expires_at, '2026-10-01');
+    const second = await upsertJob(db, 'alice', { ...input, expiresAt: '' });
+    assert.equal(second.wasKnown, true);
+    assert.equal(second.job.expiresAt, '2026-10-01', 'an empty re-import must not clear a held expiry');
   } finally { await dispose(); }
 });
 
