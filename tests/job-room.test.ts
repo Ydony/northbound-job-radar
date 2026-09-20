@@ -7,7 +7,11 @@ import { sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
 
 const advertisement = {
   id: 'd483da4d-c4dc-4b17-bbf2-15edcf5f0fcd',
-  publicationStartDate: '2026-08-27',
+  // The shape the live API actually returns. The old fixture used a top-level
+  // publicationStartDate, which does not exist, so the parser's optional chain resolved to
+  // undefined against real data while this test stayed green. A fixture that invents the
+  // field it is testing proves nothing.
+  publication: { startDate: '2026-08-27', endDate: '2099-01-01' },
   jobContent: {
     externalUrl: null,
     jobDescriptions: [{ languageIsoCode: 'de', title: '<em>Data</em> Analyst', description: 'Wir suchen eine Person fuer die Datenanalyse.' }],
@@ -93,4 +97,59 @@ test('Job-Room detail limits stay explicit and bounded', () => {
   assert.equal(JOB_ROOM_FULL_TEXT_THRESHOLD, 900);
   assert.equal(JOB_ROOM_DETAIL_DELAY_MS, 400);
   assert.equal(MAX_JOB_ROOM_DETAIL_FETCHES, 120);
+});
+
+/**
+ * The posting date and the expiry, both of which were being dropped (#88).
+ *
+ * Every stored Job-Room row had no posting date - 193 of 193 in the development database, against
+ * 0% missing on every other source - because the parser read `publicationStartDate` at the top
+ * level and the API nests it as `publication.startDate`. A dateless row cannot be told apart from
+ * a fresh one, which is how a four-week-old advertisement arrives looking like today's.
+ */
+test('the posting date is read from where the API actually puts it', () => {
+  const parsed = advertisementToParsedJob({
+    ...advertisement,
+    publication: { startDate: '2026-08-18', endDate: '2099-01-01' },
+  });
+  assert.ok(parsed);
+  assert.equal(parsed.postedAt, '2026-08-18');
+});
+
+test('a top-level publicationStartDate is not where the date lives', () => {
+  // Pinning the mistake itself: the field the old parser read does not exist on the response, so
+  // an advertisement carrying only that must come out dateless rather than silently appearing new.
+  const parsed = advertisementToParsedJob({
+    ...advertisement,
+    publication: undefined,
+    publicationStartDate: '2026-08-18',
+  } as Parameters<typeof advertisementToParsedJob>[0]);
+  assert.ok(parsed);
+  assert.equal(parsed.postedAt, '', 'nothing should be invented from a field the API does not send');
+});
+
+test('an advertisement whose window has closed is not a new job', () => {
+  // These were imported as new and linked to a page reading "This job posting is no longer active".
+  const closed = advertisementToParsedJob({
+    ...advertisement,
+    publication: { startDate: '2026-06-01', endDate: '2026-07-01' },
+  });
+  assert.equal(closed, null);
+});
+
+test('the closing day itself still counts as open', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const parsed = advertisementToParsedJob({ ...advertisement, publication: { startDate: '2026-01-01', endDate: today } });
+  assert.ok(parsed, 'an end date is inclusive - the advertisement is open on the day it closes');
+});
+
+test('no end date means no expiry, not an expired advertisement', () => {
+  const parsed = advertisementToParsedJob({ ...advertisement, publication: { startDate: '2026-08-18' } });
+  assert.ok(parsed);
+  assert.equal(parsed.postedAt, '2026-08-18');
+});
+
+test('a cancelled or withdrawn advertisement is refused', () => {
+  assert.equal(advertisementToParsedJob({ ...advertisement, cancellationDate: '2026-09-01' }), null);
+  assert.equal(advertisementToParsedJob({ ...advertisement, status: 'CANCELLED' }), null);
 });

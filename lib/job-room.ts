@@ -28,7 +28,22 @@ interface JobRoomDescription {
 
 interface JobRoomAdvertisement {
   id?: string;
-  publicationStartDate?: string;
+  /**
+   * The publication window, and the reason every stored Job-Room row had no posting date.
+   *
+   * The parser read `publicationStartDate` at the top level. There is no such field: the live
+   * response nests it as `publication.startDate`, so the optional chain resolved to undefined and
+   * every advertisement was stored dateless - 193 of 193 in the development database, while every
+   * other source was at 0% missing. A dateless row cannot be told apart from a fresh one, which is
+   * how a posting from four weeks ago arrives looking like today's.
+   *
+   * `endDate` is the other half: it is published and was being ignored, so advertisements whose
+   * window had closed were imported as new and linked to a page saying "no longer active".
+   */
+  publication?: { startDate?: string; endDate?: string };
+  /** CANCELLED / REJECTED and the rest; anything but an active status is not worth importing. */
+  status?: string;
+  cancellationDate?: string;
   jobContent?: {
     externalUrl?: string | null;
     jobDescriptions?: JobRoomDescription[];
@@ -53,9 +68,29 @@ function preferredDescription(descriptions: JobRoomDescription[]) {
     ?? descriptions[0];
 }
 
+/**
+ * Whether the advertisement is still open on the day it is read.
+ *
+ * Exported so the rule is testable without a network call. A missing end date means the
+ * advertisement carries no expiry, which is not the same as being expired - those are kept.
+ */
+export function isPublicationOpen(advertisement: JobRoomAdvertisement, today = new Date()): boolean {
+  if (advertisement.cancellationDate) return false;
+  const status = (advertisement.status ?? '').toUpperCase();
+  if (status && status !== 'PUBLISHED_PUBLIC' && status !== 'PUBLISHED_RESTRICTED' && status !== 'ACTIVE') return false;
+  const end = advertisement.publication?.endDate;
+  if (!end) return true;
+  // Date-only strings compare correctly as ISO text, and the end date is inclusive: an
+  // advertisement is still open on the day it closes.
+  return end >= today.toISOString().slice(0, 10);
+}
+
 export function advertisementToParsedJob(advertisement: JobRoomAdvertisement): JobRoomParsedJob | null {
   const content = advertisement.jobContent;
   if (!advertisement.id || !content) return null;
+  // An advertisement that has closed is not a new job. It was being imported as one, and its
+  // link led to a page saying the posting is no longer active.
+  if (!isPublicationOpen(advertisement)) return null;
   const description = preferredDescription(content.jobDescriptions ?? []);
   const title = cleanTitle(description?.title ?? '');
   const body = (description?.description ?? '').trim();
@@ -68,7 +103,7 @@ export function advertisementToParsedJob(advertisement: JobRoomAdvertisement): J
     company: content.company?.name ?? '',
     location,
     descriptionHtml: body,
-    postedAt: advertisement.publicationStartDate ?? '',
+    postedAt: advertisement.publication?.startDate ?? '',
     languageSkills: content.languageSkills ?? [],
   };
 }
