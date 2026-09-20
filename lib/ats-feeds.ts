@@ -540,7 +540,8 @@ export interface BoardFetchOutcome {
  */
 export function isBoardRefusal(outcome: Pick<BoardFetchOutcome, 'status' | 'httpStatus'>) {
   if (outcome.status !== 'http-error' || outcome.httpStatus === undefined) return false;
-  return outcome.httpStatus === 429 || (outcome.httpStatus >= 400 && outcome.httpStatus < 500);
+  // A 429 is a 4xx like any other refusal; it needs no special case beside the range.
+  return outcome.httpStatus >= 400 && outcome.httpStatus < 500;
 }
 
 export function isBoardRetryable(outcome: Pick<BoardFetchOutcome, 'status' | 'httpStatus'>) {
