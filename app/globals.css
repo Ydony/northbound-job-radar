@@ -1,6 +1,12 @@
 @import 'tailwindcss';
 
-:root { --size-tap-min:44px; --ink:#18221c; --green:#164b3b; --paper:#f2f0e8; --cream:#fbfaf6; --line:#d7dcd3; --muted:#657169; --acid:#def36b; --coral:#df6d55; --danger:#a44638; }
+:root {
+  /* One gutter and one maximum width for every full-width band on the page. */
+  --page-gutter: clamp(24px, 7vw, 112px);
+  --page-max: 1200px;
+  /* The reading measure. Body text past about 75 characters loses the eye on every line
+     return, which is why the card summaries at 158 characters read as broken. */
+  --measure: 72ch; --size-tap-min:44px; --ink:#18221c; --green:#164b3b; --paper:#f2f0e8; --cream:#fbfaf6; --line:#d7dcd3; --muted:#657169; --acid:#def36b; --coral:#df6d55; --danger:#a44638; }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
 body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-sans),Arial,sans-serif; }
@@ -9,7 +15,7 @@ button,input,select,textarea { color:inherit; font:inherit; }
 button,a { -webkit-tap-highlight-color:transparent; }
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid rgba(222,243,107,.75); outline-offset:2px; }
 .shell { min-height:100vh; overflow-x:clip; }
-.topbar { align-items:center; backdrop-filter:saturate(1.6) blur(8px); background:rgba(242,240,232,.92); border-bottom:1px solid rgba(24,34,28,.15); display:grid; grid-template-columns:1fr auto 1fr; min-height:80px; padding:0 clamp(24px,6vw,92px); position:sticky; top:0; z-index:50; }
+.topbar { align-items:center; backdrop-filter:saturate(1.6) blur(8px); background:rgba(242,240,232,.92); border-bottom:1px solid rgba(24,34,28,.15); display:grid; grid-template-columns:1fr auto 1fr; min-height:80px; padding-block:0; position:sticky; top:0; z-index:50; }
 /* Anchor links land below the sticky header rather than under it. */
 :target { scroll-margin-top:96px; }
 #jobs, #profile, #pipeline, #criteria, #sources { scroll-margin-top:96px; }
@@ -64,9 +70,9 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .view-toggle.as-user { background:var(--coral); border-color:var(--coral); color:white; }
 
 .criteria-section { align-items:start; background:var(--paper); border-bottom:1px solid var(--line); display:grid; gap:clamp(30px,6vw,80px); grid-template-columns:minmax(240px,.65fr) minmax(560px,1.35fr); padding:46px clamp(24px,7vw,112px); }.criteria-intro h2 { font-family:var(--font-display); font-size:32px; font-weight:420; letter-spacing:-.035em; margin:7px 0 0; }.criteria-intro p { color:var(--muted); font-size:11px; line-height:1.6; max-width:410px; }.criteria-form { display:grid; gap:15px; grid-template-columns:repeat(3,1fr); }.criteria-form .field input,.criteria-form .field select { background:var(--cream); border:1px solid #bfc6bc; min-height:48px; padding:11px 12px; width:100%; }.criteria-form .field select { cursor:pointer; }.criteria-form .keywords { grid-column:span 3; }.criteria-actions { align-items:center; display:flex; flex-wrap:wrap; gap:12px; grid-column:1/-1; }.criteria-actions .search-button { align-self:auto; }.reset-button { background:transparent; border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:10px; font-weight:800; min-height:42px; padding:10px 15px; }.criteria-actions p { color:var(--muted); font-size:10px; margin:0; }
-.workflow { align-items:center; background:#e4e8dc; border-bottom:1px solid var(--line); display:grid; gap:28px; grid-template-columns:1.1fr 1.2fr auto auto; padding:36px clamp(24px,7vw,112px); }.section-label.coral { color:var(--coral); }.workflow-copy p { color:var(--muted); font-size:11px; line-height:1.55; margin:8px 0 0; max-width:440px; }.workflow-steps { display:grid; gap:8px; }.workflow-steps span { align-items:center; color:var(--muted); display:flex; font-size:10px; gap:9px; }.workflow-steps b { align-items:center; border:1px solid #b9c1b7; border-radius:50%; color:var(--ink); display:flex; height:23px; justify-content:center; width:23px; }.jobs-button,.import-button { border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:11px; font-weight:800; padding:12px 15px; white-space:nowrap; }.jobs-button { background:var(--ink); color:white; }.jobs-button span { color:var(--acid); }.jobs-button.disabled { cursor:not-allowed; opacity:.45; }.import-button { background:transparent; }.import-button span { color:var(--coral); }
+.workflow { align-items:center; background:#e4e8dc; border-bottom:1px solid var(--line); display:grid; gap:28px; grid-template-columns:1.1fr 1.2fr auto auto; padding-block:36px; }.workflow .jobs-button { justify-self:start; }.section-label.coral { color:var(--coral); }.workflow-copy p { color:var(--muted); font-size:11px; line-height:1.55; margin:8px 0 0; max-width:440px; }.workflow-steps { display:grid; gap:8px; }.workflow-steps span { align-items:center; color:var(--muted); display:flex; font-size:10px; gap:9px; }.workflow-steps b { align-items:center; border:1px solid #b9c1b7; border-radius:50%; color:var(--ink); display:flex; height:23px; justify-content:center; width:23px; }.jobs-button,.import-button { border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:11px; font-weight:800; padding:12px 15px; white-space:nowrap; }.jobs-button { background:var(--ink); color:white; }.jobs-button span { color:var(--acid); }.jobs-button.disabled { cursor:not-allowed; opacity:.45; }.import-button { background:transparent; }.import-button span { color:var(--coral); }
 .import-panel { background:var(--ink); color:white; padding:44px clamp(24px,9vw,150px) 52px; scroll-margin-top:12px; }.import-heading { align-items:start; display:flex; justify-content:space-between; margin-bottom:28px; }.import-heading>button { background:transparent; border:1px solid #597064; border-radius:50%; color:#c8d5ce; cursor:pointer; font-size:22px; height:36px; line-height:1; width:36px; }.import-panel form { display:grid; gap:18px; grid-template-columns:repeat(3,1fr); }.import-panel .field { color:#9eb3a8; }.import-panel .field input,.import-panel .field textarea { border-color:#4c5e55; color:white; }.import-panel .field input:focus,.import-panel .field textarea:focus { border-color:var(--acid); }.import-panel .wide { grid-column:1/-1; }.import-footer { align-items:center; display:flex; gap:24px; grid-column:1/-1; justify-content:space-between; }.import-footer p { color:#9eb3a8; font-size:11px; margin:0; }.import-footer .primary { background:var(--acid); color:var(--ink); white-space:nowrap; }
-.results { background:var(--cream); min-height:500px; padding:62px clamp(24px,7vw,112px) 100px; }.section-heading { align-items:end; display:flex; justify-content:space-between; margin-bottom:28px; }.status-note { color:var(--muted); font-size:11px; }.result-layout { display:grid; gap:34px; grid-template-columns:190px 1fr; }.filters { display:flex; flex-direction:column; gap:4px; }.filters>b { font-size:10px; margin-bottom:8px; text-transform:uppercase; }.filters button { align-items:center; background:transparent; border:0; border-bottom:1px solid var(--line); color:var(--muted); cursor:pointer; display:flex; font-size:11px; justify-content:space-between; padding:12px 0; text-align:left; }.filters button i { border:1px solid var(--line); border-radius:999px; color:var(--ink); font-style:normal; min-width:28px; padding:4px 7px; text-align:center; }.filters button.active { color:var(--ink); font-weight:800; }.filters button.active i { background:var(--acid); border-color:var(--acid); }
+.results { background:var(--cream); min-height:500px; padding-block:62px 100px; }.section-heading { align-items:end; display:flex; justify-content:space-between; margin-bottom:28px; }.status-note { color:var(--muted); font-size:11px; }.result-layout { display:grid; gap:34px; grid-template-columns:190px 1fr; }.filters { display:flex; flex-direction:column; gap:4px; }.filters>b { font-size:10px; margin-bottom:8px; text-transform:uppercase; }.filters button { align-items:center; background:transparent; border:0; border-bottom:1px solid var(--line); color:var(--muted); cursor:pointer; display:flex; font-size:11px; justify-content:space-between; padding:12px 0; text-align:left; }.filters button i { border:1px solid var(--line); border-radius:999px; color:var(--ink); font-style:normal; min-width:28px; padding:4px 7px; text-align:center; }.filters button.active { color:var(--ink); font-weight:800; }.filters button.active i { background:var(--acid); border-color:var(--acid); }
 .results .section-heading { margin-bottom:18px; }.data-toolbar { align-items:center; background:var(--paper); border:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px; margin-bottom:26px; padding:11px 13px; }.data-toolbar>span { font-size:9px; font-weight:800; margin-right:4px; text-transform:uppercase; }.data-toolbar button { background:var(--cream); border:1px solid #b9c1b7; border-radius:999px; cursor:pointer; font-size:8px; font-weight:750; padding:7px 9px; }.data-toolbar button.danger { border-color:#d4a298; color:var(--danger); }.data-toolbar button:disabled { cursor:not-allowed; opacity:.45; }.data-toolbar p { color:var(--muted); font-size:8px; margin:0 0 0 auto; }
 .job-list { display:grid; gap:12px; }.job-card { align-items:start; background:var(--cream); border:1px solid var(--line); display:grid; gap:22px; grid-template-columns:auto minmax(0,1fr) auto; min-height:178px; padding:20px; position:relative; }.job-card.blocked { border-left:4px solid var(--danger); }.job-card.review { border-left:4px solid #c39139; }.job-card.pass { border-left:4px solid #4f9967; }.job-card.unknown { border-left:4px solid #9aa09a; }.score { align-items:center; background:var(--paper); border-radius:50%; display:flex; flex-direction:column; height:74px; justify-content:center; width:74px; }.score strong { font-family:var(--font-display); font-size:28px; }.score span { color:var(--muted); font-size:8px; text-transform:uppercase; }.job-topline { align-items:center; display:flex; flex-wrap:wrap; gap:9px; justify-content:space-between; }.job-meta { color:var(--coral); font-size:10px; }.language-badge { border-radius:999px; font-size:8px; font-weight:800; letter-spacing:.05em; padding:5px 8px; text-transform:uppercase; }.language-badge.pass { background:#e3eadf; color:var(--green); }.language-badge.review { background:#f2e7cb; color:#805b18; }.language-badge.unknown { background:#e6e6e2; color:#63665f; }.language-badge.blocked { background:#f3ded8; color:var(--danger); }.job-card h3 { font-family:var(--font-display); font-size:24px; font-weight:450; margin:7px 0; }.language-summary { color:var(--muted); font-size:11px; line-height:1.45; margin:0 0 12px; }.tags { display:flex; flex-wrap:wrap; gap:7px; }.tags span { background:#e8ece5; border-radius:999px; color:var(--green); font-size:9px; padding:5px 8px; }.card-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:18px; }.card-actions button { background:transparent; border:0; color:var(--muted); cursor:pointer; font-size:9px; padding:0; }.card-actions button:hover,.card-actions button.selected { color:var(--green); font-weight:800; }.apply-link { align-self:center; border:1px solid var(--ink); border-radius:999px; font-size:10px; font-weight:800; padding:10px 13px; white-space:nowrap; }.status-chip { bottom:10px; color:var(--muted); font-size:8px; position:absolute; right:14px; text-transform:uppercase; }
 .score-column { align-items:center; display:flex; flex-direction:column; gap:9px; }.job-select { align-items:center; color:var(--muted); cursor:pointer; display:flex; font-size:8px; gap:5px; }.job-select input { accent-color:var(--green); height:14px; width:14px; }
@@ -220,7 +226,7 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
    the existing section renders exactly as before. The summary is the tap target, so it keeps the
    44px minimum. */
 .setup-panels { border-bottom:1px solid var(--line); display:grid; gap:0; }
-.setup-panel { border-top:1px solid var(--line); }
+.setup-panel { border-top:1px solid var(--line); }.setup-panel > summary { padding-block:0; }
 .setup-panel > summary { align-items:center; cursor:pointer; display:flex; flex-wrap:wrap; gap:6px 16px; list-style:none; min-height:var(--size-tap-min,44px); padding:12px clamp(24px,7vw,112px); }
 .setup-panel > summary::-webkit-details-marker { display:none; }
 .setup-panel > summary::before { color:var(--muted); content:'\25B8'; display:inline-block; font-size:12px; transition:transform .15s ease; }
@@ -277,3 +283,87 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .card-menu-feedback small { color:var(--muted); font-size:10px; }
 .card-menu .feedback-form { margin-top:2px; }
 @media(max-width:580px){ .apply-pill { flex:1 1 100%; text-align:center; } }
+
+
+/* ---------------------------------------------------------------- page frame
+   Every full-width band shares one gutter and one maximum width, so their content
+   edges line up. Before this the header inset 92px, the workflow and results 112px,
+   and the setup panels nothing at all.
+
+   max(gutter, (100% - max)/2): the gutter wins on a narrow screen and nothing changes;
+   the centring term wins on a wide one, so content stops stretching and sits centred. */
+.topbar,
+.workflow,
+.setup-panel > summary,
+.criteria-section,
+.source-dashboard,
+.results {
+  padding-inline: max(var(--page-gutter), (100% - var(--page-max)) / 2);
+}
+
+/* The reading measure. The card's prose ran to 158 characters at 1440px, which is the
+   single thing that made the page feel unreadable - the eye loses the line on every
+   return. Titles and controls are deliberately not capped: they are scanned, not read. */
+.job-card .job-subline,
+.job-card .language-summary,
+.job-card .job-excerpt,
+.job-card .why-matched,
+.job-card > .job-body > p {
+  max-width: var(--measure);
+}
+
+
+/* --------------------------------------------------------- narrow-width trim
+   Measured at 375px with a full workspace: the first job card sat 1,062px down,
+   1.31 screens, where #44 had it at 0.99. The view tabs and sort control added
+   in #46 are worth their height; the decoration above them is not.
+
+   Nothing structural is removed - the three tiers, the three views and the
+   disclosures all stay. These are the blocks that simply cost more than they
+   say at phone width: a 238px band for a heading, a line and a button, and a
+   106px heading above a list you can already see. */
+@media (max-width: 850px) {
+  .workflow { padding-block: 22px; row-gap: 14px; }
+  .workflow h2 { font-size: 26px; }
+  .workflow-copy p { margin-top: 5px; }
+
+  .section-heading { align-items: flex-start; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+  .section-heading h2 { font-size: 24px; margin-top: 2px; }
+
+  /* Data controls are a rarely-used drawer; on a phone its summary need not be a
+     full-width bordered band ahead of the results. */
+  .data-toolbar > summary { min-height: 36px; }
+  .results { padding-block: 34px 60px; }
+  .setup-panel > summary { min-height: 40px; }
+}
+
+
+/* ------------------------------------------------------ touch targets on the card
+   Measured at 375px: six controls on a job card were under the 44px this stylesheet
+   sets as --size-tap-min and honours elsewhere. The smallest was a 14px checkbox.
+   44px is the size a fingertip actually hits; below it people miss and press the
+   card instead of the control they wanted.
+
+   The controls keep their visual size - a 44px-tall save icon would dominate the
+   card. They get the hit area through padding and a minimum height, so what is
+   pressable matches what is drawn closely enough to be honest. */
+@media (max-width: 850px) {
+  .job-card button,
+  .job-card summary,
+  .job-card .apply-link {
+    min-height: var(--size-tap-min, 44px);
+  }
+
+  /* A bare checkbox cannot grow without changing how it looks, so the label around
+     it carries the hit area instead. */
+  .job-card label {
+    align-items: center;
+    display: inline-flex;
+    gap: 8px;
+    min-height: var(--size-tap-min, 44px);
+  }
+
+  /* The source button is a filter, not a heading - it keeps its type size and gains
+     vertical room only. */
+  .job-card .job-source { padding-block: 9px; }
+}
