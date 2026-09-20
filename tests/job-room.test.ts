@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { analyzeJobLanguage, analyzeStructuredLanguages } from '../lib/analysis';
 import { advertisementToParsedJob, JOB_ROOM_DETAIL_DELAY_MS, JOB_ROOM_FULL_TEXT_THRESHOLD,
-  MAX_JOB_ROOM_DETAIL_FETCHES } from '../lib/job-room';
+  MAX_JOB_ROOM_DETAIL_FETCHES, MAX_PAGES_PER_TERM } from '../lib/job-room';
 import { sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
 
 const advertisement = {
@@ -95,8 +95,14 @@ test('backfill language analysis preserves structured-language precedence', () =
 
 test('Job-Room detail limits stay explicit and bounded', () => {
   assert.equal(JOB_ROOM_FULL_TEXT_THRESHOLD, 900);
+  // The pacing does not move. It is the politeness of the thing, not a throughput setting.
   assert.equal(JOB_ROOM_DETAIL_DELAY_MS, 400);
-  assert.equal(MAX_JOB_ROOM_DETAIL_FETCHES, 120);
+  // Raised from 120 with discovery, because finding more previews without reading more of them
+  // only grows the pile of advertisements too short to judge. At 400ms this is about 80 seconds.
+  assert.equal(MAX_JOB_ROOM_DETAIL_FETCHES, 200);
+  // Raised from 2 on measurement: the API does not return newest-first, so an advertisement
+  // posted yesterday can sit past position 200 and was never discovered at all.
+  assert.equal(MAX_PAGES_PER_TERM, 6);
 });
 
 /**

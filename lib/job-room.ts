@@ -13,12 +13,32 @@ const ONLINE_SINCE_DAYS = 30;
  * real advertisement runs to a few thousand.
  */
 export const JOB_ROOM_FULL_TEXT_THRESHOLD = 900;
-/** Detail requests are one-per-job, so they are capped and paced like every other fetching source. */
-export const MAX_JOB_ROOM_DETAIL_FETCHES = 120;
+/**
+ * Detail requests are one per job, so they are capped and paced like every other fetching
+ * source. Raised from 120 once discovery was widened below: finding more previews without
+ * fetching more of them only grows the pile of advertisements too short to judge, which reads
+ * to the owner as the jobs having gone missing. At the 400ms pacing this is about 80 seconds.
+ */
+export const MAX_JOB_ROOM_DETAIL_FETCHES = 200;
 export const JOB_ROOM_DETAIL_DELAY_MS = 400;
 
-/** Job-Room returns whole advertisements in the search response, so a run costs a few requests instead of one per job. */
-export const MAX_PAGES_PER_TERM = 2;
+/**
+ * How far into a term's results to read.
+ *
+ * Raised from 2 on measurement, not preference. Job-Room does **not** return results
+ * newest-first: a live probe showed page 0 spanning 2026-07-22 to 2026-09-19 and page 1
+ * spanning 2026-07-31 to 2026-09-19 - both a mix across months. So an advertisement posted
+ * yesterday can sit at position 250, and at two pages it was never discovered at all. The
+ * owner's report of missing jobs they would have applied for is that.
+ *
+ * Sorting would have been better than reading further, and is not available: the endpoint
+ * answers HTTP 400 to `sort=publicationStartDate,desc`.
+ *
+ * This costs nothing when there is nothing there. The loop stops at the first short page, and
+ * the API reports a total - 303 for "analyst" at the time of writing - so a term with fewer
+ * results simply ends early. A page takes about half a second.
+ */
+export const MAX_PAGES_PER_TERM = 6;
 
 interface JobRoomDescription {
   languageIsoCode?: string;
@@ -188,8 +208,19 @@ export async function searchJobRoom(
   if (!fullText) return previews;
 
   // Only ads that actually look truncated are worth a second request; some already arrive whole.
+  //
+  // Newest first, because the budget is smaller than the number of previews and something has to
+  // decide which advertisements get a real verdict. It used to be discovery order, which is
+  // effectively arbitrary - the API returns a mix of dates on every page - so the oldest
+  // advertisement was as likely to be read in full as one posted yesterday. An advertisement left
+  // as a preview cannot clear the length threshold, so it lands in "Not enough of the ad"; if that
+  // has to happen to something, it should happen to the ones already too late to apply for.
+  //
+  // postedAt is only populated for these at all since the parser was reading the wrong field
+  // (#88). An empty date sorts last rather than first: unknown is not new.
   const needsDetail = previews
     .filter((job) => job.descriptionHtml.length < JOB_ROOM_FULL_TEXT_THRESHOLD)
+    .sort((a, b) => (b.postedAt || '').localeCompare(a.postedAt || ''))
     .slice(0, maxDetails);
   for (const [index, job] of needsDetail.entries()) {
     if (index > 0) await delay(delayMs);
