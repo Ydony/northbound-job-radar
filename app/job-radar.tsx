@@ -609,6 +609,32 @@ export default function JobRadar() {
     return () => { for (const timer of Object.values(timers)) window.clearTimeout(timer); };
   }, []);
 
+  /**
+   * "Did you apply?" asked once, on return — finding 10.
+   *
+   * The card's purpose is to send you off-site, and the Applied state only fills in if you
+   * remember to tick it afterwards. Clicking an Apply link records the job; the first window
+   * focus after that flashes the card once asking whether you applied. Never a dialog, never
+   * repeated: the entry is deleted whether or not you answer.
+   */
+  const openedApply = useRef(new Map<string, string>());
+  const jobsRef = useRef(state.jobs);
+  jobsRef.current = state.jobs;
+  useEffect(() => {
+    function askOnReturn() {
+      if (!openedApply.current.size) return;
+      for (const [id, title] of openedApply.current) {
+        const job = jobsRef.current.find((entry) => entry.id === id);
+        if (job && job.applicationStatus !== 'applied') {
+          flash(id, `Back from ${title} — tick Applied if you applied.`);
+        }
+        openedApply.current.delete(id);
+      }
+    }
+    window.addEventListener('focus', askOnReturn);
+    return () => window.removeEventListener('focus', askOnReturn);
+  }, []);
+
   function actionMessage(patch: Partial<Pick<JobRecord, 'isSaved' | 'applicationStatus' | 'visibilityStatus'>>) {
     if (patch.visibilityStatus === 'dismissed') return 'Dismissed — moved to Dismissed.';
     if (patch.visibilityStatus === 'active') return 'Restored to the list.';
@@ -1112,69 +1138,117 @@ export default function JobRadar() {
                 correctedStatus: job.correctedLanguageStatus || (job.languageStatus === 'pass' ? 'review' : 'pass'),
                 reason: job.languageFeedbackReason,
               };
+              // Finding 08: in the Matches view every card is English-confirmed by definition,
+              // so the chip restates the view and is hidden there. Anywhere else it stays.
+              const showLanguageChip = !(view === 'matches' && displayedLanguageStatus === 'pass');
+              const { place: jobCity } = normalizePlace(job.location);
+              const sourceDisplayName = job.sourceName || sourceNameForUrl(job.sourceUrl);
+              const applied = job.applicationStatus === 'applied';
               return <article className={`job-card ${displayedLanguageStatus}`} key={job.id}>
-                <div className="score-column"><label className="job-select"><input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /><span>Select</span></label>{CV_MATCHING_ENABLED && <div className="score"><strong>{bestFitScore(job)}</strong><span>CV fit</span></div>}</div>
+                <div className="score-column"><label className="job-select"><input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /><span>Select</span></label></div>
                 <div className="job-body">
-                  <div className="job-topline"><span className="job-meta">{job.company || 'Company not added'} · {job.location}</span><span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span></div>
-                  <h3>{job.title}</h3>
-                  <p className="source-date"><b>{job.sourceName}</b><span>{countryLabel(job.country)}</span><span>{formatDate(job.postedAt)}</span><span className={`work-type ${job.workplaceType}`}>{workplaceLabel(job.workplaceType)}</span></p>
+                  {/* Tier 1 — Read: title first and largest, then one grey line of facts,
+                      then the source as the second-largest thing, acting as a filter. */}
+                  <h3 className="job-title">{job.title}</h3>
+                  <button
+                    type="button"
+                    className="job-source"
+                    onClick={() => setSourceFilter(job.sourceKey)}
+                    title={`Show only jobs from ${sourceDisplayName}`}
+                  >{sourceDisplayName}</button>
+                  <p className="job-subline">{job.company || 'Company not added'} · {jobCity || job.location} · {formatDate(job.postedAt).replace(/^Posted /, '')} · {workplaceLabel(job.workplaceType)} · {countryLabel(job.country)}</p>
                   {/* The copies are kept, not deleted, so the boards they came from stay named -
                       one of them may be the one worth applying through. */}
                   {Boolean(job.duplicateCount) && <p className="duplicate-note">
                     Also posted on {job.duplicateSources?.join(', ')} — {job.duplicateCount} duplicate{job.duplicateCount === 1 ? '' : 's'} hidden
                   </p>}
-                  {/* What the employer asks for, above the language verdict, because "can I do this
-                      job?" is the question that decides whether the ad is worth opening. Labelled by
-                      where it came from: a quotation of the employer's own requirements is not the
-                      same claim as the opening line of the advertisement. */}
-                  {job.excerpt && <p className={`job-excerpt ${job.excerpt.source}`}>
-                    <b>{job.excerpt.source === 'requirements' ? 'Asks for'
-                      : job.excerpt.source === 'asked' ? 'Asks for' : 'The role'}</b>
-                    {job.excerpt.text}
-                  </p>}
+                  {/* Tier 2 — Judge: exactly two chips. The verdict reason stays visible
+                      underneath (the language decision is never shown without its reason);
+                      everything proving the match sits behind the expander. */}
+                  <div className="judge-row">
+                    {showLanguageChip && <span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span>}
+                    <span className="fit-chip" title="Fit against your saved search roles">Fit {bestFitScore(job)}</span>
+                  </div>
                   {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
                   <p className="language-summary">{hasCorrection ? `Detector note: ${job.languageSummary}` : job.languageSummary}</p>
-                  {bothCvsSaved && <p className="fit-breakdown">
-                    {state.profiles.filter((profile) => profile.hasCvText).map((profile) => `${roleForProfile(profile, state.criteria) || slotLabels[profile.slot]}: ${profile.slot === 'a' ? job.fitScoreA : job.fitScoreB}`).join(' · ')}
-                  </p>}
-                  {/* Only where the employer actually stated requirements under a heading. Roughly
-                      a quarter of full-length ads do; the rest show nothing rather than an excerpt
-                      of marketing copy, which would read as an answer without being one. */}
-                  {requirements && <details className="requirements">
-                    <summary>{requirements.heading} <i>{requirements.items.length}</i></summary>
-                    <ul>{requirements.items.map((item) => <li key={item}>{item}</li>)}</ul>
-                  </details>}
-                  {/* Half the catalogue is aggregator teasers of a few hundred characters. Showing
-                      nothing there is indistinguishable from a job with no stated requirements, so
-                      say which it is and point at the page that has them. The threshold is the one
-                      the language gate already uses, so "too short" means one thing in this app. */}
-                  {!requirements && job.descriptionLength < MIN_CHARS_TO_CONFIRM_ENGLISH
-                    && <p className="requirements-elsewhere">
-                      Short listing — {job.sourceName || sourceNameForUrl(job.sourceUrl)} published a
-                      preview rather than the full advertisement. The requirements are on the original page.
+                  <details className="why-matched">
+                    <summary>Why this matched</summary>
+                    {/* What the employer asks for, labelled by where it came from: a quotation
+                        of the employer's own requirements is not the same claim as the opening
+                        line of the advertisement. */}
+                    {job.excerpt && <p className={`job-excerpt ${job.excerpt.source}`}>
+                      <b>{job.excerpt.source === 'requirements' ? 'Asks for'
+                        : job.excerpt.source === 'asked' ? 'Asks for' : 'The role'}</b>
+                      {job.excerpt.text}
                     </p>}
-                  {CV_MATCHING_ENABLED && <div className="tags">{job.matchedKeywords.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}{!job.matchedKeywords.length && <span>No clear CV overlap yet</span>}</div>}
-                  <div className="language-feedback">
-                    <span>Was the language result right?</span>
-                    <button type="button" className={job.languageFeedback === 'correct' ? 'selected' : ''} disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'correct')}>✓ Accurate</button>
-                    <button type="button" className={job.languageFeedback === 'incorrect' ? 'selected' : ''} disabled={feedbackBusy === job.id} onClick={() => openFeedbackCorrection(job)}>Flag wrong</button>
-                    {job.languageFeedback && <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, '')}>Clear</button>}
-                    {feedbackMessages[job.id] && <small aria-live="polite">{feedbackMessages[job.id]}</small>}
-                  </div>
-                  {feedbackOpen[job.id] && <div className="feedback-form">
-                    <label><span>Correct result</span><select value={feedbackDraft.correctedStatus} onChange={(event) => updateFeedbackDraft(job.id, { correctedStatus: event.target.value as LanguageStatus })}><option value="pass">English confirmed</option><option value="unknown">Not enough of the ad</option><option value="review">Needs review</option><option value="blocked">Local language required</option></select></label>
-                    <label><span>Reason (optional)</span><input maxLength={500} value={feedbackDraft.reason} onChange={(event) => updateFeedbackDraft(job.id, { reason: event.target.value })} placeholder="e.g. German is only a plus" /></label>
-                    <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'incorrect', feedbackDraft.correctedStatus, feedbackDraft.reason)}>Save correction</button>
-                  </div>}
-                  <div className="card-actions">
-                    <button type="button" className={job.isSaved ? 'selected' : ''} onClick={() => updateJobState(job.id, { isSaved: !job.isSaved })}>♡ {job.isSaved ? 'Saved' : 'Save'}</button>
-                    <button type="button" className={job.applicationStatus === 'applied' ? 'selected' : ''} onClick={() => updateJobState(job.id, { applicationStatus: 'applied' })}>✓ Applied</button>
-                    <button type="button" className={job.applicationStatus === 'not_applied' ? 'selected' : ''} onClick={() => updateJobState(job.id, { applicationStatus: 'not_applied' })}>○ Not applied</button>
-                    <button type="button" onClick={() => updateJobState(job.id, { visibilityStatus: job.visibilityStatus === 'dismissed' ? 'active' : 'dismissed' })}>{job.visibilityStatus === 'dismissed' ? 'Restore' : 'Dismiss'}</button>
+                    {bothCvsSaved && <p className="fit-breakdown">
+                      {state.profiles.filter((profile) => profile.hasCvText).map((profile) => `${roleForProfile(profile, state.criteria) || slotLabels[profile.slot]}: ${profile.slot === 'a' ? job.fitScoreA : job.fitScoreB}`).join(' · ')}
+                    </p>}
+                    {/* Only where the employer actually stated requirements under a heading. Roughly
+                        a quarter of full-length ads do; the rest show nothing rather than an excerpt
+                        of marketing copy, which would read as an answer without being one. */}
+                    {requirements && <details className="requirements">
+                      <summary>{requirements.heading} <i>{requirements.items.length}</i></summary>
+                      <ul>{requirements.items.map((item) => <li key={item}>{item}</li>)}</ul>
+                    </details>}
+                    {/* Half the catalogue is aggregator teasers of a few hundred characters. Showing
+                        nothing there is indistinguishable from a job with no stated requirements, so
+                        say which it is and point at the page that has them. The threshold is the one
+                        the language gate already uses, so "too short" means one thing in this app. */}
+                    {!requirements && job.descriptionLength < MIN_CHARS_TO_CONFIRM_ENGLISH
+                      && <p className="requirements-elsewhere">
+                        Short listing — {sourceDisplayName} published a
+                        preview rather than the full advertisement. The requirements are on the original page.
+                      </p>}
+                    {CV_MATCHING_ENABLED && <div className="tags">{job.matchedKeywords.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}{!job.matchedKeywords.length && <span>No clear CV overlap yet</span>}</div>}
+                  </details>
+                  {/* Tier 3 — Act: one filled pill naming the destination, an outline save
+                      icon, an applied checkbox, and everything else behind the "…" menu. */}
+                  <div className="act-row">
+                    <a
+                      className="apply-link apply-pill"
+                      href={job.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => { openedApply.current.set(job.id, sourceDisplayName); }}
+                    >Apply on {sourceDisplayName} ↗</a>
+                    <button
+                      type="button"
+                      className={`save-icon ${job.isSaved ? 'selected' : ''}`}
+                      aria-pressed={job.isSaved}
+                      aria-label={job.isSaved ? 'Saved — remove from Pipeline' : 'Save to Pipeline'}
+                      title={job.isSaved ? 'Saved — remove from Pipeline' : 'Save to Pipeline'}
+                      onClick={() => updateJobState(job.id, { isSaved: !job.isSaved })}
+                    >{job.isSaved ? '♥' : '♡'}</button>
+                    <label className="applied-check" title="Tick once you have applied on the job site">
+                      <input
+                        type="checkbox"
+                        checked={applied}
+                        onChange={() => updateJobState(job.id, { applicationStatus: applied ? 'not_applied' : 'applied' })}
+                      />
+                      <span>Applied</span>
+                    </label>
+                    <details className="card-menu">
+                      <summary aria-label="More actions for this job">…</summary>
+                      <div className="card-menu-body">
+                        <button type="button" onClick={() => updateJobState(job.id, { visibilityStatus: job.visibilityStatus === 'dismissed' ? 'active' : 'dismissed' })}>{job.visibilityStatus === 'dismissed' ? 'Restore' : 'Dismiss'}</button>
+                        <div className="card-menu-feedback">
+                          <span>Was the language result right?</span>
+                          <button type="button" className={job.languageFeedback === 'correct' ? 'selected' : ''} disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'correct')}>✓ Accurate</button>
+                          <button type="button" className={job.languageFeedback === 'incorrect' ? 'selected' : ''} disabled={feedbackBusy === job.id} onClick={() => openFeedbackCorrection(job)}>Flag wrong</button>
+                          {job.languageFeedback && <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, '')}>Clear</button>}
+                          {feedbackMessages[job.id] && <small aria-live="polite">{feedbackMessages[job.id]}</small>}
+                        </div>
+                        {feedbackOpen[job.id] && <div className="feedback-form">
+                          <label><span>Correct result</span><select value={feedbackDraft.correctedStatus} onChange={(event) => updateFeedbackDraft(job.id, { correctedStatus: event.target.value as LanguageStatus })}><option value="pass">English confirmed</option><option value="unknown">Not enough of the ad</option><option value="review">Needs review</option><option value="blocked">Local language required</option></select></label>
+                          <label><span>Reason (optional)</span><input maxLength={500} value={feedbackDraft.reason} onChange={(event) => updateFeedbackDraft(job.id, { reason: event.target.value })} placeholder="e.g. German is only a plus" /></label>
+                          <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'incorrect', feedbackDraft.correctedStatus, feedbackDraft.reason)}>Save correction</button>
+                        </div>}
+                      </div>
+                    </details>
                   </div>
                   {jobFlash[job.id] && <p className="card-flash" role="status">{jobFlash[job.id]}</p>}
                 </div>
-                <a className="apply-link" href={job.sourceUrl} target="_blank" rel="noreferrer">Apply on {job.sourceName || sourceNameForUrl(job.sourceUrl)} ↗</a>
                 {statusLabel(job) && <span className="status-chip">{statusLabel(job)}</span>}
               </article>;
             })}
