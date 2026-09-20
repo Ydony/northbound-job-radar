@@ -45,8 +45,6 @@ const schemaStatements = [
     contract_type TEXT NOT NULL DEFAULT 'any',
     required_keywords TEXT NOT NULL DEFAULT '[]',
     excluded_keywords TEXT NOT NULL DEFAULT '[]',
-    search_netherlands INTEGER NOT NULL DEFAULT 1,
-    search_switzerland INTEGER NOT NULL DEFAULT 1,
     updated_at TEXT NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS language_feedback (

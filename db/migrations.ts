@@ -432,4 +432,16 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE INDEX IF NOT EXISTS jobs_structure_version_idx ON jobs(user_id, structure_version)',
     ],
   },
+  {
+    version: 21,
+    name: 'keyword_search_text',
+    statements: [
+      // Accent-folded, lowercased title + location + description, written by the server on every
+      // insert and text-changing update. SQLite LIKE cannot fold accents, so matching 'zurich'
+      // against 'Zürich' in SQL needs the folded text stored, not derived per query. Existing
+      // rows start empty and are backfilled on read; LIKE '%…%' cannot use an index, so none is
+      // created for the text itself.
+      "ALTER TABLE jobs ADD COLUMN search_text TEXT NOT NULL DEFAULT ''",
+    ],
+  },
 ];

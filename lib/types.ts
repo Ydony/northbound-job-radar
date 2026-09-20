@@ -138,7 +138,11 @@ export interface AccountSummary {
 export interface AppState {
   /** Total jobs owned, which may exceed the number returned; see jobLimit. */
   totalJobs?: number;
+  /** Jobs the saved keywords keep, across every page. Counts converge to this as pages load. */
+  matchingJobs?: number;
   jobLimit?: number;
+  /** Keyset cursor for the next page of /api/state, or null/undefined when this page is the end. */
+  nextCursor?: string | null;
   account: AccountSummary | null;
   /** Source keys an ordinary account never sees. Non-empty only for an administrator, who
    *  can see them anyway - it exists so the "view as user" preview hides the same rows the

@@ -1,5 +1,32 @@
 # Handover
 
+## 2026-09-20 third session: keyword filtering moved into SQL, /api/state paginates
+
+Branch `ai/server-side-filtering-20260920-071028-819440`, unmerged. `/api/state` used to
+return the 2000 most recent rows and let the client filter, so the limit was spent on jobs
+the saved keywords exclude while older matching jobs stayed invisible past it. The required
+and excluded keywords now filter in SQL before the limit, against a new accent-folded
+`jobs.search_text` column (migration 21), and the endpoint pages with a keyset cursor
+(`limit` 1-2000, `nextCursor`, `matchingJobs`/`totalJobs` counts). The dashboard loads
+further pages through a "Show more jobs" button. Saved, applied and dismissed rows still
+ride along when the keywords exclude them, so Pipeline and Dismissed keep showing what the
+person did. `NORMALIZATION_VERSION` is unchanged; pre-migration rows are backfilled on read
+without rescreening or reclustering.
+
+Found while exercising on a fresh database: **no fresh checkout could boot past migration
+18** - the base schema already carried `search_netherlands`/`search_switzerland`, so the
+migration's re-ADD failed with "duplicate column name" and every request 500'd. Existing
+databases never noticed (their tables predate the columns). Fixed by removing the two
+columns from the base in `db/runtime.ts`; `tests/migrations.test.ts` now asserts no base
+column duplicates a later ALTER.
+
+Verification: 265/265 tests (7 new in `tests/keyword-pagination.test.ts` proving the SQL
+filter agrees with `matchesSearchCriteria`, including accents and LIKE metacharacters),
+lint, typecheck, build, and a live exercise of register/criteria/import/filtered paging/
+ride-along/400s against isolated dev (:3020) and built test (:3001) servers, each on a
+fresh database. Not done: no signed-in browser check of the new button, and workspaces
+past 2000 rows were exercised with small limits rather than real volume.
+
 ## 2026-09-20 second session: Indeed merged, the gate corrected, the worker hang found
 
 Master is green: lint, typecheck, **257/257**, build, and `npm run verify:dev` end to end.

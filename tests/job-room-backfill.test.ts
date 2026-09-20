@@ -42,7 +42,7 @@ class FakeStatement {
   }
 
   async all<T>() {
-    if (this.sql.includes('SELECT id, source_url, title, description, language_status FROM jobs')) {
+    if (this.sql.includes('SELECT id, source_url, title, location, description, language_status FROM jobs')) {
       const [userId, threshold, version, limit] = this.bindings as [string, number, number, number];
       return {
         results: this.database.eligible(userId, threshold, version)
@@ -67,10 +67,11 @@ class FakeStatement {
     if (this.sql.includes('UPDATE jobs SET description = ?')) {
       const description = this.bindings[0] as string;
       const languageStatus = this.bindings[1] as FakeJob['language_status'];
-      const version = this.bindings[11] as number;
-      const updatedAt = this.bindings[12] as string;
-      const id = this.bindings[13] as string;
-      const userId = this.bindings[14] as string;
+      // search_text rides along after missing_keywords, ahead of the versions.
+      const version = this.bindings[12] as number;
+      const updatedAt = this.bindings[13] as string;
+      const id = this.bindings[14] as string;
+      const userId = this.bindings[15] as string;
       const row = this.database.jobs.find((job) => job.id === id && job.user_id === userId);
       if (!row) return { meta: { changes: 0 } };
       row.description = description;

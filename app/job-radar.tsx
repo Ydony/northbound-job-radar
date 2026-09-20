@@ -248,6 +248,37 @@ export default function JobRadar() {
 
   useEffect(() => { void loadWorkspace(); }, [loadWorkspace]);
 
+  // Older pages beyond the first. The server filters by the saved keywords before paging, so
+  // the limit is spent on jobs the criteria keep; this walks the rest. Appended rows are
+  // deduplicated by id because a re-seen job can move ahead of the cursor between two loads.
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState('');
+
+  async function loadMoreJobs() {
+    const cursor = state.nextCursor;
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadMoreError('');
+    try {
+      const next = await responseJson<AppState>(await fetch(`/api/state?cursor=${encodeURIComponent(cursor)}`));
+      setState((current) => {
+        const known = new Set(current.jobs.map((job) => job.id));
+        const appended = next.jobs.filter((job) => !known.has(job.id));
+        return {
+          ...current,
+          jobs: [...current.jobs, ...appended],
+          totalJobs: next.totalJobs ?? current.totalJobs,
+          matchingJobs: next.matchingJobs ?? current.matchingJobs,
+          nextCursor: next.nextCursor ?? null,
+        };
+      });
+    } catch (error) {
+      setLoadMoreError(error instanceof Error ? error.message : 'Could not load more jobs.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   const accountIsAdmin = state.account?.role === 'admin';
   /**
    * Preview the app as an ordinary account sees it.
@@ -1033,10 +1064,11 @@ export default function JobRadar() {
 
       <section className="results" id="jobs">
         <div className="section-heading"><div><span className="section-label coral">Your workspace</span><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…'
-          : (state.totalJobs ?? state.jobs.length) > state.jobs.length
-            // Say so rather than quietly showing a subset: the oldest jobs fall off the end.
-            ? `Showing the ${state.jobs.length} most recent of ${state.totalJobs} analyzed`
-            : `${state.jobs.length} analyzed`}</span></div>
+          : state.nextCursor
+            // More pages remain: the server keeps keyword-excluded jobs out of the count, so
+            // this says what is on screen against what matches, not against everything owned.
+            ? `Showing ${state.jobs.length} of ${state.matchingJobs ?? state.jobs.length} matching — more below`
+            : `${state.jobs.length} matching of ${state.totalJobs ?? state.jobs.length} analyzed`}</span></div>
         <div className="data-toolbar">
           <span>{selectedJobIds.length ? `${selectedJobIds.length} selected` : 'Data controls'}</span>
           <button type="button" disabled={!selectedJobIds.length || dataBusy} onClick={() => deleteJobs(selectedJobIds)}>Delete selected</button>
@@ -1171,6 +1203,14 @@ export default function JobRadar() {
                 {statusLabel(job) && <span className="status-chip">{statusLabel(job)}</span>}
               </article>;
             })}
+            {/* Paging beyond the first page. Only rendered while the server says more follow;
+                loading every page up front would bring back the unbounded response this replaces. */}
+            {state.nextCursor && <div className="load-more">
+              <button className="search-button" type="button" disabled={loading || loadingMore} onClick={() => void loadMoreJobs()}>
+                {loadingMore ? 'Loading more jobs…' : `Show more jobs (${state.jobs.length} of ${state.matchingJobs ?? state.jobs.length} matching)`}
+              </button>
+              {loadMoreError && <p className="form-message" role="status">{loadMoreError}</p>}
+            </div>}
           </div>
           {/* The condition EURES reuse rests on: ELA acknowledged as the source, where the
               material is shown. Rendered from the job list actually on screen rather than
