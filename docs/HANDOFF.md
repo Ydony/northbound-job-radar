@@ -12,8 +12,14 @@ inline, because the canvas they came from is a private artifact nobody else can 
 Before calling any of them done:
 
 ```bash
-node scripts/check-design.mjs
+npm run check:design   # token values, the ladder, the 12px floor, three structural changes
+npm run dev            # then, in another terminal:
+npm run check:visual   # a real browser, signed in, measuring both widths
 ```
+
+`check:visual` signs itself in with a throwaway account and seeds one advertisement per verdict,
+so the job card is on screen when it measures. It adds no dependency - Node's WebSocket drives
+the Chrome or Edge already on the machine.
 
 It settles the mechanically checkable half — token values, the 12/14/17/24/32 ladder, the 12px
 floor, and three structural changes — and names the reason behind each value. It cannot judge

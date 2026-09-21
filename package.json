@@ -17,6 +17,8 @@
     "test": "tsx --test tests/**/*.test.ts",
     "typecheck": "tsc --noEmit",
     "verify:dev": "node scripts/verify-dev-workflow.mjs",
+    "check:design": "node scripts/check-design.mjs",
+    "check:visual": "node scripts/check-visual.mjs",
     "backup:test": "node scripts/backup-local.mjs test",
     "backup:dev": "node scripts/backup-local.mjs dev",
     "backup:verify": "node scripts/verify-local-backup.mjs",

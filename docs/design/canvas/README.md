@@ -28,14 +28,23 @@ ladder, the 12px floor, and the three structural changes (no rule under each fil
 box around the card, no bare `1fr` on a text column). It names every failure with the reason
 the value is what it is, and exits non-zero. Drive it to zero.
 
-It cannot check layout, hierarchy or whether the thing looks right, and it does not try. For
-that, open `index.html` beside the running app:
+It cannot check layout, hierarchy or whether the thing looks right. For the layout half:
 
 ```bash
-npm run dev
+npm run dev          # in one terminal
+npm run check:visual  # in another
 ```
 
-then compare at **1400px and 375px**, signed in. This matters more here than on most projects:
+That drives a real browser, **signs itself in**, seeds one advertisement per verdict so the job
+card is actually on screen, and measures both 1400x950 and 390x844: horizontal overflow per
+element, text below 12px, controls under their tap floor, the sizes actually rendered, whether
+every band starts at the same left edge, and how far down the first job sits. It needs no
+password and no credential: it registers a throwaway account against the local server, the same
+way `npm run verify:dev` does, and adds nothing to `package.json` — Node's own WebSocket drives
+whichever Chrome or Edge is already installed.
+
+Neither check can tell you whether a screen looks *right*. For that, open `index.html` beside the
+running app and compare at **1400px and 375px**, signed in. This matters more here than on most projects:
 **nothing tests `app/job-radar.tsx`**. Lint, typecheck, tests and build all pass on a page that
 renders wrongly, so a green gate is not evidence that a screen is correct.
 
