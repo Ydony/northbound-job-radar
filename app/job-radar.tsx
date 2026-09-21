@@ -1258,13 +1258,17 @@ export default function JobRadar() {
               on every card and distinguishes nothing while being the loudest thing in the
               list. It earns its place in the views where seen and unseen actually mix. */}
           <div className={`job-list view-${view}`}>
-            {/* Three primary tabs. Review and too-short ads wait behind one quieter link;
-                dismissed jobs behind an undo note plus their own quiet link. */}
+            {/* The tabs, quiet links and sort share one row at desktop width: the segmented
+                tabs on the left, the quiet links and sort on the right. Below 850px the row
+                stacks with the tabs full width. Review and too-short ads wait behind one
+                quieter link; dismissed jobs behind an undo note plus their own quiet link. */}
+            <div className="results-controls">
             <div className="view-tabs" role="group" aria-label="Views">
               <button type="button" className={view === 'new' ? 'active' : ''} onClick={() => setView('new')} title="Jobs first seen since the last search."><span>New</span><i>{counts.new}</i></button>
               <button type="button" className={view === 'all' ? 'active' : ''} onClick={() => setView('all')} title="English confirmed against the full advertisement."><span>All matches</span><i>{counts.all}</i></button>
               <button type="button" className={view === 'pipeline' ? 'active' : ''} onClick={() => setView('pipeline')}><span>Pipeline</span><i>{counts.pipeline}</i></button>
             </div>
+            <div className="results-side">
             <div className="quiet-links">
               <button type="button" className={view === 'triage' ? 'active' : ''} onClick={() => setView('triage')}>
                 {counts.triage ? `${counts.triage} need a look` : 'Nothing needs a look'}
@@ -1273,10 +1277,16 @@ export default function JobRadar() {
                 {counts.dismissed ? `Dismissed (${counts.dismissed})` : 'Dismissed'}
               </button>
             </div>
+              <label className="sort-control"><span>Sort</span><select
+                value={sortMode}
+                onChange={(event) => setSortMode(event.target.value as SortMode)}
+              >{(Object.keys(SORT_MODE_LABELS) as SortMode[]).map((mode) => <option value={mode} key={mode}>{SORT_MODE_LABELS[mode]}</option>)}</select></label>
+            </div>
+            </div>
             {/* One filter surface: every active constraint as a removable pill, saved
                 keywords first. "Clear all" appears once there is more than one. */}
-            <div className="list-toolbar">
-              {pills.length > 0 && <div className="pills" aria-label="Active filters">
+            {pills.length > 0 && <div className="list-toolbar">
+              <div className="pills" aria-label="Active filters">
                 {pills.map((pill) => <button
                   key={pill.key}
                   type="button"
@@ -1287,12 +1297,8 @@ export default function JobRadar() {
                     : 'Remove this filter'}
                 ><span>{pill.label}</span><i aria-hidden="true">×</i></button>)}
                 {pills.length > 1 && <button type="button" className="pill-clear" onClick={clearAllFilters}>Clear all</button>}
-              </div>}
-              <label className="sort-control"><span>Sort</span><select
-                value={sortMode}
-                onChange={(event) => setSortMode(event.target.value as SortMode)}
-              >{(Object.keys(SORT_MODE_LABELS) as SortMode[]).map((mode) => <option value={mode} key={mode}>{SORT_MODE_LABELS[mode]}</option>)}</select></label>
-            </div>
+              </div>
+            </div>}
             {undoDismiss && <div className="undo-bar" role="status">
               <span>Dismissed “{undoDismiss.title}”.</span>
               <button type="button" onClick={() => updateJobState(undoDismiss.id, { visibilityStatus: 'active' })}>Undo</button>
