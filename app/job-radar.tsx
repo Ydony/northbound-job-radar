@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import IndeedStatusPanel from './indeed-status';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
-import { defaultSearchCriteria, parseKeywordInput, roleForProfile } from '@/lib/criteria';
+import { defaultSearchCriteria, parseKeywordInput } from '@/lib/criteria';
 import { jobsToCsv, workspaceToJson } from '@/lib/export';
 import { countryLabel } from '@/lib/job-identity';
 import { sourceNameForUrl } from '@/lib/job-sources';
@@ -1311,7 +1311,6 @@ export default function JobRadar() {
               return <div className="empty-state"><span>◎</span><h3>{copy.title}</h3><p>{copy.detail}</p></div>;
             })()}
             {visibleJobs.map((job) => {
-              const bothCvsSaved = CV_MATCHING_ENABLED && state.profiles.filter((profile) => profile.hasCvText).length > 1;
               const displayedLanguageStatus = effectiveLanguageStatus(job);
               const requirements = job.requirements;
               const hasCorrection = job.languageFeedback === 'incorrect' && Boolean(job.correctedLanguageStatus);
@@ -1331,6 +1330,10 @@ export default function JobRadar() {
               // may have applied - but it must not look current when the advertisement is gone.
               const expired = isJobExpired(job);
               const closing = !expired && closesToday(job);
+              // UX-6b: a preview too short to judge carries no stated requirements, which
+              // reads differently from a full advertisement that states none under a
+              // heading the extractor knows - the two must not look alike.
+              const isPreview = !requirements && job.descriptionLength < MIN_CHARS_TO_CONFIRM_ENGLISH;
               // The unseen accent edge is #46's; the verdict's own edge is untouched by it.
               return <article className={`job-card ${displayedLanguageStatus}${openedJobs.has(job.id) ? '' : ' is-unseen'}`} key={job.id}>
                 <div className="score-column"><label className="job-select"><input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /><span>Select</span></label></div>
@@ -1357,14 +1360,8 @@ export default function JobRadar() {
                     job.workplaceType === 'unknown' ? '' : workplaceLabel(job.workplaceType),
                     countryLabel(job.country),
                   ].filter(Boolean).join(' · ')}</p>
-                  {/* The copies are kept, not deleted, so the boards they came from stay named -
-                      one of them may be the one worth applying through. */}
-                  {Boolean(job.duplicateCount) && <p className="duplicate-note">
-                    Also posted on {job.duplicateSources?.join(', ')} — {job.duplicateCount} duplicate{job.duplicateCount === 1 ? '' : 's'} hidden
-                  </p>}
-                  {/* Tier 2 — Judge: exactly two chips. The verdict reason stays visible
-                      underneath (the language decision is never shown without its reason);
-                      everything proving the match sits behind the expander. */}
+                  {/* Tier 2 — Judge: the verdict chips. The verdict reason stays visible
+                      underneath (the language decision is never shown without its reason). */}
                   <div className="judge-row">
                     {/* #97: an advertisement can expire after it was collected, and the card
                         kept looking current until the link led to "no longer active". The
@@ -1380,38 +1377,11 @@ export default function JobRadar() {
                     {CV_MATCHING_ENABLED && <span className="fit-chip" title="Fit against your saved search roles">Fit {bestFitScore(job)}</span>}
                   </div>
                   {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
-                  <p className="language-summary">{hasCorrection ? `Detector note: ${job.languageSummary}` : job.languageSummary}</p>
-                  <details className="why-matched">
-                    <summary>Why this matched</summary>
-                    {/* What the employer asks for, labelled by where it came from: a quotation
-                        of the employer's own requirements is not the same claim as the opening
-                        line of the advertisement. */}
-                    {job.excerpt && <p className={`job-excerpt ${job.excerpt.source}`}>
-                      <b>{job.excerpt.source === 'requirements' ? 'Asks for'
-                        : job.excerpt.source === 'asked' ? 'Asks for' : 'The role'}</b>
-                      {job.excerpt.text}
-                    </p>}
-                    {bothCvsSaved && <p className="fit-breakdown">
-                      {state.profiles.filter((profile) => profile.hasCvText).map((profile) => `${roleForProfile(profile, state.criteria) || slotLabels[profile.slot]}: ${profile.slot === 'a' ? job.fitScoreA : job.fitScoreB}`).join(' · ')}
-                    </p>}
-                    {/* Only where the employer actually stated requirements under a heading. Roughly
-                        a quarter of full-length ads do; the rest show nothing rather than an excerpt
-                        of marketing copy, which would read as an answer without being one. */}
-                    {requirements && <details className="requirements">
-                      <summary>{requirements.heading} <i>{requirements.items.length}</i></summary>
-                      <ul>{requirements.items.map((item) => <li key={item}>{item}</li>)}</ul>
-                    </details>}
-                    {/* Half the catalogue is aggregator teasers of a few hundred characters. Showing
-                        nothing there is indistinguishable from a job with no stated requirements, so
-                        say which it is and point at the page that has them. The threshold is the one
-                        the language gate already uses, so "too short" means one thing in this app. */}
-                    {!requirements && job.descriptionLength < MIN_CHARS_TO_CONFIRM_ENGLISH
-                      && <p className="requirements-elsewhere">
-                        Short listing — {sourceDisplayName} published a
-                        preview rather than the full advertisement. The requirements are on the original page.
-                      </p>}
-                    {CV_MATCHING_ENABLED && <div className="tags">{job.matchedKeywords.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}{!job.matchedKeywords.length && <span>No clear CV overlap yet</span>}</div>}
-                  </details>
+                  {/* UX-6b: on a pass the chip already says English confirmed and a
+                      sentence repeating it adds nothing; on every other verdict the
+                      reason earns its place under the chips. */}
+                  {displayedLanguageStatus !== 'pass' && job.languageSummary
+                    && <p className="language-summary">{hasCorrection ? `Detector note: ${job.languageSummary}` : job.languageSummary}</p>}
                   {/* Tier 3 — Act: one filled pill naming the destination, an outline save
                       icon, an applied checkbox, and everything else behind the "…" menu. */}
                   <div className="act-row">
@@ -1459,6 +1429,17 @@ export default function JobRadar() {
                     </details>
                   </div>
                   {jobFlash[job.id] && <p className="card-flash" role="status">{jobFlash[job.id]}</p>}
+                </div>
+                {/* UX-6b: what the employer asks for holds the right side of the card.
+                    A preview too short to judge says so and points at the original
+                    page; a full advertisement with no stated requirements says that
+                    instead, so the two never look alike. */}
+                <div className="job-requirements">
+                  {requirements
+                    ? <><span>Asks for</span><ul>{requirements.items.map((item) => <li key={item}>{item}</li>)}</ul></>
+                    : isPreview
+                      ? <><span>Requirements not published</span><p>{sourceDisplayName} published a preview rather than the full advertisement. The requirements are on the original page.</p></>
+                      : <><span>Asks for</span><p>Not stated under a clear heading in this advertisement — the full text is on the original page.</p></>}
                 </div>
                 {statusLabel(job) && <span className="status-chip">{statusLabel(job)}</span>}
               </article>;
