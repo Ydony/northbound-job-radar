@@ -80,6 +80,27 @@ export function formatSourceReconciliation(source: Pick<
     + ` + ${duplicates} + ${source.skippedCount} skipped`;
 }
 
+/**
+ * The two live numbers on every search-statistics card (UX-6e).
+ *
+ * Searched is how many advertisements the source returned this run
+ * (`foundCount`); Added is how many survived the filters and were stored
+ * (`importedCount`). Both reset each run. The third cell, Still open, has no
+ * source yet: it needs a per-source count of non-expired jobs, which is
+ * blocked on the owner deciding how a missing end date counts — so the card
+ * lays the cell out and leaves it unpopulated rather than printing a number
+ * that would be wrong.
+ */
+export function sourceRunTotals(sources: Pick<SearchRunSource, 'foundCount' | 'importedCount'>[]): {
+  searched: number;
+  added: number;
+} {
+  return {
+    searched: sources.reduce((sum, source) => sum + source.foundCount, 0),
+    added: sources.reduce((sum, source) => sum + source.importedCount, 0),
+  };
+}
+
 export function bestFitScore(job: JobRecord) {
   return Math.max(job.fitScoreA, job.fitScoreB);
 }
