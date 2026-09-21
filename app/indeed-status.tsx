@@ -26,10 +26,10 @@ export default function IndeedStatusPanel({ search, busy }: { search: () => void
   return <div className="health-panel">
     <div className="health-head"><b>Indeed · local administrator experiment</b>
       <button type="button" onClick={check} disabled={checking}>{checking ? 'Checking…' : 'Check readiness'}</button></div>
-    <p role="status">{error || (status ? labels[status.state] ?? 'Unavailable' : 'Disabled by default. Readiness checks do not contact Indeed.')}
+    <p role="status">{error || (status ? labels[status.state] ?? 'Unavailable' : 'Search directly after local setup. The server checks access and connection configuration automatically.')}
       {status?.retryAfterSeconds ? ` Try again in ${status.retryAfterSeconds} seconds.` : ''}</p>
     {status?.lastSuccess && <p>Last successful connection: {new Date(status.lastSuccess).toLocaleString()}</p>}
-    <p>Searches Amsterdam and Switzerland using the first two role keywords. At most four requests and 100 returned rows in total. Unverified descriptions stay in Needs checking; results and counts appear in the existing list and source report.</p>
-    <button type="button" disabled={busy || !status || !['ready', 'connected'].includes(status.state)} onClick={search}>Search Indeed only</button>
+    <p>Searches the selected countries using the first two role keywords. At most four requests and 100 returned rows in total. Jobs are screened with the shared English-language filter; results and counts appear in the existing list and source report.</p>
+    <button type="button" disabled={busy} onClick={search}>Search Indeed only</button>
   </div>;
 }

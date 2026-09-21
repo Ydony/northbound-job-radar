@@ -1,5 +1,11 @@
 # Ik ben een appel: instructions for coding agents
 
+**2026-09-21 Indeed operator entry point:** read `docs/INDEED_TESTING.md`. For an explicit
+owner-requested search, use `npm run indeed -- search --env test` (or `--env dev`) after
+one-time setup/login. Do not repeat phone research, scrape credentials or run acceptance
+tests before routine collection. The CLI and button use the same authenticated search route,
+storage and controls. Preserve local/admin scope, fixed caps and refusal/cooldown handling.
+
 **2026-09-18 Indeed work ownership:** parent [#63](https://github.com/Ydony/northbound-job-radar/issues/63),
 plan [docs/INDEED_INTEGRATION.md](docs/INDEED_INTEGRATION.md). Codex owns request/auth discovery and
 connection implementation (#64/#65), explicitly assigned by the owner. Other LLMs must claim one

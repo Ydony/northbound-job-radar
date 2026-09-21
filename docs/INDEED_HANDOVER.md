@@ -1,5 +1,35 @@
 # Indeed handover — current as of 2026-09-21
 
+## Current operator module (September 21 follow-up)
+
+The reusable entry point is now `npm run indeed -- search --env test`, or the existing
+dashboard's **Search Indeed only** button. Setup/login are one-time local operations;
+neither transport research nor a readiness click is part of an everyday search. See
+[INDEED_TESTING.md](INDEED_TESTING.md) for setup, exact commands, Node API and recovery.
+
+The CLI delegates to the existing authenticated `/api/scrape` route with `sourceGroup=indeed`.
+It uses the platform's saved criteria, account-scoped storage, screening, deduplication,
+dismissal memory and reports. It is not a second ingestion implementation or database.
+This work is isolated on `ai/indeed-acceptance-followup-20260921-180342-938897` until reviewed
+and promoted. The primary checkout/server is not silently upgraded.
+
+**Correction to the older credential section below:** provenance is known. The private
+acceptance launcher read the explicitly approved JobSpy revision
+`fda080a373e8226f3fd60635323f5da9af9892b1`; it was not an unexplained operator-supplied key.
+The new explicit `setup --approved-jobspy` command reproduces that configuration and saves
+it to the selected ignored local vars file. A routine search never downloads it again.
+This does not establish provider partnership rights, indefinite validity or public-use permission.
+
+Live CLI test against the built Worker: 25 Dutch rows, 12 previously known, 2 new jobs saved
+(one pass, one review), using a persisted app session and no readiness request. The earlier
+integrated test already verified both NL and CH. Fresh dev synthetic-account acceptance
+passed for guessed IDs, ordinary-user denial, demotion, private/public duplicate separation,
+feedback/export visibility, saved/applied/dismissed preservation and reset isolation.
+The developer verifier is separate from the module and must never be a prerequisite to search.
+
+The historical sections below describe the previous checkpoint. In particular, the statements
+that provenance is unknown and `INDEED_TESTING.md` is absent are superseded by this section.
+
 This file replaces `INDEED_WIP_HANDOVER.md` (2026-09-20), four of whose six load-bearing claims had
 become false. It was the first thing anyone picked up the work would read, and it would have
 sent them to fix a closed vulnerability and to set the language normalization baseline four

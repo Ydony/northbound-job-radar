@@ -2,6 +2,11 @@
 
 **An English job-search filter for people who do not speak Dutch.**
 
+**Local administrator Indeed module:** one-click dashboard search, or
+`npm run indeed -- search --env test` after one-time local setup/login.
+See [the Indeed operator guide](docs/INDEED_TESTING.md). The module uses this app's existing
+accounts, criteria, screening, database and job cards; no phone or per-search verification needed.
+
 Ik ben een appel is a local job-search tool for finding Netherlands and Switzerland roles where
 English is sufficient. It combines CV profiles with strict language screening and a simple application
 pipeline while keeping login and applications on the original job site. Accounts, CVs, jobs, and
