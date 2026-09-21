@@ -1250,7 +1250,11 @@ export default function JobRadar() {
                 a filter. The selected one always stays, so choosing it never makes it vanish. */}
             {sourceOptions.length > 1 && <label className="source-filter"><span>Website</span><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="all">All websites — {facets.source.all} job{facets.source.all === 1 ? '' : 's'}</option>{sourceOptions.filter(([key]) => facets.source.get(key) > 0 || key === sourceFilter).map(([key, name]) => <option value={key} key={key}>{name} ({facets.source.get(key)})</option>)}</select></label>}
           </details>
-          <div className="job-list">
+          {/* The view goes on the list so the stylesheet can tell the two cases apart. In
+              "New" every job is unseen by definition - 140 of 140 - so the unseen marker is
+              on every card and distinguishes nothing while being the loudest thing in the
+              list. It earns its place in the views where seen and unseen actually mix. */}
+          <div className={`job-list view-${view}`}>
             {/* Three primary tabs. Review and too-short ads wait behind one quieter link;
                 dismissed jobs behind an undo note plus their own quiet link. */}
             <div className="view-tabs" role="group" aria-label="Views">
@@ -1340,7 +1344,19 @@ export default function JobRadar() {
                     onClick={() => setSourceFilter(job.sourceKey)}
                     title={`Show only jobs from ${sourceDisplayName}`}
                   >{sourceDisplayName}</button>
-                  <p className="job-subline">{job.company || 'Company not added'} · {jobCity || job.location} · {formatDate(job.postedAt).replace(/^Posted /, '')} · {workplaceLabel(job.workplaceType)} · {countryLabel(job.country)}</p>
+                  {/* The densest line on the card used to spend two of its five slots saying
+                      what we do not know - "Company not added", "Work type unknown" - on every
+                      card, and there are a hundred and forty of them. An absent company reads as
+                      absent, and work type has its own filter for the people who care. The
+                      posting date keeps its unavailable form, because on this product a date we
+                      cannot vouch for is a warning, not noise. */}
+                  <p className="job-subline">{[
+                    job.company,
+                    jobCity || job.location,
+                    formatDate(job.postedAt).replace(/^Posted /, ''),
+                    job.workplaceType === 'unknown' ? '' : workplaceLabel(job.workplaceType),
+                    countryLabel(job.country),
+                  ].filter(Boolean).join(' · ')}</p>
                   {/* The copies are kept, not deleted, so the boards they came from stay named -
                       one of them may be the one worth applying through. */}
                   {Boolean(job.duplicateCount) && <p className="duplicate-note">
