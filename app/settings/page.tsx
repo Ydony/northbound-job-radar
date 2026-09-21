@@ -92,6 +92,7 @@ export default function SettingsPage() {
         <form className="settings-card" onSubmit={save}>
           <h2>Email and password</h2>
           <p className="settings-hint">Your current password is required for either change.</p>
+          <div className="settings-fields">
           <label className="field"><span>Email</span>
             <input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} required />
           </label>
@@ -103,7 +104,10 @@ export default function SettingsPage() {
             <input type="password" value={currentPassword} required autoComplete="current-password"
               onChange={(event) => setCurrentPassword(event.target.value)} />
           </label>
-          <button className="search-button" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
+          <div className="settings-save">
+          <button className="ink-submit" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
+          </div>
+          </div>
           <p className="form-message" aria-live="polite">{message}</p>
         </form>
 
@@ -113,13 +117,15 @@ export default function SettingsPage() {
             Removes your account, both CVs and the stored files, every saved job, and all search
             settings. This is immediate and cannot be undone.
           </p>
+          <p className="settings-hint">Your current password above is also required.</p>
+          <div className="settings-delete-row">
           <label className="field"><span>Type DELETE to confirm</span>
             <input value={deleteConfirm} onChange={(event) => setDeleteConfirm(event.target.value)} placeholder="DELETE" />
           </label>
-          <p className="settings-hint">Your current password above is also required.</p>
           <button className="delete-button wide" type="submit" disabled={deleteConfirm !== 'DELETE' || !currentPassword}>
             Delete my account permanently
           </button>
+          </div>
           <p className="form-message" aria-live="polite">{deleteMessage}</p>
         </form>
       </section>

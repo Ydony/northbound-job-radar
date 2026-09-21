@@ -67,6 +67,11 @@ export default async function SourcesPage() {
 
       <section className="policy-principles">
         <h2>How collection is limited</h2>
+        <div className="limit-figures">
+          <div><b>4</b><span>requests per source, per run</span></div>
+          <div><b>400ms</b><span>fixed pause between requests</span></div>
+          <div><b>0</b><span>accounts used to read a page</span></div>
+        </div>
         <ul>{collectionPrinciples.map((line) => <li key={line}>{line}</li>)}</ul>
       </section>
 

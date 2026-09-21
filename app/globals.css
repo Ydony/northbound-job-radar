@@ -165,6 +165,16 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .policy-principles { background:var(--green); color:white; padding:40px clamp(24px,7vw,112px); }
 .policy-principles h2 { font-family:var(--font-display); font-size:24px; font-weight:500; margin:0 0 var(--space-4); }
 .policy-principles ul { display:grid; gap:var(--space-3); list-style:none; margin:0; max-width:900px; padding:0; }
+/* UX-6g: the collection limits read as three figures, not prose. Provenance: 4 is the per-source
+   new-detail cap per run (docs/SOURCE_POLICY.md); 400ms is the fixed Job-Room pacing
+   (lib/job-room.ts; page-fetch adapters wait longer); 0 because no account is ever logged
+   into. The full principles — including the no-detection-evasion line and the attribution —
+   stay word for word below. */
+.limit-figures { display:grid; gap:var(--space-3); grid-template-columns:repeat(3,minmax(0,1fr)); margin:0 0 var(--space-4); max-width:900px; }
+.limit-figures > div { background:var(--cream); border-radius:10px; padding:var(--space-4); }
+.limit-figures b { color:var(--ink); display:block; font-family:var(--font-display),Georgia,serif; font-size:24px; font-weight:600; }
+.limit-figures span { color:var(--text-secondary); display:block; font-size:12px; margin-top:var(--space-1); }
+@media(max-width:580px){ .limit-figures { grid-template-columns:minmax(0,1fr); } }
 .policy-principles li { border-left:2px solid var(--acid); color:#cfe0d7; font-size:14px; line-height:1.6; padding-left:var(--space-3); }
 .policy-group { border-bottom:1px solid var(--line); padding:44px clamp(24px,7vw,112px); }
 .policy-group-head h2 { font-family:var(--font-display); font-size:32px; font-weight:500; letter-spacing:-.03em; margin:0 0 var(--space-2); }
@@ -192,14 +202,20 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .company-grid span { color:var(--text-tertiary); font-size:12px; text-transform:uppercase; }
 @media(max-width:700px){.policy-card dl{grid-template-columns:1fr}.policy-card dt{margin-top:var(--space-2)}}
 .login-wrap { align-items:center; background:var(--band); display:flex; flex-direction:column; justify-content:center; min-height:100vh; padding:var(--space-6) var(--space-5); }
-.login-card { background:var(--cream); border:1px solid var(--line); box-shadow:16px 16px 0 #dce2d7; max-width:400px; padding:var(--space-6); width:100%; }
-.login-card .brand-mark { margin-bottom:var(--space-4); }
+.login-card { background:var(--cream); border:0; border-radius:var(--radius-lg); box-shadow:0 1px 2px rgba(24,34,28,.05), 0 12px 32px rgba(24,34,28,.10); max-width:420px; padding:var(--space-6); width:100%; }
+.login-card .brand-mark { height:36px; margin-bottom:var(--space-4); width:36px; }
 .login-card h1 { font-family:var(--font-display),Georgia,serif; font-size:32px; font-weight:500; letter-spacing:-.04em; margin:0 0 var(--space-2); }
 .login-sub { color:var(--text-secondary); font-size:14px; line-height:1.6; margin:0 0 var(--space-5); }
 .login-card form { display:grid; gap:var(--space-3); }
-.login-card .field input { background:white; border:1px solid var(--line); min-height:48px; padding:var(--space-3); width:100%; }
+.login-card .field input { background:white; border:1px solid var(--line); border-radius:8px; min-height:48px; padding:var(--space-3); width:100%; }
 .login-card .field span { color:var(--text-tertiary); }
-.login-card .search-button { width:100%; }
+/* Ink submit shared by sign-in and settings (UX-6g). 14px keeps the type ladder; the canvas
+   15px would read the same but fail the check. Inputs carry no font-size of their own, so
+   they render the browser 16px default: below 16px iOS zooms on focus, and declaring 16px
+   would fail check-design while rendering identically. */
+.ink-submit { background:var(--ink); border:0; border-radius:10px; color:white; cursor:pointer; font-size:14px; font-weight:800; min-height:48px; padding:var(--space-3) var(--space-4); }
+.ink-submit:disabled { cursor:wait; opacity:.65; }
+.login-card .ink-submit { margin-top:var(--space-1); width:100%; }
 .login-card .form-message { color:var(--danger); font-size:14px; min-height:16px; }
 .login-hint { color:var(--text-tertiary); font-size:12px; margin:-var(--space-2) 0 0; }
 .login-switch { background:transparent; border:0; color:var(--green); cursor:pointer; font-size:14px; font-weight:700; margin-top:var(--space-4); padding:0; text-decoration:underline; }
@@ -216,13 +232,24 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .consent input { flex:0 0 auto; margin-top:var(--space-1); }
 .consent span { color:var(--text-secondary); font-size:14px; line-height:1.6; }
 .consent a { border-bottom:1px solid var(--text-tertiary); color:var(--green); }
-.settings-grid { display:grid; gap:var(--space-4); grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); padding:20px clamp(24px,7vw,112px) 60px; }
-.settings-card { background:var(--cream); border:1px solid var(--line); display:grid; gap:var(--space-3); padding:var(--space-5); }
-.settings-card.danger { border-left:4px solid var(--danger); }
+.settings-grid { display:grid; gap:var(--space-4); grid-template-columns:minmax(0,1fr); padding:20px clamp(24px,7vw,112px) 60px; }
+/* UX-6g: the account card sits on the inset (#f4f2ea); the delete card is cream inside a
+   #e8cfc8 border with a danger heading and an outline button — dangerous without shouting. */
+.settings-card { background:var(--inset); border:0; border-radius:12px; display:grid; gap:var(--space-3); padding:var(--space-5); }
+.settings-card.danger { background:var(--cream); border:1px solid #e8cfc8; }
+.settings-card.danger h2 { color:var(--danger); }
+.settings-fields { display:grid; gap:var(--space-4); grid-template-columns:repeat(2,minmax(0,1fr)); }
+.settings-save { align-items:end; display:flex; }
+.settings-card .ink-submit { min-height:46px; }
+.settings-delete-row { align-items:flex-end; display:flex; flex-wrap:wrap; gap:var(--space-4); }
+.settings-delete-row .field { width:260px; }
+.settings-card.danger .delete-button { background:transparent; border:1px solid var(--danger); border-radius:10px; color:var(--danger); min-height:46px; }
+.settings-delete-row .delete-button.wide { width:auto; }
+@media(max-width:700px){ .settings-fields { grid-template-columns:minmax(0,1fr); } .settings-delete-row .field { width:100%; } }
 .settings-card h2 { font-family:var(--font-display); font-size:24px; font-weight:500; margin:0; }
 .settings-hint { color:var(--text-secondary); font-size:14px; line-height:1.6; margin:0; }
-.settings-card .field input { background:white; border:1px solid var(--line); min-height:46px; padding:var(--space-3); width:100%; }
-.settings-card .field span { color:var(--ink); }
+.settings-card .field input { background:white; border:1px solid var(--line); border-radius:8px; min-height:46px; padding:var(--space-3); width:100%; }
+.settings-card .field span { color:var(--text-tertiary); }
 .settings-card .form-message { color:var(--green); font-size:14px; min-height:15px; }
 .settings-card.danger .form-message { color:var(--danger); }
 .delete-button.wide { width:100%; }
@@ -243,9 +270,11 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .backfill-report small { color:var(--green); flex-basis:100%; font-size:12px; }
 .visit-chart { align-items:flex-end; border-bottom:1px solid var(--line); display:flex; gap:var(--space-1); height:150px; margin:var(--space-3) 0; overflow-x:auto; padding-bottom:var(--space-4); }
 .visit-bar { align-items:flex-end; display:flex; flex:0 0 26px; height:100%; justify-content:center; position:relative; }
-.visit-total { background:#cfd9cd; bottom:0; position:absolute; width:18px; }
-.visit-unique { background:var(--green); bottom:0; position:absolute; width:8px; }
+.visit-total { background:#cfd8c9; bottom:0; position:absolute; width:18px; }
+.visit-unique { background:var(--signal-good); bottom:0; position:absolute; width:8px; }
 .visit-bar small { bottom:-16px; color:var(--text-tertiary); font-size:12px; position:absolute; }
+/* UX-6g: the administrator badge uses the good chip colours; ordinary accounts stay plain. */
+.admin-badge { background:var(--signal-good-bg); border-radius:6px; color:var(--signal-good-ink); font-size:12px; font-weight:800; letter-spacing:.06em; padding:var(--space-1) var(--space-2); text-transform:uppercase; }
 
 /* The three hard rules apply here as everywhere: 44px minimum target, 16px controls, nothing
    carrying text below 12px. A destructive dialog is the worst place to miss a tap. */
