@@ -994,7 +994,7 @@ export default function JobRadar() {
         </div>}
         {!scrapeProgress && !runSummaryDismissed && scrapeMessage && <div className="run-summary" role="status">
           <span>{scrapeMessage}</span>
-          <a href="#sources">Source report</a>
+          <a href="#sources" onClick={() => setStatsOpen(true)}>Source report</a>
           <button type="button" onClick={() => setRunSummaryDismissed(true)} aria-label="Dismiss the run summary">Dismiss</button>
         </div>}
       </header>
@@ -1054,8 +1054,9 @@ export default function JobRadar() {
           #51 put results first by moving these two below every job card. With a real workspace of
           nearly two thousand jobs that is several thousand pixels down, and the owner reported both
           as missing (#53). The audit asked for results first *with setup in a panel*; these are
-          that panel in its simplest form. A single line each while closed, so the job list still
-          starts near the top, and one click to open, with the list never between you and your own
+          that panel in its simplest form. UX-6d: the two triggers are tab buttons in one row, so
+          both closed is a single line and the job list still starts near the top. One click opens
+          a panel attached below its trigger, with the list never between you and your own
           settings. */}
       {loadError && <div className="workspace-load-error" role="alert">
         <p>{loadError}</p>
@@ -1063,27 +1064,46 @@ export default function JobRadar() {
       </div>}
 
       <div className="setup-panels">
-        <details
-          className="setup-panel"
-          id="criteria"
-          open={settingsOpen}
-          onToggle={(event) => setSettingsOpen(event.currentTarget.open)}
-        >
-          <summary>
+        <div className="setup-tabs">
+          <button
+            type="button"
+            className={`setup-tab${settingsOpen ? ' is-open' : ''}`}
+            aria-expanded={settingsOpen}
+            aria-controls="criteria"
+            onClick={() => setSettingsOpen((open) => !open)}
+          >
+            <span className="setup-tab-arrow" aria-hidden="true">{settingsOpen ? '▲' : '▼'}</span>
             <b>Search settings</b>
-            <span>{loadError ? 'Unavailable until the workspace loads'
+            <span className="setup-tab-meta">{loadError ? 'Unavailable until the workspace loads'
               : loading ? 'Loading…'
               : savedRoleKeywords.length ? `Roles: ${savedRoleKeywords.join(' · ')}` : 'No role keywords yet — add one to search'}</span>
-          </summary>
-          <section className="criteria-section">
+          </button>
+          <button
+            type="button"
+            className={`setup-tab${statsOpen ? ' is-open' : ''}`}
+            aria-expanded={statsOpen}
+            aria-controls="sources"
+            onClick={() => setStatsOpen((open) => !open)}
+          >
+            <span className="setup-tab-arrow" aria-hidden="true">{statsOpen ? '▲' : '▼'}</span>
+            <b>Search statistics</b>
+            <span className="setup-tab-meta">{loadError ? 'Unavailable until the workspace loads'
+              : loading ? 'Loading…'
+              : latestRun
+                ? `Latest search: ${latestRun.sources.reduce((sum, source) => sum + source.foundCount, 0)} found · ${latestRun.sources.reduce((sum, source) => sum + source.newCount, 0)} new`
+                : 'No search has run yet'}</span>
+          </button>
+        </div>
+        <section className="criteria-section" id="criteria" hidden={!settingsOpen} aria-label="Search settings">
             <div className="criteria-intro">
               <span className="section-label coral">Search criteria</span>
               <h2>Define what fits</h2>
-              <p>Role keywords are what get searched. Required and excluded keywords then narrow what comes back — an ad must contain every required word, and is dropped if it contains an excluded one.</p>
+              <p>Each search role is sent to every switched-on source, one at a time. What comes back is then narrowed: an advertisement must contain every required keyword, and is dropped if it contains any excluded one.</p>
             </div>
             <form className="criteria-form" onSubmit={saveCriteria}>
               <fieldset className="country-switches">
                 <legend>Countries to search</legend>
+                <div className="country-options">
                 {([['searchNetherlands', 'The Netherlands'], ['searchSwitzerland', 'Switzerland']] as const)
                   .map(([key, label]) => <label className="switch" key={key}>
                     <input
@@ -1093,6 +1113,7 @@ export default function JobRadar() {
                     />
                     <span>{label}</span>
                   </label>)}
+                </div>
                 {/* The UX audit's finding 02: two filtering systems that do not know about each
                     other leave someone unable to tell which one emptied the list. So this says
                     plainly which one it is. */}
@@ -1104,7 +1125,8 @@ export default function JobRadar() {
                     search button stays disabled until you turn one back on.</p>}
               </fieldset>
               <div className="role-keywords">
-                <span>Additional search roles · up to five</span>
+                <span>Search roles · up to five</span>
+                <p className="role-note">Each one is searched separately, so five roles means five times the requests and a longer run.</p>
                 <div>{Array.from({ length: 5 }, (_, index) => <label className="field" key={index}>
                   <span>Role {index + 1}</span>
                   <input value={criteriaDraft.roleKeywords[index] ?? ''} onChange={(event) => {
@@ -1114,27 +1136,12 @@ export default function JobRadar() {
                   }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
                 </label>)}</div>
               </div>
-              <label className="field keywords"><span>Required keywords (all)</span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
-              <label className="field keywords"><span>Exclude if ad contains</span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
+              <label className="field keywords"><span>Required keywords <span className="rule">— an ad must contain all of these</span></span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
+              <label className="field keywords"><span>Exclude if ad contains <span className="rule">— any one drops it</span></span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
               <div className="criteria-actions"><button className="search-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button><button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button><p aria-live="polite">{criteriaMessage || `${criteriaFilteredJobs.length} of ${state.jobs.length} analyzed jobs match the saved criteria.`}</p></div>
             </form>
-          </section>
-        </details>
-        <details
-          className="setup-panel"
-          id="sources"
-          open={statsOpen}
-          onToggle={(event) => setStatsOpen(event.currentTarget.open)}
-        >
-          <summary>
-            <b>Search statistics</b>
-            <span>{loadError ? 'Unavailable until the workspace loads'
-              : loading ? 'Loading…'
-              : latestRun
-                ? `Latest search: ${latestRun.sources.reduce((sum, source) => sum + source.foundCount, 0)} found · ${latestRun.sources.reduce((sum, source) => sum + source.newCount, 0)} new`
-                : 'No search has run yet'}</span>
-          </summary>
-          <section className="source-dashboard">
+        </section>
+        <section className="source-dashboard" id="sources" hidden={!statsOpen} aria-label="Search statistics">
             <div className="source-dashboard-heading">
               <div><span className="section-label coral">Search coverage</span><h2>What every source returned</h2></div>
               <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run a job search to create the first source report.'}</p>
@@ -1179,8 +1186,7 @@ export default function JobRadar() {
                 </div>)}
               </div> : <p className="no-source-data">No jobs yet. Run a search to fill this in.</p>}
             </div>}
-          </section>
-        </details>
+        </section>
       </div>
 
       <section className="results" id="jobs">
@@ -1535,7 +1541,7 @@ export default function JobRadar() {
         </>}
       </dialog>
 
-      <footer><b>Ik ben een appel</b><span>An English job-search filter for people who do not speak Dutch · you apply yourself, always</span><a href="#sources">Source report ↑</a><a href="/sources">Where the jobs come from →</a><a href="/privacy">Privacy</a></footer>
+      <footer><b>Ik ben een appel</b><span>An English job-search filter for people who do not speak Dutch · you apply yourself, always</span><a href="#sources" onClick={() => setStatsOpen(true)}>Source report ↑</a><a href="/sources">Where the jobs come from →</a><a href="/privacy">Privacy</a></footer>
     </main>
   );
 }
