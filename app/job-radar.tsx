@@ -14,9 +14,9 @@ import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
   ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday, criteriaToDraft,
-  DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, formatSourceReconciliation, isJobExpired, jobInView,
+  DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, isJobExpired, jobInView,
   languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
-  sourceRunStatusLabel, statusLabel, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
+  sourceRunStatusLabel, sourceRunTotals, statusLabel, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
   type SortMode } from '@/lib/dashboard';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
@@ -510,6 +510,13 @@ export default function JobRadar() {
     const hidden = new Set(state.adminOnlySources ?? []);
     return { ...run, sources: run.sources.filter((source) => !hidden.has(source.sourceKey)) };
   }, [state.searchRuns, state.adminOnlySources, viewAsUser]);
+  // The two live numbers on the Search statistics tab: what the latest run
+  // returned (Searched) and what survived the filters (Added). Both reset
+  // each run; the third cell, Still open, has no source yet (UX-6e).
+  const latestRunTotals = useMemo(
+    () => sourceRunTotals(latestRun?.sources ?? []),
+    [latestRun],
+  );
 
   async function persistCriteria(draft: CriteriaDraft) {
     return responseJson<{ criteria: SearchCriteria }>(await fetch('/api/criteria', {
@@ -1090,7 +1097,7 @@ export default function JobRadar() {
             <span className="setup-tab-meta">{loadError ? 'Unavailable until the workspace loads'
               : loading ? 'Loading…'
               : latestRun
-                ? `Latest search: ${latestRun.sources.reduce((sum, source) => sum + source.foundCount, 0)} found · ${latestRun.sources.reduce((sum, source) => sum + source.newCount, 0)} new`
+                ? `${latestRunTotals.searched} searched · ${latestRunTotals.added} added`
                 : 'No search has run yet'}</span>
           </button>
         </div>
@@ -1146,23 +1153,31 @@ export default function JobRadar() {
               <div><span className="section-label coral">Search coverage</span><h2>What every source returned</h2></div>
               <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run a job search to create the first source report.'}</p>
             </div>
+            {latestRun && <p className="source-dashboard-explainer"><strong>Searched</strong> and <strong>added</strong> describe
+              this run and reset each time. <strong>Still open</strong> is everything the source has contributed that has
+              not passed its closing date — it carries across searches, rises as jobs are added and falls as they expire.</p>}
             {latestRun && <div className="source-report-grid">
               {[...latestRun.sources]
                 .sort((a, b) => SOURCE_RUN_STATUS_RANK[a.status] - SOURCE_RUN_STATUS_RANK[b.status]
                   || a.sourceName.localeCompare(b.sourceName))
                 .map((source) => <article className={`source-report ${source.status}`} key={source.sourceKey}>
-                <div><span>{countryLabel(source.country)}</span><b>{sourceRunStatusLabel(source.status)}</b></div>
+                <div className="source-top"><span>{countryLabel(source.country)}</span><span className={`source-status ${source.status}`}><i aria-hidden="true" />{sourceRunStatusLabel(source.status)}</span></div>
                 <h3>{source.sourceName}</h3>
-                {/* The headline is the reconciliation, not just two totals: `new` must visibly
-                    account for itself as added + duplicates + skipped, so an excerpt of this line
-                    can never read as jobs lost (#94). The cells behind the expander stay as the
-                    exact diagnostic numbers. */}
-                <p className="source-headline">{source.foundCount} found · {formatSourceReconciliation(source)}</p>
-                <details className="source-counts">
-                  <summary>All counts</summary>
-                  <dl><div><dt>Found</dt><dd>{source.foundCount}</dd></div><div><dt>Known</dt><dd>{source.knownCount}</dd></div><div><dt>New</dt><dd>{source.newCount}</dd></div><div><dt>Added</dt><dd>{source.importedCount}</dd></div><div><dt>Duplicates</dt><dd>{source.duplicateCount}</dd></div><div><dt>Skipped</dt><dd>{source.skippedCount}</dd></div></dl>
-                </details>
-                <p>{source.message}</p>
+                {/* UX-6e: the same three numbers in every card, in this order. Searched and Added
+                    come straight from the run row. Still open has no source yet — it needs a
+                    per-source count of non-expired jobs, blocked on how a missing end date should
+                    count — so the cell is laid out and left unpopulated rather than filled with a
+                    number that would be wrong. Duplicates, known and skipped are diagnostics, not
+                    a status, so they stay off the face entirely. */}
+                <div className="source-cells">
+                  <div><b className={source.foundCount === 0 ? 'is-zero' : ''}>{source.foundCount}</b><span>Searched</span></div>
+                  <div className={source.importedCount > 0 ? 'is-added' : ''}><b className={source.importedCount === 0 ? 'is-zero' : ''}>{source.importedCount}</b><span>Added</span></div>
+                  <div><b className="is-pending" title="Still-open counts are not collected yet — pending the missing-end-date decision.">—</b><span>Still open</span></div>
+                </div>
+                {/* A message line only where there is something to say: a partial run, a
+                    source that was not contacted, a failure. A completed source's static
+                    description is not news about this run, so it stays off the face. */}
+                {source.status !== 'complete' && source.message.trim() && <p className="source-message">{source.message}</p>}
               </article>)}
             </div>}
             {/* Administrator only: it is a tool for judging the sources and the filter, not something

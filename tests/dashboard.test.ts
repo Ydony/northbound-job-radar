@@ -4,7 +4,7 @@ import { defaultSearchCriteria } from '../lib/criteria';
 import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday,
   criteriaToDraft, DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, formatSourceReconciliation,
   isJobExpired, isNewJob, jobInView, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
-  sourceRunStatusLabel, statusLabel, workspaceCountCopy } from '../lib/dashboard';
+  sourceRunStatusLabel, sourceRunTotals, statusLabel, workspaceCountCopy } from '../lib/dashboard';
 import type { JobRecord, SearchCriteria, SearchRun, SourceRunStatus } from '../lib/types';
 import type { LanguageStatus } from '../lib/analysis';
 
@@ -118,6 +118,18 @@ test('formatSourceReconciliation accounts every new listing as an equation', () 
     formatSourceReconciliation({ newCount: 0, importedCount: 0, duplicateCount: 0, skippedCount: 0 }),
     '0 new = 0 added + 0 duplicates + 0 skipped',
   );
+});
+
+test('sourceRunTotals sums the two live card numbers across one run', () => {
+  // UX-6e: Searched is what each source returned (foundCount) and Added is what
+  // survived the filters (importedCount). Diagnostics — known, duplicates,
+  // skipped — never enter these totals.
+  assert.deepEqual(sourceRunTotals([
+    { foundCount: 150, importedCount: 126 },
+    { foundCount: 100, importedCount: 99 },
+    { foundCount: 0, importedCount: 0 },
+  ]), { searched: 250, added: 225 });
+  assert.deepEqual(sourceRunTotals([]), { searched: 0, added: 0 });
 });
 
 test('languageStatusLabel never phrases unknown as a near-miss', () => {
