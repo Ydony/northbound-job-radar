@@ -67,7 +67,7 @@ export default function LoginPage() {
                 </span>
               </label>
             </>}
-            <button className="search-button" type="submit" disabled={busy || (mode === 'register' && !accepted)}>
+            <button className="ink-submit" type="submit" disabled={busy || (mode === 'register' && !accepted)}>
               {busy ? 'Working…' : mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
             <p className="form-message" aria-live="polite">{message}</p>

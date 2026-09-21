@@ -238,6 +238,7 @@ export default function AdminPage() {
                     {' · '}{user.jobCount} jobs · {user.cvCount} CVs
                   </span>
                 </div>
+                {user.role === 'admin' && <span className="admin-badge">Admin</span>}
                 <div className="admin-actions">
                   {user.status === 'active'
                     ? <button type="button" disabled={busy === user.id} onClick={() => act(user.id, 'disable')}>Disable</button>
