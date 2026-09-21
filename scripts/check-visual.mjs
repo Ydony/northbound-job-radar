@@ -163,7 +163,8 @@ try {
     const waiter = pending.get(message.id);
     if (!waiter) return;
     pending.delete(message.id);
-    message.error ? waiter.reject(new Error(message.error.message)) : waiter.resolve(message.result);
+    if (message.error) waiter.reject(new Error(message.error.message));
+    else waiter.resolve(message.result);
   });
   await new Promise((resolve, reject) => {
     socket.addEventListener('open', resolve, { once: true });
