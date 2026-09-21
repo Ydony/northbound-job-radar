@@ -28,9 +28,12 @@ export async function indeedStatus(db: D1Database, config: Configuration): Promi
 
 /** One lease and a maximum of FOUR requests across both countries and all terms. */
 export async function collectIndeed(db: D1Database, config: Configuration,
-  terms: string[], signal?: AbortSignal, fetcher: typeof fetch = fetch): Promise<Record<IndeedCountry, IndeedBatchResult>> {
+  terms: string[], signal?: AbortSignal, fetcher: typeof fetch = fetch,
+  countries: readonly IndeedCountry[] = ['NL', 'CH']): Promise<Record<IndeedCountry, IndeedBatchResult>> {
   const empty = (): IndeedBatchResult => ({ jobs: [], status: 'disabled', message: '', roles: [], retrieved: 0, rejected: 0, duplicates: 0, requests: 0 });
   const results = { NL: empty(), CH: empty() };
+  const selectedCountries = (['NL', 'CH'] as const).filter(country => countries.includes(country));
+  if (!selectedCountries.length) return results;
   const status = await indeedStatus(db, config);
   if (!['ready', 'connected'].includes(status.state)) {
     for (const value of Object.values(results)) {
@@ -54,7 +57,7 @@ export async function collectIndeed(db: D1Database, config: Configuration,
   let stopped = '';
   let requestsMade = 0;
   try {
-    for (const country of ['NL', 'CH'] as const) {
+    for (const country of selectedCountries) {
       const value = results[country];
       value.status = 'complete';
       const seen = new Set<string>();

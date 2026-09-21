@@ -40,8 +40,18 @@ test('Indeed normalization preserves blocks, requirements, country, dates and id
   assert.equal(normalized.postedAt, '');
   assert.match(stripHtml(normalized.descriptionHtml), /\n• SQL experience\n• Dutch is required/);
   assert.equal(languageForIndeed(stripHtml(normalized.descriptionHtml), normalized.title).status, 'blocked');
-  assert.equal(languageForIndeed(stripHtml(description), 'Data Analyst').status, 'unknown');
-  assert.equal(languageForIndeed(stripHtml(description + '<p>Dutch is a plus.</p>'), 'Analyst').status, 'unknown');
+  // An Indeed advertisement reaches the same verdicts as any other source. This used to be
+  // forced to `unknown` whatever it said, so the gate could reject a job on this text but never
+  // accept one, and no Indeed job could reach the matches list.
+  assert.equal(languageForIndeed(stripHtml(description), 'Data Analyst').status, 'pass');
+  assert.equal(languageForIndeed(stripHtml(description + '<p>Dutch is a plus.</p>'), 'Analyst').status, 'review');
+  // Completeness is still withheld where it is genuinely in doubt: the shared gate's two cases,
+  // plus the teaser that ends in a link rather than an ellipsis.
+  assert.equal(languageForIndeed(stripHtml(description + '<p>Read more</p>'), 'Analyst').status, 'unknown');
+  assert.equal(languageForIndeed(stripHtml(description) + '...', 'Analyst').status, 'unknown');
+  assert.equal(languageForIndeed('Short advertisement text.', 'Analyst').status, 'unknown');
+  // "read more" is ordinary copy in the body of an advertisement; only the tail is a truncation.
+  assert.equal(languageForIndeed(stripHtml('<p>Read more about our benefits.</p>' + description), 'Analyst').status, 'pass');
   assert.equal(normalizeIndeed({ ...record, country: 'unknown' }, 'NL'), null);
   assert.equal(normalizeIndeed(record, 'CH'), null);
   assert.equal(normalizeIndeed({ ...record, key: '//evil.test' }, 'NL'), null);
@@ -78,6 +88,59 @@ test('Indeed collection shares four requests across countries, and persists cool
     assert.equal(calls, 4);
     assert.equal(JSON.stringify(result).includes(config.credentials.apiKey), false);
   } finally { await dispose(); }
+});
+
+test('Indeed sends no requests for a country switched off in search criteria', async () => {
+  const { db, dispose } = await fixture();
+  const requested: string[] = [];
+  const fetcher: typeof fetch = async (_url, init) => {
+    requested.push(new Headers(init!.headers).get('indeed-co')!);
+    return Response.json({ data: { jobSearch: { results: [], pageInfo: { nextCursor: null } } } });
+  };
+  try {
+    const none = await collectIndeed(db, config, ['analyst'], undefined, fetcher, []);
+    assert.equal(none.NL.status, 'disabled');
+    assert.equal(requested.length, 0);
+    const result = await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL']);
+    assert.deepEqual(requested, ['NL']);
+    assert.equal(result.NL.status, 'complete');
+    assert.equal(result.CH.status, 'disabled');
+    assert.equal(result.CH.requests, 0);
+    assert.deepEqual(result.CH.roles, []);
+  } finally { await dispose(); }
+});
+
+test('Indeed concurrent callers share a durable lease and cancellation releases it', async () => {
+  const { db, dispose } = await fixture();
+  const controller = new AbortController();
+  let calls = 0;
+  let started!: () => void;
+  const waiting = new Promise<void>(resolve => { started = resolve; });
+  const fetcher: typeof fetch = async (_url, init) => {
+    calls++;
+    started();
+    return new Promise((_resolve, reject) => {
+      init!.signal!.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    });
+  };
+  try {
+    const first = collectIndeed(db, config, ['analyst'], controller.signal, fetcher);
+    await waiting;
+    assert.equal((await indeedStatus(db, config)).state, 'busy');
+    const second = await collectIndeed(db, config, ['analyst'], undefined, fetcher);
+    assert.equal(second.NL.requests, 0);
+    controller.abort();
+    const result = await first;
+    assert.equal(calls, 1);
+    assert.equal(result.NL.status, 'failed');
+    assert.match(result.NL.message, /cancelled/);
+    assert.equal(result.CH.requests, 0);
+    assert.equal((await indeedStatus(db, config)).state, 'cooldown');
+    const row = await db.prepare("SELECT lease_token, lease_until FROM indeed_control WHERE id = 'indeed'")
+      .first<{ lease_token: string; lease_until: number }>();
+    assert.equal(row?.lease_token, '');
+    assert.equal(row?.lease_until, 0);
+  } finally { controller.abort(); await dispose(); }
 });
 
 test('Indeed refusal, malformed challenge and 429 stop both countries durably; default/remote/user gates do not fetch', async () => {

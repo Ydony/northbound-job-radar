@@ -424,7 +424,7 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
 // qualify its noun, a cue no longer carries across ", but" onto the next language, and optional
 // wording trailing a qualifier is seen. Two false passes and two false blocks were corrected, so
 // stored verdicts move in both directions and every row is re-screened.
-export const NORMALIZATION_VERSION = 9;
+export const NORMALIZATION_VERSION = 10;
 
 interface StoredJobForNormalization {
   id: string;
