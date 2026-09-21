@@ -9,7 +9,7 @@
  */
 import { CV_MATCHING_ENABLED } from './features';
 
-export const PRIVACY_UPDATED_ON = '2026-09-20';
+export const PRIVACY_UPDATED_ON = '2026-09-21';
 
 export interface DataItem {
   what: string;
@@ -122,7 +122,7 @@ export const yourRights = [
   },
   {
     right: 'Restriction and objection',
-    how: 'Stop using the search at any time; nothing runs on a schedule and no search happens unless you press a button.',
+    how: 'Stop using the search at any time; nothing runs on a schedule. Searches start only when you press a button or explicitly invoke the local command-line client.',
   },
   {
     right: 'Complaint',
@@ -135,7 +135,7 @@ export const cookieNotice = {
   detail: [
     {
       name: 'ike_session',
-      purpose: 'Keeps you signed in after you log in. It contains only your account id and an expiry, signed so it cannot be altered.',
+      purpose: 'Keeps you signed in after you log in. It contains your account id, session version and an expiry, signed so it cannot be altered. The optional local command-line client saves its own session on this computer, not your password. Its logout command revokes and removes that session.',
       type: 'Strictly necessary',
       expiry: '14 days, or immediately when you sign out.',
     },

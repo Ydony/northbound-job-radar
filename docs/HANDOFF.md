@@ -1,5 +1,19 @@
 # Handover
 
+## 2026-09-21 Indeed-only reusable module
+
+The owner made Indeed collection the sole current priority. `scripts/indeed.mjs` provides
+one-time local setup/login and repeatable search/status/logout; `scripts/indeed-operator.mjs`
+is the importable Node interface. Both the CLI and dashboard use the existing account-scoped
+search API, not a separate database. The Indeed button no longer requires a readiness click.
+Credentials/session files remain ignored; setup preserves the selected environment's other
+settings. Caps, durable cooldown/refusal and admin/loopback gates remain enforced.
+
+Operator instructions and evidence: [INDEED_TESTING.md](INDEED_TESTING.md).
+Latest built-runtime CLI proof: 25 rows retrieved, 12 known, 2 new jobs stored; no preflight,
+phone or credential re-entry. Do not confuse this isolated test instance with promotion into
+the owner's main dev/test servers. This branch still requires review and coordinated promotion.
+
 ## 2026-09-21: the reviewed design, and how to check against it
 
 The interface was reviewed with the owner and redesigned frame by frame. **The agreed design

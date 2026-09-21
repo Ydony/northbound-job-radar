@@ -6,6 +6,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "indeed": "node scripts/indeed.mjs",
     "dev": "node scripts/run-local.mjs dev",
     "test:local": "node scripts/run-local.mjs test",
     "dev:private": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-private.ps1 -Environment dev",

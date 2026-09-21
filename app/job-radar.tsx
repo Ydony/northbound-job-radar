@@ -639,7 +639,7 @@ export default function JobRadar() {
   async function findJobs(mode: 'authorized' | 'all', sourceGroup?: 'indeed') {
     setScrapeBusy(mode);
     setRunSummaryDismissed(true);
-    setScrapeMessage(mode === 'all'
+    setScrapeMessage(sourceGroup === 'indeed' ? 'Searching Indeed in the selected countries…' : mode === 'all'
       ? 'Searching every source, including the page-fetching ones. Keep the VPN connected…'
       : 'Searching every source available without the VPN…');
     try {
@@ -691,7 +691,10 @@ export default function JobRadar() {
         searchRuns: [result.run, ...current.searchRuns.filter((run) => run.id !== result.run.id)].slice(0, 12),
       }));
       const completedSources = result.run.sources.filter((source) => source.status === 'complete' || source.status === 'partial').length;
-      setScrapeMessage(`${completedSources} sources returned a result. ${result.added.length} jobs added, ${result.alreadyKnown} previously known. See the source report below.`);
+      const indeedUnavailable = sourceGroup === 'indeed' && completedSources === 0
+        ? result.run.sources.filter(source => source.status !== 'skipped').map(source => source.message).join(' ')
+        : '';
+      setScrapeMessage(indeedUnavailable || `${completedSources} sources returned a result. ${result.added.length} jobs added, ${result.alreadyKnown} previously known. See the source report below.`);
       setRunSummaryDismissed(false);
     } catch (error) {
       setScrapeMessage(error instanceof Error ? error.message : 'Could not search the configured job sources.');
