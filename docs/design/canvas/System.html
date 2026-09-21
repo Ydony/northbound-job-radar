@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Colour, type and spacing</title>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; font-variant-numeric: tabular-nums; }
+a { color: #134736; } a:hover { color: #18221c; }
+</style>
+</helmet>
+<div style="width: 1100px; height: 1000px; box-sizing: border-box; padding: 40px; background: #fbfaf6; display: flex; flex-direction: column; gap: 28px;">
+
+  <div>
+    <h2 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em;">The system, corrected</h2>
+    <p style="margin: 6px 0 0; font-size: 14px; color: #4d574f; max-width: 72ch;">Same warm family, measured properly. Every ratio below is against the cream ground.</p>
+  </div>
+
+  <div>
+    <h3 style="margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660;">Text — three tones, not two</h3>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+      <div style="background: #f4f2ea; border-radius: 10px; padding: 16px;">
+        <div style="font-size: 17px; font-weight: 700; color: #18221c;">Primary #18221c</div>
+        <div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Titles, the one number that matters</div>
+        <div style="margin-top: 10px; font-size: 24px; font-weight: 700; color: #134736;">15.65</div>
+      </div>
+      <div style="background: #f4f2ea; border-radius: 10px; padding: 16px;">
+        <div style="font-size: 17px; font-weight: 700; color: #4d574f;">Secondary #4d574f</div>
+        <div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Body, summaries, labels</div>
+        <div style="margin-top: 10px; font-size: 24px; font-weight: 700; color: #134736;">7.20</div>
+      </div>
+      <div style="background: #f4f2ea; border-radius: 10px; padding: 16px;">
+        <div style="font-size: 17px; font-weight: 700; color: #5d6660;">Tertiary #5d6660</div>
+        <div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Dates, counts, meta</div>
+        <div style="margin-top: 10px; font-size: 24px; font-weight: 700; color: #134736;">5.69</div>
+      </div>
+    </div>
+    <p style="margin: 10px 0 0; font-size: 12px; color: #5d6660;">The old <strong style="color: #18221c;">#657169</strong> measured 4.88 — one tone doing every supporting job, barely over the 4.5 line. That is the washed-out feeling.</p>
+  </div>
+
+  <div>
+    <h3 style="margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660;">Signal — darkened so the edge is actually visible</h3>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+
+      <div style="background: #fbfaf6; border-left: 3px solid #3f7f54; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 16px;">
+        <div style="font-size: 17px; font-weight: 700;">Sage</div>
+        <div style="font-size: 12px; color: #5d6660; margin: 2px 0 12px;">Confirmed good</div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="width: 44px; height: 28px; border-radius: 6px; background: #3f7f54;"></span>
+          <span style="font-size: 12px; color: #4d574f;">#3f7f54 · <strong style="color: #18221c;">4.60</strong><br><span style="color: #5d6660;">was #4f9967 · 3.30</span></span>
+        </div>
+        <span style="display: inline-block; margin-top: 12px; border-radius: 6px; background: #e3eadf; color: #134736; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px;">English confirmed</span>
+      </div>
+
+      <div style="background: #fbfaf6; border-left: 3px solid #c25239; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 16px;">
+        <div style="font-size: 17px; font-weight: 700;">Terracotta</div>
+        <div style="font-size: 12px; color: #5d6660; margin: 2px 0 12px;">Needs you</div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="width: 44px; height: 28px; border-radius: 6px; background: #c25239;"></span>
+          <span style="font-size: 12px; color: #4d574f;">#c25239 · <strong style="color: #18221c;">4.41</strong><br><span style="color: #5d6660;">was #df6d55 · 3.11</span></span>
+        </div>
+        <span style="display: inline-block; margin-top: 12px; border-radius: 6px; background: #f7e3dd; color: #8c3d29; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px;">Needs review</span>
+      </div>
+
+      <div style="background: #fbfaf6; border-left: 3px solid #78817a; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 16px;">
+        <div style="font-size: 17px; font-weight: 700;">Neutral</div>
+        <div style="font-size: 12px; color: #5d6660; margin: 2px 0 12px;">Everything else</div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="width: 44px; height: 28px; border-radius: 6px; background: #78817a;"></span>
+          <span style="font-size: 12px; color: #4d574f;">#78817a · <strong style="color: #18221c;">3.85</strong><br><span style="color: #5d6660;">was #9aa09a · 2.56 ✗</span></span>
+        </div>
+        <span style="display: inline-block; margin-top: 12px; border-radius: 6px; background: #e6e6e2; color: #4d574f; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px;">Not enough of the ad</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 40px;">
+    <div>
+      <h3 style="margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660;">Five sizes, and weight doing the rest</h3>
+      <div style="font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em;">32 · page and section</div>
+      <div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; margin-top: 8px;">24 · job title</div>
+      <div style="font-size: 17px; font-weight: 700; margin-top: 8px;">17 · the loud small thing</div>
+      <div style="font-size: 14px; font-weight: 400; color: #4d574f; margin-top: 8px;">14 · body and summaries</div>
+      <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-top: 8px;">12 · labels, dates, counts</div>
+      <p style="margin: 14px 0 0; font-size: 12px; color: #5d6660; max-width: 60ch;">Four sizes with a 14px floor left body, meta, labels and counts identical — nothing said what mattered. The twelfth rung comes back for labels, and weight plus tone carries the rest.</p>
+    </div>
+    <div>
+      <h3 style="margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660;">Fewer lines, more space</h3>
+      <div style="background: #f4f2ea; border-radius: 10px; padding: 14px; font-size: 14px; color: #4d574f; line-height: 1.5;">The filter column had a rule under every row — seven lines down the page. They are gone; the selected row is a filled pill instead, and the rest is spacing.</div>
+      <div style="background: #f4f2ea; border-radius: 10px; padding: 14px; font-size: 14px; color: #4d574f; line-height: 1.5; margin-top: 10px;">Cards lost their full border. A 3px status edge and a soft shadow separate them, so the only line on a card is the one carrying meaning.</div>
+      <div style="background: #f4f2ea; border-radius: 10px; padding: 14px; font-size: 14px; color: #4d574f; line-height: 1.5; margin-top: 10px;">The 74px score circle is gone. Fit is a small right-aligned figure with a 3px meter, so it informs without outshouting the job title.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

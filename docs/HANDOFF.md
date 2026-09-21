@@ -1,5 +1,31 @@
 # Handover
 
+## 2026-09-21: the reviewed design, and how to check against it
+
+The interface was reviewed with the owner and redesigned frame by frame. **The agreed design
+lives in [`docs/design/canvas/`](design/canvas/) — open `index.html` in a browser.** Thirteen
+frames covering every window, including the phone views and both panels opened.
+
+Work on it is tasks **UX-6a** to **UX-6g** on board #4. Each carries its full specification
+inline, because the canvas they came from is a private artifact nobody else can open.
+
+Before calling any of them done:
+
+```bash
+node scripts/check-design.mjs
+```
+
+It settles the mechanically checkable half — token values, the 12/14/17/24/32 ladder, the 12px
+floor, and three structural changes — and names the reason behind each value. It cannot judge
+layout, so also open `docs/design/canvas/index.html` beside `npm run dev` at 1400px and 375px,
+signed in. **Nothing tests `app/job-radar.tsx`**, so a green gate is not evidence a screen is
+right.
+
+Colour was measured, not chosen: the old `--muted` `#657169` was **4.88** against cream while
+carrying most of the supporting text, and `--signal-neutral` `#9aa09a` was **2.56**, which
+fails. Do not nudge these values without re-measuring.
+
+
 ## 2026-09-20 close-out: CSP on a nonce, filtering in SQL, the dashboard partly tested
 
 Master is green: lint, typecheck, **289/289**, build, and `npm run verify:dev` end to end.

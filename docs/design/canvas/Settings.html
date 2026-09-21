@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; }
+a { color: #134736; } a:hover { color: #18221c; }
+</style>
+</helmet>
+<div style="width: 900px; height: 700px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
+
+  <header style="height: 68px; box-sizing: border-box; padding: 0 56px; display: flex; align-items: center; justify-content: space-between;">
+    <span style="display: inline-flex; align-items: center; gap: 12px;">
+      <span style="width: 32px; height: 32px; border-radius: 10px; background: #18221c; color: #def36b; display: flex; align-items: center; justify-content: center; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600;">I</span>
+      <span style="font-size: 17px; font-weight: 700;">Ik ben een appel</span>
+    </span>
+    <a href="#back" style="font-size: 14px; font-weight: 500; color: #4d574f; min-height: 44px; display: inline-flex; align-items: center;">← Back to the radar</a>
+  </header>
+
+  <section style="box-sizing: border-box; padding: 24px 56px 0;">
+    <h1 style="margin: 0 0 28px; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em;">Settings</h1>
+
+    <div style="background: #f4f2ea; border-radius: 12px; padding: 24px 26px; margin-bottom: 16px;">
+      <h2 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500;">Email and password</h2>
+      <p style="margin: 6px 0 20px; font-size: 14px; color: #4d574f;">Your current password is required for either change.</p>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
+        <label style="display: block;"><span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 6px;">Email</span><input type="email" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 46px; padding: 11px 13px; font-family: 'DM Sans', sans-serif; font-size: 16px;"></label>
+        <label style="display: block;"><span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 6px;">New password <span style="font-weight: 400; letter-spacing: 0; text-transform: none;">— blank to keep</span></span><input type="password" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 46px; padding: 11px 13px; font-family: 'DM Sans', sans-serif; font-size: 16px;"></label>
+        <label style="display: block;"><span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 6px;">Current password</span><input type="password" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 46px; padding: 11px 13px; font-family: 'DM Sans', sans-serif; font-size: 16px;"></label>
+        <div style="display: flex; align-items: flex-end;"><button type="submit" style="background: #18221c; color: #ffffff; border: 0; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 13px 22px; min-height: 46px; cursor: pointer;">Save changes</button></div>
+      </div>
+    </div>
+
+    <div style="background: #fbfaf6; border: 1px solid #e8cfc8; border-radius: 12px; padding: 24px 26px;">
+      <h2 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; color: #a44638;">Delete this account</h2>
+      <p style="margin: 6px 0 18px; font-size: 14px; color: #4d574f;">Your current password above is also required. This cannot be undone.</p>
+      <div style="display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;">
+        <label style="display: block; width: 260px;"><span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 6px;">Type DELETE to confirm</span><input placeholder="DELETE" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 46px; padding: 11px 13px; font-family: 'DM Sans', sans-serif; font-size: 16px;"></label>
+        <button type="button" style="background: #fbfaf6; color: #a44638; border: 1px solid #a44638; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 13px 22px; min-height: 46px; cursor: pointer;">Delete account</button>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>
