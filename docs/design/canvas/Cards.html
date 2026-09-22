@@ -11,85 +11,172 @@
 <style>
 body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; }
 a { color: #134736; } a:hover { color: #18221c; }
+.jc { background: #fbfaf6; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 22px 26px; display: grid; grid-template-columns: auto minmax(0, 0.78fr) minmax(320px, 1fr); gap: 36px; align-items: start; }
+.jc h3 { margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15; }
+.src { background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer; }
+.meta { margin: 0 0 12px; font-size: 12px; color: #5d6660; }
+.chips { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.chip { display: inline-block; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px; }
+.acts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.apply { background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 8px; font-size: 14px; font-weight: 700; padding: 0 20px; height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; text-decoration: none; }
+.icon { width: 44px; height: 44px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.tick { display: inline-flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer; }
+.tick input { width: 15px; height: 15px; margin: 0; accent-color: #134736; }
+.asks { background: #f4f2ea; border-radius: 8px; padding: 18px 20px; }
+.asks .lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 8px; }
+.asks ul { margin: 0 0 14px; padding: 0 20px 0 18px; list-style-position: outside; font-size: 14px; line-height: 1.5; color: #4d574f; }
+.asks .note { margin: 0; padding-right: 20px; font-size: 12px; line-height: 1.45; color: #5d6660; }
+.sel { display: inline-flex; align-items: center; min-height: 24px; margin-top: 6px; cursor: pointer; }
+.sel input { width: 16px; height: 16px; accent-color: #134736; }
+.caption { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
 </style>
 </helmet>
-<div style="width: 880px; height: 840px; box-sizing: border-box; padding: 30px; background: #fbfaf6; display: flex; flex-direction: column; gap: 14px;">
+<div style="width: 1800px; height: 1600px; box-sizing: border-box; padding: 40px 48px 48px; background: #fbfaf6; display: flex; flex-direction: column; gap: 22px;">
 
   <div>
-    <h2 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em;">The job card</h2>
-    <p style="margin: 6px 0 0; font-size: 14px; color: #4d574f;">What the employer asks for holds the right side. Applying stays at the bottom of the job, where you read down to it.</p>
+    <h2 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em;">The job card, in every state</h2>
+    <p style="margin: 8px 0 0; max-width: 72ch; font-size: 14px; line-height: 1.55; color: #4d574f;">One geometry throughout: the select box, then the job, then what the employer asks for holding the right edge. All four action controls are 44px tall and share one baseline &mdash; apply, save, applied, more &mdash; so nothing in the row reads as an afterthought. The left rail carries the language verdict as colour, so the card is legible before the chip is read.</p>
   </div>
 
-  <article style="background: #fbfaf6; border-left: 3px solid #3f7f54; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 16px 20px; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(260px, 1fr); gap: 18px; align-items: start;">
-    <label style="display: inline-flex; align-items: center; min-height: 24px; margin-top: 6px; cursor: pointer;"><input type="checkbox" aria-label="Select this job" style="width: 16px; height: 16px; accent-color: #134736;"></label>
-    <div style="min-width: 0;">
-      <h3 style="margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15;">Senior Business Analyst</h3>
-      <button type="button" style="background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer;">Dyson</button>
-      <p style="margin: 0 0 10px; font-size: 12px; color: #5d6660;">Amstelveen · 15 Sept 2026 · Netherlands</p>
-      <div style="display: flex; gap: 6px; margin-bottom: 16px;"><span style="display: inline-block; border-radius: 6px; background: #e3eadf; color: #134736; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px;">English confirmed</span></div>
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <a href="#apply" style="background: #18221c; color: #ffffff; border-radius: 8px; font-size: 14px; font-weight: 700; padding: 11px 18px; min-height: 44px; display: inline-flex; align-items: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Apply on dyson.com ↗</a>
-        <button type="button" aria-label="Save this job" style="width: 44px; height: 44px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 15px; color: #4d574f; cursor: pointer;">♡</button>
-        <label style="display: inline-flex; align-items: center; gap: 7px; min-height: 44px; font-size: 14px; color: #4d574f; cursor: pointer;"><input type="checkbox" style="width: 16px; height: 16px; accent-color: #134736;"> Applied</label>
-        <button type="button" aria-label="More actions" style="width: 40px; height: 44px; border: 0; border-radius: 8px; background: transparent; font-size: 17px; color: #5d6660; cursor: pointer;">⋯</button>
+  <div>
+    <p class="caption">1 &middot; Definitely English &mdash; the ordinary case</p>
+    <article class="jc" style="border-left: 3px solid #3f7f54;">
+      <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
+      <div style="min-width: 0;">
+        <h3>Supply Chain Quality Specialist</h3>
+        <button type="button" class="src">Job-Room (arbeit.swiss)</button>
+        <p class="meta">Coopers Group AG &middot; Wallis &middot; Switzerland &middot; <span style="color: #8c3d29;">Posting date unavailable</span></p>
+        <div class="chips"><span class="chip" style="background: #e3eadf; color: #134736;">Definitely English</span></div>
+        <div class="acts">
+          <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
+          <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
+          <label class="tick"><input type="checkbox"> Applied</label>
+          <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
+        </div>
       </div>
-    </div>
-    <div style="background: #f4f2ea; border-radius: 8px; padding: 12px 14px; max-height: 80%; overflow-y: auto;">
-      <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 7px;">Asks for</span>
-      <ul style="margin: 0; padding-left: 17px; font-size: 14px; line-height: 1.5; color: #4d574f;">
-        <li>5+ years in commercial or operations analysis</li>
-        <li>Advanced SQL and a BI tool</li>
-        <li>Fluent English; Dutch not required</li>
-      </ul>
-    </div>
-  </article>
+      <div class="asks">
+        <span class="lbl">Asks for</span>
+        <ul>
+          <li>Ability to work independently in a remote setup and drive activities with limited supervision</li>
+          <li>Quality background in a regulated manufacturing environment</li>
+        </ul>
+        <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
+      </div>
+    </article>
+  </div>
 
-  <article style="background: #fbfaf6; border-left: 3px solid #c25239; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 16px 20px; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(260px, 1fr); gap: 18px; align-items: start;">
-    <label style="display: inline-flex; align-items: center; min-height: 24px; margin-top: 6px; cursor: pointer;"><input type="checkbox" aria-label="Select this job" style="width: 16px; height: 16px; accent-color: #134736;"></label>
-    <div style="min-width: 0;">
-      <h3 style="margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15;">Risk &amp; Insurance Senior Analyst</h3>
-      <button type="button" style="background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer;">Job-Room (arbeit.swiss)</button>
-      <p style="margin: 0 0 10px; font-size: 12px; color: #5d6660;">Basel · 17 Sept 2026 · Hybrid · Switzerland</p>
-      <div style="display: flex; gap: 6px; margin-bottom: 10px;">
-        <span style="display: inline-block; border-radius: 6px; background: #f7e3dd; color: #8c3d29; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px;">Needs review</span>
-        <span style="display: inline-block; border-radius: 6px; background: #eceade; color: #4d574f; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px;">Closes today</span>
+  <div>
+    <p class="caption">2 &middot; Maybe English &mdash; the whole ad was read and was still ambiguous</p>
+    <article class="jc" style="border-left: 3px solid #c25239;">
+      <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
+      <div style="min-width: 0;">
+        <h3>Risk &amp; Insurance Senior Analyst</h3>
+        <button type="button" class="src">Job-Room (arbeit.swiss)</button>
+        <p class="meta">Basel &middot; 17 Sept 2026 &middot; Hybrid &middot; Switzerland</p>
+        <div class="chips">
+          <span class="chip" style="background: #f7e3dd; color: #8c3d29;">Maybe English</span>
+          <span class="chip" style="background: #eceade; color: #4d574f;">Closes today</span>
+        </div>
+        <div class="acts">
+          <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
+          <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
+          <label class="tick"><input type="checkbox"> Applied</label>
+          <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
+        </div>
       </div>
-      <p style="margin: 0 0 14px; font-size: 14px; line-height: 1.5; color: #4d574f;">German is described as optional — worth confirming in the advertisement.</p>
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <a href="#apply" style="background: #18221c; color: #ffffff; border-radius: 8px; font-size: 14px; font-weight: 700; padding: 11px 18px; min-height: 44px; display: inline-flex; align-items: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Apply on arbeit.swiss ↗</a>
-        <button type="button" aria-label="Save this job" style="width: 44px; height: 44px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 15px; color: #4d574f; cursor: pointer;">♡</button>
-        <label style="display: inline-flex; align-items: center; gap: 7px; min-height: 44px; font-size: 14px; color: #4d574f; cursor: pointer;"><input type="checkbox" style="width: 16px; height: 16px; accent-color: #134736;"> Applied</label>
-        <button type="button" aria-label="More actions" style="width: 40px; height: 44px; border: 0; border-radius: 8px; background: transparent; font-size: 17px; color: #5d6660; cursor: pointer;">⋯</button>
+      <div class="asks">
+        <span class="lbl">Asks for</span>
+        <ul>
+          <li>Experience in insurance or risk operations</li>
+          <li>Swiss regulatory reporting, ideally FINMA</li>
+          <li><strong style="color: #8c3d29;">German described as an advantage</strong> &mdash; the phrase this verdict turns on</li>
+        </ul>
+        <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
       </div>
-    </div>
-    <div style="background: #f4f2ea; border-radius: 8px; padding: 12px 14px; max-height: 80%; overflow-y: auto;">
-      <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 7px;">Asks for</span>
-      <ul style="margin: 0; padding-left: 17px; font-size: 14px; line-height: 1.5; color: #4d574f;">
-        <li>Experience in insurance or risk operations</li>
-        <li>Swiss regulatory reporting, ideally FINMA</li>
-      </ul>
-    </div>
-  </article>
+    </article>
+  </div>
 
-  <article style="background: #fbfaf6; border-left: 3px solid #78817a; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 16px 20px; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(260px, 1fr); gap: 18px; align-items: start;">
-    <label style="display: inline-flex; align-items: center; min-height: 24px; margin-top: 6px; cursor: pointer;"><input type="checkbox" aria-label="Select this job" style="width: 16px; height: 16px; accent-color: #134736;"></label>
-    <div style="min-width: 0;">
-      <h3 style="margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15;">Marketing Analyst</h3>
-      <button type="button" style="background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer;">EURES Netherlands</button>
-      <p style="margin: 0 0 10px; font-size: 12px; color: #5d6660;">Groot-Amsterdam · 17 Sept 2026 · Netherlands</p>
-      <div style="display: flex; gap: 6px; margin-bottom: 16px;"><span style="display: inline-block; border-radius: 6px; background: #e6e6e2; color: #4d574f; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px;">Not enough of the ad</span></div>
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <a href="#apply" style="background: #18221c; color: #ffffff; border-radius: 8px; font-size: 14px; font-weight: 700; padding: 11px 18px; min-height: 44px; display: inline-flex; align-items: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Apply on ec.europa.eu ↗</a>
-        <button type="button" aria-label="Save this job" style="width: 44px; height: 44px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 15px; color: #4d574f; cursor: pointer;">♡</button>
-        <label style="display: inline-flex; align-items: center; gap: 7px; min-height: 44px; font-size: 14px; color: #4d574f; cursor: pointer;"><input type="checkbox" style="width: 16px; height: 16px; accent-color: #134736;"> Applied</label>
-        <button type="button" aria-label="More actions" style="width: 40px; height: 44px; border: 0; border-radius: 8px; background: transparent; font-size: 17px; color: #5d6660; cursor: pointer;">⋯</button>
+  <div>
+    <p class="caption">3 &middot; Not sure &mdash; the source published a preview only</p>
+    <article class="jc" style="border-left: 3px solid #78817a;">
+      <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
+      <div style="min-width: 0;">
+        <h3>Marketing Analyst</h3>
+        <button type="button" class="src">EURES Netherlands</button>
+        <p class="meta">Groot-Amsterdam &middot; 17 Sept 2026 &middot; Netherlands</p>
+        <div class="chips"><span class="chip" style="background: #e6e6e2; color: #4d574f;">Not sure</span></div>
+        <div class="acts">
+          <a href="#apply" class="apply">Apply on ec.europa.eu &#8599;</a>
+          <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
+          <label class="tick"><input type="checkbox"> Applied</label>
+          <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
+        </div>
       </div>
+      <div class="asks">
+        <span class="lbl">Requirements not published</span>
+        <p style="margin: 0 0 14px; padding-right: 20px; font-size: 14px; line-height: 1.5; color: #4d574f;">EURES published a preview rather than the full advertisement, so there was never enough text to judge the language or to extract what the employer asks for.</p>
+        <p class="note"><a href="#original" style="font-weight: 700;">Original ad &#8599;</a> &mdash; one click usually settles it.</p>
+      </div>
+    </article>
+  </div>
+
+  <div>
+    <p class="caption">4 &middot; Local language required &mdash; never promoted into matches</p>
+    <article class="jc" style="border-left: 3px solid #8c3d29; opacity: 0.72;">
+      <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
+      <div style="min-width: 0;">
+        <h3>Commercieel Analist</h3>
+        <button type="button" class="src">EURES Netherlands</button>
+        <p class="meta">Utrecht &middot; 16 Sept 2026 &middot; Netherlands</p>
+        <div class="chips"><span class="chip" style="background: #f2ded8; color: #8c3d29;">Local language required</span></div>
+        <div class="acts">
+          <a href="#apply" class="apply" style="background: #fbfaf6; color: #4d574f; border-color: #ddd9cc; font-weight: 500;">Open on ec.europa.eu &#8599;</a>
+          <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
+          <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
+        </div>
+      </div>
+      <div class="asks">
+        <span class="lbl">Why it is here and not in your matches</span>
+        <p style="margin: 0; padding-right: 20px; font-size: 14px; line-height: 1.5; color: #4d574f;">The advertisement names Dutch as a requirement, not a preference. It stays reachable under the <strong>Local language required</strong> filter so you can check the call yourself, and it is never counted as a match.</p>
+      </div>
+    </article>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 36px; align-items: start;">
+    <div>
+      <p class="caption">5 &middot; Selected and applied &mdash; the state after you act</p>
+      <article class="jc" style="border-left: 3px solid #3f7f54; background: #f6f7f1; grid-template-columns: auto minmax(0, 1fr);">
+        <label class="sel"><input type="checkbox" aria-label="Select this job" checked></label>
+        <div style="min-width: 0;">
+          <h3>Procurement Analyst</h3>
+          <button type="button" class="src">Job-Room (arbeit.swiss)</button>
+          <p class="meta">Coopers Group AG &middot; Basel &middot; Switzerland</p>
+          <div class="chips">
+            <span class="chip" style="background: #e3eadf; color: #134736;">Definitely English</span>
+            <span class="chip" style="background: #134736; color: #ffffff;">Applied 21 Sept</span>
+          </div>
+          <div class="acts">
+            <a href="#apply" class="apply" style="background: #fbfaf6; color: #4d574f; border-color: #ddd9cc; font-weight: 500;">Reopen on arbeit.swiss &#8599;</a>
+            <button type="button" class="icon" aria-label="Saved" title="Saved" style="border-color: #134736; color: #134736;">&#9829;</button>
+            <label class="tick" style="border-color: #134736; color: #134736; font-weight: 700;"><input type="checkbox" checked> Applied</label>
+            <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
+          </div>
+        </div>
+      </article>
     </div>
-    <div style="background: #f4f2ea; border-radius: 8px; padding: 12px 14px; max-height: 80%; overflow-y: auto;">
-      <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 5px;">Requirements not published</span>
-      <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #4d574f;">EURES published a preview rather than the full advertisement. The requirements are on the original page.</p>
+    <div>
+      <p class="caption">6 &middot; More, opened</p>
+      <div style="background: #ffffff; border: 1px solid #ddd9cc; border-radius: 10px; box-shadow: 0 6px 20px rgba(24,34,28,.12); padding: 6px; width: 340px; box-sizing: border-box;">
+        <button type="button" style="display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 11px 14px; min-height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c; cursor: pointer;">Dismiss this job</button>
+        <button type="button" style="display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 11px 14px; min-height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c; cursor: pointer;">Hide everything from this employer</button>
+        <button type="button" style="display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 11px 14px; min-height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c; cursor: pointer;">Copy the original link</button>
+        <div style="height: 1px; background: #ece9dd; margin: 5px 10px;"></div>
+        <button type="button" style="display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 11px 14px; min-height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #8c3d29; cursor: pointer;">Report a wrong language verdict</button>
+      </div>
+      <p style="margin: 12px 0 0; font-size: 12px; line-height: 1.45; color: #5d6660;">Dismiss is reversible &mdash; the job moves to the Dismissed tab beside New, All and Pipeline, and can be restored from there.</p>
     </div>
-  </article>
+  </div>
+
 </div>
 </x-dc>
 </body>

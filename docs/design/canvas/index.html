@@ -2,74 +2,79 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Ik ben een appel — reviewed design</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The reviewed design</title>
 <style>
-  body { margin: 0; padding: 40px; background: #e8e6de; font-family: system-ui, sans-serif; color: #18221c; }
-  h1 { font-size: 28px; margin: 0 0 8px; }
-  p.lede { margin: 0 0 32px; max-width: 80ch; line-height: 1.55; color: #4d574f; }
-  figure { margin: 0 0 40px; }
-  figcaption { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
-  figcaption span { font-weight: 400; color: #5d6660; }
-  iframe { border: 0; background: #fbfaf6; box-shadow: 0 2px 16px rgba(24,34,28,.12); max-width: 100%; }
+body { margin: 0; padding: 48px 32px; font-family: system-ui, sans-serif; background: #fbfaf6; color: #18221c; }
+main { max-width: 72ch; margin: 0 auto; }
+h1 { font-size: 32px; font-weight: 500; letter-spacing: -0.02em; margin: 0 0 8px; }
+p { font-size: 14px; line-height: 1.55; color: #4d574f; }
+ul { list-style: none; margin: 32px 0 0; padding: 0; }
+li { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 14px 0; border-bottom: 1px solid #e3e5d9; }
+a { color: #134736; font-size: 17px; font-weight: 500; }
+span { font-size: 12px; color: #5d6660; white-space: nowrap; }
 </style>
 </head>
 <body>
+<main>
   <h1>The reviewed design</h1>
-  <p class="lede">Each frame below is the agreed design for one screen, as signed off with the
-  owner. Open this file in a browser and compare it against the running app side by side.
-  These are reference renderings, not the app: they carry no data and nothing here is wired up.
-  The authority for values is the task on the board, which lists every hex and size.</p>
-    <figure>
-      <figcaption>Desktop — as it is now (your marks) <span>1400&times;1240</span></figcaption>
-      <iframe src="Main.html" width="1400" height="1240" loading="lazy" title="Desktop — as it is now (your marks)"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Desktop — revised <span>1400&times;1240</span></figcaption>
-      <iframe src="MainRevised.html" width="1400" height="1240" loading="lazy" title="Desktop — revised"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Phone — jobs <span>390&times;1160</span></figcaption>
-      <iframe src="Mobile.html" width="390" height="1160" loading="lazy" title="Phone — jobs"></iframe>
-    </figure>
-    <figure>
-      <figcaption>The job card — three states <span>880&times;840</span></figcaption>
-      <iframe src="Cards.html" width="880" height="840" loading="lazy" title="The job card — three states"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Colour, type, spacing <span>1100&times;1000</span></figcaption>
-      <iframe src="System.html" width="1100" height="1000" loading="lazy" title="Colour, type, spacing"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Search settings — opened <span>1200&times;780</span></figcaption>
-      <iframe src="SearchSettings.html" width="1200" height="780" loading="lazy" title="Search settings — opened"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Search statistics — opened <span>1200&times;760</span></figcaption>
-      <iframe src="SearchStats.html" width="1200" height="760" loading="lazy" title="Search statistics — opened"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Sign in <span>900&times;700</span></figcaption>
-      <iframe src="Login.html" width="900" height="700" loading="lazy" title="Sign in"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Phone — search settings <span>390&times;1000</span></figcaption>
-      <iframe src="MobileSettings.html" width="390" height="1000" loading="lazy" title="Phone — search settings"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Phone — search statistics <span>390&times;1000</span></figcaption>
-      <iframe src="MobileStats.html" width="390" height="1000" loading="lazy" title="Phone — search statistics"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Settings — account <span>900&times;700</span></figcaption>
-      <iframe src="Settings.html" width="900" height="700" loading="lazy" title="Settings — account"></iframe>
-    </figure>
-    <figure>
-      <figcaption>Where the jobs come from <span>900&times;760</span></figcaption>
-      <iframe src="Sources.html" width="900" height="760" loading="lazy" title="Where the jobs come from"></iframe>
-    </figure>
-    <figure>
-      <figcaption>System manager (admin) <span>900&times;760</span></figcaption>
-      <iframe src="Admin.html" width="900" height="760" loading="lazy" title="System manager (admin)"></iframe>
-    </figure>
+  <p>Every frame renders standalone &mdash; plain HTML, two Google fonts, no build step and no
+  server. They are pictures: nothing is wired up and the advertisements in them are synthetic.
+  Where a frame and a task on the board disagree, the task is authoritative.</p>
+  <ul>
+    <li>
+      <a href="./Main.html">Desktop — as it is now (your marks)</a>
+      <span>Main.html &middot; 1400 &times; 1240</span>
+    </li>
+    <li>
+      <a href="./MainRevised.html">Desktop — full width, rebuilt from test</a>
+      <span>MainRevised.html &middot; 1800 &times; 1500</span>
+    </li>
+    <li>
+      <a href="./Mobile.html">Phone — jobs</a>
+      <span>Mobile.html &middot; 390 &times; 1560</span>
+    </li>
+    <li>
+      <a href="./Cards.html">The job card — every state</a>
+      <span>Cards.html &middot; 1800 &times; 1600</span>
+    </li>
+    <li>
+      <a href="./System.html">Colour, type, spacing</a>
+      <span>System.html &middot; 1100 &times; 1000</span>
+    </li>
+    <li>
+      <a href="./SearchSettings.html">Search settings — opened</a>
+      <span>SearchSettings.html &middot; 1200 &times; 780</span>
+    </li>
+    <li>
+      <a href="./SearchStats.html">Search statistics — opened</a>
+      <span>SearchStats.html &middot; 1200 &times; 760</span>
+    </li>
+    <li>
+      <a href="./Login.html">Sign in</a>
+      <span>Login.html &middot; 900 &times; 700</span>
+    </li>
+    <li>
+      <a href="./MobileSettings.html">Phone — search settings</a>
+      <span>MobileSettings.html &middot; 390 &times; 1000</span>
+    </li>
+    <li>
+      <a href="./MobileStats.html">Phone — search statistics</a>
+      <span>MobileStats.html &middot; 390 &times; 1000</span>
+    </li>
+    <li>
+      <a href="./Settings.html">Settings — account</a>
+      <span>Settings.html &middot; 900 &times; 700</span>
+    </li>
+    <li>
+      <a href="./Sources.html">Where the jobs come from</a>
+      <span>Sources.html &middot; 900 &times; 760</span>
+    </li>
+    <li>
+      <a href="./Admin.html">System manager (admin)</a>
+      <span>Admin.html &middot; 900 &times; 760</span>
+    </li>
+  </ul>
+</main>
 </body>
 </html>

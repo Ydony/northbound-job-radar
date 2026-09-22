@@ -10,12 +10,42 @@ inline styles and two Google fonts, no build step and no server.
 | Frame | What it settles |
 |---|---|
 | `Main.html` | the page **as it was**, carrying the owner's own annotations |
-| `MainRevised.html` | the agreed desktop page at 1400px |
+| `MainRevised.html` | the agreed desktop page, **full width** at 1800px |
 | `Mobile.html` · `MobileSettings.html` · `MobileStats.html` | the phone views at 390px |
-| `Cards.html` | the job card in all three verdict states |
+| `Cards.html` | the job card in six states, including the ones the app never drew |
 | `System.html` | every colour with its measured contrast ratio, the type ladder, the spacing rungs |
 | `SearchSettings.html` · `SearchStats.html` | the two panels, opened |
 | `Login.html` · `Settings.html` · `Sources.html` · `Admin.html` | the other four windows |
+
+`MainRevised.html`, `Cards.html` and `Mobile.html` were rebuilt on 2026-09-22 from the
+running test environment. The three remaining desktop frames still carry the older 1200px
+structure and have not been re-measured.
+
+## The four language labels
+
+The names changed on 2026-09-22 and the frames are the record of it:
+
+| Label | What the gate actually established |
+|---|---|
+| **Definitely English** | enough of the ad was published, the text is predominantly English, no local language named as required |
+| **Maybe English** | the whole ad was read and the language was still ambiguous — often “Dutch is a plus” |
+| **Not sure** | the source published a preview, so there was never enough text to judge |
+| **Local language required** | a local language is named as a requirement; never promoted into matches |
+
+The middle two are easy to confuse, and the distinction is the actionable part: *Maybe
+English* has nothing more to get, *Not sure* is usually settled by opening the original ad.
+Any wording change has to keep that apart. Per #119 the interface must not claim a perfect
+classification, which is the open question against **Definitely English**.
+
+## Keeping the mirror current
+
+```bash
+npm run sync:design -- <dir-holding-the-.dc.html-frames>
+```
+
+That strips the artifact runtime's two script tags, writes one plain `.html` per frame and
+regenerates `index.html` from `canvas.json`. Frames in this folder that the canvas no longer
+has are reported, never deleted — removing one is a decision, not a sync step.
 
 ## Checking work against it
 
@@ -54,6 +84,10 @@ They are pictures. They carry no data, nothing is wired up, and the sample adver
 them are illustrative. Where a frame and a task disagree, **the task on the board is
 authoritative** — it carries the exact values, and it says which parts are decided and which
 are still open.
+
+There is **no fit score**. `CV_MATCHING_ENABLED` is `false`, so no frame may show one; an
+earlier pass drew a “Fit 71” that does not exist anywhere in the product, and the sort
+control offers Newest posted and Recently found only.
 
 The statistics panel in these frames predates #124: it shows **Searched / Added /
 Still open**, where Still open was never populated. The live panel now shows **New this
