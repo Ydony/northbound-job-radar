@@ -4,6 +4,7 @@ import { Miniflare } from 'miniflare';
 import { runtimeMigrations } from '../db/migrations';
 import {
   collectIndeed,
+  indeedCoverage,
   INDEED_COVERAGE_OVERLAP_MS,
   INDEED_FINAL_BUDGET,
   INDEED_INITIAL_WINDOW_MS,
@@ -256,6 +257,26 @@ test('a second click while a run holds the lease attaches instead of duplicating
     assert.equal(calls(), 0);
     assert.equal(result.NL.status, 'unavailable');
     assert.match(result.NL.message, /attached/);
+  } finally {
+    await dispose();
+  }
+});
+
+test('the admin panel loader returns the caller’s own summaries, shaping unknowns safely', async () => {
+  const { db, dispose } = await fixture();
+  try {
+    assert.deepEqual(await indeedCoverage(db, 'nobody'), []);
+    const fetcher: typeof fetch = async (_url, init) => {
+      const country = new Headers(init!.headers).get('indeed-co')!;
+      return page([row(3_600_000, country)], null);
+    };
+    await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL', 'CH'],
+      undefined, undefined, undefined, 'alice');
+    const summaries = await indeedCoverage(db, 'alice');
+    assert.equal(summaries.length, 2);
+    assert.deepEqual(summaries.map((s) => s.country), ['CH', 'NL']);
+    assert.ok(summaries.every((s) => s.role === 'analyst' && s.location.length > 0 && s.lastSuccess.length > 0));
+    assert.deepEqual(await indeedCoverage(db, 'bob'), [], 'one account never sees another’s checkpoints');
   } finally {
     await dispose();
   }

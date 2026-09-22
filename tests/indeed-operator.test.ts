@@ -59,8 +59,30 @@ test('setup preserves other secrets, replaces only Indeed config and validates b
   assert.deepEqual(fetched, profile);
 });
 test('Indeed button is immediately usable without a separate readiness click', () => {
-  const html = renderToStaticMarkup(createElement(IndeedStatusPanel, { search: () => {}, busy: false }));
+  const props = {
+    search: () => {}, busy: false, roles: ['Data Analyst', 'Master Data'],
+    netherlands: true, switzerland: true,
+    settings: { nlLocation: 'Amsterdam, Netherlands', nlRadiusKm: 16, chLocation: 'Switzerland', chRadiusKm: 16, updatedAt: '' },
+    runSources: [{
+      sourceKey: 'indeed-nl', sourceName: 'Indeed Netherlands', country: 'netherlands' as const,
+      status: 'complete' as const, rolesSearched: ['Data Analyst'], foundCount: 25, knownCount: 20,
+      newCount: 5, importedCount: 5, matchedCount: 3, duplicateCount: 0, skippedCount: 0, message: 'ok',
+    }],
+    runStartedAt: '2026-09-22T10:00:00.000Z',
+  };
+  const html = renderToStaticMarkup(createElement(IndeedStatusPanel, props));
   assert.match(html, /Search Indeed only/);
   assert.doesNotMatch(html, /disabled/);
-  assert.match(renderToStaticMarkup(createElement(IndeedStatusPanel, { search: () => {}, busy: true })), /disabled/);
+  // First-two-roles label, per-country settings, and the honest run report render.
+  assert.match(html, /first two saved roles/);
+  assert.match(html, /Netherlands place/);
+  assert.match(html, /Switzerland distance/);
+  assert.match(html, /returned 25/);
+  assert.match(html, /matched 3/);
+  assert.match(renderToStaticMarkup(createElement(IndeedStatusPanel, { ...props, busy: true })), /disabled/);
+  // Ordinary-role rendering never applies here: the parent only mounts this
+  // panel for administrators, and the run sources above come from the admin's
+  // own latest run.
+  const noRoles = renderToStaticMarkup(createElement(IndeedStatusPanel, { ...props, roles: [] }));
+  assert.match(noRoles, /no saved roles yet/);
 });

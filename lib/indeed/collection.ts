@@ -126,6 +126,40 @@ async function writeCoverage(db: D1Database, row: {
       row.coveredThroughMs, row.windowStartMs, row.status, row.lastCheck, row.lastSuccess, row.lastCheck).run();
 }
 
+/**
+ * Per-query coverage for the admin panel (#116). The caller's own rows only,
+ * ordered for display. Empty on databases predating migration 27.
+ */
+export interface IndeedCoverageSummary {
+  country: string; role: string; location: string; radiusMiles: number;
+  windowStartMs: number; coveredThroughMs: number; status: string;
+  lastCheck: string; lastSuccess: string;
+}
+
+export async function indeedCoverage(db: D1Database, userId: string): Promise<IndeedCoverageSummary[]> {
+  // Plain column names: D1/Miniflare do not reliably preserve camelCase AS
+  // aliases, so the shaping happens here, with safe fallbacks throughout.
+  const rows = await db.prepare(`SELECT country, role, location, radius_miles,
+      window_start_ms, covered_through_ms, status, last_check, last_success
+    FROM indeed_coverage WHERE user_id = ? ORDER BY country, role`)
+    .bind(userId).all<{
+      country: unknown; role: unknown; location: unknown; radius_miles: unknown;
+      window_start_ms: unknown; covered_through_ms: unknown; status: unknown;
+      last_check: unknown; last_success: unknown;
+    }>().catch(() => ({ results: [] as never[] }));
+  return rows.results.map((row) => ({
+    country: typeof row.country === 'string' ? row.country : '',
+    role: typeof row.role === 'string' ? row.role : '',
+    location: typeof row.location === 'string' ? row.location : '',
+    radiusMiles: typeof row.radius_miles === 'number' ? row.radius_miles : 0,
+    windowStartMs: typeof row.window_start_ms === 'number' ? row.window_start_ms : 0,
+    coveredThroughMs: typeof row.covered_through_ms === 'number' ? row.covered_through_ms : 0,
+    status: typeof row.status === 'string' ? row.status : 'incomplete',
+    lastCheck: typeof row.last_check === 'string' ? row.last_check : '',
+    lastSuccess: typeof row.last_success === 'string' ? row.last_success : '',
+  }));
+}
+
 export async function collectIndeed(db: D1Database, config: Configuration,
   terms: string[], signal?: AbortSignal, fetcher: typeof fetch = fetch,
   countries: readonly IndeedCountry[] = ['NL', 'CH'],

@@ -93,8 +93,11 @@ distinct saved role queries are searched, the five shared role inputs unchanged.
 place or distance change gives later searches a new query identity, so incremental
 coverage never applies to a different query. Settings ride along in admin `/api/state`
 only, are deleted with the account/workspace, and never reach ordinary accounts.
-Website editing controls arrive with #116; until then the API is the interface.
-
+The dashboard's Indeed section (administrators only) edits the same settings with
+per-country place and kilometre inputs, save feedback, the first two roles actually
+sent, the active caps, the latest run's returned/new/known/matched counts with its
+status message, and per-query coverage after Check readiness. Ordinary accounts see
+none of this: no section, no settings, no run history.
 ## Incremental coverage (no rescan of what is already covered)
 
 Each account keeps a checkpoint per query (role, country, place, distance): the

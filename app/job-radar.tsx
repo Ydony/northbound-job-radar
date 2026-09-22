@@ -20,6 +20,7 @@ import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday, c
   TOTALS_DEDUPE_NOTE, totalForSource, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
   type LanguageFilter, type SortMode } from '@/lib/dashboard';
 import { formatRequirementsRailLabel } from '@/lib/requirements';
+import { indeedActiveRoles } from '@/lib/indeed/settings';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, ApplicationStatus, CvSlot, JobCountry, JobRecord, SearchCriteria,
@@ -135,6 +136,13 @@ export default function JobRadar() {
   }
   const [cvSlots, setCvSlots] = useState<Record<CvSlot, SlotState>>({ a: { ...emptySlotState }, b: { ...emptySlotState } });
   const [scrapeBusy, setScrapeBusy] = useState<'' | 'authorized' | 'all'>('');
+  /**
+   * Double-click guard (#116). State updates propagate on re-render, so two
+   * rapid clicks can both enter findJobs before `busy` disables the buttons.
+   * The ref flips synchronously: the second click returns before dispatching
+   * any network request, and the server lease would attach it anyway.
+   */
+  const scrapeBusyRef = useRef(false);
   const [scrapeMessage, setScrapeMessage] = useState('');
   const [scrapeProgress, setScrapeProgress] = useState<{ label: string; percent: number; step: number; steps: number } | null>(null);
   /**
@@ -744,6 +752,8 @@ export default function JobRadar() {
   }
 
   async function findJobs(mode: 'authorized' | 'all', sourceGroup?: 'indeed') {
+    if (scrapeBusyRef.current) return;
+    scrapeBusyRef.current = true;
     setScrapeBusy(mode);
     setRunSummaryDismissed(true);
     setScrapeMessage(sourceGroup === 'indeed' ? 'Searching Indeed in the selected countries…' : mode === 'all'
@@ -827,6 +837,7 @@ export default function JobRadar() {
     } finally {
       setScrapeProgress(null);
       setScrapeBusy('');
+      scrapeBusyRef.current = false;
     }
   }
 
@@ -1185,7 +1196,12 @@ export default function JobRadar() {
           {' '}<a href="#criteria" onClick={() => setSettingsOpen(true)}>Search settings</a>, so there is
           nowhere to search. Turn the Netherlands or Switzerland back on.</p>}
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
-        {isAdmin && <IndeedStatusPanel busy={loading || Boolean(loadError) || Boolean(scrapeBusy)} search={() => { void findJobs('authorized', 'indeed'); }} />}
+        {isAdmin && <IndeedStatusPanel busy={loading || Boolean(loadError) || Boolean(scrapeBusy)} search={() => { void findJobs('authorized', 'indeed'); }}
+          roles={indeedActiveRoles(state.criteria.roleKeywords)}
+          netherlands={state.criteria.searchNetherlands} switzerland={state.criteria.searchSwitzerland}
+          settings={state.indeedSettings ?? null}
+          runSources={(latestRun?.sources ?? []).filter((source) => source.sourceKey.startsWith('indeed'))}
+          runStartedAt={latestRun?.startedAt ?? null} />}
         {isAdmin && <div className="health-panel">
           <div className="health-head">
             <b>Source health</b>
@@ -1296,7 +1312,7 @@ export default function JobRadar() {
               </fieldset>
               <div className="role-keywords">
                 <span>Search roles · up to five</span>
-                <p className="role-note">Each one is searched separately, so five roles means five times the requests and a longer run.</p>
+                <p className="role-note">Each one is searched separately, so five roles means five times the requests and a longer run. Indeed is the exception: it only ever receives the first two roles above.</p>
                 {(() => {
                   // Desktop keeps all five (SearchSettings.html); phones collapse to two
                   // plus the add button (MobileSettings.html), never hiding a filled role.
