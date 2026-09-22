@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Settings — account</title>
+<title>Privacy</title>
 </head>
 <body>
 <x-dc>
@@ -43,10 +43,10 @@ table.t td:first-child { color: #18221c; }
 table.t td.n, table.t th.n { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </helmet>
-<div style="width: 1800px; height: 1060px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
+<div style="width: 1800px; height: 1180px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
   <header class="topbar">
     <a href="#top" class="mark"><i>I</i><b>Ik ben een appel</b></a>
-    <nav class="nav" style="display: flex; gap: 2px; align-items: center;"><a href="#jobs">Jobs</a><a href="#keywords">Keywords</a><a href="#statistics">Statistics</a><a href="#settings" class="on">Settings</a><a href="#admin">Admin</a></nav>
+    <nav class="nav" style="display: flex; gap: 2px; align-items: center;"><a href="#jobs" class="on">Jobs</a><a href="#keywords">Keywords</a><a href="#statistics">Statistics</a><a href="#settings">Settings</a><a href="#admin">Admin</a></nav>
     <div style="margin-left: auto; display: inline-flex; align-items: center; gap: 18px;">
       <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #4d574f;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3f7f54;"></span>SWITZERLAND + NETHERLANDS</span>
       <a href="#signout" style="font-size: 14px; font-weight: 500; color: #5d6660; height: 44px; display: inline-flex; align-items: center; text-decoration: none;">Sign out</a>
@@ -54,54 +54,47 @@ table.t td.n, table.t th.n { text-align: right; font-variant-numeric: tabular-nu
   </header>
 
   <section class="band tint">
-    <h1 class="page">Settings</h1>
-    <p class="lead">Your account. Everything about what a search looks for lives on the jobs page, in the Search settings row.</p>
+    <h1 class="page">Your job search stays yours.</h1>
+    <p class="lead">What is never collected, what is stored and why, and how to get rid of all of it.</p>
   </section>
 
-  <section class="band" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: start;">
-    <div class="card">
-      <h2 class="sec">Email and password</h2>
-      <p class="body" style="margin-bottom: 22px;">Your current password is required for either change.</p>
-      <div style="display: grid; gap: 18px;">
-        <div><label class="lbl">Email</label><input type="text" class="in" value="you@example.com"></div>
-        <div><label class="lbl">New password</label><input type="password" class="in" placeholder="Leave blank to keep the one you have"></div>
-        <div><label class="lbl">Current password</label><input type="password" class="in" placeholder="Required"></div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 14px; margin-top: 24px;">
-        <button type="button" class="primary">Save changes</button>
-        <p class="note">Changing your email signs you out everywhere else.</p>
-      </div>
+  <section class="band" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 48px; align-items: start;">
+    <div>
+      <h2 class="sec">What is never collected</h2>
+      <p class="body" style="margin-bottom: 18px;">No analytics account, no advertising identifier, no behavioural profile, nothing sold or shared. The only thing counted about visitors is how many came on a given day.</p>
+      <div class="rail good"><p class="body" style="color: #4d574f;">Visits are counted as a number per day and a number of distinct visitors per day. There is no row per person, so the count cannot be turned back into who visited.</p></div>
     </div>
-
-    <div class="card" style="border-color: #e8d5cd;">
-      <h2 class="sec" style="color: #8c3d29;">Delete this account</h2>
-      <p class="body" style="margin-bottom: 22px;">This removes the account and everything attached to it: every advertisement you have collected, your notes on them, your search settings, your CV files and your sign-in records. It cannot be undone and no copy is kept.</p>
-      <div style="display: grid; gap: 18px;">
-        <div><label class="lbl">Current password</label><input type="password" class="in" placeholder="Required"></div>
-        <div><label class="lbl">Type DELETE to confirm</label><input type="text" class="in" placeholder="DELETE"></div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 14px; margin-top: 24px;">
-        <button type="button" class="danger" disabled>Delete my account permanently</button>
-        <p class="note">Disabled until both fields are filled.</p>
-      </div>
+    <div>
+      <h2 class="sec">What is stored, and why</h2>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">Your email address and a hash of your password</h3><p class="body" style="font-size: 12px; color: #5d6660;">To let you back in. The password itself is never stored.</p></div>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">The advertisements you have collected, and your notes</h3><p class="body" style="font-size: 12px; color: #5d6660;">This is the product. It is scoped to your account by every query that touches it.</p></div>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">Your search settings: roles, required and excluded keywords</h3><p class="body" style="font-size: 12px; color: #5d6660;">So a search does the same thing twice.</p></div>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">The listings your searches judged and set aside</h3><p class="body" style="font-size: 12px; color: #5d6660;">So the same advertisement is not offered to you again every week.</p></div>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">Sign-in records: the email tried, the IP, and whether it succeeded</h3><p class="body" style="font-size: 12px; color: #5d6660;">To make a password guessed at scale expensive. Deleted with the account.</p></div>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">A daily count of visits and distinct visitors</h3><p class="body" style="font-size: 12px; color: #5d6660;">Two numbers a day. Nothing per person.</p></div>
     </div>
   </section>
 
-  <section class="band" style="padding-top: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: start;">
+  <section class="band" style="padding-top: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 48px; align-items: start;">
     <div>
-      <p class="caption">The state nobody had drawn &mdash; both fields filled</p>
-      <div class="card" style="border-color: #e8d5cd;">
-        <div style="display: flex; align-items: center; gap: 14px;">
-          <button type="button" class="danger">Delete my account permanently</button>
-          <p class="note" style="color: #8c3d29; font-weight: 700; max-width: 40ch;">There is no second dialog after this. The two fields above are the confirmation, which is why the button stays disabled until both are filled.</p>
-        </div>
+      <h2 class="sec">Cookies</h2>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;">
+        <h3 class="sub">ike_session</h3>
+        <p class="body">One cookie, holding your session. There is no second cookie, no consent banner, and nothing to decline &mdash; because nothing optional is set.</p>
       </div>
     </div>
     <div>
-      <p class="caption">What &ldquo;cannot be undone&rdquo; has to mean</p>
-      <div class="rail">
-        <p class="body" style="color: #4d574f;">The route empties eleven tables and deletes the R2 objects holding the CVs. That list is written out by hand in two files &mdash; the account&rsquo;s own delete and the administrator&rsquo;s &mdash; so a table added by a future migration can survive the deletion silently, returning 200 and a cleared cookie. <a href="#129" style="font-weight: 700;">#129</a> derives the list from the schema instead, so the next such migration turns the suite red.</p>
-      </div>
+      <h2 class="sec">Your rights</h2>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">Access and portability</h3><p class="body" style="font-size: 12px; color: #5d6660;">Ask and you get what is held, in a form you can take elsewhere.</p></div>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">Rectification</h3><p class="body" style="font-size: 12px; color: #5d6660;">Anything wrong gets corrected.</p></div>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">Erasure</h3><p class="body" style="font-size: 12px; color: #5d6660;">Settings has a delete that removes the account and everything attached to it.</p></div>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">Restriction and objection</h3><p class="body" style="font-size: 12px; color: #5d6660;">Processing can be limited or objected to.</p></div>
+      <div style="padding: 14px 0; border-top: 1px solid #ebe7db;"><h3 class="sub">Complaints</h3><p class="body" style="font-size: 12px; color: #5d6660;">To a supervisory authority, without going through us first.</p></div>
+    </div>
+    <div>
+      <h2 class="sec">Where the data lives</h2>
+      <p class="body" style="margin-bottom: 18px;">One database per environment, and the environments do not share. Development and test hold synthetic data only; nothing real has ever been in them.</p>
+      <p class="note">The live page runs to about 4,200px. This frame draws its structure; the page itself is authoritative on the wording.</p>
     </div>
   </section>
 </div>

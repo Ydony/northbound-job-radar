@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Search settings — phone</title>
+<title>Phone — search settings</title>
 </head>
 <body>
 <x-dc>
@@ -11,55 +11,80 @@
 <style>
 body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; }
 a { color: #134736; } a:hover { color: #18221c; }
+.caption { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
+.topbar { height: 64px; box-sizing: border-box; padding: 0 48px; background: #fbfaf6; border-bottom: 1px solid #ebe7db; display: flex; align-items: center; gap: 32px; }
+.mark { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.mark i { width: 30px; height: 30px; border-radius: 9px; background: #18221c; color: #def36b; display: flex; align-items: center; justify-content: center; font-family: Fraunces, Georgia, serif; font-size: 14px; font-weight: 600; font-style: normal; }
+.mark b { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: #18221c; }
+.nav a { font-size: 14px; font-weight: 500; color: #4d574f; padding: 0 13px; height: 44px; border-radius: 8px; display: inline-flex; align-items: center; text-decoration: none; }
+.nav a.on { font-weight: 700; color: #18221c; background: #eceade; }
+.band { box-sizing: border-box; padding: 30px 48px; }
+.band.tint { background: #eff1e8; border-bottom: 1px solid #e3e5d9; }
+h1.page { margin: 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em; }
+h2.sec { margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; }
+h3.sub { margin: 0 0 4px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #18221c; }
+p.lead { margin: 8px 0 0; max-width: 72ch; font-size: 17px; line-height: 1.55; color: #4d574f; }
+p.body { margin: 0; max-width: 72ch; font-size: 14px; line-height: 1.55; color: #4d574f; }
+.lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 7px; }
+.in { width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; height: 44px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c; }
+.primary { background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 22px; height: 44px; cursor: pointer; }
+.quiet { background: transparent; border: 1px solid #ddd9cc; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; padding: 0 18px; height: 44px; cursor: pointer; }
+.danger { background: #8c3d29; color: #ffffff; border: 1px solid #8c3d29; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 22px; height: 44px; cursor: pointer; }
+.danger[disabled] { background: #e6e6e2; border-color: #ddd9cc; color: #5d6660; cursor: not-allowed; }
+.note { margin: 0; font-size: 12px; line-height: 1.45; color: #5d6660; }
+.rail { border-left: 3px solid #c25239; border-radius: 0 10px 10px 0; background: #f7e3dd; padding: 18px 22px; }
+.rail.good { border-left-color: #3f7f54; background: #e3eadf; }
+.card { background: #fbfaf6; border: 1px solid #ebe7db; border-radius: 12px; padding: 24px 26px; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); }
+.chip { display: inline-block; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px; }
+table.t { border-collapse: collapse; width: 100%; }
+table.t th { padding: 0 0 8px; text-align: left; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
+table.t td { padding: 10px 0; font-size: 14px; color: #4d574f; border-top: 1px solid #ebe7db; }
+table.t td:first-child { color: #18221c; }
+table.t td.n, table.t th.n { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </helmet>
-<div style="width: 390px; height: 1000px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
-
-  <header style="height: 60px; box-sizing: border-box; padding: 0 20px; display: flex; align-items: center; gap: 10px;">
-    <span style="width: 30px; height: 30px; border-radius: 9px; background: #18221c; color: #def36b; display: flex; align-items: center; justify-content: center; font-family: Fraunces, Georgia, serif; font-size: 15px; font-weight: 600;">I</span>
-    <span style="font-size: 17px; font-weight: 700;">Ik ben een appel</span>
+<div style="width: 390px; height: 1320px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
+  <header style="height: 64px; box-sizing: border-box; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #ebe7db;">
+    <span style="display: inline-flex; align-items: center; gap: 10px;">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: #18221c; color: #def36b; display: flex; align-items: center; justify-content: center; font-family: Fraunces, Georgia, serif; font-size: 14px; font-weight: 600;">I</span>
+      <span style="font-size: 17px; font-weight: 700; letter-spacing: -0.01em;">Search settings</span>
+    </span>
+    <a href="#back" style="font-size: 14px; font-weight: 500; color: #4d574f; height: 44px; display: inline-flex; align-items: center; text-decoration: none;">Back</a>
   </header>
 
-  <div style="box-sizing: border-box; padding: 4px 20px 0; display: flex; flex-direction: column; gap: 6px;">
-    <button type="button" style="display: flex; align-items: center; gap: 10px; background: #eceade; border: 0; border-radius: 10px 10px 0 0; padding: 12px 14px; min-height: 48px; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; text-align: left;">
-      <span style="font-size: 11px; color: #4d574f;">▲</span><span style="font-weight: 700;">Search settings</span><span style="font-size: 12px; color: #5d6660; margin-left: auto;">analyst</span>
-    </button>
-  </div>
+  <section style="box-sizing: border-box; padding: 18px 20px; background: #eff1e8; border-bottom: 1px solid #e3e5d9;">
+    <h1 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.02em;">Search settings</h1>
+    <p class="note" style="margin-top: 6px;">Last search 22 Sept 2026 &middot; <strong style="color: #18221c;">306</strong> added</p>
+  </section>
 
-  <section style="box-sizing: border-box; margin: 0 20px; padding: 20px 18px 22px; background: #eceade; border-radius: 0 0 12px 12px;">
-    <h2 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.15;">Define what fits</h2>
-    <p style="margin: 8px 0 20px; font-size: 14px; line-height: 1.5; color: #4d574f;">Each search role is sent to every switched-on source, one at a time. What comes back is then narrowed by the keywords below.</p>
-
-    <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 10px;">Countries to search</span>
-    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
-      <label style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 14px; background: #fbfaf6; border: 1px solid #3f7f54; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;"><span role="img" aria-label="Selected" style="display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 18px; height: 18px; border-radius: 4px; background: #3f7f54; color: #ffffff; font-size: 13px; line-height: 1;">&#10003;</span> The Netherlands</label>
-      <label style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 14px; background: #fbfaf6; border: 1px solid #3f7f54; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;"><span role="img" aria-label="Selected" style="display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 18px; height: 18px; border-radius: 4px; background: #3f7f54; color: #ffffff; font-size: 13px; line-height: 1;">&#10003;</span> Switzerland</label>
-    </div>
-    <p style="margin: 0 0 22px; font-size: 12px; line-height: 1.5; color: #5d6660;">This decides which countries a search contacts. It does not hide jobs already collected — use the country filter for that.</p>
-
-    <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 4px;">Search roles · up to five</span>
-    <p style="margin: 0 0 10px; font-size: 12px; color: #5d6660;">Each one is searched separately, so more roles means a longer run.</p>
-    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px;">
-      <input value="analyst" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 48px; padding: 12px 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #18221c;">
-      <input placeholder="Role 2 — e.g. Supply Chain" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 48px; padding: 12px 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #18221c;">
-      <button type="button" style="align-self: flex-start; background: none; border: 0; padding: 0; min-height: 44px; font-size: 14px; font-weight: 700; color: #134736; cursor: pointer;">+ Add another role</button>
+  <section style="box-sizing: border-box; padding: 18px 20px;">
+    <div style="display: grid; gap: 16px;">
+      <div><label class="lbl">Role 1</label><input type="text" class="in" style="height: 48px;" value="analyst"></div>
+      <div><label class="lbl">Role 2</label><input type="text" class="in" style="height: 48px;" placeholder="e.g. Supply Chain"></div>
+      <div><label class="lbl">Role 3</label><input type="text" class="in" style="height: 48px;" placeholder="Optional"></div>
+      <div>
+        <label class="lbl">Countries to search</label>
+        <div style="display: grid; gap: 8px;">
+          <label style="display: flex; align-items: center; gap: 10px; height: 48px; box-sizing: border-box; padding: 0 14px; border: 1px solid #134736; border-radius: 8px; background: #e3eadf; font-size: 14px; font-weight: 700; color: #134736;"><span style="display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 16px; height: 16px; border-radius: 4px; background: #134736; color: #ffffff; font-size: 12px; line-height: 1;" role="img" aria-label="Selected">&#10003;</span> Switzerland</label>
+          <label style="display: flex; align-items: center; gap: 10px; height: 48px; box-sizing: border-box; padding: 0 14px; border: 1px solid #134736; border-radius: 8px; background: #e3eadf; font-size: 14px; font-weight: 700; color: #134736;"><span style="display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 16px; height: 16px; border-radius: 4px; background: #134736; color: #ffffff; font-size: 12px; line-height: 1;" role="img" aria-label="Selected">&#10003;</span> Netherlands</label>
+        </div>
+      </div>
+      <div><label class="lbl">Required keywords</label><input type="text" class="in" style="height: 48px;" placeholder="e.g. SAP, data governance"></div>
+      <div><label class="lbl">Exclude if the ad contains</label><input type="text" class="in" style="height: 48px;" value="intern, lead"></div>
     </div>
 
-    <label style="display: block; margin-bottom: 14px;">
-      <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 4px;">Required keywords</span>
-      <span style="display: block; font-size: 12px; color: #5d6660; margin-bottom: 7px;">An ad must contain all of these</span>
-      <input placeholder="e.g. SAP, data governance" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 48px; padding: 12px 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #18221c;">
-    </label>
+    <button type="button" class="primary" style="width: 100%; height: 48px; margin-top: 22px;">Find new jobs</button>
+    <div style="display: flex; gap: 8px; margin-top: 8px;">
+      <button type="button" style="flex: 1; background: #fbfaf6; border: 1px solid #18221c; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: #18221c; height: 48px; cursor: pointer;">Save criteria</button>
+      <button type="button" class="quiet" style="flex: 1; height: 48px;">Reset</button>
+    </div>
+    <p class="note" style="margin-top: 14px;">Find new jobs saves these criteria first, so a search always uses what is on screen. Last saved 22 Sept 2026.</p>
 
-    <label style="display: block; margin-bottom: 22px;">
-      <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 4px;">Exclude if ad contains</span>
-      <span style="display: block; font-size: 12px; color: #5d6660; margin-bottom: 7px;">Any one of these drops it</span>
-      <input value="intern, lead" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 48px; padding: 12px 14px; font-family: 'DM Sans', sans-serif; font-size: 16px; color: #18221c;">
-    </label>
-
-    <button type="submit" style="width: 100%; background: #18221c; color: #ffffff; border: 0; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 14px; min-height: 48px; cursor: pointer; margin-bottom: 8px;">Save criteria</button>
-    <button type="button" style="width: 100%; background: transparent; color: #18221c; border: 1px solid #c8c3b4; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 14px; min-height: 48px; cursor: pointer;">Reset</button>
-    <p style="margin: 12px 0 0; font-size: 12px; color: #5d6660; text-align: center;"><strong style="color: #18221c;">140</strong> of 306 analyzed jobs match the saved criteria.</p>
+    <div class="rail" style="margin-top: 20px;">
+      <strong style="display: block; font-size: 14px; font-weight: 700; color: #8c3d29; margin-bottom: 3px;">Enter at least one role</strong>
+      <p class="body">A role is what the search looks for. With all five empty there is nothing to ask any source for, so the search will not run. Countries and keywords narrow a search; they cannot start one.</p>
+      <p class="note" style="margin-top: 10px; color: #8c3d29;">Drawn here because it is the state a phone hits first: a new account arrives with every role empty.</p>
+    </div>
   </section>
 </div>
 </x-dc>

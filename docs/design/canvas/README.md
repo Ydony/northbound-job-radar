@@ -11,15 +11,22 @@ inline styles and two Google fonts, no build step and no server.
 |---|---|
 | `Main.html` | the page **as it was**, carrying the owner's own annotations |
 | `MainRevised.html` | the agreed desktop page, **full width** at 1800px |
-| `Mobile.html` · `MobileSettings.html` · `MobileStats.html` | the phone views at 390px |
+| `Intro.html` | the introduction band open, and collapsed after the first search |
 | `Cards.html` | the job card in six states, including the ones the app never drew |
+| `Mobile.html` · `MobileSettings.html` · `MobileStats.html` | the phone views at 390px |
 | `System.html` | every colour with its measured contrast ratio, the type ladder, the spacing rungs |
-| `SearchSettings.html` · `SearchStats.html` | the two panels, opened |
-| `Login.html` · `Settings.html` · `Sources.html` · `Admin.html` | the other four windows |
+| `SearchSettings.html` · `SearchStats.html` | the settings row in both states, and the statistics window |
+| `Login.html` · `Settings.html` · `Sources.html` · `Privacy.html` · `Admin.html` | the five other windows |
 
-`MainRevised.html`, `Cards.html` and `Mobile.html` were rebuilt on 2026-09-22 from the
-running test environment. The three remaining desktop frames still carry the older 1200px
-structure and have not been re-measured.
+Every frame except `Main.html` was measured against the running app on 2026-09-22 or
+2026-09-23 and redrawn at full width. `Main.html` is deliberately left alone: it is the
+record of the page before the review, so its 11px text and its old verdict labels are the
+faults it exists to document. An audit that flags it is working.
+
+States that are drawn here and have never existed in the app: the introduction collapsed,
+the job card selected-and-applied, the card overflow menu, `Local language required`,
+Search settings refusing to run with no role, the delete button once both fields are
+filled, and the administrator Indeed panel.
 
 ## The four language labels
 

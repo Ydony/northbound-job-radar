@@ -2,123 +2,134 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Search statistics, opened</title>
+<title>Search statistics — the window</title>
 </head>
 <body>
 <x-dc>
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
 <style>
-body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; font-variant-numeric: tabular-nums; }
+body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; }
 a { color: #134736; } a:hover { color: #18221c; }
+.caption { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
+.topbar { height: 64px; box-sizing: border-box; padding: 0 48px; background: #fbfaf6; border-bottom: 1px solid #ebe7db; display: flex; align-items: center; gap: 32px; }
+.mark { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.mark i { width: 30px; height: 30px; border-radius: 9px; background: #18221c; color: #def36b; display: flex; align-items: center; justify-content: center; font-family: Fraunces, Georgia, serif; font-size: 14px; font-weight: 600; font-style: normal; }
+.mark b { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: #18221c; }
+.nav a { font-size: 14px; font-weight: 500; color: #4d574f; padding: 0 13px; height: 44px; border-radius: 8px; display: inline-flex; align-items: center; text-decoration: none; }
+.nav a.on { font-weight: 700; color: #18221c; background: #eceade; }
+.band { box-sizing: border-box; padding: 30px 48px; }
+.band.tint { background: #eff1e8; border-bottom: 1px solid #e3e5d9; }
+h1.page { margin: 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em; }
+h2.sec { margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; }
+h3.sub { margin: 0 0 4px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #18221c; }
+p.lead { margin: 8px 0 0; max-width: 72ch; font-size: 17px; line-height: 1.55; color: #4d574f; }
+p.body { margin: 0; max-width: 72ch; font-size: 14px; line-height: 1.55; color: #4d574f; }
+.lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 7px; }
+.in { width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; height: 44px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c; }
+.primary { background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 22px; height: 44px; cursor: pointer; }
+.quiet { background: transparent; border: 1px solid #ddd9cc; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; padding: 0 18px; height: 44px; cursor: pointer; }
+.danger { background: #8c3d29; color: #ffffff; border: 1px solid #8c3d29; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 22px; height: 44px; cursor: pointer; }
+.danger[disabled] { background: #e6e6e2; border-color: #ddd9cc; color: #5d6660; cursor: not-allowed; }
+.note { margin: 0; font-size: 12px; line-height: 1.45; color: #5d6660; }
+.rail { border-left: 3px solid #c25239; border-radius: 0 10px 10px 0; background: #f7e3dd; padding: 18px 22px; }
+.rail.good { border-left-color: #3f7f54; background: #e3eadf; }
+.card { background: #fbfaf6; border: 1px solid #ebe7db; border-radius: 12px; padding: 24px 26px; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); }
+.chip { display: inline-block; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px; }
+table.t { border-collapse: collapse; width: 100%; }
+table.t th { padding: 0 0 8px; text-align: left; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
+table.t td { padding: 10px 0; font-size: 14px; color: #4d574f; border-top: 1px solid #ebe7db; }
+table.t td:first-child { color: #18221c; }
+table.t td.n, table.t th.n { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </helmet>
-<div style="width: 1200px; height: 760px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
-
-  <div style="box-sizing: border-box; padding: 20px 56px 0; display: flex; gap: 8px;">
-    <button type="button" style="display: inline-flex; align-items: center; gap: 10px; background: #f4f2ea; border: 0; border-radius: 10px; padding: 12px 16px; min-height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer;">
-      <span style="font-size: 11px; color: #5d6660;">▼</span><span style="font-weight: 700;">Search settings</span><span style="font-size: 12px; color: #5d6660;">Roles: analyst</span>
-    </button>
-    <button type="button" style="display: inline-flex; align-items: center; gap: 10px; background: #eceade; border: 0; border-radius: 10px 10px 0 0; padding: 12px 16px; min-height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer;">
-      <span style="font-size: 11px; color: #4d574f;">▲</span><span style="font-weight: 700;">Search statistics</span><span style="font-size: 12px; color: #5d6660;">334 searched · 306 added</span>
-    </button>
-  </div>
-
-  <section style="box-sizing: border-box; margin: 0 56px; padding: 28px 32px 32px; background: #eceade; border-radius: 12px;">
-
-    <div style="display: flex; align-items: end; justify-content: space-between; gap: 32px; margin-bottom: 8px;">
-      <div>
-        <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660;">Search coverage</span>
-        <h2 style="margin: 8px 0 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1;">What every source returned</h2>
-      </div>
-      <p style="margin: 0; font-size: 12px; color: #5d6660;">Latest run 20/09/2026, 21:30</p>
+<div style="width: 1800px; height: 1440px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
+  <header class="topbar">
+    <a href="#top" class="mark"><i>I</i><b>Ik ben een appel</b></a>
+    <nav class="nav" style="display: flex; gap: 2px; align-items: center;"><a href="#jobs">Jobs</a><a href="#keywords">Keywords</a><a href="#statistics" class="on">Statistics</a><a href="#settings">Settings</a><a href="#admin">Admin</a></nav>
+    <div style="margin-left: auto; display: inline-flex; align-items: center; gap: 18px;">
+      <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #4d574f;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3f7f54;"></span>SWITZERLAND + NETHERLANDS</span>
+      <a href="#signout" style="font-size: 14px; font-weight: 500; color: #5d6660; height: 44px; display: inline-flex; align-items: center; text-decoration: none;">Sign out</a>
     </div>
+  </header>
 
-    <p style="margin: 0 0 20px; font-size: 12px; line-height: 1.55; color: #5d6660; max-width: 92ch;"><strong style="color: #18221c;">Searched</strong> and <strong style="color: #18221c;">added</strong> describe this run and reset each time. <strong style="color: #18221c;">Still open</strong> is everything the source has contributed that has not passed its closing date — it carries across searches, rises as jobs are added and falls as they expire.</p>
+  <section class="band tint">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px;">
+      <h1 class="page">Search statistics</h1>
+      <span class="note">Latest run 22 Sept 2026, 14:06</span>
+    </div>
+    <p class="lead">Every run this account has made. The band on the jobs page reports the last one; this is the history behind it.</p>
+  </section>
 
-    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+  <section class="band" style="display: grid; grid-template-columns: repeat(3, minmax(0, 260px)) minmax(0, 1fr); gap: 24px 48px; align-items: start;">
+    <div><span class="lbl">New this search</span><strong style="display: block; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em; line-height: 1;">306</strong><span class="note" style="display: block; margin-top: 6px;">Advertisements this run had not seen before</span></div>
+    <div><span class="lbl">Matched this search</span><strong style="display: block; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em; line-height: 1;">334</strong><span class="note" style="display: block; margin-top: 6px;">Passed the saved criteria and the language gate</span></div>
+    <div><span class="lbl">Total collected</span><strong style="display: block; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em; line-height: 1;">4,191</strong><span class="note" style="display: block; margin-top: 6px;">Retained on the server, across every run</span></div>
+    <div class="rail good"><p class="body" style="color: #4d574f;"><strong style="color: #134736;">The third figure changed.</strong> The one it replaced was never populated and was shown as a number regardless, which is the fault #124 existed to fix. Total collected comes from the server&rsquo;s own count of what it holds &mdash; never from the pages loaded into this screen, and never from adding up what each source reported finding.</p></div>
+  </section>
 
-      <article style="background: #fbfaf6; border-radius: 10px; padding: 16px; box-shadow: 0 1px 2px rgba(24,34,28,.05);">
+  <section class="band" style="padding-top: 0;">
+    <h2 class="sec" style="margin-bottom: 16px;">What every source returned</h2>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px;">
+      <article class="card" style="padding: 18px 20px;">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 12px; color: #5d6660;">Netherlands</span>
+          <span class="note">Netherlands</span>
           <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #134736;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3f7f54;"></span>Completed</span>
         </div>
-        <h3 style="margin: 0 0 14px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; line-height: 1.1;">EURES Netherlands</h3>
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;">
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">150</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Searched</div></div>
-          <div style="background: #e3eadf; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #134736;">126</div><div style="font-size: 12px; color: #4d574f; margin-top: 4px;">Added</div></div>
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">412</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Still open</div></div>
+        <h3 class="sub" style="font-size: 17px; margin-bottom: 14px;">EURES Netherlands</h3>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px 12px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">216</div><div class="note" style="margin-top: 4px;">Found</div></div>
+          <div style="background: #e3eadf; border-radius: 8px; padding: 10px 12px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #134736;">198</div><div class="note" style="margin-top: 4px; color: #4d574f;">Added</div></div>
         </div>
       </article>
-
-      <article style="background: #fbfaf6; border-radius: 10px; padding: 16px; box-shadow: 0 1px 2px rgba(24,34,28,.05);">
+      <article class="card" style="padding: 18px 20px;">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 12px; color: #5d6660;">Switzerland</span>
+          <span class="note">Switzerland</span>
           <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #134736;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3f7f54;"></span>Completed</span>
         </div>
-        <h3 style="margin: 0 0 14px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; line-height: 1.1;">Job-Room (arbeit.swiss)</h3>
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;">
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">100</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Searched</div></div>
-          <div style="background: #e3eadf; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #134736;">99</div><div style="font-size: 12px; color: #4d574f; margin-top: 4px;">Added</div></div>
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">386</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Still open</div></div>
+        <h3 class="sub" style="font-size: 17px; margin-bottom: 14px;">EURES Switzerland</h3>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px 12px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">77</div><div class="note" style="margin-top: 4px;">Found</div></div>
+          <div style="background: #e3eadf; border-radius: 8px; padding: 10px 12px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #134736;">72</div><div class="note" style="margin-top: 4px; color: #4d574f;">Added</div></div>
         </div>
       </article>
-
-      <article style="background: #fbfaf6; border-radius: 10px; padding: 16px; box-shadow: 0 1px 2px rgba(24,34,28,.05);">
+      <article class="card" style="padding: 18px 20px;">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 12px; color: #5d6660;">Switzerland</span>
+          <span class="note">Switzerland</span>
           <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #8c3d29;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #c25239;"></span>Partial</span>
         </div>
-        <h3 style="margin: 0 0 14px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; line-height: 1.1;">Adzuna Switzerland</h3>
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;">
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">31</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Searched</div></div>
-          <div style="background: #e3eadf; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #134736;">28</div><div style="font-size: 12px; color: #4d574f; margin-top: 4px;">Added</div></div>
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">94</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Still open</div></div>
-        </div>
-        <p style="margin: 10px 0 0; font-size: 12px; color: #5d6660; line-height: 1.45;">The page budget ran out before the last term finished.</p>
+        <h3 class="sub" style="font-size: 17px; margin-bottom: 14px;">Job-Room (arbeit.swiss)</h3>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px 12px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">41</div><div class="note" style="margin-top: 4px;">Found</div></div>
+          <div style="background: #e3eadf; border-radius: 8px; padding: 10px 12px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #134736;">36</div><div class="note" style="margin-top: 4px; color: #4d574f;">Added</div></div>
+        </div><p class="note" style="margin-top: 10px; color: #8c3d29;">The request budget ran out before the last role finished.</p>
       </article>
-
-      <article style="background: #fbfaf6; border-radius: 10px; padding: 16px; box-shadow: 0 1px 2px rgba(24,34,28,.05);">
+      <article class="card" style="padding: 18px 20px;">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 12px; color: #5d6660;">Netherlands</span>
-          <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #134736;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3f7f54;"></span>Completed</span>
-        </div>
-        <h3 style="margin: 0 0 14px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; line-height: 1.1;">Company career boards</h3>
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;">
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">39</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Searched</div></div>
-          <div style="background: #e3eadf; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #134736;">39</div><div style="font-size: 12px; color: #4d574f; margin-top: 4px;">Added</div></div>
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">147</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Still open</div></div>
-        </div>
-      </article>
-
-      <article style="background: #fbfaf6; border-radius: 10px; padding: 16px; box-shadow: 0 1px 2px rgba(24,34,28,.05);">
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 12px; color: #5d6660;">Switzerland</span>
+          <span class="note">Netherlands</span>
           <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #4d574f;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #78817a;"></span>Not searched</span>
         </div>
-        <h3 style="margin: 0 0 14px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; line-height: 1.1;">Careerjet Switzerland</h3>
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;">
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #5d6660;">0</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Searched</div></div>
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #5d6660;">0</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Added</div></div>
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">58</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Still open</div></div>
-        </div>
-        <p style="margin: 10px 0 0; font-size: 12px; color: #5d6660; line-height: 1.45;">Switzerland is switched off in Search settings, so this source was not contacted.</p>
-      </article>
-
-      <article style="background: #fbfaf6; border-radius: 10px; padding: 16px; box-shadow: 0 1px 2px rgba(24,34,28,.05);">
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-          <span style="font-size: 12px; color: #5d6660;">Netherlands</span>
-          <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #a44638;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #a44638;"></span>Failed</span>
-        </div>
-        <h3 style="margin: 0 0 14px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; line-height: 1.1;">Nationale Vacaturebank</h3>
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;">
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #5d6660;">0</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Searched</div></div>
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #5d6660;">0</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Added</div></div>
-          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">23</div><div style="font-size: 12px; color: #5d6660; margin-top: 4px;">Still open</div></div>
-        </div>
-        <p style="margin: 10px 0 0; font-size: 12px; color: #a44638; line-height: 1.45; font-weight: 500;">The source did not answer.</p>
+        <h3 class="sub" style="font-size: 17px; margin-bottom: 14px;">Indeed</h3>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <div style="background: #f4f2ea; border-radius: 8px; padding: 10px 12px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1;">&mdash;</div><div class="note" style="margin-top: 4px;">Found</div></div>
+          <div style="background: #e3eadf; border-radius: 8px; padding: 10px 12px;"><div style="font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1; color: #134736;">&mdash;</div><div class="note" style="margin-top: 4px; color: #4d574f;">Added</div></div>
+        </div><p class="note" style="margin-top: 10px; color: #4d574f;">Administrator only, and not contacted this run. Dashes, not zeroes: nothing was asked.</p>
       </article>
     </div>
+  </section>
+
+  <section class="band" style="padding-top: 0;">
+    <h2 class="sec" style="margin-bottom: 16px;">Run history</h2>
+    <table class="t">
+      <thead><tr><th>Run</th><th>Sources</th><th class="n">Found</th><th class="n">Added</th><th class="n">Matched</th><th>Outcome</th></tr></thead>
+      <tbody>
+        <tr><td>22 Sept 2026, 14:06</td><td>EURES NL, EURES CH, Job-Room</td><td class="n">361</td><td class="n">306</td><td class="n">334</td><td><span class="chip" style="background: #f7e3dd; color: #8c3d29;">Partial</span></td></tr>
+        <tr><td>21 Sept 2026, 09:40</td><td>EURES NL, EURES CH, Job-Room</td><td class="n">288</td><td class="n">201</td><td class="n">246</td><td><span class="chip" style="background: #e3eadf; color: #134736;">Complete</span></td></tr>
+        <tr><td>20 Sept 2026, 18:12</td><td>EURES NL, EURES CH</td><td class="n">142</td><td class="n">96</td><td class="n">118</td><td><span class="chip" style="background: #e3eadf; color: #134736;">Complete</span></td></tr>
+        <tr><td>20 Sept 2026, 08:03</td><td>&mdash;</td><td class="n">&mdash;</td><td class="n">&mdash;</td><td class="n">&mdash;</td><td><span class="chip" style="background: #e6e6e2; color: #4d574f;">Stopped before any request</span></td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top: 16px;">The last row is the one worth drawing: a run that never reached a source has no figures and shows dashes. Writing 0 there would claim the sources were asked and returned nothing. Indeed appears in this table for administrators only &mdash; an ordinary account sees three sources and no trace of a fourth.</p>
   </section>
 </div>
 </x-dc>

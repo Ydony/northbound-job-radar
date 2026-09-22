@@ -2,73 +2,124 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>System manager</title>
+<title>System manager — visits, accounts, Indeed</title>
 </head>
 <body>
 <x-dc>
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
 <style>
-body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; font-variant-numeric: tabular-nums; }
+body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; }
 a { color: #134736; } a:hover { color: #18221c; }
+.caption { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
+.topbar { height: 64px; box-sizing: border-box; padding: 0 48px; background: #fbfaf6; border-bottom: 1px solid #ebe7db; display: flex; align-items: center; gap: 32px; }
+.mark { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.mark i { width: 30px; height: 30px; border-radius: 9px; background: #18221c; color: #def36b; display: flex; align-items: center; justify-content: center; font-family: Fraunces, Georgia, serif; font-size: 14px; font-weight: 600; font-style: normal; }
+.mark b { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: #18221c; }
+.nav a { font-size: 14px; font-weight: 500; color: #4d574f; padding: 0 13px; height: 44px; border-radius: 8px; display: inline-flex; align-items: center; text-decoration: none; }
+.nav a.on { font-weight: 700; color: #18221c; background: #eceade; }
+.band { box-sizing: border-box; padding: 30px 48px; }
+.band.tint { background: #eff1e8; border-bottom: 1px solid #e3e5d9; }
+h1.page { margin: 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em; }
+h2.sec { margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; }
+h3.sub { margin: 0 0 4px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #18221c; }
+p.lead { margin: 8px 0 0; max-width: 72ch; font-size: 17px; line-height: 1.55; color: #4d574f; }
+p.body { margin: 0; max-width: 72ch; font-size: 14px; line-height: 1.55; color: #4d574f; }
+.lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 7px; }
+.in { width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; height: 44px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c; }
+.primary { background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 22px; height: 44px; cursor: pointer; }
+.quiet { background: transparent; border: 1px solid #ddd9cc; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; padding: 0 18px; height: 44px; cursor: pointer; }
+.danger { background: #8c3d29; color: #ffffff; border: 1px solid #8c3d29; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 22px; height: 44px; cursor: pointer; }
+.danger[disabled] { background: #e6e6e2; border-color: #ddd9cc; color: #5d6660; cursor: not-allowed; }
+.note { margin: 0; font-size: 12px; line-height: 1.45; color: #5d6660; }
+.rail { border-left: 3px solid #c25239; border-radius: 0 10px 10px 0; background: #f7e3dd; padding: 18px 22px; }
+.rail.good { border-left-color: #3f7f54; background: #e3eadf; }
+.card { background: #fbfaf6; border: 1px solid #ebe7db; border-radius: 12px; padding: 24px 26px; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); }
+.chip { display: inline-block; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px; }
+table.t { border-collapse: collapse; width: 100%; }
+table.t th { padding: 0 0 8px; text-align: left; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
+table.t td { padding: 10px 0; font-size: 14px; color: #4d574f; border-top: 1px solid #ebe7db; }
+table.t td:first-child { color: #18221c; }
+table.t td.n, table.t th.n { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </helmet>
-<div style="width: 900px; height: 760px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
-
-  <header style="height: 68px; box-sizing: border-box; padding: 0 56px; display: flex; align-items: center; justify-content: space-between;">
-    <span style="display: inline-flex; align-items: center; gap: 12px;">
-      <span style="width: 32px; height: 32px; border-radius: 10px; background: #18221c; color: #def36b; display: flex; align-items: center; justify-content: center; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600;">I</span>
-      <span style="font-size: 17px; font-weight: 700;">Ik ben een appel</span>
-    </span>
-    <a href="#back" style="font-size: 14px; font-weight: 500; color: #4d574f; min-height: 44px; display: inline-flex; align-items: center;">← Back to the radar</a>
+<div style="width: 1800px; height: 1220px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
+  <header class="topbar">
+    <a href="#top" class="mark"><i>I</i><b>Ik ben een appel</b></a>
+    <nav class="nav" style="display: flex; gap: 2px; align-items: center;"><a href="#jobs">Jobs</a><a href="#keywords">Keywords</a><a href="#statistics">Statistics</a><a href="#settings">Settings</a><a href="#admin" class="on">Admin</a></nav>
+    <div style="margin-left: auto; display: inline-flex; align-items: center; gap: 18px;">
+      <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #4d574f;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3f7f54;"></span>SWITZERLAND + NETHERLANDS</span>
+      <a href="#signout" style="font-size: 14px; font-weight: 500; color: #5d6660; height: 44px; display: inline-flex; align-items: center; text-decoration: none;">Sign out</a>
+    </div>
   </header>
 
-  <section style="box-sizing: border-box; padding: 20px 56px 0;">
+  <section class="band tint">
     <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px;">
-      <h1 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em;">System manager</h1>
-      <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: #4d574f;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #78817a;"></span>Counts only · no access to anyone's CV or job list</span>
+      <h1 class="page">System manager</h1>
+      <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: #4d574f;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #78817a;"></span>Counts only &middot; no access to anyone&rsquo;s CV or job list</span>
+    </div>
+    <p class="lead">An ordinary account sees the heading and nothing else. The panels are withheld by the API before any row is read, so the absence is not something a reader can undo.</p>
+  </section>
+
+  <section class="band" style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 48px; align-items: start;">
+    <div class="card">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 18px;">
+        <h2 class="sec" style="margin: 0;">Visits</h2>
+        <span class="note">Solid bar: total visits. Inner bar: distinct visitors.</span>
+      </div>
+      <div style="display: flex; align-items: flex-end; gap: 10px; height: 130px;">
+        <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 44px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 26px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span class="note">Mon</span></div>
+        <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 72px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 40px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span class="note">Tue</span></div>
+        <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 58px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 31px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span class="note">Wed</span></div>
+        <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 90px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 52px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span class="note">Thu</span></div>
+        <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 66px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 35px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span class="note">Fri</span></div>
+        <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 30px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 18px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span class="note">Sat</span></div>
+        <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 22px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 12px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span class="note">Sun</span></div>
+      </div>
+      <p class="note" style="margin-top: 16px;">Two numbers a day and nothing per person, which is the whole analytics story. There is no row that could be turned back into who visited.</p>
     </div>
 
-    <div style="margin-top: 24px; background: #f4f2ea; border-radius: 12px; padding: 22px 24px;">
-      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 16px;">
-        <h2 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500;">Visits</h2>
-        <span style="font-size: 12px; color: #5d6660;">Solid bar: total visits. Inner bar: distinct visitors.</span>
+    <div class="card">
+      <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px;">
+        <h2 class="sec" style="margin: 0;">Indeed</h2>
+        <span class="chip" style="background: #e3eadf; color: #134736;">Connected</span>
+        <span class="note" style="margin-left: auto;">Last run 22 Sept 2026, 14:06</span>
       </div>
-      <div style="display: flex; align-items: flex-end; gap: 10px; height: 120px;">
-        <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 44px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 26px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span style="font-size: 12px; color: #5d6660;">Mon</span></div>
-        <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 72px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 40px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span style="font-size: 12px; color: #5d6660;">Tue</span></div>
-        <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 58px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 31px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span style="font-size: 12px; color: #5d6660;">Wed</span></div>
-        <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 90px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 52px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span style="font-size: 12px; color: #5d6660;">Thu</span></div>
-        <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 66px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 35px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span style="font-size: 12px; color: #5d6660;">Fri</span></div>
-        <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 30px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 18px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span style="font-size: 12px; color: #5d6660;">Sat</span></div>
-        <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;"><div style="width: 100%; height: 22px; background: #cfd8c9; border-radius: 4px 4px 0 0; position: relative;"><div style="position: absolute; bottom: 0; left: 25%; width: 50%; height: 12px; background: #3f7f54; border-radius: 3px 3px 0 0;"></div></div><span style="font-size: 12px; color: #5d6660;">Sun</span></div>
+      <p class="body" style="margin-bottom: 20px;">Place and distance are stored per account. Kilometres here; the provider is asked in whole miles.</p>
+      <div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px 20px;">
+        <div><label class="lbl">Netherlands — place</label><input type="text" class="in" value="Amsterdam, Netherlands"></div>
+        <div><label class="lbl">Distance (km)</label><input type="text" class="in" value="16"></div>
+        <div><label class="lbl">Switzerland — place</label><input type="text" class="in" value="Switzerland"></div>
+        <div><label class="lbl">Distance (km)</label><input type="text" class="in" value="16"></div>
       </div>
+      <div style="display: flex; align-items: center; gap: 12px; margin-top: 22px;">
+        <button type="button" class="primary">Save Indeed settings</button>
+        <button type="button" class="quiet">Restore defaults</button>
+      </div>
+      <p class="note" style="margin-top: 14px;">Defaults are Amsterdam and Switzerland at 16km &mdash; the 10 miles the code used before these fields existed, so an account that predates them searches what it searched yesterday.</p>
+    </div>
+  </section>
+
+  <section class="band" style="padding-top: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: start;">
+    <div class="card">
+      <h2 class="sec">Accounts</h2>
+      <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; padding: 0 12px; background: #f4f2ea; border-radius: 8px;"><span style="font-size: 14px; font-weight: 700;">owner@example.test</span><span class="chip" style="background: #e3eadf; color: #134736;">Admin</span></div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; padding: 0 12px;"><span style="font-size: 14px; color: #4d574f;">tester@example.test</span><span class="note">user</span></div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; padding: 0 12px;"><span style="font-size: 14px; color: #4d574f;">second@example.test</span><span class="note">user</span></div>
+      </div>
+      <p class="note" style="margin-top: 14px;">Deleting an account here empties the same tables the account&rsquo;s own delete does &mdash; two hand-written lists that have to agree. <a href="#129" style="font-weight: 700;">#129</a>.</p>
     </div>
 
-    <div style="margin-top: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
-      <div style="background: #f4f2ea; border-radius: 12px; padding: 20px 22px;">
-        <h2 style="margin: 0 0 12px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500;">Accounts</h2>
-        <div style="display: flex; flex-direction: column; gap: 2px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 8px 10px; background: #fbfaf6; border-radius: 8px;">
-            <span style="font-size: 14px; font-weight: 500;">owner@example.test</span>
-            <span style="font-size: 12px; font-weight: 700; color: #134736; background: #e3eadf; border-radius: 6px; padding: 3px 8px;">ADMIN</span>
-          </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 8px 10px; border-radius: 8px;">
-            <span style="font-size: 14px; color: #4d574f;">tester@example.test</span>
-            <span style="font-size: 12px; color: #5d6660;">user</span>
-          </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 8px 10px; border-radius: 8px;">
-            <span style="font-size: 14px; color: #4d574f;">second@example.test</span>
-            <span style="font-size: 12px; color: #5d6660;">user</span>
-          </div>
-        </div>
-      </div>
+    <div class="card">
+      <h2 class="sec">Job-Room repair</h2>
+      <p class="body" style="margin: 10px 0 18px;">Re-reads stored Job-Room advertisements whose publication dates were written before the parser was corrected.</p>
+      <button type="button" class="primary">Run repair</button>
+    </div>
 
-      <div style="background: #f4f2ea; border-radius: 12px; padding: 20px 22px;">
-        <h2 style="margin: 0 0 8px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500;">Job-Room repair</h2>
-        <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.55; color: #4d574f;">Re-reads stored Job-Room advertisements whose publication dates were written before the parser was corrected.</p>
-        <button type="button" style="background: #18221c; color: #ffffff; border: 0; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 13px 20px; min-height: 44px; cursor: pointer;">Run repair</button>
-      </div>
+    <div class="rail good">
+      <strong style="display: block; font-size: 17px; font-weight: 700; color: #134736; margin-bottom: 6px;">What keeps Indeed inside the rules</strong>
+      <p class="body" style="color: #4d574f;">Four requests maximum across both countries and every role, one lease at a time, a fixed delay between requests and a cooldown after a normal finish. No timing randomisation, no user-agent spoofing, no proxies. The caps are the entire mechanism, and they are published on the sources page rather than tuned to avoid notice.</p>
     </div>
   </section>
 </div>
