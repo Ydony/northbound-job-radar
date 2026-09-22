@@ -1,5 +1,6 @@
 import { aggregatorCredentials, authSecrets, ensureSchema, indeedConfiguration } from '@/db/runtime';
 import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
+import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
@@ -188,6 +189,13 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
     db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
+  // Indeed place/distance are per-account (#113). A missing row reads as the previous
+  // hardcoded defaults, so other sources and pre-settings accounts are untouched.
+  const indeedSettingsRow = await db.prepare(
+    'SELECT nl_location, nl_radius_km, ch_location, ch_radius_km, updated_at FROM indeed_settings WHERE user_id = ?')
+    .bind(user.id).first<{ nl_location: unknown; nl_radius_km: unknown; ch_location: unknown; ch_radius_km: unknown; updated_at: unknown }>()
+    .catch(() => null);
+  const indeedSettings = indeedSettingsFromRow(indeedSettingsRow);
   // A CV is no longer a precondition for searching. It used to be, because search terms were
   // derived from one, which made an optional feature block the product's only job. Roles come from
   // the role keywords now; a CV, when the feature is switched back on, only adds to them.
@@ -302,7 +310,8 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         indeedBatch ??= collectIndeed(db, indeedConfiguration(request, user.role === 'admin'),
           searchTerms, request.signal, fetch,
           activeAdapters.filter(source => source.experimentalIndeed)
-            .map(source => source.country === 'netherlands' ? 'NL' : 'CH'));
+            .map(source => source.country === 'netherlands' ? 'NL' : 'CH'),
+          indeedSettings);
         const summary = (await indeedBatch)[adapter.country === 'netherlands' ? 'NL' : 'CH'];
         const bulk = summary.jobs.filter(job => bulkJobIsRelevant(job, adapter.country, searchTerms));
         return done({ ...empty, bulk, candidates: bulk.map(job => canonicalJobUrl(job.sourceUrl)),

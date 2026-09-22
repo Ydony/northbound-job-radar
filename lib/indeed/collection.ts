@@ -1,6 +1,8 @@
 import { createIndeedClient } from './client';
 import { indeedReadiness } from './auth';
 import { normalizeIndeed } from './normalize';
+import { defaultIndeedSettings, indeedActiveRoles, indeedSearchLocation, indeedSearchRadiusMiles,
+  type IndeedSettings } from './settings';
 import type { IndeedCountry } from './contracts';
 import type { ParsedJob } from '../jobsch';
 import { delay } from '../jobsch';
@@ -26,10 +28,17 @@ export async function indeedStatus(db: D1Database, config: Configuration): Promi
       : row.last_success ? 'connected' : 'ready' };
 }
 
-/** One lease and a maximum of FOUR requests across both countries and all terms. */
+/** One lease and a maximum of FOUR requests across both countries and all terms.
+ *
+ * Place and distance come from the account's Indeed settings (#113). A missing
+ * settings value reads as defaults, so callers that predate the table keep the
+ * previous hardcoded behaviour. Only the first two distinct role queries are
+ * sent; the shared five role inputs are unchanged.
+ */
 export async function collectIndeed(db: D1Database, config: Configuration,
   terms: string[], signal?: AbortSignal, fetcher: typeof fetch = fetch,
-  countries: readonly IndeedCountry[] = ['NL', 'CH']): Promise<Record<IndeedCountry, IndeedBatchResult>> {
+  countries: readonly IndeedCountry[] = ['NL', 'CH'],
+  settings: IndeedSettings = defaultIndeedSettings()): Promise<Record<IndeedCountry, IndeedBatchResult>> {
   const empty = (): IndeedBatchResult => ({ jobs: [], status: 'disabled', message: '', roles: [], retrieved: 0, rejected: 0, duplicates: 0, requests: 0 });
   const results = { NL: empty(), CH: empty() };
   const selectedCountries = (['NL', 'CH'] as const).filter(country => countries.includes(country));
@@ -53,7 +62,7 @@ export async function collectIndeed(db: D1Database, config: Configuration,
   }
   // A crash retains the lease for three minutes; a normal finish also imposes a fixed cooldown.
   const client = createIndeedClient(config, fetcher);
-  const selected = [...new Set(terms.map(term => term.trim()).filter(Boolean))].slice(0, 2);
+  const selected = indeedActiveRoles(terms);
   let stopped = '';
   let requestsMade = 0;
   try {
@@ -61,11 +70,13 @@ export async function collectIndeed(db: D1Database, config: Configuration,
       const value = results[country];
       value.status = 'complete';
       const seen = new Set<string>();
+      const location = indeedSearchLocation(country, settings);
+      const radiusMiles = indeedSearchRadiusMiles(country, settings);
       for (const term of selected) {
         if (stopped || signal?.aborted) { value.status = value.jobs.length ? 'partial' : 'unavailable'; break; }
         if (requestsMade) await delay(500);
         const response = await client.search({ country, keywords: term,
-          location: country === 'NL' ? 'Amsterdam, Netherlands' : 'Switzerland',
+          location, radiusMiles,
           pageSize: 25, maxJobs: 25, maxRequests: 1, signal });
         value.roles.push(term);
         value.requests += response.requestsMade;

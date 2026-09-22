@@ -35,6 +35,19 @@ export interface SearchCriteria {
   updatedAt: string;
 }
 
+/**
+ * IND-Next 1: Indeed-only place and distance, per account. Kilometres are the
+ * stored and user-facing unit; collection converts to provider miles. Present
+ * only for administrators; ordinary accounts never receive it (see /api/state).
+ */
+export interface IndeedSettings {
+  nlLocation: string;
+  nlRadiusKm: number;
+  chLocation: string;
+  chRadiusKm: number;
+  updatedAt: string;
+}
+
 export type LanguageFeedbackVerdict = '' | 'correct' | 'incorrect';
 
 export interface JobRecord {
@@ -191,5 +204,12 @@ export interface AppState {
   profiles: CvProfile[];
   jobs: JobRecord[];
   criteria: SearchCriteria;
+  /**
+   * Indeed-only place and distance (#113). Present for administrators only;
+   * ordinary accounts never receive it, by direct API or by guessing another
+   * account's row, because every read is scoped to the session user and gated
+   * on role. Missing on older responses; callers must fall back to defaults.
+   */
+  indeedSettings?: IndeedSettings;
   searchRuns: SearchRun[];
 }

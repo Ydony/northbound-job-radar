@@ -1,6 +1,7 @@
 import { authSecrets, ensureSchema } from '@/db/runtime';
 import { recordVisit } from '@/lib/analytics';
 import { clientIp, requireSession } from '@/lib/guard';
+import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
 import { decodeJobsCursor, parsePageLimit } from '@/lib/paging';
 import { criteriaFromRow, cvFromRow, ensureCurrentJobClusters, ensureSearchText, jobFromRow, normalizeStoredJobs, queryCollectionTotals, queryJobsPage, searchRunsFromRows, type CriteriaRow, type CvRow,
@@ -70,6 +71,14 @@ export async function GET(request: Request) {
     db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
   const searchCriteria = criteriaFromRow(criteriaRow, roleRows.results);
+  // Indeed settings are administrator-only (#113). Ordinary accounts never
+  // receive them here, and the dedicated settings API refuses them outright,
+  // so they cannot learn these exist by direct API, guessed ID or UI.
+  const indeedSettingsRow = user.role === 'admin'
+    ? await db.prepare('SELECT nl_location, nl_radius_km, ch_location, ch_radius_km, updated_at FROM indeed_settings WHERE user_id = ?')
+      .bind(user.id).first<{ nl_location: unknown; nl_radius_km: unknown; ch_location: unknown; ch_radius_km: unknown; updated_at: unknown }>()
+      .catch(() => null)
+    : null;
   const [cvs, page, runs, collectionTotals] = await Promise.all([
     db.prepare('SELECT * FROM cvs WHERE user_id = ? ORDER BY slot').bind(user.id).all<CvRow>(),
     queryJobsPage(db, user.id, {
@@ -124,6 +133,9 @@ export async function GET(request: Request) {
     // Null when this page is the end: fewer rows than requested means nothing follows.
     nextCursor: page.nextCursor,
     criteria: searchCriteria,
+    // The ordinary-audience preview mirrors what an ordinary account receives,
+    // so it never carries Indeed settings even for the requesting administrator.
+    ...(!previewAsUser && user.role === 'admin' ? { indeedSettings: indeedSettingsFromRow(indeedSettingsRow) } : {}),
     // Page-fetching sources are an administrator capability, so their run rows are withheld from
     // everyone else rather than only hidden in the interface. The user preview
     // applies the same ordinary-audience rule: audience filtering happens

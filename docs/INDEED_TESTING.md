@@ -81,6 +81,20 @@ matching Origin header. It streams progress followed by the final JSON result. N
 endpoint or separate job store exists. Saved roles/countries are editable in the dashboard or
 through the existing authenticated `PUT /api/criteria` contract.
 
+## Indeed place and distance (administrator only)
+
+Each admin account holds its own Indeed place per selected country plus a distance in
+kilometres: `GET`/`PUT /api/admin/indeed/settings` (admin session required; ordinary
+accounts get 403 and can neither read nor modify these). Defaults are Amsterdam,
+Netherlands and Switzerland at 16 km, which converts to the 10 provider miles the
+collector used before settings existed — an account that never touches them searches
+exactly what it searched before. The collector sends integer miles; only the first two
+distinct saved role queries are searched, the five shared role inputs unchanged. Any
+place or distance change gives later searches a new query identity, so incremental
+coverage never applies to a different query. Settings ride along in admin `/api/state`
+only, are deleted with the account/workspace, and never reach ordinary accounts.
+Website editing controls arrive with #116; until then the API is the interface.
+
 ## Limits, disconnect and troubleshooting
 
 - First two distinct saved roles; selected NL/CH countries only; 25 rows per role/country.

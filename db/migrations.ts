@@ -511,4 +511,24 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'ALTER TABLE search_run_sources ADD COLUMN matched_count INTEGER',
     ],
   },
+  {
+    // #113: Indeed place and distance per country, account-scoped like every other
+    // user-data table. A missing row reads as defaults (Amsterdam/Switzerland, 16 km
+    // converting to the previous hardcoded 10 provider miles), so an account that
+    // predates this table keeps searching exactly what it searched yesterday.
+    // Kilometres are the stored and user-facing unit; collection converts to the
+    // provider's integer miles. No backfill: absence already means defaults.
+    version: 26,
+    name: 'indeed_place_distance_settings',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS indeed_settings (
+        user_id TEXT PRIMARY KEY NOT NULL,
+        nl_location TEXT NOT NULL DEFAULT 'Amsterdam, Netherlands',
+        nl_radius_km INTEGER NOT NULL DEFAULT 16,
+        ch_location TEXT NOT NULL DEFAULT 'Switzerland',
+        ch_radius_km INTEGER NOT NULL DEFAULT 16,
+        updated_at TEXT NOT NULL DEFAULT ''
+      )`,
+    ],
+  },
 ];
