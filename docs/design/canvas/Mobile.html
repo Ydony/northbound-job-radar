@@ -11,21 +11,41 @@
 <style>
 body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; font-variant-numeric: tabular-nums; }
 a { color: #134736; } a:hover { color: #18221c; }
-.jc { background: #fbfaf6; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 16px 18px; margin-bottom: 12px; }
-.jc h3 { margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15; }
+/* THE JOB CARD - one definition, byte-identical in MainRevised, Cards and Mobile.
+   Change it here and paste it into all three, or they drift. Mobile adds an override
+   block below this one; nothing else may restyle a card. */
+.jc { background: #fbfaf6; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 22px clamp(14px, 1.8vw, 26px); display: grid; grid-template-columns: auto fit-content(560px) minmax(320px, 1fr); column-gap: clamp(14px, 1.8vw, 26px); row-gap: 26px; align-items: start; }
+.jc h3 { width: 0; min-width: 100%; margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15; }
 .src { background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer; text-align: left; }
-.meta { margin: 0 0 10px; font-size: 12px; color: #5d6660; }
-.chips { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.meta { width: 0; min-width: 100%; margin: 0 0 12px; font-size: 12px; color: #5d6660; }
+.meta .gap { color: #8c3d29; }
+.chips { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
 .chip { display: inline-block; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px; }
-.asks { background: #f4f2ea; border-radius: 8px; padding: 15px 20px; margin-bottom: 12px; }
-.asks .lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 7px; }
-.asks ul { margin: 0 0 10px; padding: 0; list-style-position: outside; font-size: 14px; line-height: 1.5; color: #4d574f; }
+.acts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.apply { background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 20px; height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.icon { width: 44px; height: 44px; box-sizing: border-box; padding: 0; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.tick { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer; }
+.tick input { width: 15px; height: 15px; margin: 0; accent-color: #134736; }
+.tickbox { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 15px; height: 15px; border-radius: 4px; background: #134736; color: #ffffff; font-size: 12px; line-height: 1; }
+.asks { background: #f4f2ea; border-radius: 8px; margin: 0 22px; padding: 20px 40px; }
+.asks .lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 8px; }
+.asks ul { margin: 0 0 14px; padding: 0; list-style-position: outside; font-size: 14px; line-height: 1.5; color: #4d574f; }
+.asks .body { margin: 0 0 14px; font-size: 14px; line-height: 1.5; color: #4d574f; }
 .asks .note { margin: 0; font-size: 12px; line-height: 1.45; color: #5d6660; }
-.apply { display: flex; align-items: center; justify-content: center; background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 8px; font-size: 14px; font-weight: 700; height: 48px; box-sizing: border-box; margin-bottom: 8px; text-decoration: none; }
-.acts { display: flex; align-items: center; gap: 8px; }
-.icon { width: 48px; height: 48px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: 0 0 auto; }
-.tick { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: 1 1 auto; height: 48px; box-sizing: border-box; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer; }
-.tick input { width: 16px; height: 16px; margin: 0; accent-color: #134736; }
+.sel { display: inline-flex; align-items: center; min-height: 24px; margin-top: 6px; cursor: pointer; }
+.sel input { width: 16px; height: 16px; margin: 0; accent-color: #134736; }
+/* PHONE - the only permitted deviations, and why. One column, because 320px of
+   requirements will not sit beside 424px of job. 48px controls, because a finger is
+   not a cursor. Tighter insets, because 40px each side would take a fifth of the
+   width. Everything not listed here is inherited from the block above. */
+.jc { grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 14px; padding: 16px 18px; margin-bottom: 12px; }
+.jc .asks { grid-column: 2; margin: 0; padding: 15px 20px; }
+.acts { gap: 8px; }
+.apply { width: 100%; height: 48px; margin-bottom: 8px; }
+.icon { width: 48px; height: 48px; }
+.tick { flex: 1 1 auto; height: 48px; }
+.tick input { width: 16px; height: 16px; }
+.tickbox { width: 16px; height: 16px; }
 </style>
 </helmet>
 <div style="width: 390px; height: 1560px; box-sizing: border-box; background: #fbfaf6; position: relative; overflow: hidden;">
@@ -71,10 +91,19 @@ a { color: #134736; } a:hover { color: #18221c; }
     </div>
 
     <article class="jc" style="border-left: 3px solid #3f7f54;">
-      <h3>Supply Chain Quality Specialist</h3>
-      <button type="button" class="src">Job-Room (arbeit.swiss)</button>
-      <p class="meta">Coopers Group AG &middot; Wallis &middot; Switzerland</p>
-      <div class="chips"><span class="chip" style="background: #e3eadf; color: #134736;">Definitely English</span></div>
+      <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
+      <div style="min-width: 0;">
+        <h3>Supply Chain Quality Specialist</h3>
+        <button type="button" class="src">Job-Room (arbeit.swiss)</button>
+        <p class="meta">Coopers Group AG &middot; Wallis &middot; Switzerland &middot; <span class="gap">Posting date unavailable</span></p>
+        <div class="chips"><span class="chip" style="background: #e3eadf; color: #134736;">Definitely English</span></div>
+        <div class="acts">
+          <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
+          <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
+          <label class="tick"><input type="checkbox"> Applied</label>
+          <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
+        </div>
+      </div>
       <div class="asks">
         <span class="lbl">Asks for</span>
         <ul>
@@ -83,21 +112,21 @@ a { color: #134736; } a:hover { color: #18221c; }
         </ul>
         <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
       </div>
-      <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
-      <div class="acts">
-        <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
-        <label class="tick"><input type="checkbox"> Applied</label>
-        <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
-      </div>
     </article>
 
     <article class="jc" style="border-left: 3px solid #c25239;">
-      <h3>Risk &amp; Insurance Analyst</h3>
-      <button type="button" class="src">Job-Room (arbeit.swiss)</button>
-      <p class="meta">Basel &middot; 17 Sept 2026 &middot; Hybrid</p>
-      <div class="chips">
-        <span class="chip" style="background: #f7e3dd; color: #8c3d29;">Maybe English</span>
-        <span class="chip" style="background: #eceade; color: #4d574f;">Closes today</span>
+      <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
+      <div style="min-width: 0;">
+        <h3>Risk &amp; Insurance Senior Analyst</h3>
+        <button type="button" class="src">Job-Room (arbeit.swiss)</button>
+        <p class="meta">Basel &middot; 17 Sept 2026 &middot; Hybrid &middot; Switzerland</p>
+        <div class="chips"><span class="chip" style="background: #f7e3dd; color: #8c3d29;">Maybe English</span><span class="chip" style="background: #eceade; color: #4d574f;">Closes today</span></div>
+        <div class="acts">
+          <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
+          <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
+          <label class="tick"><input type="checkbox"> Applied</label>
+          <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
+        </div>
       </div>
       <div class="asks">
         <span class="lbl">Asks for</span>
@@ -107,29 +136,26 @@ a { color: #134736; } a:hover { color: #18221c; }
         </ul>
         <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
       </div>
-      <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
-      <div class="acts">
-        <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
-        <label class="tick"><input type="checkbox"> Applied</label>
-        <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
-      </div>
     </article>
 
     <article class="jc" style="border-left: 3px solid #78817a;">
-      <h3>Marketing Analyst</h3>
-      <button type="button" class="src">EURES Netherlands</button>
-      <p class="meta">Groot-Amsterdam &middot; 17 Sept 2026 &middot; Netherlands</p>
-      <div class="chips"><span class="chip" style="background: #e6e6e2; color: #4d574f;">Not sure</span></div>
+      <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
+      <div style="min-width: 0;">
+        <h3>Marketing Analyst</h3>
+        <button type="button" class="src">EURES Netherlands</button>
+        <p class="meta">Groot-Amsterdam &middot; 17 Sept 2026 &middot; Netherlands</p>
+        <div class="chips"><span class="chip" style="background: #e6e6e2; color: #4d574f;">Not sure</span></div>
+        <div class="acts">
+          <a href="#apply" class="apply">Apply on ec.europa.eu &#8599;</a>
+          <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
+          <label class="tick"><input type="checkbox"> Applied</label>
+          <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
+        </div>
+      </div>
       <div class="asks">
         <span class="lbl">Requirements not published</span>
-        <p style="margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: #4d574f;">EURES published a preview rather than the full advertisement, so there was never enough text to judge.</p>
+        <p class="body">EURES published a preview rather than the full advertisement, so there was never enough text to judge.</p>
         <p class="note"><a href="#original" style="font-weight: 700;">Original ad &#8599;</a> &mdash; one click usually settles it.</p>
-      </div>
-      <a href="#apply" class="apply">Apply on ec.europa.eu &#8599;</a>
-      <div class="acts">
-        <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
-        <label class="tick"><input type="checkbox"> Applied</label>
-        <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
       </div>
     </article>
   </section>
@@ -142,7 +168,7 @@ a { color: #134736; } a:hover { color: #18221c; }
   </section>
 
   <div style="position: absolute; left: 0; top: 844px; width: 390px; border-top: 2px dashed #c25239;"></div>
-  <div style="position: absolute; left: 0; top: 852px; width: 390px; box-sizing: border-box; padding: 0 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #8c3d29;">THE FOLD &mdash; the first job and its requirements are above it</div>
+  <div style="position: absolute; left: 0; top: 852px; width: 390px; box-sizing: border-box; padding: 0 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.4; color: #8c3d29;">THE FOLD &mdash; the first job, its verdict and its actions are above it; its requirements are not. The card matches desktop exactly, and that is what it costs.</div>
 </div>
 </x-dc>
 </body>

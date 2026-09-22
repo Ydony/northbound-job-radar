@@ -11,24 +11,30 @@
 <style>
 body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; }
 a { color: #134736; } a:hover { color: #18221c; }
+.caption { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
+/* THE JOB CARD - one definition, byte-identical in MainRevised, Cards and Mobile.
+   Change it here and paste it into all three, or they drift. Mobile adds an override
+   block below this one; nothing else may restyle a card. */
 .jc { background: #fbfaf6; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 22px clamp(14px, 1.8vw, 26px); display: grid; grid-template-columns: auto fit-content(560px) minmax(320px, 1fr); column-gap: clamp(14px, 1.8vw, 26px); row-gap: 26px; align-items: start; }
-.jc h3 { margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15; }
-.src { background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer; }
-.meta { margin: 0 0 12px; font-size: 12px; color: #5d6660; }
+.jc h3 { width: 0; min-width: 100%; margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15; }
+.src { background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer; text-align: left; }
+.meta { width: 0; min-width: 100%; margin: 0 0 12px; font-size: 12px; color: #5d6660; }
+.meta .gap { color: #8c3d29; }
 .chips { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
 .chip { display: inline-block; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px; }
 .acts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.apply { background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 8px; font-size: 14px; font-weight: 700; padding: 0 20px; height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; text-decoration: none; }
-.icon { width: 44px; height: 44px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
-.tick { display: inline-flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer; }
+.apply { background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 20px; height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.icon { width: 44px; height: 44px; box-sizing: border-box; padding: 0; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.tick { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer; }
 .tick input { width: 15px; height: 15px; margin: 0; accent-color: #134736; }
+.tickbox { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 15px; height: 15px; border-radius: 4px; background: #134736; color: #ffffff; font-size: 12px; line-height: 1; }
 .asks { background: #f4f2ea; border-radius: 8px; margin: 0 22px; padding: 20px 40px; }
 .asks .lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 8px; }
 .asks ul { margin: 0 0 14px; padding: 0; list-style-position: outside; font-size: 14px; line-height: 1.5; color: #4d574f; }
+.asks .body { margin: 0 0 14px; font-size: 14px; line-height: 1.5; color: #4d574f; }
 .asks .note { margin: 0; font-size: 12px; line-height: 1.45; color: #5d6660; }
 .sel { display: inline-flex; align-items: center; min-height: 24px; margin-top: 6px; cursor: pointer; }
-.sel input { width: 16px; height: 16px; accent-color: #134736; }
-.caption { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
+.sel input { width: 16px; height: 16px; margin: 0; accent-color: #134736; }
 </style>
 </helmet>
 <div style="width: 1800px; height: 1600px; box-sizing: border-box; padding: 40px 48px 48px; background: #fbfaf6; display: flex; flex-direction: column; gap: 22px;">

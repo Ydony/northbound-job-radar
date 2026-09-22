@@ -11,6 +11,29 @@
 <style>
 body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; font-variant-numeric: tabular-nums; }
 a { color: #134736; } a:hover { color: #18221c; }
+/* THE JOB CARD - one definition, byte-identical in MainRevised, Cards and Mobile.
+   Change it here and paste it into all three, or they drift. Mobile adds an override
+   block below this one; nothing else may restyle a card. */
+.jc { background: #fbfaf6; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 22px clamp(14px, 1.8vw, 26px); display: grid; grid-template-columns: auto fit-content(560px) minmax(320px, 1fr); column-gap: clamp(14px, 1.8vw, 26px); row-gap: 26px; align-items: start; }
+.jc h3 { width: 0; min-width: 100%; margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15; }
+.src { background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer; text-align: left; }
+.meta { width: 0; min-width: 100%; margin: 0 0 12px; font-size: 12px; color: #5d6660; }
+.meta .gap { color: #8c3d29; }
+.chips { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.chip { display: inline-block; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px; }
+.acts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.apply { background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 20px; height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.icon { width: 44px; height: 44px; box-sizing: border-box; padding: 0; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.tick { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer; }
+.tick input { width: 15px; height: 15px; margin: 0; accent-color: #134736; }
+.tickbox { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 15px; height: 15px; border-radius: 4px; background: #134736; color: #ffffff; font-size: 12px; line-height: 1; }
+.asks { background: #f4f2ea; border-radius: 8px; margin: 0 22px; padding: 20px 40px; }
+.asks .lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 8px; }
+.asks ul { margin: 0 0 14px; padding: 0; list-style-position: outside; font-size: 14px; line-height: 1.5; color: #4d574f; }
+.asks .body { margin: 0 0 14px; font-size: 14px; line-height: 1.5; color: #4d574f; }
+.asks .note { margin: 0; font-size: 12px; line-height: 1.45; color: #5d6660; }
+.sel { display: inline-flex; align-items: center; min-height: 24px; margin-top: 6px; cursor: pointer; }
+.sel input { width: 16px; height: 16px; margin: 0; accent-color: #134736; }
 </style>
 </helmet>
 <div style="width: 1800px; height: 2180px; box-sizing: border-box; background: #fbfaf6; overflow: hidden; display: flex; flex-direction: column;">
@@ -249,50 +272,50 @@ a { color: #134736; } a:hover { color: #18221c; }
              constraint is still stated, with the place it is actually changed. -->
         <p style="margin: 0; padding-bottom: 2px; font-size: 12px; color: #5d6660;">Saved criteria exclude <strong style="color: #18221c;">intern</strong> and <strong style="color: #18221c;">lead</strong> — <a href="#criteria" style="font-weight: 700;">change in Search settings</a></p>
 
-        <article style="background: #fbfaf6; border-left: 3px solid #3f7f54; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 22px clamp(14px, 1.8vw, 26px); display: grid; grid-template-columns: auto fit-content(560px) minmax(320px, 1fr); column-gap: clamp(14px, 1.8vw, 26px); row-gap: 26px; align-items: start;">
-          <label style="display: inline-flex; align-items: center; min-height: 24px; margin-top: 6px; cursor: pointer;"><input type="checkbox" aria-label="Select this job" style="width: 16px; height: 16px; accent-color: #134736;"></label>
+        <article class="jc" style="border-left: 3px solid #3f7f54;">
+          <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
           <div style="min-width: 0;">
-            <h3 style="width: 0; min-width: 100%; margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15;">Supply Chain Quality Specialist</h3>
-            <button type="button" style="background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer;">Job-Room (arbeit.swiss)</button>
-            <p style="width: 0; min-width: 100%; margin: 0 0 12px; font-size: 12px; color: #5d6660;">Coopers Group AG · Wallis · Switzerland · <span style="color: #8c3d29;">Posting date unavailable</span></p>
-            <div style="display: flex; gap: 6px; margin-bottom: 16px;"><span style="display: inline-block; border-radius: 6px; background: #e3eadf; color: #134736; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px;">Definitely English</span></div>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <a href="#apply" style="background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 8px; font-size: 14px; font-weight: 700; padding: 0 20px; height: 44px; box-sizing: border-box; display: inline-flex; align-items: center;">Apply on arbeit.swiss ↗</a>
-              <button type="button" aria-label="Save this job" title="Save" style="width: 44px; height: 44px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">♡</button>
-              <label style="display: inline-flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer;"><input type="checkbox" style="width: 15px; height: 15px; margin: 0; accent-color: #134736;"> Applied</label>
-              <button type="button" aria-label="More actions" title="More" style="width: 44px; height: 44px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">⋯</button>
+            <h3>Supply Chain Quality Specialist</h3>
+            <button type="button" class="src">Job-Room (arbeit.swiss)</button>
+            <p class="meta">Coopers Group AG &middot; Wallis &middot; Switzerland &middot; <span class="gap">Posting date unavailable</span></p>
+            <div class="chips"><span class="chip" style="background: #e3eadf; color: #134736;">Definitely English</span></div>
+            <div class="acts">
+              <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
+              <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
+              <label class="tick"><input type="checkbox"> Applied</label>
+              <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
             </div>
           </div>
-          <div style="background: #f4f2ea; border-radius: 8px; margin: 0 22px; padding: 20px 40px;">
-            <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 8px;">Asks for</span>
-            <ul style="margin: 0 0 14px; padding: 0; list-style-position: outside; font-size: 14px; line-height: 1.5; color: #4d574f;">
+          <div class="asks">
+            <span class="lbl">Asks for</span>
+            <ul>
               <li>Ability to work independently in a remote setup and drive activities with limited supervision</li>
             </ul>
-            <p style="margin: 0; font-size: 12px; line-height: 1.45; color: #5d6660;">Extracted from the available advertisement — not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad ↗</a></p>
+            <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
           </div>
         </article>
 
-        <article style="background: #fbfaf6; border-left: 3px solid #3f7f54; border-radius: 0 10px 10px 0; box-shadow: 0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); padding: 22px clamp(14px, 1.8vw, 26px); display: grid; grid-template-columns: auto fit-content(560px) minmax(320px, 1fr); column-gap: clamp(14px, 1.8vw, 26px); row-gap: 26px; align-items: start;">
-          <label style="display: inline-flex; align-items: center; min-height: 24px; margin-top: 6px; cursor: pointer;"><input type="checkbox" aria-label="Select this job" style="width: 16px; height: 16px; accent-color: #134736;"></label>
+        <article class="jc" style="border-left: 3px solid #3f7f54;">
+          <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
           <div style="min-width: 0;">
-            <h3 style="width: 0; min-width: 100%; margin: 0 0 2px; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.15;">Procurement Analyst</h3>
-            <button type="button" style="background: none; border: 0; padding: 0; margin: 0 0 6px; font-family: Fraunces, Georgia, serif; font-size: 17px; font-weight: 600; color: #134736; cursor: pointer;">Job-Room (arbeit.swiss)</button>
-            <p style="width: 0; min-width: 100%; margin: 0 0 12px; font-size: 12px; color: #5d6660;">Coopers Group AG · Basel · Switzerland · <span style="color: #8c3d29;">Posting date unavailable</span></p>
-            <div style="display: flex; gap: 6px; margin-bottom: 16px;"><span style="display: inline-block; border-radius: 6px; background: #e3eadf; color: #134736; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 8px;">Definitely English</span></div>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <a href="#apply" style="background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 8px; font-size: 14px; font-weight: 700; padding: 0 20px; height: 44px; box-sizing: border-box; display: inline-flex; align-items: center;">Apply on arbeit.swiss ↗</a>
-              <button type="button" aria-label="Save this job" title="Save" style="width: 44px; height: 44px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">♡</button>
-              <label style="display: inline-flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer;"><input type="checkbox" style="width: 15px; height: 15px; margin: 0; accent-color: #134736;"> Applied</label>
-              <button type="button" aria-label="More actions" title="More" style="width: 44px; height: 44px; border: 1px solid #ddd9cc; border-radius: 8px; background: #fbfaf6; font-size: 16px; line-height: 1; color: #4d574f; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">⋯</button>
+            <h3>Procurement Analyst</h3>
+            <button type="button" class="src">Job-Room (arbeit.swiss)</button>
+            <p class="meta">Coopers Group AG &middot; Basel &middot; Switzerland &middot; <span class="gap">Posting date unavailable</span></p>
+            <div class="chips"><span class="chip" style="background: #e3eadf; color: #134736;">Definitely English</span></div>
+            <div class="acts">
+              <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
+              <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
+              <label class="tick"><input type="checkbox"> Applied</label>
+              <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
             </div>
           </div>
-          <div style="background: #f4f2ea; border-radius: 8px; margin: 0 22px; padding: 20px 40px;">
-            <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 8px;">Asks for</span>
-            <ul style="margin: 0 0 14px; padding: 0; list-style-position: outside; font-size: 14px; line-height: 1.5; color: #4d574f;">
-              <li>Bachelor's degree in Supply Chain, Procurement, Business Administration, Finance or Accounting</li>
+          <div class="asks">
+            <span class="lbl">Asks for</span>
+            <ul>
+              <li>Bachelor&rsquo;s degree in Supply Chain, Procurement, Business Administration, Finance or Accounting</li>
               <li>5+ years in Procurement, Supply Chain, Finance, Master Data or Accounts Payable</li>
             </ul>
-            <p style="margin: 0; font-size: 12px; line-height: 1.45; color: #5d6660;">Extracted from the available advertisement — not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad ↗</a></p>
+            <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
           </div>
         </article>
       </div>
