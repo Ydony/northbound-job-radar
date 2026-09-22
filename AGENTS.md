@@ -1,5 +1,12 @@
 # Ik ben een appel: instructions for coding agents
 
+**2026-09-22 dedicated Spark DEV:** before verification, read
+`C:/Projects/AI team and PM Tools/WORKER-DEV.md`. DEV at localhost:3000 runs
+this worktree with synthetic-only storage and dedicated admin/user accounts.
+Use its documented existing launcher and local sign-in helper; do not restart
+TEST, read owner credentials, invent another startup harness or use
+`/api/health` for readiness. Access setup does not itself resume paused tasks.
+
 **2026-09-21 Indeed operator entry point:** read `docs/INDEED_TESTING.md`. For an explicit
 owner-requested search, use `npm run indeed -- search --env test` (or `--env dev`) after
 one-time setup/login. Do not repeat phone research, scrape credentials or run acceptance

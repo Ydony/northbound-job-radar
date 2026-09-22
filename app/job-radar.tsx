@@ -19,6 +19,7 @@ import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday, c
   runNewMatchedTotals, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, statusLabel,
   TOTALS_DEDUPE_NOTE, totalForSource, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
   type LanguageFilter, type SortMode } from '@/lib/dashboard';
+import { formatRequirementsRailLabel } from '@/lib/requirements';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, ApplicationStatus, CvSlot, JobCountry, JobRecord, SearchCriteria,
@@ -108,14 +109,11 @@ export default function JobRadar() {
    * job, on every visit. Collapsed, the current view stays visible in the summary, so nothing
    * is hidden that you would otherwise be reading.
    *
-   * Starts open on a wide screen so a desktop render is correct on first paint, and closed
-   * on a narrow one: an open-then-close dance after mount leaves the drawer open under
-   * the tap-floor and first-job measurements (UX-6f: ~600px of open drawer ahead of the
-   * first job on a phone). The media query can be read on first render, so there is no
-   * need to wait for the effect.
+   * Start collapsed on both server and client, then apply the viewport after mount.
+   * Reading matchMedia in the initializer makes hydration disagree on phones.
+   * The collapsed default also avoids a tall open drawer before mobile hydration.
    */
-  const [filtersOpen, setFiltersOpen] = useState(
-    () => typeof window === 'undefined' || window.matchMedia('(min-width: 851px)').matches);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   useEffect(() => {
     const wide = window.matchMedia('(min-width: 851px)');
     const apply = () => setFiltersOpen(wide.matches);
@@ -189,8 +187,9 @@ export default function JobRadar() {
    * this a desktop render would also collapse to two fields, regressing the
    * five-across desktop canvas (docs/design/canvas/SearchSettings.html).
    */
-  const [isNarrow, setIsNarrow] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 850px)').matches);
+  // Server and first client render must contain the same number of role inputs.
+  // The effect can safely collapse the optional empty inputs after hydration.
+  const [isNarrow, setIsNarrow] = useState(false);
   useEffect(() => {
     const narrow = window.matchMedia('(max-width: 850px)');
     const apply = () => setIsNarrow(narrow.matches);
@@ -283,6 +282,31 @@ export default function JobRadar() {
    */
   const [viewAsUser, setViewAsUser] = useState(false);
   const isAdmin = accountIsAdmin && !viewAsUser;
+
+  /**
+   * Ordinary-audience preview state (#124 fix).
+   *
+   * Totals and run rows for the preview come from `/api/state?preview=user`,
+   * where the server applies the ordinary audience predicates *before*
+   * aggregation and dedupe — the same numbers an ordinary account receives.
+   * The previous client-side subtraction of admin aggregates gave false zeros
+   * whenever dedupe crossed the audience boundary (hidden primary + public
+   * orphan copy). This holds only the caller's own rows, so it reveals nothing
+   * another account holds.
+   */
+  const [userPreview, setUserPreview] = useState<AppState | null>(null);
+  useEffect(() => {
+    if (!accountIsAdmin || !viewAsUser) {
+      setUserPreview(null);
+      return;
+    }
+    let cancelled = false;
+    fetch('/api/state?preview=user')
+      .then((response) => responseJson<AppState>(response))
+      .then((next) => { if (!cancelled) setUserPreview(next); })
+      .catch(() => { if (!cancelled) setUserPreview(null); });
+    return () => { cancelled = true; };
+  }, [accountIsAdmin, viewAsUser]);
 
   // In the user preview, drop the rows the server would never have sent to an ordinary account.
   // The server is what enforces this; hiding here is only what makes the preview truthful.
@@ -567,11 +591,16 @@ export default function JobRadar() {
     return ` · ${totals.newJobs} new · ${matched}`;
   })();
   const latestRun = useMemo(() => {
-    const run = state.searchRuns[0];
-    if (!run || !viewAsUser) return run;
-    const hidden = new Set(state.adminOnlySources ?? []);
-    return { ...run, sources: run.sources.filter((source) => !hidden.has(source.sourceKey)) };
-  }, [state.searchRuns, state.adminOnlySources, viewAsUser]);
+    // #124 fix: the user preview reads ordinary-audience runs from the server
+    // (`/api/state?preview=user`), never by subtracting admin rows client-side.
+    // Subtracting breaks the moment dedupe crosses the audience boundary: a
+    // hidden jobs.ch primary with a public EURES copy previews as 0 while an
+    // ordinary account really sees 1 (the orphan copy is promoted server-side
+    // before aggregation). While the preview loads, there is no latest run —
+    // an honest gap, not a false zero.
+    if (viewAsUser) return userPreview?.searchRuns[0];
+    return state.searchRuns[0];
+  }, [state.searchRuns, userPreview, viewAsUser]);
   // #124 totals: New and Matched come from the latest run snapshot (unique
   // additions, never provider-returned rows); Total collected comes from the
   // server-retained collection, never from loaded pages or summed found counts.
@@ -579,17 +608,14 @@ export default function JobRadar() {
     () => runNewMatchedTotals(latestRun?.sources ?? []),
     [latestRun],
   );
-  // Collection totals with the admin preview applied client-side. The server is
-  // what enforces audience scope; hiding here only makes the preview truthful,
-  // and it never reveals hidden counts — filtered sources simply vanish.
+  // Collection totals: the server's audience-scoped numbers, never a
+  // client-side subtraction. In the user preview the totals come from the
+  // preview response (ordinary predicates applied before aggregation); while
+  // it loads the total is unknown (—), never a false zero.
   const collectionView = useMemo(() => {
-    const totals = state.collectionTotals;
-    if (!totals) return null;
-    if (!viewAsUser) return totals;
-    const hidden = new Set(state.adminOnlySources ?? []);
-    const bySource = totals.bySource.filter((entry) => !hidden.has(entry.sourceKey));
-    return { total: bySource.reduce((sum, entry) => sum + entry.total, 0), bySource };
-  }, [state.collectionTotals, state.adminOnlySources, viewAsUser]);
+    if (viewAsUser) return userPreview?.collectionTotals ?? null;
+    return state.collectionTotals ?? null;
+  }, [state.collectionTotals, userPreview, viewAsUser]);
 
   async function persistCriteria(draft: CriteriaDraft) {
     return responseJson<{ criteria: SearchCriteria }>(await fetch('/api/criteria', {
@@ -766,41 +792,30 @@ export default function JobRadar() {
       }
       const result = last as { added: JobRecord[]; run: SearchRun; scanned: number; alreadyKnown: number } | null;
       if (!result?.run) throw new Error('The search ended without returning a result.');
-      setState((current) => {
-        // #124: Total collected is server-retained, but the run just added rows
-        // this response already counts. Increment optimistically so the headline
-        // does not lag a search behind; the next full state load reconciles it.
-        // Attribution follows the run report: each new unique job counts for the
-        // source that first kept it.
-        const addedBySource = new Map<string, number>();
-        for (const source of result.run.sources) {
-          if (source.importedCount > 0) addedBySource.set(source.sourceKey, source.importedCount);
-        }
-        const previousTotals = current.collectionTotals;
-        const nextTotals = previousTotals ? {
-          total: previousTotals.total + result.added.length,
-          bySource: (() => {
-            const byKey = new Map(previousTotals.bySource.map((entry) => [entry.sourceKey, entry]));
-            for (const source of result.run.sources) {
-              if (!source.importedCount) continue;
-              const existing = byKey.get(source.sourceKey);
-              if (existing) byKey.set(source.sourceKey, { ...existing, total: existing.total + source.importedCount });
-              else byKey.set(source.sourceKey, {
-                sourceKey: source.sourceKey, sourceName: source.sourceName,
-                country: source.country, total: source.importedCount,
-              });
-            }
-            return [...byKey.values()];
-          })(),
-        } : previousTotals;
-        return {
+      setState((current) => ({
+        // #124 fix: jobs and the run row update immediately, but Total
+        // collected is never derived here. Duplicate folding, orphan promotion
+        // and per-source attribution are server-side; the authoritative totals
+        // arrive via the reconcile fetch below. Deriving them from
+        // importedCount/added.length guesses wrong on folded and unloaded rows.
+        ...current,
+        jobs: [...result.added, ...current.jobs.filter((job) => !result.added.some((added) => added.id === job.id))],
+        searchRuns: [result.run, ...current.searchRuns.filter((run) => run.id !== result.run.id)].slice(0, 12),
+      }));
+      // Reconcile authoritative retained totals (overall and per-source) right
+      // away; do not wait for the next page load. A failure keeps the previous
+      // totals rather than a guessed number.
+      try {
+        const reconciled = await responseJson<AppState>(await fetch('/api/state'));
+        setState((current) => ({
           ...current,
-          jobs: [...result.added, ...current.jobs.filter((job) => !result.added.some((added) => added.id === job.id))],
-          searchRuns: [result.run, ...current.searchRuns.filter((run) => run.id !== result.run.id)].slice(0, 12),
-          totalJobs: (current.totalJobs ?? current.jobs.length) + result.added.length,
-          collectionTotals: nextTotals,
-        };
-      });
+          totalJobs: reconciled.totalJobs ?? current.totalJobs,
+          matchingJobs: reconciled.matchingJobs ?? current.matchingJobs,
+          collectionTotals: reconciled.collectionTotals ?? current.collectionTotals,
+        }));
+      } catch {
+        // Totals stay as they were; the next full state load reconciles them.
+      }
       const completedSources = result.run.sources.filter((source) => source.status === 'complete' || source.status === 'partial').length;
       const indeedUnavailable = sourceGroup === 'indeed' && completedSources === 0
         ? result.run.sources.filter(source => source.status !== 'skipped').map(source => source.message).join(' ')
@@ -1003,30 +1018,46 @@ export default function JobRadar() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(all ? { all: true } : { ids }),
       }));
-      setState((current) => {
-        // #124: deliberate deletion removes rows from the retained collection —
-        // Total collected must fall, not preserve deleted records. Decrement the
-        // server totals from the rows actually removed on screen; the next full
-        // state load reconciles any duplicate-folding edge.
-        const removed = all ? current.jobs : current.jobs.filter((job) => ids.includes(job.id));
-        const removedBySource = new Map<string, number>();
-        for (const job of removed) removedBySource.set(job.sourceKey, (removedBySource.get(job.sourceKey) ?? 0) + 1);
-        const previousTotals = current.collectionTotals;
-        const nextTotals = all
-          ? { total: 0, bySource: [] as NonNullable<AppState['collectionTotals']>['bySource'] }
-          : previousTotals ? {
-            total: Math.max(0, previousTotals.total - removed.length),
-            bySource: previousTotals.bySource
-              .map((entry) => ({ ...entry, total: Math.max(0, entry.total - (removedBySource.get(entry.sourceKey) ?? 0)) }))
-              .filter((entry) => entry.total > 0),
-          } : previousTotals;
-        return {
+      setState((current) => ({
+        // #124 fix: the visible rows leave immediately, but Total collected is
+        // never derived by subtracting them. Deleting a visible primary whose
+        // folded copy is retained keeps the server unique total at 1 while
+        // naive subtraction shows 0; attribution and unloaded pages break it
+        // further. The reconcile fetch below reads the authoritative overall
+        // and per-source totals instead.
+        ...current,
+        jobs: all ? [] : current.jobs.filter((job) => !ids.includes(job.id)),
+      }));
+      // Deliberate deletion removes rows from the retained collection — Total
+      // collected must fall, not preserve deleted records. Reconcile the
+      // authoritative server totals right away rather than on the next load.
+      try {
+        const reconciled = await responseJson<AppState>(await fetch('/api/state'));
+        setState((current) => ({
           ...current,
-          jobs: all ? [] : current.jobs.filter((job) => !ids.includes(job.id)),
-          totalJobs: all ? 0 : Math.max(0, (current.totalJobs ?? current.jobs.length) - removed.length),
-          collectionTotals: nextTotals,
-        };
-      });
+          totalJobs: reconciled.totalJobs ?? (all ? 0 : current.totalJobs),
+          matchingJobs: reconciled.matchingJobs ?? current.matchingJobs,
+          collectionTotals: reconciled.collectionTotals
+            ?? (all ? { total: 0, bySource: [] } : current.collectionTotals),
+        }));
+        // A preview open during the delete shows the ordinary-audience totals;
+        // refresh it too so it never lags the authoritative numbers.
+        if (viewAsUser) {
+          try {
+            const preview = await responseJson<AppState>(await fetch('/api/state?preview=user'));
+            setUserPreview(preview);
+          } catch {
+            // The main totals above are authoritative; the preview retries on toggle.
+          }
+        }
+      } catch {
+        // The rows are gone on screen; totals reconcile on the next state load.
+        if (all) {
+          setState((current) => ({
+            ...current, totalJobs: 0, collectionTotals: { total: 0, bySource: [] },
+          }));
+        }
+      }
       setSelectedJobIds([]);
       setDataMessage(`Deleted ${result.deletedJobs} job${result.deletedJobs === 1 ? '' : 's'}. Total collected now excludes them.`);
     } catch (error) {
@@ -1636,12 +1667,14 @@ export default function JobRadar() {
                 {/* UX-6b + #125: what the employer asks for holds the right side.
                     Extracted from the available advertisement — a grounded quotation,
                     never a CV-match explanation and never a language-eligibility claim.
+                    The source heading is preserved verbatim ("Nice to have" stays
+                    optional; it is never flattened to a bare "Asks for").
                     A preview too short to judge says so; a full ad with nothing
                     reliably extractable says it could not be extracted (not that the
                     employer asks for nothing). Both point at the original page. */}
                 <div className="job-requirements">
                   {requirements
-                    ? <><span>Asks for</span>
+                    ? <><span>{formatRequirementsRailLabel(requirements.heading)}</span>
                       <ul>{requirements.items.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul>
                       {requirements.items.length > 3 && <details className="requirements-more">
                         <summary>Show all {requirements.items.length} requirements</summary>

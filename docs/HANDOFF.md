@@ -608,3 +608,51 @@ workflow as a fresh second account, report findings before fixing them, and veri
 access fails. A1 remains a personal owner action, and now covers both environments: replace the administrator
 email and password in `http://localhost:3001/settings` **and** `http://localhost:3000/settings`,
 because both passwords were exposed in a chat transcript.
+
+## 9. 2026-09-22 Spark: results-clarity review fixes (#124/#125) — verified, awaiting lead review
+
+Owner-authorized recovery in worktree `ajh-resultsclarity-20260922-205227-467012`
+(branch `ai/resultsclarity-20260922-205227-467012`). Continued the uncommitted fixes, did not
+rebuild. Codex's hydration fix in `app/job-radar.tsx` (stable `filtersOpen`/`isNarrow`
+initializers, viewport applied after mount) is preserved untouched.
+
+What the fixes do (all four PR #128 review items):
+- **#124 authoritative totals:** search and delete no longer derive Total collected from
+  `importedCount`/`added.length` or visible-row subtraction. Both reconcile via `GET /api/state`
+  immediately; failure keeps previous totals, never a guess (`app/job-radar.tsx`).
+- **#124 truthful view-as-user:** admin `?preview=user` on `GET /api/state` applies ordinary
+  audience predicates server-side *before* aggregation/dedupe. The client reads preview totals
+  and runs from that response; while loading the total is unknown (—), never a false zero.
+- **#124 dedupe contract:** first-kept unique attribution — primaries under their own source,
+  orphan copies under the copy's source — so per-source numbers add up to the overall.
+  `TOTALS_DEDUPE_NOTE`, `lib/server-data.ts` comments and tests all say this; the old
+  "can exceed the overall" wording is gone.
+- **#125 heading modality:** `formatRequirementsRailLabel()` (`lib/requirements.ts`) renders
+  `Asks for — {heading}`, so "Nice to have" stays optional. Regression test included.
+
+Harness corrections (checked in code before trusting failures): `claimedLegacyWorkspace` is
+`isFirst` (`lib/users.ts:79,98`) — true for the first account even with zero legacy rows, so it
+is not evidence of adopted data. `GET /api/state` returns `profiles`, not `cvs`
+(`app/api/state/route.ts:115`). A preview-vs-ordinary deep-equality check is also wrong by
+construction: the preview shows the *caller's own* rows under ordinary predicates, so it cannot
+equal another account's totals.
+
+Evidence (dedicated synthetic DEV at localhost:3000, reusable accounts untouched, no resets,
+no provider calls, no real CVs):
+- `node work/spark-dev-access.mjs access` → DEV_ACCESS_PASS.
+- `npx tsx --test` on the three touched files: 44/44 pass. Full `npm test`: 375/375 pass.
+  `tsc --noEmit` and `eslint` on touched files: clean.
+- Live API: admin totals `{total:1, example.com:1}`, sums add up, preview keeps the public row
+  under ordinary predicates, preview exposes no `adminOnlySources` key, ordinary totals 0 (own rows).
+- Real headless Chrome against running DEV, admin session: desktop and 390px fresh loads with
+  zero console/page errors (no hydration mismatch); stats show "1 collected"; View-as-user toggle
+  keeps truthful "1 collected"; job rail renders "Asks for — Requirements" with the fixture's
+  2 extracted items.
+- New tests: preview-vs-subtraction and delete-with-retained-copy (`tests/collection-totals.test.ts`),
+  sums explainer (`tests/dashboard.test.ts`), rail-label modality (`tests/requirements.test.ts`).
+
+Not verified / remaining: hidden-primary + public-copy preview parity is covered at the query
+layer only — the exact live case cannot be built without a provider search, which is out of scope.
+Manual URL import reconciles through the same search-result path (no separate import handler
+exists in `app/job-radar.tsx`). `npm run build` not re-run this session. Do not merge, push, or
+close #124/#125: lead review still required. Indeed tasks (#112–114, #116–117, #126) untouched.

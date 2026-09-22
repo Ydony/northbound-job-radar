@@ -154,3 +154,52 @@ test('run rows without matched counts read as unknown, never as zero', () => {
   );
   assert.equal(runs[0].sources[0].matchedCount, null);
 });
+
+test('user preview equals the ordinary-audience totals, never admin minus hidden (#124 fix)', async () => {
+  // PR #128 review: a hidden jobs.ch primary with a public EURES copy folded
+  // into it. An administrator sees unique total 1 (the primary); naive
+  // client-side subtraction of the hidden jobs.ch aggregate previews 0; but an
+  // ordinary account really sees 1 — the audience predicates promote the
+  // orphan copy server-side before aggregation. The preview must equal the
+  // ordinary query, so `?preview=user` applies those predicates on the server.
+  const { db, dispose } = await fixture();
+  try {
+    await addJob(db, 'primary-admin', 'alice', 'jobs.ch', 'jobs.ch');
+    await addJob(db, 'copy-public', 'alice', 'eures-ch', 'EURES Switzerland', 'primary-admin');
+    // Administrator view: the folded copy counts only at its primary.
+    const admin = await queryCollectionTotals(db, 'alice', [], false);
+    assert.equal(admin.total, 1);
+    assert.equal(admin.bySource.find((entry) => entry.sourceKey === 'jobs.ch')?.total, 1);
+    // What naive client subtraction would show: drop the hidden aggregate.
+    const naiveBySource = admin.bySource.filter((entry) => entry.sourceKey !== 'jobs.ch');
+    const naiveTotal = naiveBySource.reduce((sum, entry) => sum + entry.total, 0);
+    assert.equal(naiveTotal, 0, 'naive subtraction previews a false zero');
+    // What an ordinary account (and the server preview) actually receives:
+    // audience filtering first, then the orphan copy promotes and counts.
+    const ordinary = await queryCollectionTotals(db, 'alice', ['jobs.ch'], false);
+    assert.equal(ordinary.total, 1, 'the orphan copy is shown, so it counts');
+    assert.equal(ordinary.bySource.find((entry) => entry.sourceKey === 'eures-ch')?.total, 1);
+    assert.ok(!ordinary.bySource.some((entry) => entry.sourceKey === 'jobs.ch'));
+    assert.notEqual(ordinary.total, naiveTotal, 'preview must not be computed by subtraction');
+  } finally {
+    await dispose();
+  }
+});
+
+test('deleting a visible primary with a retained copy keeps the unique total (#124 fix)', async () => {
+  // The dashboard must reconcile authoritative totals after deletion, never
+  // subtract visible rows: primary + folded copy total 1, and deleting the
+  // primary leaves the retained orphan at total 1 rather than 0.
+  const { db, dispose } = await fixture();
+  try {
+    await addJob(db, 'p1', 'alice', 'eures-ch', 'EURES Switzerland');
+    await addJob(db, 'c1', 'alice', 'jobs.ch', 'jobs.ch', 'p1');
+    assert.equal((await queryCollectionTotals(db, 'alice', [], false)).total, 1);
+    await db.prepare('DELETE FROM jobs WHERE id = ?').bind('p1').run();
+    const after = await queryCollectionTotals(db, 'alice', [], false);
+    assert.equal(after.total, 1, 'the retained orphan keeps the unique total at 1');
+    assert.equal(after.bySource.find((entry) => entry.sourceKey === 'jobs.ch')?.total, 1);
+  } finally {
+    await dispose();
+  }
+});

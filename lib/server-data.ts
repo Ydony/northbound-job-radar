@@ -721,13 +721,13 @@ export async function queryJobsPage(
  * are excluded in SQL with the same audience predicates the page uses, so an
  * ordinary account never learns admin-source counts from these numbers.
  *
- * Per-source totals attribute by the stored source_key/source_name/country and
- * include every retained row for that source, copies included. A near-duplicate
- * kept under two sites therefore counts for both sites but once overall, so the
- * per-source numbers can add up to more than the overall — that is folding,
- * not loss. Repeated finds across runs never inflate either number: a re-seen
- * job updates last_seen, it does not add a row. First-seen decides newness;
- * posting dates do not.
+ * Per-source totals attribute each counted job to exactly one shown source
+ * (primaries under their own source, orphans under the copy's source) using
+ * the same unique predicate, so the per-source numbers add up to the overall.
+ * Copies folded into a visible primary count only there, never again — that
+ * is the dedupe the card discloses. Repeated finds across runs never inflate
+ * either number: a re-seen job updates last_seen, it does not add a row.
+ * First-seen decides newness; posting dates do not.
  */
 export async function queryCollectionTotals(
   db: D1Database,
