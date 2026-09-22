@@ -104,10 +104,14 @@ export default function JobRadar() {
    * job, on every visit. Collapsed, the current view stays visible in the summary, so nothing
    * is hidden that you would otherwise be reading.
    *
-   * Starts open so a desktop render is correct on first paint, and closes itself on a narrow
-   * viewport once the media query can be read.
+   * Starts open on a wide screen so a desktop render is correct on first paint, and closed
+   * on a narrow one: an open-then-close dance after mount leaves the drawer open under
+   * the tap-floor and first-job measurements (UX-6f: ~600px of open drawer ahead of the
+   * first job on a phone). The media query can be read on first render, so there is no
+   * need to wait for the effect.
    */
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(
+    () => typeof window === 'undefined' || window.matchMedia('(min-width: 851px)').matches);
   useEffect(() => {
     const wide = window.matchMedia('(min-width: 851px)');
     const apply = () => setFiltersOpen(wide.matches);
@@ -166,6 +170,30 @@ export default function JobRadar() {
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(criteriaToDraft(defaultSearchCriteria));
   const [criteriaBusy, setCriteriaBusy] = useState(false);
   const [criteriaMessage, setCriteriaMessage] = useState('');
+  /**
+   * How many role fields the settings form shows on a phone (UX-6f).
+   *
+   * Five empty boxes push the save button and the keyword fields far down a phone
+   * screen. Below 850px two visible fields plus "+ Add another role" is the agreed
+   * layout (docs/design/canvas/MobileSettings.html); desktop keeps all five, as
+   * the desktop canvas shows. Filled roles are never hidden: the visible count is
+   * derived below as the maximum of this, two, and the filled count.
+   */
+  const [roleFields, setRoleFields] = useState(2);
+  /**
+   * Whether the phone layout applies. The collapse above is mobile-only; without
+   * this a desktop render would also collapse to two fields, regressing the
+   * five-across desktop canvas (docs/design/canvas/SearchSettings.html).
+   */
+  const [isNarrow, setIsNarrow] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 850px)').matches);
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 850px)');
+    const apply = () => setIsNarrow(narrow.matches);
+    apply();
+    narrow.addEventListener('change', apply);
+    return () => narrow.removeEventListener('change', apply);
+  }, []);
   const [feedbackOpen, setFeedbackOpen] = useState<Record<string, boolean>>({});
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, FeedbackDraft>>({});
   const [feedbackBusy, setFeedbackBusy] = useState('');
@@ -187,6 +215,10 @@ export default function JobRadar() {
         const criteria = next.criteria ?? defaultSearchCriteria;
         setState({ ...next, criteria, searchRuns: next.searchRuns ?? [] });
         setCriteriaDraft(criteriaToDraft(criteria));
+        // Never hide a saved role behind the collapsed phone layout: expand the
+        // visible fields to cover every non-empty role, up to the five maximum.
+        const filled = criteria.roleKeywords.filter((keyword) => keyword.trim()).length;
+        setRoleFields(Math.min(5, Math.max(2, filled)));
         // Someone with no role keywords has nothing to search for yet, so open the panel that
         // fixes that instead of leaving them to find it.
         if (!criteria.roleKeywords.some((keyword) => keyword.trim())) setSettingsOpen(true);
@@ -574,6 +606,7 @@ export default function JobRadar() {
   async function resetCriteria() {
     const draft = criteriaToDraft(defaultSearchCriteria);
     setCriteriaDraft(draft);
+    setRoleFields(2);
     setCriteriaBusy(true);
     setCriteriaMessage('Resetting criteria…');
     try {
@@ -1134,14 +1167,27 @@ export default function JobRadar() {
               <div className="role-keywords">
                 <span>Search roles · up to five</span>
                 <p className="role-note">Each one is searched separately, so five roles means five times the requests and a longer run.</p>
-                <div>{Array.from({ length: 5 }, (_, index) => <label className="field" key={index}>
-                  <span>Role {index + 1}</span>
-                  <input value={criteriaDraft.roleKeywords[index] ?? ''} onChange={(event) => {
-                    const roleKeywords = [...criteriaDraft.roleKeywords];
-                    roleKeywords[index] = event.target.value;
-                    setCriteriaDraft({ ...criteriaDraft, roleKeywords });
-                  }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
-                </label>)}</div>
+                {(() => {
+                  // Desktop keeps all five (SearchSettings.html); phones collapse to two
+                  // plus the add button (MobileSettings.html), never hiding a filled role.
+                  const filled = criteriaDraft.roleKeywords.filter((keyword) => (keyword ?? '').trim()).length;
+                  const visible = isNarrow ? Math.min(5, Math.max(2, filled, roleFields)) : 5;
+                  return <>
+                    <div>{Array.from({ length: visible }, (_, index) => <label className="field" key={index}>
+                      <span>Role {index + 1}</span>
+                      <input value={criteriaDraft.roleKeywords[index] ?? ''} onChange={(event) => {
+                        const roleKeywords = [...criteriaDraft.roleKeywords];
+                        roleKeywords[index] = event.target.value;
+                        setCriteriaDraft({ ...criteriaDraft, roleKeywords });
+                      }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
+                    </label>)}</div>
+                    {isNarrow && visible < 5 && <button
+                      type="button"
+                      className="add-role"
+                      onClick={() => setRoleFields((count) => Math.min(5, count + 1))}
+                    >+ Add another role</button>}
+                  </>;
+                })()}
               </div>
               <label className="field keywords"><span>Required keywords <span className="rule">— an ad must contain all of these</span></span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
               <label className="field keywords"><span>Exclude if ad contains <span className="rule">— any one drops it</span></span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
@@ -1205,7 +1251,10 @@ export default function JobRadar() {
       </div>
 
       <section className="results" id="jobs">
-        <div className="section-heading"><div><span className="section-label coral">Your workspace</span><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…'
+        {/* UX-6f: no eyebrow above the heading. "Your workspace / Screened jobs"
+            repeats the hero directly above it; the counts line is the part that
+            says something, so the heading stands alone on every width. */}
+        <div className="section-heading"><div><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…'
           // Shown rows are deduplicated on screen, so the count names each live effect
           // separately: keyword filtering (matching, from the server) and duplicate
           // folding (folded copies), rather than calling the shown rows "matching" (#92).

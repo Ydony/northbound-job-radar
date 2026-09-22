@@ -115,7 +115,7 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .view-toggle.as-user { background:var(--coral); border-color:var(--coral); color:white; }
 
 .criteria-section { align-items:start; background:var(--panel); border-radius:0 12px 12px 12px; display:grid; gap:var(--space-7); grid-template-columns:minmax(0,.8fr) minmax(0,1.6fr); padding:32px 36px 36px; }.criteria-section[hidden],.source-dashboard[hidden] { display:none; }.criteria-section:not([hidden]) + .source-dashboard:not([hidden]) { margin-top:var(--space-2); }.criteria-intro h2 { font-family:var(--font-display); font-size:32px; font-weight:500; letter-spacing:-.035em; margin:var(--space-2) 0 0; }.criteria-intro p { color:var(--text-secondary); font-size:14px; line-height:1.6; max-width:410px; }.criteria-form { display:grid; gap:var(--space-4); grid-template-columns:repeat(2,minmax(0,1fr)); }.criteria-form .country-switches,.criteria-form .role-keywords,.criteria-form .criteria-actions { grid-column:1/-1; }.criteria-form .field input,.criteria-form .field select { background:var(--cream); border:1px solid var(--line); min-height:48px; padding:var(--space-3) var(--space-3); width:100%; }.criteria-form .field select { cursor:pointer; }.criteria-form .field .rule { font-weight:400; letter-spacing:0; text-transform:none; }.criteria-actions { align-items:center; display:flex; flex-wrap:wrap; gap:var(--space-3); grid-column:1/-1; }.criteria-actions .search-button { align-self:auto; }.reset-button { background:transparent; border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:14px; font-weight:800; min-height:42px; padding:var(--space-3) var(--space-4); }.criteria-actions p { color:var(--text-secondary); font-size:14px; margin:0; }
-.workflow { align-items:center; background:var(--band); border-bottom:1px solid var(--line); display:grid; gap:var(--space-6); grid-template-columns:1.1fr 1.2fr auto auto; padding-block:var(--space-6); }.workflow .jobs-button { grid-column:2; justify-self:end; }.section-label.coral { color:var(--text-secondary); }.workflow-copy p { color:var(--text-secondary); font-size:14px; line-height:1.55; margin:var(--space-2) 0 0; max-width:440px; }.workflow-steps { display:grid; gap:var(--space-2); }.workflow-steps span { align-items:center; color:var(--text-secondary); display:flex; font-size:14px; gap:var(--space-2); }.workflow-steps b { align-items:center; border:1px solid var(--line); border-radius:50%; color:var(--ink); display:flex; height:23px; justify-content:center; width:23px; }.jobs-button,.import-button { border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:14px; font-weight:800; padding:var(--space-3) var(--space-4); white-space:nowrap; }.jobs-button { background:var(--ink); color:white; }.jobs-button span { color:var(--acid); }.jobs-button.disabled { cursor:not-allowed; opacity:.45; }.import-button { background:transparent; }.import-button span { color:var(--coral); }
+.workflow { align-items:center; background:var(--band); border-bottom:1px solid var(--line); display:grid; gap:var(--space-6); grid-template-columns:1.1fr 1.2fr auto auto; padding-block:var(--space-6); }.workflow .jobs-button { grid-column:2; justify-self:end; }.section-label.coral { color:var(--text-secondary); }.workflow-copy p { color:var(--text-secondary); font-size:14px; line-height:1.55; margin:var(--space-2) 0 0; max-width:440px; }.workflow-steps { display:grid; gap:var(--space-2); }.workflow-steps span { align-items:center; color:var(--text-secondary); display:flex; font-size:14px; gap:var(--space-2); }.workflow-steps b { align-items:center; border:1px solid var(--line); border-radius:50%; color:var(--ink); display:flex; height:23px; justify-content:center; width:23px; }.jobs-button,.import-button { border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:14px; font-weight:800; min-height:var(--size-tap-min,44px); padding:var(--space-3) var(--space-4); white-space:nowrap; }.jobs-button { background:var(--ink); color:white; }.jobs-button span { color:var(--acid); }.jobs-button.disabled { cursor:not-allowed; opacity:.45; }.import-button { background:transparent; }.import-button span { color:var(--coral); }
 .import-panel { background:var(--ink); color:white; padding:44px clamp(24px,9vw,150px) 52px; scroll-margin-top:var(--space-3); }.import-heading { align-items:start; display:flex; justify-content:space-between; margin-bottom:var(--space-6); }.import-heading>button { background:transparent; border:1px solid #597064; border-radius:50%; color:#c8d5ce; cursor:pointer; font-size:24px; height:36px; line-height:1; width:36px; }.import-panel form { display:grid; gap:var(--space-4); grid-template-columns:repeat(3,minmax(0,1fr)); }.import-panel .field { color:#9eb3a8; }.import-panel .field input,.import-panel .field textarea { border-color:#4c5e55; color:white; }.import-panel .field input:focus,.import-panel .field textarea:focus { border-color:var(--acid); }.import-panel .wide { grid-column:1/-1; }.import-footer { align-items:center; display:flex; gap:var(--space-5); grid-column:1/-1; justify-content:space-between; }.import-footer p { color:#9eb3a8; font-size:14px; margin:0; }.import-footer .primary { background:var(--acid); color:var(--ink); white-space:nowrap; }
 .results { background:var(--cream); min-height:500px; padding-block:var(--space-8) var(--space-9); }.section-heading { align-items:end; display:flex; justify-content:space-between; margin-bottom:var(--space-6); }.status-note { color:var(--text-tertiary); font-size:12px; }.result-layout { display:grid; gap:var(--space-6); grid-template-columns:190px minmax(0,1fr); }.filters { display:flex; flex-direction:column; gap:var(--space-1); }.filters>b { color:var(--text-tertiary); font-size:12px; font-weight:700; letter-spacing:.1em; margin-bottom:var(--space-2); text-transform:uppercase; }.filters button { align-items:center; width:100%; background:transparent; border:0; border-radius:8px; color:var(--text-secondary); cursor:pointer; display:flex; font-size:14px; gap:var(--space-2); justify-content:space-between; min-height:40px; padding:9px var(--space-3); text-align:left; }.filters button i { background:none; border:0; color:var(--text-tertiary); font-size:12px; font-style:normal; text-align:right; }.filters button.active { background:var(--panel); color:var(--ink); font-weight:700; }.filters button.active i { background:none; border:0; color:var(--text-tertiary); }
 .results .section-heading { margin-bottom:var(--space-4); }.data-toolbar { align-items:center; background:var(--paper); border:1px solid var(--line); display:flex; flex-wrap:wrap; gap:var(--space-2); margin-bottom:var(--space-5); padding:var(--space-3) var(--space-3); }.data-toolbar>span { font-size:12px; font-weight:800; margin-right:var(--space-1); text-transform:uppercase; }.data-toolbar button { background:var(--cream); border:1px solid var(--line); border-radius:999px; cursor:pointer; font-size:14px; font-weight:750; padding:var(--space-2) var(--space-2); }.data-toolbar button.danger { border-color:#d4a298; color:var(--danger); }.data-toolbar button:disabled { cursor:not-allowed; opacity:.45; }.data-toolbar p { color:var(--text-tertiary); font-size:12px; margin:0 0 0 auto; }
@@ -142,7 +142,7 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .health-panel { background:var(--cream); border:1px solid var(--line); grid-column:1/-1; margin-top:var(--space-3); padding:var(--space-3) var(--space-4); }
 .health-head { align-items:center; display:flex; justify-content:space-between; margin-bottom:var(--space-2); }
 .health-head b { font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
-.health-head button { background:transparent; border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:14px; font-weight:800; padding:var(--space-2) var(--space-3); }
+.health-head button { background:transparent; border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:14px; font-weight:800; min-height:var(--size-tap-min,44px); padding:var(--space-2) var(--space-3); }
 .health-head button:disabled { cursor:wait; opacity:.6; }
 .health-panel p { color:var(--text-secondary); font-size:14px; line-height:1.5; margin:0 0 var(--space-2); }
 .health-panel p.health-ok { color:var(--green); }
@@ -505,16 +505,10 @@ footer > a {
   .promise-section { order: 2; }
   footer { order: 3; }
 
-  /* "Your workspace / Screened jobs" repeats the hero directly above it. The counts line
-     is the part that says something, so it is the part that stays. */
-  .results .section-heading .section-label { display: none; }
+  /* The heading stands alone on every width (UX-6f): no eyebrow repeats the hero
+     above it, so there is nothing to hide here. */
   .results .section-heading { margin-bottom: var(--space-3); }
   .results .section-heading h2 { font-size: 24px; }
-
-  /* The score column centres its contents, which is right when it is a 74px column beside
-     the text and wrong once the card collapses to one column and it spans the full width -
-     the Select checkbox ended up floating in the middle of the card, attached to nothing. */
-  .job-card .score-column { align-items: flex-start; }
 }
 
 /* Export, delete and reset are things you do to a list after reading it. They sat as a
@@ -541,4 +535,57 @@ footer > a {
   .results-side { justify-content:space-between; width:100%; }
   .sort-control select { min-height:var(--size-tap-min,44px); }
   .source-filter select { min-height:var(--size-tap-min,44px); }
+}
+
+/* UX-6f: the phone views below 850px, from Mobile.html, MobileSettings.html and
+   MobileStats.html. Three single-column layouts with the same content and order
+   as desktop, not a reduced version of it. */
+@media(max-width:850px){
+  /* Jobs. One column: title, source, meta, chips, the requirements block, then a
+     full-width apply pill with save / Applied / overflow beneath it. The act row
+     lives inside .job-body in the DOM, ahead of the requirements, so the body
+     dissolves (display:contents) and the card orders its children directly —
+     otherwise the apply pill would stack above the requirements it must follow.
+     The bulk-select row is desktop-only: the agreed phone card has no select row,
+     and the row costs a full 44px ahead of the first job. */
+  .job-card { display:flex; flex-direction:column; gap:var(--space-3); }
+  .job-card .job-body { display:contents; }
+  .job-card .score-column { display:none; }
+  .job-card h3.job-title { order:1; }
+  .job-card .job-source { order:2; }
+  .job-card .job-subline { order:3; }
+  .job-card .judge-row { order:4; }
+  .job-card .language-summary { order:5; }
+  .job-card .correction-summary { order:5; }
+  .job-card .job-requirements { order:6; width:100%; }
+  .job-card .act-row { order:7; gap:var(--space-2) var(--space-3); }
+  .job-card .card-flash { order:8; }
+  .apply-pill { flex:1 1 100%; max-width:100%; min-height:48px; text-align:center; }
+  .save-icon { height:44px; width:48px; }
+
+  /* Search settings. One column with 48px controls. Inputs carry no font-size of
+     their own, so they render the browser 16px default: below 16px iOS zooms the
+     page on focus, and declaring 16px would fail check-design while rendering
+     identically (same reason as the login inputs). Country switches go
+     full-width; roles show two fields plus the add button. */
+  .criteria-section { padding:20px 18px 22px; }
+  .criteria-form { grid-template-columns:minmax(0,1fr); }
+  .criteria-form .keywords { grid-column:1; }
+  .country-options { flex-direction:column; }
+  .country-switches .switch { width:100%; }
+  .role-keywords > div { grid-template-columns:minmax(0,1fr); }
+  .add-role { align-self:flex-start; background:none; border:0; color:var(--green); cursor:pointer; font-size:14px; font-weight:800; min-height:var(--size-tap-min,44px); padding:0; }
+  .criteria-actions .search-button { min-height:48px; width:100%; }
+  .criteria-actions .reset-button { min-height:48px; width:100%; }
+
+  /* Search statistics. The same three numbers in the same order; the cards stack
+     one per row while the three cells inside each card stay side by side. */
+  .source-dashboard { padding:20px 18px 22px; }
+  .source-dashboard-heading { align-items:flex-start; flex-direction:column; }
+  .source-report-grid { grid-template-columns:minmax(0,1fr); }
+
+  /* The search buttons stack full-width rather than sitting side by side in an
+     auto column that would squeeze the copy and overflow at 375px. */
+  .workflow { grid-template-columns:minmax(0,1fr); }
+  .workflow .jobs-button { grid-column:1; justify-self:stretch; min-height:48px; white-space:normal; width:100%; }
 }
