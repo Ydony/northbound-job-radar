@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { defaultSearchCriteria } from '../lib/criteria';
 import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday,
-  criteriaToDraft, DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, formatSourceReconciliation,
+  criteriaToDraft, DASHBOARD_VIEW_LABELS, emptyStateCopy, formatCountOrUnknown, formatDate, formatSourceReconciliation,
   isJobExpired, isNewJob, jobInView, jobMatchesLanguage, LANGUAGE_FILTER_LABELS, languageStatusLabel,
-  newSinceCutoff, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, sourceRunTotals, statusLabel,
+  MATCHED_SNAPSHOT_NOTE, newSinceCutoff, RUN_TOTALS_HELP, runNewMatchedTotals, SORT_MODE_LABELS, sortJobs,
+  sourceRunStatusLabel, sourceRunTotals, statusLabel, TOTALS_DEDUPE_NOTE, totalForSource,
   workspaceCountCopy } from '../lib/dashboard';
 import type { LanguageFilter } from '../lib/dashboard';
 import type { JobRecord, SearchCriteria, SearchRun, SourceRunStatus } from '../lib/types';
@@ -464,4 +465,67 @@ test('expiry never moves a job between views', () => {
   const cutoff = '2026-08-01T00:00:00.000Z';
   assert.equal(jobInView(job({ expiresAt: '2026-08-15' }), 'all', cutoff, 'pass'), true);
   assert.equal(jobInView(job({ expiresAt: '2026-08-15' }), 'new', cutoff, 'pass'), true);
+});
+
+test('runNewMatchedTotals counts unique new additions and snapshot matches, never raw rows (#124)', () => {
+  // New is first-time unique additions (importedCount), not provider-returned
+  // rows (foundCount/newCount) and not a sum across runs. Matched is the
+  // search-time snapshot, never guessed from importedCount.
+  const totals = runNewMatchedTotals([
+    { status: 'complete', importedCount: 3, matchedCount: 2 },
+    { status: 'complete', importedCount: 2, matchedCount: 1 },
+  ]);
+  assert.deepEqual(totals, { newJobs: 5, matchedJobs: 3, matchedUnknown: false });
+  // A repeated duplicate-only run adds nothing new and matches nothing new.
+  assert.deepEqual(runNewMatchedTotals([
+    { status: 'complete', importedCount: 0, matchedCount: 0 },
+  ]), { newJobs: 0, matchedJobs: 0, matchedUnknown: false });
+  // Skipped and disabled sources were never contacted: they contribute neither
+  // new nor unknown.
+  assert.deepEqual(runNewMatchedTotals([
+    { status: 'complete', importedCount: 2, matchedCount: 1 },
+    { status: 'skipped', importedCount: 0, matchedCount: null },
+    { status: 'disabled', importedCount: 0, matchedCount: null },
+  ]), { newJobs: 2, matchedJobs: 1, matchedUnknown: false });
+});
+
+test('runNewMatchedTotals marks matched unknown rather than a false zero (#124)', () => {
+  // Pre-#124 rows carry no matched number; failed/blocked/unavailable sources
+  // never completed. All render as unknown, never as zero.
+  assert.equal(runNewMatchedTotals([
+    { status: 'complete', importedCount: 2, matchedCount: null },
+  ]).matchedUnknown, true);
+  for (const status of ['failed', 'blocked', 'unavailable'] as const) {
+    const totals = runNewMatchedTotals([{ status, importedCount: 0, matchedCount: null }]);
+    assert.equal(totals.matchedUnknown, true, `${status} must leave matched unknown`);
+    assert.equal(totals.matchedJobs, 0);
+  }
+  // Partial keeps what was measured and still flags the gap.
+  const partial = runNewMatchedTotals([
+    { status: 'partial', importedCount: 2, matchedCount: 1 },
+    { status: 'failed', importedCount: 0, matchedCount: null },
+  ]);
+  assert.equal(partial.newJobs, 2);
+  assert.equal(partial.matchedJobs, 1);
+  assert.equal(partial.matchedUnknown, true);
+  assert.equal(formatCountOrUnknown(null), '—');
+  assert.equal(formatCountOrUnknown(0), '0');
+  assert.equal(formatCountOrUnknown(4), '4');
+});
+
+test('totalForSource attributes retained jobs to their first-keeping source (#124)', () => {
+  const bySource = [
+    { sourceKey: 'eures-ch', total: 10 },
+    { sourceKey: 'jobs.ch', total: 3 },
+  ];
+  assert.equal(totalForSource(bySource, 'eures-ch'), 10);
+  assert.equal(totalForSource(bySource, 'jobs.ch'), 3);
+  assert.equal(totalForSource(bySource, 'unknown-key'), 0);
+  // Help copy defines the contract in the UI, not just in code: new and
+  // matched are run snapshots, total is retained, overall deduplicates.
+  assert.match(RUN_TOTALS_HELP, /New this search/i);
+  assert.match(RUN_TOTALS_HELP, /Matched this search/i);
+  assert.match(RUN_TOTALS_HELP, /Total collected/i);
+  assert.match(MATCHED_SNAPSHOT_NOTE, /snapshot/i);
+  assert.match(TOTALS_DEDUPE_NOTE, /once/i);
 });

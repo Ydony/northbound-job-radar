@@ -123,9 +123,35 @@ export interface SearchRunSource {
   knownCount: number;
   newCount: number;
   importedCount: number;
+  /**
+   * New jobs from this run that were matches at search time: first-time unique
+   * additions that were English-confirmed (detector verdict, before any later
+   * user correction) and met the saved criteria then. NULL means unknown —
+   * rows written before migration 25, or sources that never completed, carry
+   * no number and must render as unknown rather than as a false zero (#124).
+   */
+  matchedCount: number | null;
   duplicateCount: number;
   skippedCount: number;
   message: string;
+}
+
+export interface CollectionSourceTotal {
+  sourceKey: string;
+  sourceName: string;
+  country: JobCountry;
+  /** Retained rows attributed to this source (first-kept source wins). */
+  total: number;
+}
+
+export interface CollectionTotals {
+  /**
+   * Unique jobs retained in this account across every search (prior plus new),
+   * including saved/applied/dismissed rows. Deliberately deleted or reset rows
+   * are gone and are not counted. Never a sum of per-run found counts (#124).
+   */
+  total: number;
+  bySource: CollectionSourceTotal[];
 }
 
 export interface SearchRun {
@@ -146,6 +172,12 @@ export interface AppState {
   totalJobs?: number;
   /** Jobs the saved keywords keep, across every page. Counts converge to this as pages load. */
   matchingJobs?: number;
+  /**
+   * Account-scoped retained collection for the #124 totals, from the server —
+   * never derived from loaded pages. Missing on older responses; callers must
+   * fall back to totalJobs rather than to a page length.
+   */
+  collectionTotals?: CollectionTotals;
   /** Copies folded into the jobs on screen, on the loaded pages. Accumulate across pages. */
   hiddenDuplicates?: number;
   jobLimit?: number;

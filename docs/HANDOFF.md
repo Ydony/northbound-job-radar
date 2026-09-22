@@ -1,5 +1,41 @@
 # Handover
 
+## 2026-09-22 Results clarity: totals and extracted requirements (#123/#124/#125, unmerged)
+
+Owner-clarified counting plus grounded requirements, on branch
+`ai/resultsclarity-20260922-150414-159617`. Shared results functionality, not Indeed-only.
+
+Totals (#124): the Searched/Added/Still-open trio is replaced by New this search
+(first-time unique jobs this run added), Matched this search (those new jobs
+English-confirmed and meeting saved criteria at search time — a snapshot) and Total
+collected (unique retained jobs across runs, saved/applied/dismissed included, deleted
+gone). `matched_count` persists per source (migration 25, NULL = unknown, never a false
+zero); `queryCollectionTotals` serves the server-retained overall plus per-source uniques
+from the same audience predicates as the page, so ordinary roles never learn admin counts
+and the numbers never depend on loaded pages. Overall deduplicates; per-source rows show
+the first-keeping source and the card says why the sums can differ. Files:
+`db/migrations.ts`, `lib/types.ts`, `lib/server-data.ts`, `app/api/scrape/route.ts`,
+`app/api/state/route.ts`, `lib/dashboard.ts` (`runNewMatchedTotals`), `app/job-radar.tsx`,
+`app/globals.css` (overall row), `tests/dashboard.test.ts`, `tests/collection-totals.test.ts`.
+
+Requirements (#125): precision-first widening of `lib/requirements.ts` — paragraph sentences
+under recognised headings, unfamiliar headings with requirement wording, legitimate single
+requirements with explicit cues, and clearly stated cue-plus-signal sentences without any
+heading (empty heading, labelled as extracted from the available text). Bare-bullet fallback
+stays removed: Job-Room metadata, benefits, company blurbs and cue-less responsibilities
+stay out (negative fixtures kept). Modality and negations are quoted verbatim; long
+conditions to 300 chars are kept; flattened single-line ads stay null for the structure
+backfill. Cards show the first three with an expandable rest, an "extracted — not a
+complete guarantee" note and an original-ad link; unextractable full ads say they could
+not be extracted rather than claiming no requirements. No `Also posted on` restoration,
+no duplicate counts, no CV breakdown, no third-party model calls.
+
+Verification: 371/371 tests, lint, typecheck, build and `check:design` green. No signed-in
+browser exercise — owner dev/test servers held :3000/:3001 and verification must never
+touch owner state; see Known risks in `docs/ARCHITECTURE.md` for the pre-merge browser
+list. No overlap with Indeed UI task #116 beyond the shared dashboard files, which this
+branch owns while it is open.
+
 ## 2026-09-22 Restored explicit language filters (#119)
 
 Owner-reported regression from #46 (20 September): the default `matches` view and

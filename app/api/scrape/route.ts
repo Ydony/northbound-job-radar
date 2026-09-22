@@ -12,7 +12,7 @@ import { isSafeManualJobUrl } from '@/lib/job-sources';
 import { delay, stripHtml, type ParsedJob } from '@/lib/jobsch';
 import { isRejectedUrl, loadRejectedListings, rejectionRolesKey, rememberRejection,
   type RejectionReason } from '@/lib/rejected-listings';
-import { roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
+import { matchesSearchCriteria, roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
 import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
 import type { CvSlot, JobCountry, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
 
@@ -66,11 +66,11 @@ function isKnownUrl(url: string, known: KnownIdentity[]) {
 function runSourceRow(runId: string, source: SearchRunSource) {
   return {
     statement: `INSERT INTO search_run_sources (run_id, source_key, source_name, country, status, roles_searched,
-      found_count, known_count, new_count, imported_count, duplicate_count, skipped_count, message)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      found_count, known_count, new_count, imported_count, matched_count, duplicate_count, skipped_count, message)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     bindings: [runId, source.sourceKey, source.sourceName, source.country, source.status,
       JSON.stringify(source.rolesSearched), source.foundCount, source.knownCount, source.newCount,
-      source.importedCount, source.duplicateCount, source.skippedCount, source.message],
+      source.importedCount, source.matchedCount, source.duplicateCount, source.skippedCount, source.message],
   };
 }
 
@@ -357,6 +357,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         knownCount: 0,
         newCount: 0,
         importedCount: 0,
+        matchedCount: null,
         duplicateCount: 0,
         skippedCount: 0,
         message: adapter.availabilityMessage,
@@ -374,6 +375,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         knownCount: 0,
         newCount: 0,
         importedCount: 0,
+        matchedCount: null,
         duplicateCount: 0,
         skippedCount: 0,
         message: adapter.availabilityMessage,
@@ -392,6 +394,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         knownCount: 0,
         newCount: 0,
         importedCount: 0,
+        matchedCount: null,
         duplicateCount: 0,
         skippedCount: 0,
         message: error || 'The source has no detail parser.',
@@ -410,6 +413,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     const newCandidates = candidates.filter((url) => !isKnownCandidate(url));
     const attempted = newCandidates.slice(0, isBulk ? MAX_NEW_PER_BULK_SOURCE : MAX_NEW_PER_SOURCE);
     let importedCount = 0;
+    let matchedCount = 0;
     let duplicateCount = 0;
     // Deferring candidates because of the per-run cap is normal; only real parse/filter failures make a run partial.
     // The deferred list itself is deliberately not persisted (#93): postedAt is only known
@@ -498,20 +502,36 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         duplicateCount += 1;
       } else {
         importedCount += 1;
+        // Matched at search time (#124): first-time unique additions that were
+        // English-confirmed by the detector and met the saved criteria then.
+        // Later user corrections and criteria edits do not rewrite this snapshot;
+        // the card labels it as such. Never guessed from importedCount.
+        const matchedAtSearch = language.status === 'pass'
+          && matchesSearchCriteria(
+            { title: parsed.title, location: parsed.location, description },
+            criteria,
+          );
+        if (matchedAtSearch) matchedCount += 1;
         addedById.set(stored.job.id, stored.job);
       }
     }
 
+    const sourceStatus = indeed
+      ? (failedCount && indeed.status === 'complete' ? 'partial' : indeed.status)
+      : failedCount ? 'partial' : 'complete';
     sourceReports.push({
       sourceKey: adapter.key,
       sourceName: adapter.name,
       country: adapter.country,
-      status: indeed ? (failedCount && indeed.status === 'complete' ? 'partial' : indeed.status) : failedCount ? 'partial' : 'complete',
+      status: sourceStatus,
       rolesSearched: indeed?.roles ?? searchTerms,
       foundCount: indeed?.retrieved ?? candidates.length,
       knownCount,
       newCount: newCandidates.length,
       importedCount,
+      // Only completed sources carry a matched number; anything else is unknown,
+      // never a false zero. Caps and partial failures keep what was measured.
+      matchedCount: sourceStatus === 'complete' || sourceStatus === 'partial' ? matchedCount : null,
       duplicateCount: duplicateCount + (indeed?.duplicates ?? 0),
       skippedCount: deferredCount + failedCount + (indeed?.rejected ?? 0),
       message: [
@@ -538,6 +558,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       knownCount: 0,
       newCount: 0,
       importedCount: 0,
+      matchedCount: null,
       duplicateCount: 0,
       skippedCount: 0,
       message: `${adapter.country === 'netherlands' ? 'The Netherlands' : 'Switzerland'} is switched`

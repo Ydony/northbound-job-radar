@@ -134,8 +134,21 @@ allow the same advert back on a later search. Restoring a card deliberately remo
 matching tombstone.
 
 `search_runs` and `search_run_sources` store the run status and per-source roles, found,
-known, new, imported, duplicate, skipped, and safe message fields. Blocked or unavailable
-sources therefore remain visible without being misreported as successful searches.
+known, new, imported, matched (migration 25, `matched_count`, NULL means unknown), duplicate,
+skipped, and safe message fields. Blocked or unavailable sources therefore remain visible
+without being misreported as successful searches.
+
+Results clarity (#123/#124, 2026-09-22): the dashboard shows **New this search**
+(first-time unique jobs this run added), **Matched this search** (those new jobs
+English-confirmed and meeting the saved criteria at search time — a snapshot, later
+corrections do not rewrite it) and **Total collected** (unique retained jobs from this
+and previous searches, saved/applied/dismissed included, deleted gone). Totals come from
+the server (`queryCollectionTotals`), never from loaded pages or summed found counts;
+unknown renders as —. Per-source totals attribute to the first-keeping source; the
+overall deduplicates and the card says so. Job cards show employer requirements extracted
+from the available advertisement (#125, `lib/requirements.ts`), with unextractable text
+labelled as such and linked to the original ad — never a CV-match explanation and never
+a language-eligibility claim.
 
 The client never receives the CV text or R2 object key. Original CV files are capped at 10 MB. Replacing a CV removes the previous object after the new one is stored.
 
@@ -363,6 +376,16 @@ CRMs. The same ATS endpoints are rich for direct employers.
   lint/typecheck/build, but no live page-fetching search was run — that path needs
   `npm run dev:private` with an active VPN route, which was unavailable here. The first live
   private search should confirm remembered rows accumulate and the queue head advances.
+- Results clarity (#123/#124/#125, 2026-09-22, unmerged): New/Matched/Total-collected
+  counting, `matched_count` persistence and the requirements-extraction widening are covered
+  by synthetic unit plus real-D1 tests, lint, typecheck, build and the design gate — 371/371
+  green. No signed-in browser exercise ran: the owner's dev (:3000) and test (:3001) servers
+  were up and this worktree could not bind those ports, and verification must never write to
+  owner state. Before merge, exercise in isolated dev and built test at 1400px and 375px:
+  latest-run New/Matched/Total with per-source unknown (—), admin "view as user" preview
+  hiding admin counts, requirements expand plus original-ad links, and a correction moving
+  its card. Nothing tests `app/job-radar.tsx`, so the green gate is not evidence the panel
+  renders correctly.
 - Source URLs, rules, and availability can change; revalidate them before releases and
   keep the adapter feature states truthful. LinkedIn remains excluded.
 
