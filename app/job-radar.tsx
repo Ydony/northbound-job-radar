@@ -15,9 +15,9 @@ import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday, criteriaToDraft,
   DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, isJobExpired, jobInView,
-  languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
+  LANGUAGE_FILTER_LABELS, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
   sourceRunStatusLabel, sourceRunTotals, statusLabel, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
-  type SortMode } from '@/lib/dashboard';
+  type LanguageFilter, type SortMode } from '@/lib/dashboard';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
 import type { AppState, ApplicationStatus, CvSlot, JobCountry, JobRecord, SearchCriteria,
@@ -86,9 +86,12 @@ export default function JobRadar() {
   const [loadError, setLoadError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
-  // New is the default landing view: a returning user's first question is what arrived
-  // since the last search, and that inbox is where the day starts.
-  const [view, setView] = useState<DashboardView>('new');
+  // All with English confirmed is the default landing view (#119): it restores
+  // the old matches intent — English confirmed across saved active results —
+  // while New stays a pure recency inbox that the language choice narrows.
+  // Pipeline and Dismissed ignore the language choice (ride-along).
+  const [view, setView] = useState<DashboardView>('all');
+  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>('pass');
   const [sortMode, setSortMode] = useState<SortMode>('fit');
   const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
   const [applicationFilter, setApplicationFilter] = useState<ApplicationFilter>('all');
@@ -301,17 +304,34 @@ export default function JobRadar() {
     [state.searchRuns],
   );
 
+  // View-tab counts honour the language choice for the two browsable lifecycles,
+  // so the New tab shows new arrivals under the current verdict filter.
+  // Pipeline and Dismissed ignore it (ride-along), so their counts are stable.
+  // These are loaded-page counts, never whole-workspace totals.
   const counts = useMemo(() => ({
-    new: visibleToRole.filter((job) => jobInView(job, 'new', newCutoff)).length,
-    all: visibleToRole.filter((job) => jobInView(job, 'all', newCutoff)).length,
-    triage: visibleToRole.filter((job) => jobInView(job, 'triage', newCutoff)).length,
-    pipeline: visibleToRole.filter((job) => jobInView(job, 'pipeline', newCutoff)).length,
-    dismissed: visibleToRole.filter((job) => jobInView(job, 'dismissed', newCutoff)).length,
-  }), [newCutoff, visibleToRole]);
+    new: visibleToRole.filter((job) => jobInView(job, 'new', newCutoff, languageFilter)).length,
+    all: visibleToRole.filter((job) => jobInView(job, 'all', newCutoff, languageFilter)).length,
+    pipeline: visibleToRole.filter((job) => jobInView(job, 'pipeline', newCutoff, languageFilter)).length,
+    dismissed: visibleToRole.filter((job) => jobInView(job, 'dismissed', newCutoff, languageFilter)).length,
+  }), [languageFilter, newCutoff, visibleToRole]);
+
+  // Language-option counts within the current lifecycle view, before the facet
+  // filters narrow them — the same scope the view tabs use, so the two agree.
+  const languageCounts = useMemo(() => ({
+    pass: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'pass')).length,
+    review: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'review')).length,
+    unknown: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'unknown')).length,
+    blocked: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'blocked')).length,
+    all: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'all')).length,
+  }), [newCutoff, view, visibleToRole]);
+
+  // Pipeline and Dismissed are records of what the person did: the language
+  // choice does not narrow them, and the selector says so where it renders.
+  const languageApplies = view === 'new' || view === 'all';
 
   const passesView = useMemo(
-    () => (job: JobRecord) => jobInView(job, view, newCutoff),
-    [newCutoff, view],
+    () => (job: JobRecord) => jobInView(job, view, newCutoff, languageFilter),
+    [languageFilter, newCutoff, view],
   );
 
   /**
@@ -359,9 +379,11 @@ export default function JobRadar() {
     .sort((a, b) => a[1].localeCompare(b[1])), [visibleToRole]);
 
   /**
-   * The one filter surface: every active constraint, saved keywords and temporary facets
-   * alike, as a single removable row above the list. Saved keywords come first because
-   * they are the ones that silently empty the list from another screen.
+   * The one filter surface: every active constraint — saved keywords, the
+   * language choice and temporary facets alike — as a single removable row
+   * above the list. Saved keywords come first because they are the ones that
+   * silently empty the list from another screen. The language pill is hidden
+   * in Pipeline/Dismissed, where the choice does not narrow the list.
    */
   const pills = useMemo(() => activeFilterPills({
     country: countryFilter,
@@ -370,9 +392,10 @@ export default function JobRadar() {
     sourceName: sourceOptions.find(([key]) => key === sourceFilter)?.[1] ?? '',
     workType: workTypeFilter,
     application: applicationFilter,
+    language: languageApplies ? languageFilter : 'all',
     requiredKeywords: state.criteria.requiredKeywords,
     excludedKeywords: state.criteria.excludedKeywords,
-  }), [applicationFilter, cityFilter, countryFilter, sourceFilter, sourceOptions, state.criteria, workTypeFilter]);
+  }), [applicationFilter, cityFilter, countryFilter, languageApplies, languageFilter, sourceFilter, sourceOptions, state.criteria, workTypeFilter]);
 
   function removePill(key: FilterPill['key']) {
     if (key === 'country') chooseCountry('all');
@@ -380,6 +403,7 @@ export default function JobRadar() {
     else if (key === 'source') setSourceFilter('all');
     else if (key === 'workType') setWorkTypeFilter('all');
     else if (key === 'application') setApplicationFilter('all');
+    else if (key === 'language') setLanguageFilter('all');
     else if (key === 'required') void clearSavedKeywords('required');
     else void clearSavedKeywords('excluded');
   }
@@ -389,6 +413,8 @@ export default function JobRadar() {
     setSourceFilter('all');
     setWorkTypeFilter('all');
     setApplicationFilter('all');
+    setCityFilter('all');
+    setLanguageFilter('all');
     // Facets alone may not be the culprit: the keywords empty the list from the
     // settings screen, so clearing everything means clearing those too.
     if (state.criteria.requiredKeywords.length || state.criteria.excludedKeywords.length) {
@@ -1282,8 +1308,8 @@ export default function JobRadar() {
             onToggle={(event) => setFiltersOpen(event.currentTarget.open)}
           >
             {/* Names the view you are in, so collapsing it does not hide where you are. */}
-            <summary>Filters<span>{DASHBOARD_VIEW_LABELS[view]}</span></summary>
-            {/* Views moved above the list as three primary tabs; this column keeps the facets. */}
+            <summary>Filters<span>{DASHBOARD_VIEW_LABELS[view]}{languageApplies && languageFilter !== 'all' ? ` · ${LANGUAGE_FILTER_LABELS[languageFilter]}` : ''}</span></summary>
+            {/* Lifecycle tabs live above the list; this column keeps the facets. */}
             <b className="filter-group">Country</b>
             <button className={countryFilter === 'all' ? 'active' : ''} onClick={() => chooseCountry('all')}><span>All countries</span><i>{facets.country.all}</i></button>
             {/* Places unfold under the country they belong to, rather than sitting in a separate
@@ -1330,19 +1356,17 @@ export default function JobRadar() {
           <div className={`job-list view-${view}`}>
             {/* The tabs, quiet links and sort share one row at desktop width: the segmented
                 tabs on the left, the quiet links and sort on the right. Below 850px the row
-                stacks with the tabs full width. Review and too-short ads wait behind one
-                quieter link; dismissed jobs behind an undo note plus their own quiet link. */}
+                stacks with the tabs full width. Each language verdict is individually
+                reachable through the language selector below; dismissed jobs wait behind
+                an undo note plus their own quiet link. */}
             <div className="results-controls">
-            <div className="view-tabs" role="group" aria-label="Views">
-              <button type="button" className={view === 'new' ? 'active' : ''} onClick={() => setView('new')} title="Jobs first seen since the last search."><span>New</span><i>{counts.new}</i></button>
-              <button type="button" className={view === 'all' ? 'active' : ''} onClick={() => setView('all')} title="English confirmed against the full advertisement."><span>All matches</span><i>{counts.all}</i></button>
-              <button type="button" className={view === 'pipeline' ? 'active' : ''} onClick={() => setView('pipeline')}><span>Pipeline</span><i>{counts.pipeline}</i></button>
+            <div className="view-tabs" role="group" aria-label="Result age and pipeline">
+              <button type="button" className={view === 'new' ? 'active' : ''} onClick={() => setView('new')} title="Jobs first seen since the last search. The language choice below narrows this list."><span>New</span><i>{counts.new}</i></button>
+              <button type="button" className={view === 'all' ? 'active' : ''} onClick={() => setView('all')} title="Every saved result, not just what is new. The language choice below narrows this list."><span>All</span><i>{counts.all}</i></button>
+              <button type="button" className={view === 'pipeline' ? 'active' : ''} onClick={() => setView('pipeline')} title="Everything you saved or marked applied, whatever the language screen says."><span>Pipeline</span><i>{counts.pipeline}</i></button>
             </div>
             <div className="results-side">
             <div className="quiet-links">
-              <button type="button" className={view === 'triage' ? 'active' : ''} onClick={() => setView('triage')}>
-                {counts.triage ? `${counts.triage} need a look` : 'Nothing needs a look'}
-              </button>
               <button type="button" className={view === 'dismissed' ? 'active' : ''} onClick={() => setView('dismissed')}>
                 {counts.dismissed ? `Dismissed (${counts.dismissed})` : 'Dismissed'}
               </button>
@@ -1353,6 +1377,23 @@ export default function JobRadar() {
               >{(Object.keys(SORT_MODE_LABELS) as SortMode[]).map((mode) => <option value={mode} key={mode}>{SORT_MODE_LABELS[mode]}</option>)}</select></label>
             </div>
             </div>
+            {/* Explicit language filters (#119), separate from the lifecycle tabs above.
+                The screen is a best-effort gate, not a promise of perfect classification:
+                counts are loaded-page rows in this view, and a correction moves the card. */}
+            {languageApplies ? <div className="language-tabs" role="group" aria-label="Language">
+              {(Object.keys(LANGUAGE_FILTER_LABELS) as LanguageFilter[]).map((option) => <button
+                key={option}
+                type="button"
+                className={languageFilter === option ? 'active' : ''}
+                aria-pressed={languageFilter === option}
+                onClick={() => setLanguageFilter(option)}
+                title={option === 'all'
+                  ? 'Every verdict, including ads that need a local language.'
+                  : option === 'blocked'
+                    ? 'Only ads that need a local language. Nothing here is promoted to a match.'
+                    : `Only ads screened as ${LANGUAGE_FILTER_LABELS[option].toLowerCase()}.`}
+              ><span>{LANGUAGE_FILTER_LABELS[option]}</span><i>{languageCounts[option]}</i></button>)}
+            </div> : <p className="language-note" role="note">Pipeline and Dismissed show everything you put there, whatever the language screen says.</p>}
             {/* One filter surface: every active constraint as a removable pill, saved
                 keywords first. "Clear all" appears once there is more than one. */}
             {pills.length > 0 && <div className="list-toolbar">
@@ -1364,7 +1405,9 @@ export default function JobRadar() {
                   onClick={() => removePill(pill.key)}
                   title={pill.key === 'required' || pill.key === 'excluded'
                     ? 'Remove these keywords from your saved criteria'
-                    : 'Remove this filter'}
+                    : pill.key === 'language'
+                      ? 'Show all language results'
+                      : 'Remove this filter'}
                 ><span>{pill.label}</span><i aria-hidden="true">×</i></button>)}
                 {pills.length > 1 && <button type="button" className="pill-clear" onClick={clearAllFilters}>Clear all</button>}
               </div>
@@ -1379,7 +1422,7 @@ export default function JobRadar() {
               // loaded one — the culprit it names is measured, not guessed.
               const totalJobs = state.totalJobs ?? state.jobs.length;
               const matchingJobs = state.matchingJobs ?? state.jobs.length;
-              const copy = emptyStateCopy(view, {
+              const copy = emptyStateCopy(view, languageApplies ? languageFilter : 'all', {
                 totalJobs,
                 removedByKeywords: Math.max(0, totalJobs - matchingJobs),
                 inViewCount: facets.inViewCount,
@@ -1397,11 +1440,10 @@ export default function JobRadar() {
                 correctedStatus: job.correctedLanguageStatus || (job.languageStatus === 'pass' ? 'review' : 'pass'),
                 reason: job.languageFeedbackReason,
               };
-              // Finding 08: where every card in view is English-confirmed by definition, the chip
-              // only restates the view, so it is hidden there and kept everywhere else. #46
-              // replaced the six view tabs with 'new' and 'all', both of which are match views -
-              // the old 'matches' name this tested for no longer exists.
-              const showLanguageChip = !((view === 'new' || view === 'all') && displayedLanguageStatus === 'pass');
+              // Where every card in view shares the chosen verdict, the chip only
+              // restates the filter, so the English-confirmed chip hides under an
+              // English-confirmed filter and is kept everywhere else (#119).
+              const showLanguageChip = !(languageApplies && languageFilter === 'pass' && displayedLanguageStatus === 'pass');
               const { place: jobCity } = normalizePlace(job.location);
               const sourceDisplayName = job.sourceName || sourceNameForUrl(job.sourceUrl);
               const applied = job.applicationStatus === 'applied';

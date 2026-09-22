@@ -3,8 +3,10 @@ import test from 'node:test';
 import { defaultSearchCriteria } from '../lib/criteria';
 import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday,
   criteriaToDraft, DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, formatSourceReconciliation,
-  isJobExpired, isNewJob, jobInView, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
-  sourceRunStatusLabel, sourceRunTotals, statusLabel, workspaceCountCopy } from '../lib/dashboard';
+  isJobExpired, isNewJob, jobInView, jobMatchesLanguage, LANGUAGE_FILTER_LABELS, languageStatusLabel,
+  newSinceCutoff, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, sourceRunTotals, statusLabel,
+  workspaceCountCopy } from '../lib/dashboard';
+import type { LanguageFilter } from '../lib/dashboard';
 import type { JobRecord, SearchCriteria, SearchRun, SourceRunStatus } from '../lib/types';
 import type { LanguageStatus } from '../lib/analysis';
 
@@ -201,96 +203,177 @@ test('newSinceCutoff follows the latest finished run, then the last seven days',
   assert.ok(!isNewJob(job({ firstSeenAt: '' }), '2026-09-13T00:00:00.000Z'));
 });
 
-test('jobInView splits the six old tabs into New, All matches, Pipeline, triage and dismissed', () => {
+test('jobInView separates language from lifecycle: every verdict individually reachable (#119)', () => {
   const cutoff = '2026-09-13T00:00:00.000Z';
   const freshPass = job({ firstSeenAt: '2026-09-14T00:00:00.000Z' });
   const stalePass = job({ id: 'stale', firstSeenAt: '2026-09-01T00:00:00.000Z' });
   const freshReview = job({ id: 'rev', languageStatus: 'review', firstSeenAt: '2026-09-14T00:00:00.000Z' });
   const staleUnknown = job({ id: 'unk', languageStatus: 'unknown', firstSeenAt: '2026-09-01T00:00:00.000Z' });
-  const blocked = job({ id: 'blo', languageStatus: 'blocked', firstSeenAt: '2026-09-14T00:00:00.000Z' });
-  // New is the arrivals inbox across every triage-worthy verdict, never blocked rows.
-  assert.ok(jobInView(freshPass, 'new', cutoff));
-  assert.ok(jobInView(freshReview, 'new', cutoff));
-  assert.ok(!jobInView(stalePass, 'new', cutoff));
-  assert.ok(!jobInView(blocked, 'new', cutoff));
-  // All matches is English-confirmed only: the old everything-mixed `all` is gone with it.
-  assert.ok(jobInView(freshPass, 'all', cutoff));
-  assert.ok(jobInView(stalePass, 'all', cutoff));
-  assert.ok(!jobInView(freshReview, 'all', cutoff));
-  assert.ok(!jobInView(staleUnknown, 'all', cutoff));
-  assert.ok(!jobInView(blocked, 'all', cutoff));
-  // Triage reunites review and too-short ads, old and new alike.
-  assert.ok(jobInView(freshReview, 'triage', cutoff));
-  assert.ok(jobInView(staleUnknown, 'triage', cutoff));
-  assert.ok(!jobInView(freshPass, 'triage', cutoff));
-  // A user correction moves the card with it: the effective verdict decides, not the detector's.
-  const corrected = job({ id: 'cor', languageStatus: 'review', languageFeedback: 'incorrect', correctedLanguageStatus: 'pass' });
-  assert.ok(jobInView(corrected, 'all', cutoff));
-  assert.ok(!jobInView(corrected, 'triage', cutoff));
-  // Non-matching rows never browse, but Pipeline and Dismissed keep their ride-along.
+  const freshBlocked = job({ id: 'blo', languageStatus: 'blocked', firstSeenAt: '2026-09-14T00:00:00.000Z' });
+  const staleBlocked = job({ id: 'blo-old', languageStatus: 'blocked', firstSeenAt: '2026-09-01T00:00:00.000Z' });
+  // Each singleton reaches exactly its verdict, old and new alike.
+  assert.ok(jobInView(freshPass, 'all', cutoff, 'pass'));
+  assert.ok(jobInView(stalePass, 'all', cutoff, 'pass'));
+  assert.ok(!jobInView(freshReview, 'all', cutoff, 'pass'));
+  assert.ok(!jobInView(staleUnknown, 'all', cutoff, 'pass'));
+  assert.ok(!jobInView(freshBlocked, 'all', cutoff, 'pass'));
+  assert.ok(jobInView(freshReview, 'all', cutoff, 'review'));
+  assert.ok(!jobInView(freshPass, 'all', cutoff, 'review'));
+  assert.ok(jobInView(staleUnknown, 'all', cutoff, 'unknown'));
+  assert.ok(!jobInView(freshPass, 'all', cutoff, 'unknown'));
+  assert.ok(jobInView(freshBlocked, 'all', cutoff, 'blocked'));
+  assert.ok(jobInView(staleBlocked, 'all', cutoff, 'blocked'));
+  assert.ok(!jobInView(freshPass, 'all', cutoff, 'blocked'));
+  assert.ok(!jobInView(freshReview, 'all', cutoff, 'blocked'));
+  // All language results reaches every verdict including blocked: the restored
+  // browsing path ordinary active blocked ads lost in #46.
+  for (const fixture of [freshPass, stalePass, freshReview, staleUnknown, freshBlocked, staleBlocked]) {
+    assert.ok(jobInView(fixture, 'all', cutoff, 'all'), `${fixture.id} browses under All language results`);
+  }
+  // New means first discovered, not language approval: it composes with the
+  // choice, so New narrows to confirmed-only under English confirmed.
+  assert.ok(jobInView(freshPass, 'new', cutoff, 'pass'));
+  assert.ok(!jobInView(stalePass, 'new', cutoff, 'pass'));
+  assert.ok(jobInView(freshReview, 'new', cutoff, 'review'));
+  assert.ok(!jobInView(staleUnknown, 'new', cutoff, 'review'));
+  assert.ok(jobInView(freshBlocked, 'new', cutoff, 'blocked'));
+  assert.ok(!jobInView(staleBlocked, 'new', cutoff, 'blocked'));
+  assert.ok(jobInView(freshBlocked, 'new', cutoff, 'all'));
+  assert.ok(!jobInView(freshPass, 'new', cutoff, 'review'));
+  // Blocked rows never leak into singletons that did not ask for them.
+  assert.ok(!jobInView(freshBlocked, 'new', cutoff, 'pass'));
+  assert.ok(!jobInView(freshBlocked, 'all', cutoff, 'review'));
+  assert.ok(!jobInView(freshBlocked, 'all', cutoff, 'unknown'));
+  // A user correction moves the card with it: the effective verdict decides.
+  const correctedToPass = job({ id: 'cor', languageStatus: 'review', languageFeedback: 'incorrect', correctedLanguageStatus: 'pass' });
+  assert.ok(jobInView(correctedToPass, 'all', cutoff, 'pass'));
+  assert.ok(!jobInView(correctedToPass, 'all', cutoff, 'review'));
+  assert.ok(jobMatchesLanguage(correctedToPass, 'pass'));
+  assert.ok(!jobMatchesLanguage(correctedToPass, 'review'));
+  const correctedToBlocked = job({ id: 'cor-b', languageStatus: 'pass', languageFeedback: 'incorrect', correctedLanguageStatus: 'blocked' });
+  assert.ok(jobInView(correctedToBlocked, 'all', cutoff, 'blocked'));
+  assert.ok(jobInView(correctedToBlocked, 'all', cutoff, 'all'));
+  assert.ok(!jobInView(correctedToBlocked, 'all', cutoff, 'pass'));
+  // Non-matching rows never browse under New/All, but Pipeline and Dismissed
+  // keep their ride-along across every language choice.
   const excluded = job({ id: 'exc', matchesCriteria: false });
-  assert.ok(!jobInView(excluded, 'new', cutoff));
-  assert.ok(!jobInView(excluded, 'all', cutoff));
-  assert.ok(!jobInView(excluded, 'triage', cutoff));
+  for (const language of ['pass', 'review', 'unknown', 'blocked', 'all'] as LanguageFilter[]) {
+    assert.ok(!jobInView(excluded, 'new', cutoff, language));
+    assert.ok(!jobInView(excluded, 'all', cutoff, language));
+  }
   const savedExcluded = job({ id: 'sav', matchesCriteria: false, isSaved: true });
-  assert.ok(jobInView(savedExcluded, 'pipeline', cutoff));
+  const appliedBlocked = job({ id: 'app-b', languageStatus: 'blocked', applicationStatus: 'applied' });
+  for (const language of ['pass', 'review', 'unknown', 'blocked', 'all'] as LanguageFilter[]) {
+    assert.ok(jobInView(savedExcluded, 'pipeline', cutoff, language), `saved rides along under ${language}`);
+    assert.ok(jobInView(appliedBlocked, 'pipeline', cutoff, language), `applied blocked rides along under ${language}`);
+  }
   const dismissedExcluded = job({ id: 'dis', matchesCriteria: false, visibilityStatus: 'dismissed' });
-  assert.ok(jobInView(dismissedExcluded, 'dismissed', cutoff));
-  assert.ok(!jobInView(dismissedExcluded, 'pipeline', cutoff));
-  // Dismissed rows leave every other view.
+  for (const language of ['pass', 'review', 'unknown', 'blocked', 'all'] as LanguageFilter[]) {
+    assert.ok(jobInView(dismissedExcluded, 'dismissed', cutoff, language));
+  }
+  assert.ok(!jobInView(dismissedExcluded, 'pipeline', cutoff, 'all'));
+  // Dismissed rows leave every other view under every language choice.
   const dismissed = job({ id: 'd2', visibilityStatus: 'dismissed' });
-  assert.ok(!jobInView(dismissed, 'all', cutoff));
-  assert.ok(!jobInView(dismissed, 'new', cutoff));
-  // Labels and sort options are pinned for the toolbar.
+  for (const language of ['pass', 'review', 'unknown', 'blocked', 'all'] as LanguageFilter[]) {
+    assert.ok(!jobInView(dismissed, 'all', cutoff, language));
+    assert.ok(!jobInView(dismissed, 'new', cutoff, language));
+  }
+  // Private page-fetching rows filter exactly like public ones: the audience
+  // gate lives server-side, never in this predicate.
+  const privateBlocked = job({ id: 'priv', sourceKey: 'jobs.ch', sourceName: 'jobs.ch', languageStatus: 'blocked' });
+  assert.ok(jobInView(privateBlocked, 'all', cutoff, 'blocked'));
+  assert.ok(jobInView(privateBlocked, 'all', cutoff, 'all'));
+  assert.ok(!jobInView(privateBlocked, 'all', cutoff, 'pass'));
+  // Labels are pinned for the toolbar: lifecycle separate from language.
   assert.deepEqual(DASHBOARD_VIEW_LABELS, {
-    new: 'New', all: 'All matches', pipeline: 'Pipeline', triage: 'Needs a look', dismissed: 'Dismissed',
+    new: 'New', all: 'All', pipeline: 'Pipeline', dismissed: 'Dismissed',
+  });
+  assert.deepEqual(LANGUAGE_FILTER_LABELS, {
+    pass: 'English confirmed', review: 'Needs review', unknown: 'Not enough of the ad',
+    blocked: 'Local language required', all: 'All language results',
   });
   assert.deepEqual(SORT_MODE_LABELS, { fit: 'Best fit', posted: 'Newest posted', found: 'Recently found' });
 });
 
-test('activeFilterPills lists saved keywords before facets, and only what is on', () => {
+test('jobMatchesLanguage follows the effective verdict, never promoting blocked', () => {
+  assert.ok(jobMatchesLanguage(job({ languageStatus: 'pass' }), 'pass'));
+  assert.ok(jobMatchesLanguage(job({ languageStatus: 'review' }), 'review'));
+  assert.ok(jobMatchesLanguage(job({ languageStatus: 'unknown' }), 'unknown'));
+  assert.ok(jobMatchesLanguage(job({ languageStatus: 'blocked' }), 'blocked'));
+  assert.ok(!jobMatchesLanguage(job({ languageStatus: 'blocked' }), 'pass'));
+  assert.ok(!jobMatchesLanguage(job({ languageStatus: 'pass' }), 'blocked'));
+  for (const status of ['pass', 'review', 'unknown', 'blocked'] as const) {
+    assert.ok(jobMatchesLanguage(job({ languageStatus: status }), 'all'));
+  }
+});
+
+test('activeFilterPills lists saved keywords and language before facets, and only what is on', () => {
   const none = activeFilterPills({
     country: 'all', city: 'all', source: 'all', sourceName: '', workType: 'all', application: 'all',
-    requiredKeywords: [], excludedKeywords: [],
+    language: 'all', requiredKeywords: [], excludedKeywords: [],
   });
   assert.deepEqual(none, []);
+  // The default arrival (English confirmed) is a constraint, so it shows a pill.
+  const englishOnly = activeFilterPills({
+    country: 'all', city: 'all', source: 'all', sourceName: '', workType: 'all', application: 'all',
+    language: 'pass', requiredKeywords: [], excludedKeywords: [],
+  });
+  assert.deepEqual(englishOnly.map((pill) => pill.key), ['language']);
+  assert.equal(englishOnly[0].label, 'English confirmed');
   const pills = activeFilterPills({
     country: 'switzerland', city: 'Zürich', source: 'jobs.ch', sourceName: 'jobs.ch',
-    workType: 'remote', application: 'applied', requiredKeywords: ['sap'], excludedKeywords: ['sales', 'internship'],
+    workType: 'remote', application: 'applied', language: 'blocked',
+    requiredKeywords: ['sap'], excludedKeywords: ['sales', 'internship'],
   });
-  assert.deepEqual(pills.map((pill) => pill.key), ['excluded', 'required', 'country', 'city', 'source', 'workType', 'application']);
+  assert.deepEqual(pills.map((pill) => pill.key),
+    ['excluded', 'required', 'language', 'country', 'city', 'source', 'workType', 'application']);
   assert.ok(pills[0].label.includes('sales'));
   assert.ok(pills[1].label.includes('sap'));
+  assert.equal(pills[2].label, 'Local language required');
   // Long keyword lists truncate instead of stretching the row.
   const crowded = activeFilterPills({
     country: 'all', city: 'all', source: 'all', sourceName: '', workType: 'all', application: 'all',
-    requiredKeywords: [], excludedKeywords: ['a', 'b', 'c', 'd'],
+    language: 'all', requiredKeywords: [], excludedKeywords: ['a', 'b', 'c', 'd'],
   });
   assert.equal(crowded.length, 1);
   assert.match(crowded[0].label, /\+1 more/);
   assert.doesNotMatch(crowded[0].label, /\bd\b/);
 });
 
-test('emptyStateCopy names the culprit instead of shrugging', () => {
+test('emptyStateCopy names the culprit instead of shrugging, per view and language', () => {
   const base = { totalJobs: 100, removedByKeywords: 0, inViewCount: 0, hasExcludedKeywords: false, hasRequiredKeywords: false, hasMorePages: false };
   // A fresh workspace gets first-run guidance, not a culprit.
-  assert.equal(emptyStateCopy('all', { ...base, totalJobs: 0 }).title, 'No jobs yet');
+  assert.equal(emptyStateCopy('all', 'pass', { ...base, totalJobs: 0 }).title, 'No jobs yet');
   // Facets hide what is already here.
-  assert.equal(emptyStateCopy('all', { ...base, inViewCount: 4 }).title, 'No jobs match these filters');
+  assert.equal(emptyStateCopy('all', 'pass', { ...base, inViewCount: 4 }).title, 'No jobs match these filters');
   // The issue's example: excluded keywords, with the server-exact count.
-  const excluded = emptyStateCopy('all', { ...base, removedByKeywords: 41, hasExcludedKeywords: true });
+  const excluded = emptyStateCopy('all', 'pass', { ...base, removedByKeywords: 41, hasExcludedKeywords: true });
   assert.equal(excluded.title, 'No jobs match');
   assert.match(excluded.detail, /41 were removed by your excluded keywords/);
-  const singular = emptyStateCopy('all', { ...base, removedByKeywords: 1, hasRequiredKeywords: true });
+  const singular = emptyStateCopy('all', 'pass', { ...base, removedByKeywords: 1, hasRequiredKeywords: true });
   assert.match(singular.detail, /1 was removed by your required keywords/);
   // Unloaded pages come before any culprit: nothing honest can be claimed yet.
-  const paging = emptyStateCopy('new', { ...base, removedByKeywords: 41, hasExcludedKeywords: true, hasMorePages: true });
+  const paging = emptyStateCopy('new', 'pass', { ...base, removedByKeywords: 41, hasExcludedKeywords: true, hasMorePages: true });
   assert.match(paging.detail, /still loading/);
-  // Otherwise each view gets its own quiet line.
-  assert.equal(emptyStateCopy('new', base).title, 'Nothing new since the last search');
-  assert.equal(emptyStateCopy('triage', base).title, 'Nothing needs a look');
-  assert.equal(emptyStateCopy('dismissed', base).title, 'Nothing dismissed');
-  assert.equal(emptyStateCopy('pipeline', base).title, 'Pipeline is empty');
+  // Each lifecycle-and-language combination gets its own quiet line.
+  assert.equal(emptyStateCopy('new', 'all', base).title, 'Nothing new since the last search');
+  assert.equal(emptyStateCopy('new', 'pass', base).title, 'Nothing new in English confirmed');
+  assert.equal(emptyStateCopy('all', 'pass', base).title, 'No English-confirmed jobs yet');
+  assert.equal(emptyStateCopy('all', 'review', base).title, 'Nothing needs review');
+  assert.equal(emptyStateCopy('all', 'unknown', base).title, 'Nothing is too short to judge');
+  assert.equal(emptyStateCopy('all', 'blocked', base).title, 'No local-language jobs in view');
+  assert.equal(emptyStateCopy('all', 'all', base).title, 'No jobs in this view yet');
+  assert.equal(emptyStateCopy('dismissed', 'blocked', base).title, 'Nothing dismissed');
+  assert.equal(emptyStateCopy('pipeline', 'pass', base).title, 'Pipeline is empty');
+  // Pipeline and Dismissed never name the language choice: it does not narrow them.
+  assert.equal(emptyStateCopy('pipeline', 'blocked', base).title, emptyStateCopy('pipeline', 'all', base).title);
+  // No line promises perfect classification.
+  for (const view of ['new', 'all', 'pipeline', 'dismissed'] as const) {
+    for (const language of ['pass', 'review', 'unknown', 'blocked', 'all'] as LanguageFilter[]) {
+      const copy = emptyStateCopy(view, language, base);
+      assert.doesNotMatch(`${copy.title} ${copy.detail}`, /100\s?%|perfect|guarantee/i);
+    }
+  }
 });
 
 test('workspaceCountCopy never calls shown rows matching when they are folded duplicates', () => {
@@ -379,6 +462,6 @@ test('expiry never moves a job between views', () => {
   // Marking beats hiding (#97): the person may have applied, so an expired row stays where
   // it is and only gains a chip. The cutoff below predates the fixture's first sighting.
   const cutoff = '2026-08-01T00:00:00.000Z';
-  assert.equal(jobInView(job({ expiresAt: '2026-08-15' }), 'all', cutoff), true);
-  assert.equal(jobInView(job({ expiresAt: '2026-08-15' }), 'new', cutoff), true);
+  assert.equal(jobInView(job({ expiresAt: '2026-08-15' }), 'all', cutoff, 'pass'), true);
+  assert.equal(jobInView(job({ expiresAt: '2026-08-15' }), 'new', cutoff, 'pass'), true);
 });
