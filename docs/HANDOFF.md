@@ -1,5 +1,32 @@
 # Handover
 
+## 2026-09-22 Restored explicit language filters (#119)
+
+Owner-reported regression from #46 (20 September): the default `matches` view and
+six explicit views became New/All-matches/Pipeline/triage/dismissed, where All
+meant effective pass but read as "All matches", review and unknown merged into
+"Needs a look", New (the default) mixed pass/review/unknown, and active blocked
+ads lost their browsing path. Saved verdicts were never removed.
+
+Restored as an orthogonal selector, keeping the reviewed UX-6 layout: lifecycle
+tabs New / All / Pipeline plus quiet Dismissed answer "how recent / what did I
+do"; a separate Language group (English confirmed / Needs review / Not enough
+of the ad / Local language required / All language results) answers "what did
+the screen say". Mapping: old `matches` = All + English confirmed (the fresh
+default again); old `review`/`unknown` = All or New + the matching singleton;
+old `all` (every verdict) = All or New + All language results; blocked browses
+only under Local language required or All language results, never promoted.
+New means first seen since the cutoff under the chosen verdict, not approval.
+Pipeline/Dismissed keep their ride-along and ignore the language choice, with
+an on-screen note saying so. Effective (user-corrected) verdicts drive every
+predicate, pill, count and empty state; loaded-page counts never claim to be
+workspace totals. No detector, rescoring, upstream-request or copy change
+beyond the empty states: the screen is a best-effort gate and says so, never
+"100% English". Files: `lib/dashboard.ts` (LanguageFilter, jobInView, pills,
+empty states), `app/job-radar.tsx` (selector, counts, pills), `app/globals.css`
+(language tabs reuse inset/cream/acid tokens), `tests/dashboard.test.ts`.
+No overlap with Indeed UI task #116 (IndeedStatusPanel untouched).
+
 ## 2026-09-21 Indeed-only reusable module
 
 The owner made Indeed collection the sole current priority. `scripts/indeed.mjs` provides

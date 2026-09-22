@@ -143,28 +143,53 @@ export function closesToday(job: Pick<JobRecord, 'expiresAt'>, today = new Date(
 }
 
 // ---------------------------------------------------------------------------
-// One filter surface and a New default view (#46).
+// Explicit language filters, separate from the lifecycle views (#119).
 //
-// Six peer view tabs became three primary ones — New, All matches, Pipeline —
-// with the triage chores (review + too-short ads) behind one quieter link and
-// Dismissed behind an undo affordance plus its own quiet link. Blocked
-// advertisements browse nowhere: they are definitively not matches, and the
-// administrator conversion report still counts them.
+// #46 merged six peer tabs into New / All matches / Pipeline plus a combined
+// triage link, and left blocked advertisements browsing nowhere: `all` meant
+// effective pass but was labelled "All matches", review and unknown were only
+// reachable together, and New (the default) mixed pass/review/unknown. The
+// stored verdicts never went away, so this restores them as an orthogonal
+// selector: English confirmed / Needs review / Not enough of the ad / Local
+// language required / All language results.
+//
+// Lifecycle (New / All / Pipeline / Dismissed) answers "how recent / what did
+// I do"; language answers "what did the screen say". New means first
+// discovered since the cutoff, never language approval, so New narrows by the
+// language choice like All does. Pipeline and Dismissed are records of what
+// the person did and keep their ride-along: they ignore the language choice,
+// exactly as they already ignore the saved keywords. Blocked rows browse only
+// under Local language required or All language results, never promoted.
 // ---------------------------------------------------------------------------
 
 /**
- * The browsing views. `all` is the English-confirmed match list (what the old
- * `matches` tab showed), not the old `all` tab that mixed every verdict —
- * that mode is gone along with the blocked rows only it could reach.
+ * The browsing lifecycle. `all` is every saved active result, not only recent
+ * arrivals and not only one verdict — the language selector narrows it.
+ * `new` is first seen since the cutoff, whatever the verdict filter says.
  */
-export type DashboardView = 'new' | 'all' | 'pipeline' | 'triage' | 'dismissed';
+export type DashboardView = 'new' | 'all' | 'pipeline' | 'dismissed';
 
 export const DASHBOARD_VIEW_LABELS: Record<DashboardView, string> = {
   new: 'New',
-  all: 'All matches',
+  all: 'All',
   pipeline: 'Pipeline',
-  triage: 'Needs a look',
   dismissed: 'Dismissed',
+};
+
+/**
+ * The explicit language-result selector (#119). Driven by the effective
+ * verdict (user correction wins over the detector), never the detector alone.
+ * `all` reaches every verdict including blocked; the four singletons reach
+ * exactly one verdict each.
+ */
+export type LanguageFilter = 'pass' | 'review' | 'unknown' | 'blocked' | 'all';
+
+export const LANGUAGE_FILTER_LABELS: Record<LanguageFilter, string> = {
+  pass: 'English confirmed',
+  review: 'Needs review',
+  unknown: 'Not enough of the ad',
+  blocked: 'Local language required',
+  all: 'All language results',
 };
 
 export type SortMode = 'fit' | 'posted' | 'found';
@@ -218,26 +243,39 @@ export function isNewJob(job: Pick<JobRecord, 'firstSeenAt'>, cutoff: string): b
 }
 
 /**
- * Whether one job belongs in a browsing view. Pipeline and Dismissed are
- * records of what the person did, so acted-on rows ride along even when the
- * saved keywords would exclude them — the same ride-along the server applies
- * before paging. Everything else must match the saved criteria, and blocked
- * advertisements appear in no view.
+ * Whether one job satisfies an explicit language choice. The effective
+ * verdict decides, so a user correction moves the card with it. `all`
+ * reaches every verdict including blocked; it never promotes blocked rows,
+ * it only lists them where they were asked for.
  */
-export function jobInView(job: JobRecord, view: DashboardView, cutoff: string): boolean {
+export function jobMatchesLanguage(
+  job: Pick<JobRecord, 'languageStatus' | 'languageFeedback' | 'correctedLanguageStatus'>,
+  filter: LanguageFilter,
+): boolean {
+  if (filter === 'all') return true;
+  return effectiveLanguageStatus(job) === filter;
+}
+
+/**
+ * Whether one job belongs in a browsing view under an explicit language
+ * choice. Pipeline and Dismissed are records of what the person did, so
+ * acted-on rows ride along even when the saved keywords or the language
+ * choice would exclude them — the same ride-along the server applies before
+ * paging. Everything else must match the saved criteria and the language
+ * choice; New additionally means first seen since the cutoff.
+ */
+export function jobInView(job: JobRecord, view: DashboardView, cutoff: string, language: LanguageFilter): boolean {
   if (view === 'dismissed') return job.visibilityStatus === 'dismissed';
   if (job.visibilityStatus !== 'active') return false;
   if (view === 'pipeline') return job.isSaved || job.applicationStatus === 'applied';
   if (!job.matchesCriteria) return false;
-  const language = effectiveLanguageStatus(job);
-  if (view === 'triage') return language === 'review' || language === 'unknown';
-  if (language === 'blocked') return false;
+  if (!jobMatchesLanguage(job, language)) return false;
   if (view === 'new') return isNewJob(job, cutoff);
-  return language === 'pass';
+  return true;
 }
 
 export interface FilterPill {
-  key: 'country' | 'city' | 'source' | 'workType' | 'application' | 'required' | 'excluded';
+  key: 'country' | 'city' | 'source' | 'workType' | 'application' | 'required' | 'excluded' | 'language';
   label: string;
 }
 
@@ -248,9 +286,14 @@ function keywordPillLabel(prefix: string, keywords: readonly string[]): string {
 }
 
 /**
- * Every active constraint — saved keywords and temporary facets alike — as
- * one list for the pill row above the results. Saved keywords come first
- * because they are the ones that silently empty the list from another screen.
+ * Every active constraint — saved keywords, the language choice and temporary
+ * facets alike — as one list for the pill row above the results. Saved
+ * keywords come first because they are the ones that silently empty the list
+ * from another screen; the language choice follows because it, too, is set
+ * outside the facet column. `all` means no language constraint and shows no
+ * pill. Pipeline and Dismissed ignore the language choice (ride-along), so
+ * callers there pass `all` and show no language pill rather than one that
+ * claims to filter a list it does not narrow.
  */
 export function activeFilterPills(filters: {
   country: string;
@@ -259,12 +302,14 @@ export function activeFilterPills(filters: {
   sourceName: string;
   workType: string;
   application: string;
+  language: LanguageFilter;
   requiredKeywords: readonly string[];
   excludedKeywords: readonly string[];
 }): FilterPill[] {
   const pills: FilterPill[] = [];
   if (filters.excludedKeywords.length) pills.push({ key: 'excluded', label: keywordPillLabel('Excludes', filters.excludedKeywords) });
   if (filters.requiredKeywords.length) pills.push({ key: 'required', label: keywordPillLabel('Requires', filters.requiredKeywords) });
+  if (filters.language !== 'all') pills.push({ key: 'language', label: LANGUAGE_FILTER_LABELS[filters.language] });
   if (filters.country !== 'all') pills.push({ key: 'country', label: countryLabel(filters.country as JobCountry) });
   if (filters.city !== 'all') pills.push({ key: 'city', label: filters.city });
   if (filters.source !== 'all') pills.push({ key: 'source', label: filters.sourceName || filters.source });
@@ -328,11 +373,18 @@ export interface EmptyStateFacts {
 /**
  * Name the culprit when the list is empty, so "no jobs" reads as an answer
  * rather than a mystery. Facets first (they narrow what is already here),
- * then the saved keywords (a server-exact count), then one line per view.
- * Unloaded pages come before the keyword count: with jobs still below, no
- * culprit can honestly be named yet.
+ * then the saved keywords (a server-exact count), then one line per
+ * view-and-language combination. Unloaded pages come before the keyword
+ * count: with jobs still below, no culprit can honestly be named yet.
+ * Pipeline and Dismissed ignore the language choice (ride-along), so their
+ * lines never name it. No line promises perfect classification: the screen
+ * is a best-effort gate, and corrections are how it improves.
  */
-export function emptyStateCopy(view: DashboardView, facts: EmptyStateFacts): { title: string; detail: string } {
+export function emptyStateCopy(
+  view: DashboardView,
+  language: LanguageFilter,
+  facts: EmptyStateFacts,
+): { title: string; detail: string } {
   if (facts.totalJobs === 0) {
     return {
       title: 'No jobs yet',
@@ -358,16 +410,33 @@ export function emptyStateCopy(view: DashboardView, facts: EmptyStateFacts): { t
       detail: `${facts.removedByKeywords} ${facts.removedByKeywords === 1 ? 'was' : 'were'} removed by your ${what} keywords.`,
     };
   }
-  switch (view) {
-    case 'new':
-      return { title: 'Nothing new since the last search', detail: 'Run a search to look for more.' };
-    case 'triage':
-      return { title: 'Nothing needs a look', detail: 'Every screened ad is either confirmed English or out.' };
-    case 'dismissed':
-      return { title: 'Nothing dismissed', detail: 'Dismissed jobs wait here instead of in your way.' };
-    case 'pipeline':
-      return { title: 'Pipeline is empty', detail: 'Save a job or mark it applied and it waits here.' };
+  if (view === 'dismissed') {
+    return { title: 'Nothing dismissed', detail: 'Dismissed jobs wait here instead of in your way.' };
+  }
+  if (view === 'pipeline') {
+    return { title: 'Pipeline is empty', detail: 'Save a job or mark it applied and it waits here.' };
+  }
+  const isNew = view === 'new';
+  switch (language) {
+    case 'pass':
+      return isNew
+        ? { title: 'Nothing new in English confirmed', detail: 'Run a search to look for more. Other new arrivals may wait under a different language filter.' }
+        : { title: 'No English-confirmed jobs yet', detail: 'Run a search, or widen the language filter to check the other verdicts.' };
+    case 'review':
+      return isNew
+        ? { title: 'Nothing new needs review', detail: 'Run a search to look for more, or check another language filter.' }
+        : { title: 'Nothing needs review', detail: 'Every screened ad long enough to judge is either confirmed English or out.' };
+    case 'unknown':
+      return isNew
+        ? { title: 'Nothing new is too short to judge', detail: 'Run a search to look for more, or check another language filter.' }
+        : { title: 'Nothing is too short to judge', detail: 'Every screened ad published enough text to reach a verdict.' };
+    case 'blocked':
+      return isNew
+        ? { title: 'Nothing new needs a local language', detail: 'Run a search to look for more, or check another language filter.' }
+        : { title: 'No local-language jobs in view', detail: 'Widen the language filter to see the other verdicts.' };
     default:
-      return { title: 'No jobs in this view yet', detail: 'Run a search, or widen the filters.' };
+      return isNew
+        ? { title: 'Nothing new since the last search', detail: 'Run a search to look for more.' }
+        : { title: 'No jobs in this view yet', detail: 'Run a search, or widen the filters.' };
   }
 }
