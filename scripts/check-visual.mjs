@@ -187,6 +187,18 @@ try {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ action: 'register', email: ${JSON.stringify(account)}, password: ${JSON.stringify(secret)} }),
   }).then((r) => r.status)`);
+  if (registered === 429) {
+    // Registration is limited to 5 per 15 minutes per IP, durably, in the database. Running this
+    // check a few times in a row exhausts it. That is the app defending itself working correctly,
+    // and it says nothing at all about the design - so it must not look like a design failure, or
+    // the next person reads a red result and starts changing CSS.
+    console.log('\nSKIPPED: registration is rate limited (5 per 15 minutes per IP, HTTP 429).');
+    console.log('Nothing was measured. Wait for the window to clear and run this again.');
+    console.log('This is not a design failure and no conclusion should be drawn from it.');
+    socket?.close();
+    child.kill();
+    process.exit(2);
+  }
   if (registered !== 200) {
     // Registration is open on dev and closed on test; say which it is rather than failing blind.
     throw new Error(`could not register a throwaway account (HTTP ${registered}). `
