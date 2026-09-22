@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Search settings, opened</title>
+<title>Search settings — the row, in both states</title>
 </head>
 <body>
 <x-dc>
@@ -11,67 +11,105 @@
 <style>
 body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; background: #fbfaf6; color: #18221c; }
 a { color: #134736; } a:hover { color: #18221c; }
+.band { box-sizing: border-box; padding: 24px 48px; background: #eff1e8; border-top: 1px solid #e3e5d9; border-bottom: 1px solid #e3e5d9; }
+.head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 18px; }
+.head h3 { margin: 0; font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 500; letter-spacing: -0.01em; }
+.head p { margin: 0; font-size: 14px; color: #4d574f; }
+.hide { margin-left: auto; display: inline-flex; align-items: center; gap: 9px; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 9px; padding: 0 14px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer; }
+.grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 20px 24px; align-items: start; }
+.lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 7px; }
+.in { width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; height: 44px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c; }
+.in.bad { border: 2px solid #c25239; background: #fdf6f4; }
+.country { flex: 1; display: inline-flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #134736; border-radius: 8px; background: #e3eadf; font-size: 14px; font-weight: 700; color: #134736; cursor: pointer; }
+.tickbox { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 15px; height: 15px; border-radius: 4px; background: #134736; color: #ffffff; font-size: 12px; line-height: 1; }
+.bar { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
+.run { background: #18221c; color: #ffffff; border: 1px solid #18221c; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 0 22px; height: 44px; cursor: pointer; }
+.run[disabled] { background: #e6e6e2; border-color: #ddd9cc; color: #5d6660; cursor: not-allowed; }
+.save { background: #fbfaf6; border: 1px solid #18221c; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: #18221c; padding: 0 22px; height: 44px; cursor: pointer; }
+.reset { background: transparent; border: 1px solid #ddd9cc; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; padding: 0 18px; height: 44px; cursor: pointer; }
+.note { margin: 0 0 0 8px; font-size: 12px; color: #5d6660; }
+.caption { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; }
+.warn { display: flex; align-items: flex-start; gap: 12px; margin-top: 18px; padding: 14px 16px; border-left: 3px solid #c25239; border-radius: 0 8px 8px 0; background: #f7e3dd; }
+.warn strong { display: block; font-size: 14px; font-weight: 700; color: #8c3d29; margin-bottom: 3px; }
+.warn p { margin: 0; font-size: 14px; line-height: 1.45; color: #4d574f; }
 </style>
 </helmet>
-<div style="width: 1200px; height: 780px; box-sizing: border-box; background: #fbfaf6; overflow: hidden;">
+<div style="width: 1800px; height: 1120px; box-sizing: border-box; padding: 40px 0 48px; background: #fbfaf6;">
 
-  <div style="box-sizing: border-box; padding: 20px 56px 0; display: flex; gap: 8px;">
-    <button type="button" style="display: inline-flex; align-items: center; gap: 10px; background: #eceade; border: 0; border-radius: 10px 10px 0 0; padding: 12px 16px; min-height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer;">
-      <span style="font-size: 11px; color: #4d574f;">▲</span><span style="font-weight: 700;">Search settings</span><span style="font-size: 12px; color: #5d6660;">Roles: analyst</span>
-    </button>
-    <button type="button" style="display: inline-flex; align-items: center; gap: 10px; background: #f4f2ea; border: 0; border-radius: 10px; padding: 12px 16px; min-height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer;">
-      <span style="font-size: 11px; color: #5d6660;">▼</span><span style="font-weight: 700;">Search statistics</span><span style="font-size: 12px; color: #5d6660;">334 searched · 306 added</span>
-    </button>
+  <div style="padding: 0 48px 24px;">
+    <h2 style="margin: 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em;">Search settings &mdash; the row, in both states</h2>
+    <p style="margin: 8px 0 0; max-width: 72ch; font-size: 14px; line-height: 1.55; color: #4d574f;">No longer a panel behind a button. It is a band on the page, open by default, holding everything that decides what a search collects. <strong>Find new jobs saves first</strong>, so what you can see is always what the search will use.</p>
   </div>
 
-  <section style="box-sizing: border-box; margin: 0 56px; padding: 32px 36px 36px; background: #eceade; border-radius: 0 12px 12px 12px; display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr); gap: 48px; align-items: start;">
-
-    <div>
-      <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660;">Search criteria</span>
-      <h2 style="margin: 8px 0 0; font-family: Fraunces, Georgia, serif; font-size: 32px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1;">Define what fits</h2>
-      <p style="margin: 12px 0 0; font-size: 14px; line-height: 1.55; color: #4d574f;">Each search role is sent to every switched-on source, one at a time. What comes back is then narrowed: an advertisement must contain every required keyword, and is dropped if it contains any excluded one.</p>
+  <p class="caption" style="padding: 0 48px;">A &middot; Ready &mdash; at least one role set</p>
+  <section class="band">
+    <div class="head">
+      <h3>Search settings</h3>
+      <p>Last search 22 Sept 2026 &middot; <strong style="font-weight: 700; color: #18221c;">306</strong> added</p>
+      <button type="button" class="hide"><span style="font-size: 12px;">&#9650;</span> Hide</button>
     </div>
-
-    <form style="display: flex; flex-direction: column; gap: 24px;">
-
-      <fieldset style="border: 0; margin: 0; padding: 0;">
-        <legend style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; padding: 0;">Countries to search</legend>
-        <div style="display: flex; gap: 10px; margin-top: 12px;">
-          <label style="display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 16px; background: #fbfaf6; border: 1px solid #3f7f54; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;"><span role="img" aria-label="Selected" style="display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 17px; height: 17px; border-radius: 4px; background: #3f7f54; color: #ffffff; font-size: 12px; line-height: 1;">&#10003;</span> The Netherlands</label>
-          <label style="display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 16px; background: #fbfaf6; border: 1px solid #3f7f54; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;"><span role="img" aria-label="Selected" style="display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 17px; height: 17px; border-radius: 4px; background: #3f7f54; color: #ffffff; font-size: 12px; line-height: 1;">&#10003;</span> Switzerland</label>
-        </div>
-        <p style="margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: #5d6660; max-width: 66ch;">This decides which countries a search contacts. It does not hide jobs you have already collected — to narrow what is on screen, use the country filter above the results.</p>
-      </fieldset>
-
-      <div>
-        <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 4px;">Search roles · up to five</span><p style="margin: 0 0 12px; font-size: 12px; color: #5d6660;">Each one is searched separately, so five roles means five times the requests and a longer run.</p>
-        <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px;">
-          <label style="display: block;"><span style="display: block; font-size: 12px; color: #5d6660; margin-bottom: 5px;">Role 1</span><input value="analyst" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 44px; padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c;"></label>
-          <label style="display: block;"><span style="display: block; font-size: 12px; color: #5d6660; margin-bottom: 5px;">Role 2</span><input placeholder="e.g. Supply Chain" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 44px; padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c;"></label>
-          <label style="display: block;"><span style="display: block; font-size: 12px; color: #5d6660; margin-bottom: 5px;">Role 3</span><input placeholder="Optional" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 44px; padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c;"></label>
-          <label style="display: block;"><span style="display: block; font-size: 12px; color: #5d6660; margin-bottom: 5px;">Role 4</span><input placeholder="Optional" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 44px; padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c;"></label>
-          <label style="display: block;"><span style="display: block; font-size: 12px; color: #5d6660; margin-bottom: 5px;">Role 5</span><input placeholder="Optional" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 44px; padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c;"></label>
+    <div class="grid">
+      <div><label class="lbl">Role 1</label><input type="text" class="in" value="analyst"></div>
+      <div><label class="lbl">Role 2</label><input type="text" class="in" value="" placeholder="e.g. Supply Chain"></div>
+      <div><label class="lbl">Role 3</label><input type="text" class="in" value="" placeholder="Optional"></div>
+      <div><label class="lbl">Role 4</label><input type="text" class="in" value="" placeholder="Optional"></div>
+      <div><label class="lbl">Role 5</label><input type="text" class="in" value="" placeholder="Optional"></div>
+      <div style="grid-column: span 2;"><label class="lbl">Countries to search</label>
+        <div style="display: flex; gap: 8px;">
+          <label class="country"><span class="tickbox" role="img" aria-label="Selected">&#10003;</span> Switzerland</label>
+          <label class="country"><span class="tickbox" role="img" aria-label="Selected">&#10003;</span> Netherlands</label>
         </div>
       </div>
-
-      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
-        <label style="display: block;">
-          <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 6px;">Required keywords <span style="font-weight: 400; letter-spacing: 0; text-transform: none;">— an ad must contain all of these</span></span>
-          <input placeholder="e.g. SAP, data governance" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 44px; padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c;">
-        </label>
-        <label style="display: block;">
-          <span style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660; margin-bottom: 6px;">Exclude if ad contains <span style="font-weight: 400; letter-spacing: 0; text-transform: none;">— any one drops it</span></span>
-          <input value="intern, lead" style="width: 100%; box-sizing: border-box; background: #fbfaf6; border: 1px solid #ddd9cc; border-radius: 8px; min-height: 44px; padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #18221c;">
-        </label>
-      </div>
-
-      <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 4px;">
-        <button type="submit" style="background: #18221c; color: #ffffff; border: 0; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 13px 22px; min-height: 44px; cursor: pointer;">Save criteria</button>
-        <button type="button" style="background: transparent; color: #18221c; border: 1px solid #c8c3b4; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 13px 20px; min-height: 44px; cursor: pointer;">Reset</button>
-        <p style="margin: 0; font-size: 12px; color: #5d6660;"><strong style="color: #18221c;">140</strong> of 306 analyzed jobs match the saved criteria.</p>
-      </div>
-    </form>
+      <div style="grid-column: span 2;"><label class="lbl">Required keywords</label><input type="text" class="in" value="" placeholder="e.g. SAP, data governance"></div>
+      <div><label class="lbl">Exclude if the ad contains</label><input type="text" class="in" value="intern, lead"></div>
+    </div>
+    <div class="bar">
+      <button type="button" class="run">Find new jobs</button>
+      <button type="button" class="save">Save criteria</button>
+      <button type="button" class="reset">Reset</button>
+      <p class="note">Find new jobs saves these criteria first, so a search always uses what is on screen. Last saved 22 Sept 2026.</p>
+    </div>
   </section>
+
+  <p class="caption" style="padding: 28px 48px 0;">B &middot; Every role empty &mdash; the search cannot run</p>
+  <section class="band">
+    <div class="head">
+      <h3>Search settings</h3>
+      <p>No search run yet</p>
+      <button type="button" class="hide"><span style="font-size: 12px;">&#9650;</span> Hide</button>
+    </div>
+    <div class="grid">
+      <div><label class="lbl" style="color: #8c3d29;">Role 1</label><input type="text" class="in bad" value="" placeholder="e.g. analyst" aria-invalid="true" aria-describedby="role-warning"></div>
+      <div><label class="lbl">Role 2</label><input type="text" class="in" value="" placeholder="e.g. Supply Chain"></div>
+      <div><label class="lbl">Role 3</label><input type="text" class="in" value="" placeholder="Optional"></div>
+      <div><label class="lbl">Role 4</label><input type="text" class="in" value="" placeholder="Optional"></div>
+      <div><label class="lbl">Role 5</label><input type="text" class="in" value="" placeholder="Optional"></div>
+      <div style="grid-column: span 2;"><label class="lbl">Countries to search</label>
+        <div style="display: flex; gap: 8px;">
+          <label class="country"><span class="tickbox" role="img" aria-label="Selected">&#10003;</span> Switzerland</label>
+          <label class="country"><span class="tickbox" role="img" aria-label="Selected">&#10003;</span> Netherlands</label>
+        </div>
+      </div>
+      <div style="grid-column: span 2;"><label class="lbl">Required keywords</label><input type="text" class="in" value="" placeholder="e.g. SAP, data governance"></div>
+      <div><label class="lbl">Exclude if the ad contains</label><input type="text" class="in" value="intern, lead"></div>
+    </div>
+    <div class="warn" id="role-warning" role="alert">
+      <span style="font-size: 17px; line-height: 1.2; color: #8c3d29;">&#9888;</span>
+      <div>
+        <strong>Enter at least one role</strong>
+        <p>A role is what the search looks for. With all five empty there is nothing to ask any source for, so the search will not run. Countries and keywords narrow a search; they cannot start one.</p>
+      </div>
+    </div>
+    <div class="bar">
+      <button type="button" class="run" disabled>Find new jobs</button>
+      <button type="button" class="save">Save criteria</button>
+      <button type="button" class="reset">Reset</button>
+      <p class="note">Save criteria still works &mdash; an empty role list is a valid thing to save while you decide.</p>
+    </div>
+  </section>
+
+  <p style="margin: 0; padding: 26px 48px 0; max-width: 100ch; font-size: 14px; line-height: 1.55; color: #4d574f;"><strong>Why the button is disabled rather than failing on the press:</strong> the fault is visible before you act, and the message says which field and why. A press that silently does nothing, or that runs and returns nothing, would look like the product is broken. Reset is untouched in both states &mdash; it is the way out of a form you have made a mess of.</p>
+
 </div>
 </x-dc>
 </body>
