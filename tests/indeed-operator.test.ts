@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import IndeedStatusPanel from '../app/indeed-status';
@@ -85,4 +86,30 @@ test('Indeed button is immediately usable without a separate readiness click', (
   // own latest run.
   const noRoles = renderToStaticMarkup(createElement(IndeedStatusPanel, { ...props, roles: [] }));
   assert.match(noRoles, /no saved roles yet/);
+});
+
+test('website and CLI share one authenticated collection route; the panel is admin-only', async () => {
+  const radar = await readFile(new URL('../app/job-radar.tsx', import.meta.url), 'utf8');
+  // The panel mounts for administrators only. Ordinary accounts never see the
+  // source, its configuration, or its history: the server withholds Indeed
+  // rows and run sources before aggregation, and the admin preview reads the
+  // server's ordinary-audience response instead of subtracting admin rows.
+  assert.match(radar, /\{isAdmin && <IndeedStatusPanel/);
+  assert.match(radar, /userPreview\?\.collectionTotals/);
+  assert.match(radar, /\/api\/state\?preview=user/);
+  const state = await readFile(new URL('../app/api/state/route.ts', import.meta.url), 'utf8');
+  assert.match(state, /hideIndeedRecords/);
+  // Both entry points dispatch the same authorized scrape; there is no second
+  // ingestion path or job store.
+  assert.match(radar, /findJobs\('authorized', 'indeed'\)/);
+  // A second rapid click returns before dispatch: the synchronous ref guard
+  // fires before the state-driven disabled button can propagate.
+  assert.match(radar, /if \(scrapeBusyRef\.current\) return;/);
+  assert.match(radar, /scrapeBusyRef\.current = true;/);
+  const operator = await readFile(new URL('../scripts/indeed-operator.mjs', import.meta.url), 'utf8');
+  assert.match(operator, /sourceGroup.*indeed/);
+  const settingsRoute = await readFile(new URL('../app/api/admin/indeed/settings/route.ts', import.meta.url), 'utf8');
+  assert.match(settingsRoute, /adminOnly: true/);
+  const adminRoute = await readFile(new URL('../app/api/admin/indeed/route.ts', import.meta.url), 'utf8');
+  assert.match(adminRoute, /adminOnly: true/);
 });

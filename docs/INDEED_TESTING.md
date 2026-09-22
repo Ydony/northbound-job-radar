@@ -156,3 +156,19 @@ by the operator module. It requires fresh disposable signup-enabled storage with
 disabled. It covers two accounts, hidden/private records, demotion, guessed IDs, corrections,
 saved/applied/dismissed retention and reset isolation. It passed against the final built Worker
 on fresh disposable storage at port 3115, with no upstream requests. Do not run it on the owner's workspace.
+
+## 2026-09-22 close-out status (Spark #113–#116, Codex/lead review pending)
+
+Live caps are unchanged: 25 rows per role/country, 4 requests/100 rows per click,
+7-day local window, 60s cooldown. The 200/800 design exists only in synthetic
+tests and activates with #126 after Codex live proof (#118), independent review
+(#69) and lead review.
+
+What is mocked, what is live, what is not tested — see INDEED_HANDOVER.md
+“Evidence ledger”. In short: all collection, settings, checkpoint, refusal and
+isolation behaviour is covered synthetically (407 tests); live DEV evidence is
+read-only settings gating, server-side preview totals, and panel rendering with
+a save/restore round-trip (no provider calls, no resets, reusable accounts
+untouched). Not covered by Spark: any upstream request, 100-row pages,
+upstream newest-first/date support, built-test acceptance flows (would disturb
+owner servers), live Settings PUT (unit-covered only).
