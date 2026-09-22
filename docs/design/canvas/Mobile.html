@@ -37,10 +37,15 @@ a { color: #134736; } a:hover { color: #18221c; }
 /* PHONE - the only permitted deviations, and why. One column, because 320px of
    requirements will not sit beside 424px of job. 48px controls, because a finger is
    not a cursor. Tighter insets, because 40px each side would take a fifth of the
-   width. Everything not listed here is inherited from the block above. */
+   width. And the requirements sit ABOVE the action row rather than after it - the
+   fifth deviation, decided by the owner on 2026-09-23: sharing desktop's order put the
+   first job's requirements at 1008px against a fold at 844px, so the one thing you
+   scroll for needed scrolling to reach. Everything else is inherited from above. */
 .jc { grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 14px; padding: 16px 18px; margin-bottom: 12px; }
-.jc .asks { grid-column: 2; margin: 0; padding: 15px 20px; }
+.asks { margin: 0 0 14px; padding: 15px 20px; }
 .acts { gap: 8px; }
+.meta { margin-bottom: 10px; }
+.chips { margin-bottom: 10px; }
 .apply { width: 100%; height: 48px; margin-bottom: 8px; }
 .icon { width: 48px; height: 48px; }
 .tick { flex: 1 1 auto; height: 48px; }
@@ -70,14 +75,18 @@ a { color: #134736; } a:hover { color: #18221c; }
       <span style="font-size: 12px; color: #5d6660;">306 jobs</span>
     </div>
 
-    <div style="display: flex; gap: 4px; background: #f4f2ea; border-radius: 10px; padding: 4px; margin: 14px 0 10px;">
+    <div style="display: flex; gap: 4px; background: #f4f2ea; border-radius: 10px; padding: 4px; margin: 12px 0 8px;">
       <button type="button" style="flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 8px; background: #fbfaf6; box-shadow: 0 1px 2px rgba(24,34,28,.08); padding: 0 4px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: #18221c; cursor: pointer;">New <span style="font-size: 12px; background: #def36b; border-radius: 6px; padding: 2px 5px;">140</span></button>
       <button type="button" style="flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 8px; background: transparent; padding: 0 4px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer;">All <span style="font-size: 12px; color: #5d6660;">306</span></button>
       <button type="button" style="flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 8px; background: transparent; padding: 0 4px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer;">Pipeline <span style="font-size: 12px; color: #5d6660;">0</span></button>
       <button type="button" style="flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 8px; background: transparent; padding: 0 4px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer;">Dismissed <span style="font-size: 12px; color: #5d6660;">12</span></button>
     </div>
 
-    <p style="margin: 0 0 7px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660;">Language result</p>
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+      <p style="margin: 0; flex: 1 1 auto; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5d6660;">Language result</p>
+      <button type="button" style="display: inline-flex; align-items: center; gap: 8px; background: #f4f2ea; border: 0; border-radius: 8px; padding: 0 14px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: #18221c; cursor: pointer;">All filters <span style="font-size: 12px; background: #18221c; color: #ffffff; border-radius: 6px; padding: 1px 6px;">2</span></button>
+      <button type="button" style="display: inline-flex; align-items: center; gap: 8px; background: #f4f2ea; border: 0; border-radius: 8px; padding: 0 14px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer;">Newest first <span style="font-size: 12px; color: #5d6660;">&#9660;</span></button>
+    </div>
     <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px;">
       <button type="button" style="flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; background: #e3eadf; border: 0; border-radius: 8px; padding: 0 12px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: #134736; cursor: pointer;">Definitely English <span style="font-size: 12px;">18</span></button>
       <button type="button" style="flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; background: #f4f2ea; border: 0; border-radius: 8px; padding: 0 12px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer;">Maybe English <span style="font-size: 12px; color: #5d6660;">18</span></button>
@@ -85,10 +94,6 @@ a { color: #134736; } a:hover { color: #18221c; }
       <button type="button" style="flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; background: #f4f2ea; border: 0; border-radius: 8px; padding: 0 12px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer;">Local language required <span style="font-size: 12px; color: #5d6660;">890</span></button>
     </div>
 
-    <div style="display: flex; gap: 8px; margin-bottom: 14px;">
-      <button type="button" style="display: inline-flex; align-items: center; gap: 8px; background: #f4f2ea; border: 0; border-radius: 8px; padding: 0 14px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: #18221c; cursor: pointer;">All filters <span style="font-size: 12px; background: #18221c; color: #ffffff; border-radius: 6px; padding: 1px 6px;">2</span></button>
-      <button type="button" style="display: inline-flex; align-items: center; gap: 8px; background: #f4f2ea; border: 0; border-radius: 8px; padding: 0 14px; height: 44px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: #4d574f; cursor: pointer;">Newest first <span style="font-size: 12px; color: #5d6660;">&#9660;</span></button>
-    </div>
 
     <article class="jc" style="border-left: 3px solid #3f7f54;">
       <label class="sel"><input type="checkbox" aria-label="Select this job"></label>
@@ -97,20 +102,20 @@ a { color: #134736; } a:hover { color: #18221c; }
         <button type="button" class="src">Job-Room (arbeit.swiss)</button>
         <p class="meta">Coopers Group AG &middot; Wallis &middot; Switzerland &middot; <span class="gap">Posting date unavailable</span></p>
         <div class="chips"><span class="chip" style="background: #e3eadf; color: #134736;">Definitely English</span></div>
+        <div class="asks">
+          <span class="lbl">Asks for</span>
+          <ul>
+            <li>Ability to work independently in a remote setup with limited supervision</li>
+            <li>Quality background in a regulated manufacturing environment</li>
+          </ul>
+          <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
+        </div>
         <div class="acts">
           <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
           <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
           <label class="tick"><input type="checkbox"> Applied</label>
           <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
         </div>
-      </div>
-      <div class="asks">
-        <span class="lbl">Asks for</span>
-        <ul>
-          <li>Ability to work independently in a remote setup with limited supervision</li>
-          <li>Quality background in a regulated manufacturing environment</li>
-        </ul>
-        <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
       </div>
     </article>
 
@@ -121,20 +126,20 @@ a { color: #134736; } a:hover { color: #18221c; }
         <button type="button" class="src">Job-Room (arbeit.swiss)</button>
         <p class="meta">Basel &middot; 17 Sept 2026 &middot; Hybrid &middot; Switzerland</p>
         <div class="chips"><span class="chip" style="background: #f7e3dd; color: #8c3d29;">Maybe English</span><span class="chip" style="background: #eceade; color: #4d574f;">Closes today</span></div>
+        <div class="asks">
+          <span class="lbl">Asks for</span>
+          <ul>
+            <li>Experience in insurance or risk operations</li>
+            <li><strong style="color: #8c3d29;">German described as an advantage</strong> &mdash; the phrase this verdict turns on</li>
+          </ul>
+          <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
+        </div>
         <div class="acts">
           <a href="#apply" class="apply">Apply on arbeit.swiss &#8599;</a>
           <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
           <label class="tick"><input type="checkbox"> Applied</label>
           <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
         </div>
-      </div>
-      <div class="asks">
-        <span class="lbl">Asks for</span>
-        <ul>
-          <li>Experience in insurance or risk operations</li>
-          <li><strong style="color: #8c3d29;">German described as an advantage</strong> &mdash; the phrase this verdict turns on</li>
-        </ul>
-        <p class="note">Extracted from the available advertisement &mdash; not a complete guarantee. <a href="#original" style="font-weight: 700;">Original ad &#8599;</a></p>
       </div>
     </article>
 
@@ -145,17 +150,17 @@ a { color: #134736; } a:hover { color: #18221c; }
         <button type="button" class="src">EURES Netherlands</button>
         <p class="meta">Groot-Amsterdam &middot; 17 Sept 2026 &middot; Netherlands</p>
         <div class="chips"><span class="chip" style="background: #e6e6e2; color: #4d574f;">Not sure</span></div>
+        <div class="asks">
+          <span class="lbl">Requirements not published</span>
+          <p class="body">EURES published a preview rather than the full advertisement, so there was never enough text to judge.</p>
+          <p class="note"><a href="#original" style="font-weight: 700;">Original ad &#8599;</a> &mdash; one click usually settles it.</p>
+        </div>
         <div class="acts">
           <a href="#apply" class="apply">Apply on ec.europa.eu &#8599;</a>
           <button type="button" class="icon" aria-label="Save this job" title="Save">&#9825;</button>
           <label class="tick"><input type="checkbox"> Applied</label>
           <button type="button" class="icon" aria-label="More actions" title="More">&#8943;</button>
         </div>
-      </div>
-      <div class="asks">
-        <span class="lbl">Requirements not published</span>
-        <p class="body">EURES published a preview rather than the full advertisement, so there was never enough text to judge.</p>
-        <p class="note"><a href="#original" style="font-weight: 700;">Original ad &#8599;</a> &mdash; one click usually settles it.</p>
       </div>
     </article>
   </section>
@@ -168,7 +173,7 @@ a { color: #134736; } a:hover { color: #18221c; }
   </section>
 
   <div style="position: absolute; left: 0; top: 844px; width: 390px; border-top: 2px dashed #c25239;"></div>
-  <div style="position: absolute; left: 0; top: 852px; width: 390px; box-sizing: border-box; padding: 0 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.4; color: #8c3d29;">THE FOLD &mdash; the first job, its verdict and its actions are above it; its requirements are not. The card matches desktop exactly, and that is what it costs.</div>
+  <div style="position: absolute; left: 0; top: 852px; width: 390px; box-sizing: border-box; padding: 0 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.4; color: #8c3d29;">THE FOLD &mdash; the first job, its verdict and what the employer asks for all sit above it, ending at 841px. Paid for by putting the filter and sort controls on the same line as the Language result label.</div>
 </div>
 </x-dc>
 </body>
