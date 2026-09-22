@@ -101,6 +101,86 @@ export function sourceRunTotals(sources: Pick<SearchRunSource, 'foundCount' | 'i
   };
 }
 
+/**
+ * The #124 counting contract, in one place so the card, the headline and the
+ * tests agree.
+ *
+ * - New this search: first-time unique jobs this run added to this account
+ *   (sum of importedCount). Never a provider-returned row count, never a sum
+ *   across runs — a re-seen job updates last_seen, it does not add.
+ * - Matched this search: of those new jobs, how many were English-confirmed
+ *   (detector verdict at search time) and met the saved criteria then. A
+ *   snapshot, not a live view: later corrections and criteria edits do not
+ *   rewrite it, and the card says so.
+ * - Total collected: every unique job retained from this and previous searches
+ *   (server count, saved/applied/dismissed included, deleted gone). Not a sum
+ *   of found counts, not the loaded page, not still-open.
+ *
+ * matchedUnknown is true when the matched number is incomplete: a completed
+ * source with no stored matchedCount (pre-#124 rows), or a source that was
+ * contacted but never completed (failed/blocked/unavailable/partial without a
+ * number). Skipped and disabled sources were never contacted by choice or
+ * design, so they do not make the total unknown. Unknown renders as "—",
+ * never as a false zero.
+ */
+export interface RunNewMatchedTotals {
+  newJobs: number;
+  matchedJobs: number;
+  matchedUnknown: boolean;
+}
+
+export function runNewMatchedTotals(
+  sources: Pick<SearchRunSource, 'status' | 'importedCount' | 'matchedCount'>[],
+): RunNewMatchedTotals {
+  let newJobs = 0;
+  let matchedJobs = 0;
+  let matchedUnknown = false;
+  for (const source of sources) {
+    if (source.status === 'skipped' || source.status === 'disabled') continue;
+    newJobs += source.importedCount;
+    if (source.matchedCount == null) {
+      if (source.status === 'complete' || source.status === 'partial'
+        || source.status === 'failed' || source.status === 'blocked'
+        || source.status === 'unavailable') {
+        matchedUnknown = true;
+      }
+      continue;
+    }
+    matchedJobs += source.matchedCount;
+  }
+  return { newJobs, matchedJobs, matchedUnknown };
+}
+
+/** Render a matched/new count, with unknown as an em dash rather than zero. */
+export function formatCountOrUnknown(value: number | null): string {
+  return value == null ? '—' : `${value}`;
+}
+
+/**
+ * Per-source Total collected lookup (#124). Attribution is by the source that
+ * first kept the row; copies folded into another site's card count for their
+ * own source, so per-source numbers can add up to more than the deduplicated
+ * overall — that is folding, not loss.
+ */
+export function totalForSource(
+  bySource: readonly { sourceKey: string; total: number }[],
+  sourceKey: string,
+): number | null {
+  const found = bySource.find((entry) => entry.sourceKey === sourceKey);
+  return found ? found.total : 0;
+}
+
+export const RUN_TOTALS_HELP =
+  'New this search counts first-time jobs this run added. '
+  + 'Matched this search counts those new jobs that were English-confirmed and met the saved criteria when searched. '
+  + 'Total collected counts unique retained jobs from this and previous searches, including saved, applied and dismissed.';
+
+export const MATCHED_SNAPSHOT_NOTE =
+  'Matched is a snapshot at search time. Later corrections and criteria edits do not rewrite it.';
+
+export const TOTALS_DEDUPE_NOTE =
+  'Overall counts each retained job once. Per-source totals show where each job was first kept, including copies folded elsewhere, so they can add up to more than the overall.';
+
 export function bestFitScore(job: JobRecord) {
   return Math.max(job.fitScoreA, job.fitScoreB);
 }

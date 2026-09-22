@@ -584,9 +584,14 @@ footer > a {
   .source-dashboard { padding:20px 18px 22px; }
   .source-dashboard-heading { align-items:flex-start; flex-direction:column; }
   .source-report-grid { grid-template-columns:minmax(0,1fr); }
+  .source-overall { grid-template-columns:minmax(0,1fr); }
 
   /* The search buttons stack full-width rather than sitting side by side in an
      auto column that would squeeze the copy and overflow at 375px. */
   .workflow { grid-template-columns:minmax(0,1fr); }
   .workflow .jobs-button { grid-column:1; justify-self:stretch; min-height:48px; white-space:normal; width:100%; }
 }
+
+.source-overall{display:grid;gap:6px;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 20px}.source-overall>div{background:var(--cream);border-radius:10px;box-shadow:0 1px 2px rgba(24,34,28,.05);padding:16px}.source-overall b{display:block;font-family:var(--font-display);font-size:32px;font-weight:600;line-height:1}.source-overall span{color:var(--text-tertiary);display:block;font-size:12px;font-weight:800;margin-top:4px;text-transform:uppercase}.source-overall small{color:var(--text-tertiary);display:block;font-size:12px;line-height:1.45;margin-top:4px}
+
+.requirements-more{margin-top:8px}.requirements-more summary{color:var(--text-tertiary);cursor:pointer;font-size:14px;font-weight:700;min-height:44px}.requirements-more ul{margin-top:8px}.requirements-note{font-size:12px!important;margin-top:8px!important}.requirements-note a,.job-requirements p a{color:var(--green);font-weight:700}

@@ -55,10 +55,12 @@ them are illustrative. Where a frame and a task disagree, **the task on the boar
 authoritative** — it carries the exact values, and it says which parts are decided and which
 are still open.
 
-One thing shown here does not exist yet: the **Still open** figure in the statistics panel.
-Searched and Added come from `search_run_sources`; the third number needs a per-source count of
-unexpired jobs, and about a third of stored advertisements carry no end date at all. The layout
-holds a place for it; leave the number out until that is decided.
+The statistics panel in these frames predates #124: it shows **Searched / Added /
+Still open**, where Still open was never populated. The live panel now shows **New this
+search / Matched this search / Total collected** instead. New and Matched come from the run
+snapshot (`imported_count`, `matched_count` in `search_run_sources`); Total collected comes
+from the server-retained collection (`queryCollectionTotals`), never from loaded pages or
+summed found counts. Unknown renders as —, never as a false zero.
 
 ## Why the values are what they are
 

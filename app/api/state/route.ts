@@ -3,7 +3,7 @@ import { recordVisit } from '@/lib/analytics';
 import { clientIp, requireSession } from '@/lib/guard';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
 import { decodeJobsCursor, parsePageLimit } from '@/lib/paging';
-import { criteriaFromRow, cvFromRow, ensureCurrentJobClusters, ensureSearchText, jobFromRow, normalizeStoredJobs, queryJobsPage, searchRunsFromRows, type CriteriaRow, type CvRow,
+import { criteriaFromRow, cvFromRow, ensureCurrentJobClusters, ensureSearchText, jobFromRow, normalizeStoredJobs, queryCollectionTotals, queryJobsPage, searchRunsFromRows, type CriteriaRow, type CvRow,
   type SearchRoleRow, type SearchRunRow, type SearchRunSourceRow } from '@/lib/server-data';
 
 /**
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
   const searchCriteria = criteriaFromRow(criteriaRow, roleRows.results);
-  const [cvs, page, runs] = await Promise.all([
+  const [cvs, page, runs, collectionTotals] = await Promise.all([
     db.prepare('SELECT * FROM cvs WHERE user_id = ? ORDER BY slot').bind(user.id).all<CvRow>(),
     queryJobsPage(db, user.id, {
       hiddenSourceKeys,
@@ -66,6 +66,11 @@ export async function GET(request: Request) {
       limit: pageSize,
     }),
     db.prepare('SELECT * FROM search_runs WHERE user_id = ? ORDER BY started_at DESC LIMIT 12').bind(user.id).all<SearchRunRow>(),
+    // #124 Total collected: full account-scoped retained collection from the
+    // server, never from loaded pages or summed run counts. Saved, applied and
+    // dismissed rows are included; deleted rows are gone. Hidden sources are
+    // excluded here, so ordinary accounts never learn admin-source counts.
+    queryCollectionTotals(db, user.id, hiddenSourceKeys, user.role !== 'admin'),
   ]);
   const runIds = runs.results.map((run) => run.id);
   const runSources = runIds.length
@@ -100,6 +105,7 @@ export async function GET(request: Request) {
     // Jobs the saved keywords keep, across every page, not just this one. The dashboard counts
     // and facets over the loaded pages; this is the number they converge to as pages load.
     matchingJobs: page.matching,
+    collectionTotals,
     jobLimit: pageSize,
     // Null when this page is the end: fewer rows than requested means nothing follows.
     nextCursor: page.nextCursor,

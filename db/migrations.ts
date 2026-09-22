@@ -499,4 +499,16 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE INDEX IF NOT EXISTS rejected_user_source_identity_idx ON rejected_listings(user_id, source_key, source_job_id)',
     ],
   },
+  {
+    // #124: the run report never persisted how many of a run's new jobs were actually
+    // matches (English-confirmed and meeting the saved criteria at search time), so the
+    // dashboard could only guess from importedCount. NULL means unknown: rows written
+    // before this marker, and sources that never completed, carry no matched number and
+    // must render as unknown rather than as a false zero.
+    version: 25,
+    name: 'run_matched_new_counts',
+    statements: [
+      'ALTER TABLE search_run_sources ADD COLUMN matched_count INTEGER',
+    ],
+  },
 ];

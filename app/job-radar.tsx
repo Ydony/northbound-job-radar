@@ -14,9 +14,10 @@ import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
   ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday, criteriaToDraft,
-  DASHBOARD_VIEW_LABELS, emptyStateCopy, formatDate, isJobExpired, jobInView,
-  LANGUAGE_FILTER_LABELS, languageStatusLabel, newSinceCutoff, SORT_MODE_LABELS, sortJobs,
-  sourceRunStatusLabel, sourceRunTotals, statusLabel, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
+  DASHBOARD_VIEW_LABELS, emptyStateCopy, formatCountOrUnknown, formatDate, isJobExpired, jobInView,
+  LANGUAGE_FILTER_LABELS, languageStatusLabel, MATCHED_SNAPSHOT_NOTE, newSinceCutoff, RUN_TOTALS_HELP,
+  runNewMatchedTotals, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, statusLabel,
+  TOTALS_DEDUPE_NOTE, totalForSource, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
   type LanguageFilter, type SortMode } from '@/lib/dashboard';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
@@ -256,6 +257,7 @@ export default function JobRadar() {
           jobs: [...current.jobs, ...appended],
           totalJobs: next.totalJobs ?? current.totalJobs,
           matchingJobs: next.matchingJobs ?? current.matchingJobs,
+          collectionTotals: next.collectionTotals ?? current.collectionTotals,
           hiddenDuplicates: (current.hiddenDuplicates ?? 0) + (next.hiddenDuplicates ?? 0),
           nextCursor: next.nextCursor ?? null,
         };
@@ -556,11 +558,13 @@ export default function JobRadar() {
   // The most recent finished run, for the compact bar. A returning user's first question is
   // "what happened last time", and until now the only answer was inside a collapsed panel.
   const lastRun = state.searchRuns.find((run) => run.completedAt)?.completedAt ?? '';
-  const lastRunAdded = (() => {
+  const lastRunSummary = (() => {
     const run = state.searchRuns.find((entry) => entry.completedAt);
     if (!run) return '';
-    const added = run.sources.reduce((sum, source) => sum + source.importedCount, 0);
-    return added ? ` · ${added} added` : ' · nothing new';
+    const totals = runNewMatchedTotals(run.sources);
+    if (!totals.newJobs) return ' · nothing new';
+    const matched = totals.matchedUnknown ? 'matched unknown' : `${totals.matchedJobs} matched`;
+    return ` · ${totals.newJobs} new · ${matched}`;
   })();
   const latestRun = useMemo(() => {
     const run = state.searchRuns[0];
@@ -568,13 +572,24 @@ export default function JobRadar() {
     const hidden = new Set(state.adminOnlySources ?? []);
     return { ...run, sources: run.sources.filter((source) => !hidden.has(source.sourceKey)) };
   }, [state.searchRuns, state.adminOnlySources, viewAsUser]);
-  // The two live numbers on the Search statistics tab: what the latest run
-  // returned (Searched) and what survived the filters (Added). Both reset
-  // each run; the third cell, Still open, has no source yet (UX-6e).
+  // #124 totals: New and Matched come from the latest run snapshot (unique
+  // additions, never provider-returned rows); Total collected comes from the
+  // server-retained collection, never from loaded pages or summed found counts.
   const latestRunTotals = useMemo(
-    () => sourceRunTotals(latestRun?.sources ?? []),
+    () => runNewMatchedTotals(latestRun?.sources ?? []),
     [latestRun],
   );
+  // Collection totals with the admin preview applied client-side. The server is
+  // what enforces audience scope; hiding here only makes the preview truthful,
+  // and it never reveals hidden counts — filtered sources simply vanish.
+  const collectionView = useMemo(() => {
+    const totals = state.collectionTotals;
+    if (!totals) return null;
+    if (!viewAsUser) return totals;
+    const hidden = new Set(state.adminOnlySources ?? []);
+    const bySource = totals.bySource.filter((entry) => !hidden.has(entry.sourceKey));
+    return { total: bySource.reduce((sum, entry) => sum + entry.total, 0), bySource };
+  }, [state.collectionTotals, state.adminOnlySources, viewAsUser]);
 
   async function persistCriteria(draft: CriteriaDraft) {
     return responseJson<{ criteria: SearchCriteria }>(await fetch('/api/criteria', {
@@ -751,11 +766,41 @@ export default function JobRadar() {
       }
       const result = last as { added: JobRecord[]; run: SearchRun; scanned: number; alreadyKnown: number } | null;
       if (!result?.run) throw new Error('The search ended without returning a result.');
-      setState((current) => ({
-        ...current,
-        jobs: [...result.added, ...current.jobs.filter((job) => !result.added.some((added) => added.id === job.id))],
-        searchRuns: [result.run, ...current.searchRuns.filter((run) => run.id !== result.run.id)].slice(0, 12),
-      }));
+      setState((current) => {
+        // #124: Total collected is server-retained, but the run just added rows
+        // this response already counts. Increment optimistically so the headline
+        // does not lag a search behind; the next full state load reconciles it.
+        // Attribution follows the run report: each new unique job counts for the
+        // source that first kept it.
+        const addedBySource = new Map<string, number>();
+        for (const source of result.run.sources) {
+          if (source.importedCount > 0) addedBySource.set(source.sourceKey, source.importedCount);
+        }
+        const previousTotals = current.collectionTotals;
+        const nextTotals = previousTotals ? {
+          total: previousTotals.total + result.added.length,
+          bySource: (() => {
+            const byKey = new Map(previousTotals.bySource.map((entry) => [entry.sourceKey, entry]));
+            for (const source of result.run.sources) {
+              if (!source.importedCount) continue;
+              const existing = byKey.get(source.sourceKey);
+              if (existing) byKey.set(source.sourceKey, { ...existing, total: existing.total + source.importedCount });
+              else byKey.set(source.sourceKey, {
+                sourceKey: source.sourceKey, sourceName: source.sourceName,
+                country: source.country, total: source.importedCount,
+              });
+            }
+            return [...byKey.values()];
+          })(),
+        } : previousTotals;
+        return {
+          ...current,
+          jobs: [...result.added, ...current.jobs.filter((job) => !result.added.some((added) => added.id === job.id))],
+          searchRuns: [result.run, ...current.searchRuns.filter((run) => run.id !== result.run.id)].slice(0, 12),
+          totalJobs: (current.totalJobs ?? current.jobs.length) + result.added.length,
+          collectionTotals: nextTotals,
+        };
+      });
       const completedSources = result.run.sources.filter((source) => source.status === 'complete' || source.status === 'partial').length;
       const indeedUnavailable = sourceGroup === 'indeed' && completedSources === 0
         ? result.run.sources.filter(source => source.status !== 'skipped').map(source => source.message).join(' ')
@@ -958,12 +1003,32 @@ export default function JobRadar() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(all ? { all: true } : { ids }),
       }));
-      setState((current) => ({
-        ...current,
-        jobs: all ? [] : current.jobs.filter((job) => !ids.includes(job.id)),
-      }));
+      setState((current) => {
+        // #124: deliberate deletion removes rows from the retained collection —
+        // Total collected must fall, not preserve deleted records. Decrement the
+        // server totals from the rows actually removed on screen; the next full
+        // state load reconciles any duplicate-folding edge.
+        const removed = all ? current.jobs : current.jobs.filter((job) => ids.includes(job.id));
+        const removedBySource = new Map<string, number>();
+        for (const job of removed) removedBySource.set(job.sourceKey, (removedBySource.get(job.sourceKey) ?? 0) + 1);
+        const previousTotals = current.collectionTotals;
+        const nextTotals = all
+          ? { total: 0, bySource: [] as NonNullable<AppState['collectionTotals']>['bySource'] }
+          : previousTotals ? {
+            total: Math.max(0, previousTotals.total - removed.length),
+            bySource: previousTotals.bySource
+              .map((entry) => ({ ...entry, total: Math.max(0, entry.total - (removedBySource.get(entry.sourceKey) ?? 0)) }))
+              .filter((entry) => entry.total > 0),
+          } : previousTotals;
+        return {
+          ...current,
+          jobs: all ? [] : current.jobs.filter((job) => !ids.includes(job.id)),
+          totalJobs: all ? 0 : Math.max(0, (current.totalJobs ?? current.jobs.length) - removed.length),
+          collectionTotals: nextTotals,
+        };
+      });
       setSelectedJobIds([]);
-      setDataMessage(`Deleted ${result.deletedJobs} job${result.deletedJobs === 1 ? '' : 's'}.`);
+      setDataMessage(`Deleted ${result.deletedJobs} job${result.deletedJobs === 1 ? '' : 's'}. Total collected now excludes them.`);
     } catch (error) {
       setDataMessage(error instanceof Error ? error.message : 'Could not delete jobs.');
     } finally {
@@ -1007,7 +1072,11 @@ export default function JobRadar() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ confirm: 'RESET' }),
       }));
-      setState({ profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [], account: state.account });
+      setState({
+        profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [],
+        totalJobs: 0, matchingJobs: 0, collectionTotals: { total: 0, bySource: [] },
+        account: state.account,
+      });
       setCriteriaDraft(criteriaToDraft(defaultSearchCriteria));
       setCvSlots({ a: { ...emptySlotState }, b: { ...emptySlotState } });
       setSelectedJobIds([]);
@@ -1073,7 +1142,7 @@ export default function JobRadar() {
               while the workspace is empty, which is exactly when it is read. */}
           {!state.jobs.length
             ? <p>One search runs every enabled Swiss and Netherlands source, records what each returned, removes duplicates, and applies the English gate.</p>
-            : lastRun && <p className="last-run">Last search {formatDate(lastRun).replace(/^Posted /, '')}{lastRunAdded}</p>}
+            : lastRun && <p className="last-run">Last search {formatDate(lastRun).replace(/^Posted /, '')}{lastRunSummary}</p>}
         </div>
         <button className="jobs-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
           {scrapeBusy === 'authorized' ? 'Searching…' : isAdmin ? 'Search — VPN off' : 'Find new jobs'} <span>⚡</span>
@@ -1156,8 +1225,12 @@ export default function JobRadar() {
             <span className="setup-tab-meta">{loadError ? 'Unavailable until the workspace loads'
               : loading ? 'Loading…'
               : latestRun
-                ? `${latestRunTotals.searched} searched · ${latestRunTotals.added} added`
-                : 'No search has run yet'}</span>
+                ? `${latestRunTotals.newJobs} new · ${
+                  latestRunTotals.matchedUnknown ? 'matched unknown' : `${latestRunTotals.matchedJobs} matched`
+                } · ${collectionView ? `${collectionView.total} collected` : 'collected unknown'}`
+                : collectionView && collectionView.total > 0
+                  ? `${collectionView.total} collected · No search has run yet`
+                  : 'No search has run yet'}</span>
           </button>
         </div>
         <section className="criteria-section" id="criteria" hidden={!settingsOpen} aria-label="Search settings">
@@ -1222,36 +1295,45 @@ export default function JobRadar() {
         </section>
         <section className="source-dashboard" id="sources" hidden={!statsOpen} aria-label="Search statistics">
             <div className="source-dashboard-heading">
-              <div><span className="section-label coral">Search coverage</span><h2>What every source returned</h2></div>
+              <div><span className="section-label coral">Search coverage</span><h2>New, matched and collected</h2></div>
               <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run a job search to create the first source report.'}</p>
             </div>
-            {latestRun && <p className="source-dashboard-explainer"><strong>Searched</strong> and <strong>added</strong> describe
-              this run and reset each time. <strong>Still open</strong> is everything the source has contributed that has
-              not passed its closing date — it carries across searches, rises as jobs are added and falls as they expire.</p>}
+            <p className="source-dashboard-explainer">{RUN_TOTALS_HELP} {MATCHED_SNAPSHOT_NOTE}</p>
+            {latestRun && <div className="source-overall" role="status" aria-label="Overall search totals">
+              <div><b>{latestRunTotals.newJobs}</b><span>New this search</span><small>first-time jobs this run added</small></div>
+              <div><b>{latestRunTotals.matchedUnknown ? '—' : latestRunTotals.matchedJobs}</b><span>Matched this search</span><small>new jobs English-confirmed and meeting criteria then</small></div>
+              <div><b>{collectionView ? collectionView.total : '—'}</b><span>Total collected</span><small>unique retained jobs, this and previous searches</small></div>
+            </div>}
+            {latestRun && latestRunTotals.matchedUnknown && <p className="source-dashboard-explainer">
+              Matched is unknown for at least one contacted source that did not complete or predates
+              matched tracking — shown as — rather than as a false zero.</p>}
+            {collectionView && <p className="source-dashboard-explainer">{TOTALS_DEDUPE_NOTE}</p>}
             {latestRun && <div className="source-report-grid">
               {[...latestRun.sources]
                 .sort((a, b) => SOURCE_RUN_STATUS_RANK[a.status] - SOURCE_RUN_STATUS_RANK[b.status]
                   || a.sourceName.localeCompare(b.sourceName))
-                .map((source) => <article className={`source-report ${source.status}`} key={source.sourceKey}>
+                .map((source) => {
+                  // New and Matched are run snapshots: only completed sources carry
+                  // numbers. Anything else is unknown (—), never a false zero.
+                  // Total collected is server-retained and stays known across runs.
+                  const completed = source.status === 'complete' || source.status === 'partial';
+                  const newDisplay = completed ? `${source.importedCount}` : '—';
+                  const matchedDisplay = completed ? formatCountOrUnknown(source.matchedCount) : '—';
+                  const collected = collectionView ? totalForSource(collectionView.bySource, source.sourceKey) : null;
+                  return <article className={`source-report ${source.status}`} key={source.sourceKey}>
                 <div className="source-top"><span>{countryLabel(source.country)}</span><span className={`source-status ${source.status}`}><i aria-hidden="true" />{sourceRunStatusLabel(source.status)}</span></div>
                 <h3>{source.sourceName}</h3>
-                {/* UX-6e: the same three numbers in every card, in this order. Searched and Added
-                    come straight from the run row. Still open has no source yet — it needs a
-                    per-source count of non-expired jobs, blocked on how a missing end date should
-                    count — so the cell is laid out and left unpopulated rather than filled with a
-                    number that would be wrong. Duplicates, known and skipped are diagnostics, not
-                    a status, so they stay off the face entirely. */}
                 <div className="source-cells">
-                  <div><b className={source.foundCount === 0 ? 'is-zero' : ''}>{source.foundCount}</b><span>Searched</span></div>
-                  <div className={source.importedCount > 0 ? 'is-added' : ''}><b className={source.importedCount === 0 ? 'is-zero' : ''}>{source.importedCount}</b><span>Added</span></div>
-                  <div><b className="is-pending" title="Still-open counts are not collected yet — pending the missing-end-date decision.">—</b><span>Still open</span></div>
+                  <div><b className={!completed || source.importedCount === 0 ? 'is-zero' : ''} title={completed ? 'First-time unique jobs this run added to this account.' : 'This source did not complete, so new jobs are unknown rather than zero.'}>{newDisplay}</b><span>New this search</span></div>
+                  <div className={completed && (source.matchedCount ?? 0) > 0 ? 'is-added' : ''}><b className={matchedDisplay === '—' || matchedDisplay === '0' ? 'is-zero' : ''} title="New jobs that were English-confirmed and met the saved criteria at search time. A snapshot; later corrections do not rewrite it.">{matchedDisplay}</b><span>Matched this search</span></div>
+                  <div><b title="Unique retained jobs attributed to this source, this and previous searches. Saved, applied and dismissed rows are included; deleted rows are gone.">{collected == null ? '—' : collected}</b><span>Total collected</span></div>
                 </div>
-                {/* A message line only where there is something to say: a partial run, a
-                    source that was not contacted, a failure. A completed source's static
-                    description is not news about this run, so it stays off the face. */}
                 {source.status !== 'complete' && source.message.trim() && <p className="source-message">{source.message}</p>}
-              </article>)}
+              </article>;})}
             </div>}
+            {!latestRun && collectionView && collectionView.total > 0 && <p className="source-dashboard-explainer">
+              No search has run yet in this view, but {collectionView.total} unique retained job{collectionView.total === 1 ? '' : 's'} from
+              previous searches or imports {collectionView.total === 1 ? 'is' : 'are'} still collected.</p>}
             {/* Administrator only: it is a tool for judging the sources and the filter, not something
                 a person looking for work needs to read. */}
             {isAdmin && <div className="source-performance">
@@ -1551,16 +1633,25 @@ export default function JobRadar() {
                   </div>
                   {jobFlash[job.id] && <p className="card-flash" role="status">{jobFlash[job.id]}</p>}
                 </div>
-                {/* UX-6b: what the employer asks for holds the right side of the card.
-                    A preview too short to judge says so and points at the original
-                    page; a full advertisement with no stated requirements says that
-                    instead, so the two never look alike. */}
+                {/* UX-6b + #125: what the employer asks for holds the right side.
+                    Extracted from the available advertisement — a grounded quotation,
+                    never a CV-match explanation and never a language-eligibility claim.
+                    A preview too short to judge says so; a full ad with nothing
+                    reliably extractable says it could not be extracted (not that the
+                    employer asks for nothing). Both point at the original page. */}
                 <div className="job-requirements">
                   {requirements
-                    ? <><span>Asks for</span><ul>{requirements.items.map((item) => <li key={item}>{item}</li>)}</ul></>
+                    ? <><span>Asks for</span>
+                      <ul>{requirements.items.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul>
+                      {requirements.items.length > 3 && <details className="requirements-more">
+                        <summary>Show all {requirements.items.length} requirements</summary>
+                        <ul>{requirements.items.slice(3).map((item) => <li key={item}>{item}</li>)}</ul>
+                      </details>}
+                      <p className="requirements-note">Extracted from the available advertisement — not a complete guarantee. <a href={job.sourceUrl} target="_blank" rel="noreferrer">Original ad on {sourceDisplayName} ↗</a></p>
+                    </>
                     : isPreview
-                      ? <><span>Requirements not published</span><p>{sourceDisplayName} published a preview rather than the full advertisement. The requirements are on the original page.</p></>
-                      : <><span>Asks for</span><p>Not stated under a clear heading in this advertisement — the full text is on the original page.</p></>}
+                      ? <><span>Requirements not published</span><p>{sourceDisplayName} published a preview rather than the full advertisement. The requirements are on the <a href={job.sourceUrl} target="_blank" rel="noreferrer">original page ↗</a>.</p></>
+                      : <><span>Asks for</span><p>Could not extract requirements from the available text — the employer may still list them. See the <a href={job.sourceUrl} target="_blank" rel="noreferrer">original ad ↗</a>.</p></>}
                 </div>
                 {statusLabel(job) && <span className="status-chip">{statusLabel(job)}</span>}
               </article>;

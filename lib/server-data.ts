@@ -96,6 +96,7 @@ interface SearchRunSourceRow {
   known_count: number;
   new_count: number;
   imported_count: number;
+  matched_count: number | null;
   duplicate_count: number;
   skipped_count: number;
   message: string;
@@ -215,6 +216,7 @@ export function searchRunsFromRows(runRows: SearchRunRow[], sourceRows: SearchRu
   const sourcesByRun = new Map<string, SearchRunSource[]>();
   for (const row of sourceRows) {
     const sources = sourcesByRun.get(row.run_id) ?? [];
+    const matched = (row as { matched_count?: unknown }).matched_count;
     sources.push({
       sourceKey: row.source_key,
       sourceName: row.source_name,
@@ -225,6 +227,9 @@ export function searchRunsFromRows(runRows: SearchRunRow[], sourceRows: SearchRu
       knownCount: row.known_count,
       newCount: row.new_count,
       importedCount: row.imported_count,
+      // Rows predating migration 25 carry NULL; so do sources that never
+      // completed. Callers must render those as unknown, never as zero.
+      matchedCount: typeof matched === 'number' && Number.isFinite(matched) ? matched : null,
       duplicateCount: row.duplicate_count,
       skippedCount: row.skipped_count,
       message: row.message,
@@ -702,6 +707,67 @@ export async function queryJobsPage(
     nextCursor: hasMore && lastRow ? encodeJobsCursor(lastRow.updated_at, lastRow.id) : null,
     total: total?.total ?? rows.length,
     matching: matchingTotal?.total ?? rows.length,
+  };
+}
+
+/**
+ * Account-scoped retained collection for the #124 "Total collected" totals.
+ *
+ * The overall total counts unique retained jobs: rows with no duplicate_of,
+ * plus orphan copies whose primary is gone or outside this role's audience
+ * (the same rule the page uses to show a copy rather than lose it). Saved,
+ * applied and dismissed rows are included — they are work, not absence — and
+ * deliberately deleted or reset rows are gone. Hidden sources and Indeed rows
+ * are excluded in SQL with the same audience predicates the page uses, so an
+ * ordinary account never learns admin-source counts from these numbers.
+ *
+ * Per-source totals attribute by the stored source_key/source_name/country and
+ * include every retained row for that source, copies included. A near-duplicate
+ * kept under two sites therefore counts for both sites but once overall, so the
+ * per-source numbers can add up to more than the overall — that is folding,
+ * not loss. Repeated finds across runs never inflate either number: a re-seen
+ * job updates last_seen, it does not add a row. First-seen decides newness;
+ * posting dates do not.
+ */
+export async function queryCollectionTotals(
+  db: D1Database,
+  userId: string,
+  hiddenSourceKeys: string[],
+  hideIndeedRecords: boolean,
+): Promise<{ total: number; bySource: { sourceKey: string; sourceName: string; country: string; total: number }[] }> {
+  const hiddenClause = hiddenSourceKeys.length
+    ? ` AND source_key NOT IN (${hiddenSourceKeys.map(() => '?').join(',')})`
+    : '';
+  const indeedClause = hideIndeedRecords ? ` AND NOT ${indeedSql()}` : '';
+  const audienceClause = `${hiddenClause}${indeedClause}`;
+  // Audience-filtered primaries for the orphan check below. A copy whose
+  // primary is hidden from this role (or deleted) is shown, so it counts
+  // toward the unique total rather than vanishing with its primary.
+  const primaryIdsSubquery = `SELECT id FROM jobs WHERE user_id = ?${audienceClause}`;
+  const uniquePredicate = `(duplicate_of = '' OR duplicate_of NOT IN (${primaryIdsSubquery}))`;
+  const [totalRow, bySourceRows] = await Promise.all([
+    db.prepare(`SELECT COUNT(*) AS total FROM jobs
+      WHERE user_id = ?${audienceClause} AND ${uniquePredicate}`)
+      .bind(userId, ...hiddenSourceKeys, userId, ...hiddenSourceKeys).first<{ total: number }>(),
+    // Per-source unique retained jobs, attributed to the row that is shown:
+    // primaries under their own source, orphans under the copy's source. Each
+    // unique job counts once overall and once for its shown source, so the
+    // per-source numbers add up to the overall. Copies folded into a visible
+    // primary are not counted twice — that is the dedupe the card discloses.
+    db.prepare(`SELECT source_key AS sourceKey, source_name AS sourceName, country, COUNT(*) AS total
+      FROM jobs WHERE user_id = ?${audienceClause} AND ${uniquePredicate}
+      GROUP BY source_key, source_name, country ORDER BY source_name`)
+      .bind(userId, ...hiddenSourceKeys, userId, ...hiddenSourceKeys)
+      .all<{ sourceKey: string; sourceName: string; country: string; total: number }>(),
+  ]);
+  return {
+    total: totalRow?.total ?? 0,
+    bySource: bySourceRows.results.map((row) => ({
+      sourceKey: row.sourceKey || '',
+      sourceName: row.sourceName || row.sourceKey || '',
+      country: row.country === 'switzerland' || row.country === 'netherlands' ? row.country : 'unknown',
+      total: row.total ?? 0,
+    })),
   };
 }
 
