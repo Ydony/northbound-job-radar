@@ -98,7 +98,9 @@ Website editing controls arrive with #116; until then the API is the interface.
 ## Limits, disconnect and troubleshooting
 
 - First two distinct saved roles; selected NL/CH countries only; 25 rows per role/country.
-  Maximum four upstream requests/100 returned rows per click. This is a bounded sample, not
+  Maximum four upstream requests/100 returned rows per click. Only jobs posted in the last
+  seven days are kept (older rows are dropped, undated rows stay); the window is applied
+  locally because upstream relevance ordering is unverified. This is a bounded sample, not
   200–400 jobs, guaranteed new jobs, or exhaustive paging. No unattended schedule is added.
 - A shared durable lease prevents concurrent runs. A normal run has a 60-second cooldown;
   provider Retry-After can require longer. No automatic retry or IP/profile rotation.
