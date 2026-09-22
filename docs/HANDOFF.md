@@ -610,7 +610,6 @@ email and password in `http://localhost:3001/settings` **and** `http://localhost
 because both passwords were exposed in a chat transcript.
 
 ## 9. 2026-09-22 Spark: results-clarity review fixes (#124/#125) — verified, awaiting lead review
-
 Owner-authorized recovery in worktree `ajh-resultsclarity-20260922-205227-467012`
 (branch `ai/resultsclarity-20260922-205227-467012`). Continued the uncommitted fixes, did not
 rebuild. Codex's hydration fix in `app/job-radar.tsx` (stable `filtersOpen`/`isNarrow`
@@ -656,3 +655,27 @@ layer only — the exact live case cannot be built without a provider search, wh
 Manual URL import reconciles through the same search-result path (no separate import handler
 exists in `app/job-radar.tsx`). `npm run build` not re-run this session. Do not merge, push, or
 close #124/#125: lead review still required. Indeed tasks (#112–114, #116–117, #126) untouched.
+
+## 10. 2026-09-22/23 Spark: Indeed IND-Next implementation (#113–#117) — done, gates pending
+
+Branch `ai/indnext-spark-20260922-220000` (this worktree; results-clarity commit `a6461fd`
+is its base — lead review of #124/#125 is unaffected). Five commits, one per task:
+`6cb38e3` (#113 settings), `747b329` (#114 collection), `f2ed512` (#115 checkpoints),
+`51c5453` (#116 website), `0a15175` (#117 evidence/docs). Prior partial worktree
+`ajh-indnext1-20260922-153352-855709` used as reference only and preserved.
+
+Live caps unchanged everywhere: 25 rows/role/country, 4 requests/100 rows per click,
+7-day local window, 60s cooldown. `INDEED_FINAL_BUDGET` (200/800) exists as tested
+design only; activation is #126 and correctly blocked (see below).
+
+Evidence: 408/408 tests, `tsc`/`eslint` clean, `npm run build` + `check:design`
+pass. Live DEV (read-only + panel save/restore round-trip): settings gating,
+preview totals, panel render with zero console errors desktop/390px. No provider
+calls, no resets, reusable accounts untouched. Full evidence ledger (mocked vs
+live vs not-tested) in `docs/INDEED_HANDOVER.md`.
+
+Deliberately not done: #126 activation (blocked by open #118 and #69 — activating
+now would violate the task's own precondition); closing any issue (lead review
+required); built-test/verify-harness flows (would disturb owner servers);
+live Settings PUT beyond restore-to-defaults; loosening the admin/indeed
+readiness gate (Codex access-control territory). Epic #112 stays open until #126.
