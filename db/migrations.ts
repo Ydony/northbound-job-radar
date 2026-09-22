@@ -531,4 +531,30 @@ export const runtimeMigrations: RuntimeMigration[] = [
       )`,
     ],
   },
+  {
+    // #115: durable per-query coverage checkpoints, keyed by the canonical
+    // query identity (owner + role + country + place + provider radius +
+    // query version, see lib/indeed/settings.ts). covered_through_ms advances
+    // only on a fully exhausted query, to the run START time — never on
+    // failure, cap or cancellation. A missing row means no coverage yet.
+    version: 27,
+    name: 'indeed_coverage_checkpoints',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS indeed_coverage (
+        query_key TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        country TEXT NOT NULL,
+        role TEXT NOT NULL,
+        location TEXT NOT NULL,
+        radius_miles INTEGER NOT NULL,
+        covered_through_ms INTEGER NOT NULL DEFAULT 0,
+        window_start_ms INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'incomplete',
+        last_check TEXT NOT NULL DEFAULT '',
+        last_success TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT ''
+      )`,
+      'CREATE INDEX IF NOT EXISTS indeed_coverage_user_idx ON indeed_coverage(user_id)',
+    ],
+  },
 ];

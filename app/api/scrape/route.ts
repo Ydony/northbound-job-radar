@@ -311,7 +311,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
           searchTerms, request.signal, fetch,
           activeAdapters.filter(source => source.experimentalIndeed)
             .map(source => source.country === 'netherlands' ? 'NL' : 'CH'),
-          indeedSettings);
+          indeedSettings, undefined, undefined, user.id);
         const summary = (await indeedBatch)[adapter.country === 'netherlands' ? 'NL' : 'CH'];
         const bulk = summary.jobs.filter(job => bulkJobIsRelevant(job, adapter.country, searchTerms));
         return done({ ...empty, bulk, candidates: bulk.map(job => canonicalJobUrl(job.sourceUrl)),

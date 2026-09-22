@@ -21,6 +21,7 @@ export async function DELETE(request: Request) {
     db.prepare('DELETE FROM search_settings WHERE user_id = ?').bind(user.id),
     db.prepare('DELETE FROM search_roles WHERE user_id = ?').bind(user.id),
     db.prepare('DELETE FROM indeed_settings WHERE user_id = ?').bind(user.id),
+    db.prepare('DELETE FROM indeed_coverage WHERE user_id = ?').bind(user.id),
     db.prepare('DELETE FROM dismissed_jobs WHERE user_id = ?').bind(user.id),
     db.prepare('DELETE FROM rejected_listings WHERE user_id = ?').bind(user.id),
     db.prepare('DELETE FROM search_run_sources WHERE run_id IN (SELECT id FROM search_runs WHERE user_id = ?)').bind(user.id),

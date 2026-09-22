@@ -95,6 +95,19 @@ coverage never applies to a different query. Settings ride along in admin `/api/
 only, are deleted with the account/workspace, and never reach ordinary accounts.
 Website editing controls arrive with #116; until then the API is the interface.
 
+## Incremental coverage (no rescan of what is already covered)
+
+Each account keeps a checkpoint per query (role, country, place, distance): the
+time a query was fully covered through, and the window it used. A repeat click
+within 15 minutes of a successful check reuses it with no upstream request and
+says when it last checked; the reuse never extends its own freshness. Later
+searches cover only what is new since the successful boundary, minus a 6-hour
+overlap for late-indexed jobs. Coverage advances only on fully exhausted
+queries, to the run start — never on failure, caps or cancellation, which keep
+an incomplete checkpoint and retry the same window. Any settings change is a
+new query with fresh coverage. A click while a run is active attaches to it
+rather than sending duplicate requests. There is no background fetching.
+
 ## Limits, disconnect and troubleshooting
 
 - First two distinct saved roles; selected NL/CH countries only; 25 rows per role/country.
