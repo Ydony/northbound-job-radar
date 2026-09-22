@@ -19,6 +19,20 @@
  *   npm run dev            # in one terminal
  *   node scripts/check-visual.mjs
  *
+ * `npm run check:visual:canary` deletes the job card from the page and asserts this
+ * check notices. Run it whenever this file changes. It exists because the check
+ * reported "all visual checks passed" from the day it was written until 2026-09-23
+ * while rendering zero job cards: the seed advertisement was 630 characters against
+ * the language gate's 900, so the one seeded as English came back `unknown`, nothing
+ * matched the default filter, and every card assertion measured an empty list.
+ *
+ * This is mutation testing with exactly one mutant. The general tool is Stryker,
+ * which mutates the source and reports which changes the tests fail to notice - a
+ * surviving mutant is an assertion that does not assert. Stryker is not used here
+ * because this check needs a live server, registers an account and drives a real
+ * browser, so a run costs about forty seconds; hundreds of mutants would take hours
+ * for one useful answer. If this check ever becomes cheap to run, use Stryker.
+ *
  * Loopback only, by assertion. It writes to whatever database the dev server is pointed at, so
  * it must never be aimed at anything real.
  */
@@ -146,6 +160,7 @@ const MEASURE = `(() => {
   };
 })()`;
 
+const CANARY = process.argv.includes('--canary') || process.env.CHECK_VISUAL_CANARY === '1';
 const LADDER = [12, 14, 17, 24, 32];
 const failures = [];
 const notes = [];
@@ -215,13 +230,23 @@ try {
   // A fresh account has no jobs, so the card — the densest thing on the page and the one most
   // worth measuring — would never render. Seed one advertisement per verdict so all three
   // signal colours and the card layout are actually on screen when the measurements run.
+  // At least MIN_CHARS_TO_CONFIRM_ENGLISH (900) characters, because the gate will not
+  // confirm English on less and returns `unknown` instead. The previous body was 630, so
+  // the 'pass' seed came back as `unknown`, no advertisement matched the default filter,
+  // and this check reported success having never rendered a single job card.
   const body = (extra) => `We are hiring an analyst to improve enterprise data quality, metadata,
 master data controls, governance processes, reporting, stakeholder collaboration and supply-chain
 data. This is a permanent role in an international team where all meetings, documentation and
 day-to-day collaboration are conducted in English. You will define standards, analyse quality
 issues, facilitate workshops with business stakeholders, and deliver measurable improvements
 across several business functions. The team is distributed across Amsterdam and Zurich and works
-in English end to end, including code review, written specifications and planning. ${extra}`;
+in English end to end, including code review, written specifications and planning. You will own
+the reporting layer end to end, from the definitions agreed with the business through to the
+dashboards people actually open on a Monday morning, and you will be expected to say plainly
+when a number cannot be trusted. We expect several years of experience in a comparable analyst
+role, confidence with SQL and at least one business-intelligence tool, and the judgement to know
+which questions are worth answering. Written and spoken English is used for everything, including
+performance reviews, onboarding and the handbook. ${extra}`;
   const seeds = [
     ['pass', 'Senior Business Analyst', body('The working language is English throughout.')],
     ['review', 'Risk and Insurance Analyst', body('Dutch is a plus but not essential for this role.')],
@@ -243,7 +268,19 @@ in English end to end, including code review, written specifications and plannin
     if (status !== 200) notes.push(`could not seed the ${verdict} advertisement (HTTP ${status})`);
   }
 
-  for (const [label, width, height] of [['desktop', 1400, 950], ['phone', 390, 844]]) {
+  // What the server thinks it stored, so a page that renders no cards can be told apart
+  // from a seed that never landed. Without this the check passes with an empty list and
+  // proves nothing about the one component it exists to measure.
+  const stored = await evaluate(`fetch('/api/state').then(r => r.json()).then(s => ({
+    jobs: (s.jobs || []).length,
+    verdicts: [...new Set((s.jobs || []).map(j => j.languageStatus))].join(', '),
+  }))`);
+  notes.push(`server holds ${stored.jobs} job(s) after seeding${stored.verdicts ? ` (${stored.verdicts})` : ''}`);
+
+  // 1920 as well as 1400 since UX-7a removed the 1200px cap: the whole point of going
+  // full width is that the gutter no longer changes with the viewport, and the only way
+  // to know that is to measure two widths rather than one.
+  for (const [label, width, height] of [['desktop', 1400, 950], ['wide', 1920, 1080], ['phone', 390, 844]]) {
     await send('Emulation.setDeviceMetricsOverride', {
       width, height, deviceScaleFactor: 1, mobile: width < 768,
     });
@@ -251,6 +288,10 @@ in English end to end, including code review, written specifications and plannin
     await waitFor(() => evaluate('document.readyState === "complete" && !!document.querySelector("main")'),
       `${label} to render`);
     await new Promise((r) => setTimeout(r, 1200)); // let hydration settle
+    // Canary: remove the one component this check exists to measure. Every assertion
+    // below should notice it has gone. If the run still passes, the check is
+    // decorative and a green result from it means nothing.
+    if (CANARY) await evaluate('document.querySelectorAll(".job-card").forEach((e) => e.remove()), true');
     const m = await evaluate(MEASURE);
 
     console.log(`\n${label} — ${m.width}px, ${m.cards} job cards`);
@@ -274,10 +315,13 @@ in English end to end, including code review, written specifications and plannin
     say(offLadder.length === 0, offLadder.length
       ? `sizes off the ladder: ${offLadder.join(', ')}` : `sizes rendered: ${m.renderedSizes.join(', ')}`);
 
-    if (label === 'desktop') {
+    if (width >= 768) {
       say(m.bandEdges.length <= 1, m.bandEdges.length > 1
         ? `bands start at ${m.bandEdges.length} different left edges: ${m.bandEdges.join(', ')}`
         : `every band starts at ${m.bandEdges[0] ?? 0}px`);
+      say(m.cards > 0, m.cards > 0
+        ? `${m.cards} job card(s) on screen`
+        : 'no job card rendered - the card checks below measured nothing');
     } else if (m.screensToFirstCard !== null) {
       say(m.screensToFirstCard <= 1, `the first job sits ${m.screensToFirstCard} screens down`);
     }
@@ -292,6 +336,14 @@ in English end to end, including code review, written specifications and plannin
 }
 
 for (const note of notes) console.log(`\n${note}`);
+
+if (CANARY) {
+  const noticed = failures.some((f) => f.includes('no job card rendered'));
+  console.log(noticed
+    ? '\ncanary: the check noticed the job card was gone, so it can fail and its green means something.'
+    : '\ncanary: FAILED. The job card was removed and the check did not notice. Its green means nothing.');
+  process.exit(noticed ? 0 : 1);
+}
 if (failures.length) {
   console.log(`\n${failures.length} failed. The agreed design is in docs/design/canvas/ — open`);
   console.log('index.html beside the running app to see what these add up to.');

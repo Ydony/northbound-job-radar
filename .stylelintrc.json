@@ -1,0 +1,48 @@
+{
+  "plugins": ["stylelint-declaration-strict-value"],
+  "rules": {
+    "scale-unlimited/declaration-strict-value": [
+      ["/color/", "background", "background-color", "border-color", "fill", "stroke"],
+      {
+        "ignoreValues": [
+          "transparent",
+          "inherit",
+          "currentColor",
+          "none",
+          "white",
+          "/^rgba\\(24,\\s*34,\\s*28/"
+        ],
+        "disableFix": true,
+        "message": "Use a var(--token) rather than a literal colour. The tokens are at the top of app/globals.css, each with its measured contrast ratio against the cream ground. A literal here is how a design system drifts - and it drifts fastest when a coding agent is writing the CSS."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["app/globals.css"],
+      "rules": {
+        "scale-unlimited/declaration-strict-value": [
+          ["/color/", "background", "background-color", "border-color", "fill", "stroke"],
+          {
+            "ignoreValues": [
+              "transparent",
+              "inherit",
+              "currentColor",
+              "none",
+              "white",
+              "/^rgba\\(24,\\s*34,\\s*28/"
+            ],
+            "disableFix": true,
+            "message": "Use a var(--token) rather than a literal colour. Declare the token in the :root block at the top of this file, with its measured contrast ratio, then use it here."
+          }
+        ]
+      }
+    }
+  ],
+  "ignoreFiles": [
+    "dist/**",
+    "node_modules/**",
+    "docs/design/canvas/**",
+    ".wrangler/**"
+  ]
+}

@@ -48,6 +48,8 @@ changes need a signed-in look at a running server before they are called done.
 | `npm run dev` | Dev environment, :3000, registration open |
 | `npm run test:local` | Test environment, :3001 |
 | `npm run lint` / `npm run typecheck` / `npm test` / `npm run build` | The merge gate |
+| `npm run lint:css` | Colour tokens, enforced. Part of `lint`, so the gate already runs it |
+| `npm run check:visual:canary` | Proves `check:visual` can fail. Run it whenever that file changes |
 | `npm run verify:dev` | Local-only harness: creates a throwaway account and exercises the app |
 
 `EPERM ... dist` on build means a previous `workerd` still holds the folder. Stop it,
@@ -56,6 +58,14 @@ delete `dist`, rebuild. **A running server is not proof of a current build.**
 ## Ground rules
 
 - Synthetic data only. Never commit real identity data, CVs, credentials or `.dev.vars.*`.
+- **A literal colour fails `lint`.** Stylelint's `declaration-strict-value` requires a
+  `var(--token)`; the 39 that already existed are grandfathered in
+  `stylelint-suppressions.json`, so the fortieth is what breaks the build. Declare the
+  token in the `:root` block with its measured contrast ratio. Only re-baseline with
+  `npm run lint:css:rebaseline` if you meant to, and say why in the commit.
+- **A check that cannot fail is not a check.** `check:visual` reported "all visual checks
+  passed" for its whole life while rendering zero job cards. `npm run check:visual:canary`
+  deletes the job card and asserts the check notices. Run it whenever that file changes.
 - Every query scoped to the session user. A missing `WHERE user_id = ?` is a cross-account
   leak; four such defects were found in review immediately after the tenancy change.
 - Page-fetching sources are administrator-only and enforced server-side. Ordinary accounts
