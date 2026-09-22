@@ -30,6 +30,9 @@ export default function IndeedStatusPanel({ search, busy }: { search: () => void
       {status?.retryAfterSeconds ? ` Try again in ${status.retryAfterSeconds} seconds.` : ''}</p>
     {status?.lastSuccess && <p>Last successful connection: {new Date(status.lastSuccess).toLocaleString()}</p>}
     <p>Searches the selected countries using the first two role keywords. At most four requests and 100 returned rows in total. Jobs are screened with the shared English-language filter; results and counts appear in the existing list and source report.</p>
-    <button type="button" disabled={busy} onClick={search}>Search Indeed only</button>
+    {/* UX-6f: a bare button renders the 16px browser default (off the type ladder)
+        at 24px tall (under the 44px tap floor). Search actions use the shared
+        pill so this one does too. */}
+    <button className="jobs-button" type="button" disabled={busy} onClick={search}>Search Indeed only</button>
   </div>;
 }
