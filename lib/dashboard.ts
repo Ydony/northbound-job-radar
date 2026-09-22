@@ -157,10 +157,12 @@ export function formatCountOrUnknown(value: number | null): string {
 }
 
 /**
- * Per-source Total collected lookup (#124). Attribution is by the source that
- * first kept the row; copies folded into another site's card count for their
- * own source, so per-source numbers can add up to more than the deduplicated
- * overall — that is folding, not loss.
+ * Per-source Total collected lookup (#124). Attribution is first-kept unique:
+ * each counted job belongs to exactly one shown source — a primary under its
+ * own source, an orphan copy (primary deleted or outside this role's audience)
+ * under the copy's source. Copies folded into a visible primary count only
+ * there, never again, so the per-source numbers add up to the deduplicated
+ * overall. That is the dedupe the card discloses.
  */
 export function totalForSource(
   bySource: readonly { sourceKey: string; total: number }[],
@@ -179,7 +181,7 @@ export const MATCHED_SNAPSHOT_NOTE =
   'Matched is a snapshot at search time. Later corrections and criteria edits do not rewrite it.';
 
 export const TOTALS_DEDUPE_NOTE =
-  'Overall counts each retained job once. Per-source totals show where each job was first kept, including copies folded elsewhere, so they can add up to more than the overall.';
+  'Overall counts each retained job once. Per-source totals show where each counted job is kept — primaries under their own source, orphan copies under the copy\u2019s source — so they add up to the overall. Copies folded into a visible card count only there, never twice.';
 
 export function bestFitScore(job: JobRecord) {
   return Math.max(job.fitScoreA, job.fitScoreB);

@@ -81,10 +81,42 @@ matching Origin header. It streams progress followed by the final JSON result. N
 endpoint or separate job store exists. Saved roles/countries are editable in the dashboard or
 through the existing authenticated `PUT /api/criteria` contract.
 
+## Indeed place and distance (administrator only)
+
+Each admin account holds its own Indeed place per selected country plus a distance in
+kilometres: `GET`/`PUT /api/admin/indeed/settings` (admin session required; ordinary
+accounts get 403 and can neither read nor modify these). Defaults are Amsterdam,
+Netherlands and Switzerland at 16 km, which converts to the 10 provider miles the
+collector used before settings existed — an account that never touches them searches
+exactly what it searched before. The collector sends integer miles; only the first two
+distinct saved role queries are searched, the five shared role inputs unchanged. Any
+place or distance change gives later searches a new query identity, so incremental
+coverage never applies to a different query. Settings ride along in admin `/api/state`
+only, are deleted with the account/workspace, and never reach ordinary accounts.
+The dashboard's Indeed section (administrators only) edits the same settings with
+per-country place and kilometre inputs, save feedback, the first two roles actually
+sent, the active caps, the latest run's returned/new/known/matched counts with its
+status message, and per-query coverage after Check readiness. Ordinary accounts see
+none of this: no section, no settings, no run history.
+## Incremental coverage (no rescan of what is already covered)
+
+Each account keeps a checkpoint per query (role, country, place, distance): the
+time a query was fully covered through, and the window it used. A repeat click
+within 15 minutes of a successful check reuses it with no upstream request and
+says when it last checked; the reuse never extends its own freshness. Later
+searches cover only what is new since the successful boundary, minus a 6-hour
+overlap for late-indexed jobs. Coverage advances only on fully exhausted
+queries, to the run start — never on failure, caps or cancellation, which keep
+an incomplete checkpoint and retry the same window. Any settings change is a
+new query with fresh coverage. A click while a run is active attaches to it
+rather than sending duplicate requests. There is no background fetching.
+
 ## Limits, disconnect and troubleshooting
 
 - First two distinct saved roles; selected NL/CH countries only; 25 rows per role/country.
-  Maximum four upstream requests/100 returned rows per click. This is a bounded sample, not
+  Maximum four upstream requests/100 returned rows per click. Only jobs posted in the last
+  seven days are kept (older rows are dropped, undated rows stay); the window is applied
+  locally because upstream relevance ordering is unverified. This is a bounded sample, not
   200–400 jobs, guaranteed new jobs, or exhaustive paging. No unattended schedule is added.
 - A shared durable lease prevents concurrent runs. A normal run has a 60-second cooldown;
   provider Retry-After can require longer. No automatic retry or IP/profile rotation.
@@ -124,3 +156,19 @@ by the operator module. It requires fresh disposable signup-enabled storage with
 disabled. It covers two accounts, hidden/private records, demotion, guessed IDs, corrections,
 saved/applied/dismissed retention and reset isolation. It passed against the final built Worker
 on fresh disposable storage at port 3115, with no upstream requests. Do not run it on the owner's workspace.
+
+## 2026-09-22 close-out status (Spark #113–#116, Codex/lead review pending)
+
+Live caps are unchanged: 25 rows per role/country, 4 requests/100 rows per click,
+7-day local window, 60s cooldown. The 200/800 design exists only in synthetic
+tests and activates with #126 after Codex live proof (#118), independent review
+(#69) and lead review.
+
+What is mocked, what is live, what is not tested — see INDEED_HANDOVER.md
+“Evidence ledger”. In short: all collection, settings, checkpoint, refusal and
+isolation behaviour is covered synthetically (407 tests); live DEV evidence is
+read-only settings gating, server-side preview totals, and panel rendering with
+a save/restore round-trip (no provider calls, no resets, reusable accounts
+untouched). Not covered by Spark: any upstream request, 100-row pages,
+upstream newest-first/date support, built-test acceptance flows (would disturb
+owner servers), live Settings PUT (unit-covered only).

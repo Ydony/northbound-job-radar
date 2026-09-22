@@ -73,7 +73,7 @@ test('Indeed collection shares four requests across countries, and persists cool
     calls++;
     return Response.json({ data: { jobSearch: { results: [{ job: { key: `job-${calls}`, title: 'Data Analyst',
       location: { countryCode: country, city: country === 'NL' ? 'Amsterdam' : 'Zürich' },
-      employer: { name: 'Example' }, description: { html: description }, datePublished: 1780000000000 } }],
+      employer: { name: 'Example' }, description: { html: description }, datePublished: Date.now() - 3_600_000 } }],
       pageInfo: { nextCursor: 'more' } } } });
   };
   try {

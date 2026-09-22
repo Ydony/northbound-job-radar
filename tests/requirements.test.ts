@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { extractRequirements } from '../lib/requirements';
+import { extractRequirements, formatRequirementsRailLabel } from '../lib/requirements';
 
 const ad = [
   'We are hiring a data analyst to join our team in Amsterdam.',
@@ -191,4 +191,20 @@ test('handles long conditions and cutoff text without inventing', () => {
   assert.equal(longResult.items.length, 2);
   assert.equal(extractRequirements(''), null);
   assert.equal(extractRequirements('A great role. Apply today…'), null, 'a cutoff preview with no cue stays null');
+});
+
+test('preserves heading modality in the rail label (#125 fix)', () => {
+  // PR #128 review: `Nice to have\nExperience with Python\nExperience with SQL`
+  // extracts heading "Nice to have" with two items, but the card rendered only
+  // "Asks for" and silently promoted nice-to-haves to must-haves.
+  const result = extractRequirements('Nice to have\nExperience with Python\nExperience with SQL');
+  assert.ok(result, 'the optional heading must still extract');
+  assert.equal(result.heading, 'Nice to have');
+  assert.equal(result.items.length, 2);
+  assert.equal(formatRequirementsRailLabel(result.heading), 'Asks for — Nice to have');
+  // A mandatory heading is preserved the same way, never normalised away.
+  assert.equal(formatRequirementsRailLabel('Must have'), 'Asks for — Must have');
+  // Unheaded extractions keep the bare rail; whitespace-only headings do too.
+  assert.equal(formatRequirementsRailLabel(''), 'Asks for');
+  assert.equal(formatRequirementsRailLabel('   '), 'Asks for');
 });

@@ -1,4 +1,63 @@
-# Indeed handover — current as of 2026-09-21
+# Indeed handover — current as of 2026-09-22 (Spark implementation #113–#116)
+
+Spark (public code + synthetic fixtures only) implemented the IND-Next series on
+`ai/indnext-spark-20260922-220000`, reusing the timed-out #113 partial worktree as
+reference. Codex owns configuration, live verification (#118), independent review
+(#69) and lead review; #126 (200/800 activation), epic #112 and this task stay open
+until those gates pass. No live Indeed calls were made by Spark and none are claimed.
+
+## What changed since 2026-09-21
+
+- **#113 settings:** per-account NL/CH place + kilometre radius
+  (`GET`/`PUT /api/admin/indeed/settings`, migration v26 `indeed_settings`).
+  Admin-only end to end (API 403, `/api/state` carries them for admins only,
+  deleted with account/workspace). Defaults (Amsterdam/Switzerland, 16 km = 10
+  provider miles) preserve previous behaviour. First-two-roles semantics and the
+  five shared inputs unchanged.
+- **#114 collection:** budget-parameterised collector (`INDEED_RUNNING_BUDGET`:
+  25/query, 100 total, 1 req/query, ≤4/click — live and unchanged;
+  `INDEED_FINAL_BUDGET`: 200/800 — design + synthetic tests only, owned by #126).
+  New 168-hour local recency window (unknown dates kept); upstream sends
+  `sort: RELEVANCE`, so newest-first remains unverified, stated, not assumed.
+  Ceilings count upstream rows; cap/failure/cancel statuses stay truthful.
+- **#115 checkpoints:** per-query coverage (`indeed_coverage`, migration v27)
+  keyed by owner/role/country/place/radius/version. 15-minute repeat-click reuse
+  with no upstream request (never self-extending); incremental windows from the
+  last successful boundary minus 6h overlap; coverage advances to the run start
+  only on full exhaustion, never on failure/cap/cancel; in-flight clicks attach
+  via the lease instead of duplicating requests. No background fetching.
+- **#116 website:** admin-only panel with place/distance editing + feedback, the
+  two roles actually sent, live caps as caps-not-targets, latest run
+  returned/new/known/matched with messages, and per-query coverage after Check
+  readiness. Shared copy corrected (Indeed receives only the first two roles).
+  Double-click guarded synchronously; readiness/coverage endpoint unchanged
+  except an added per-owner coverage list.
+
+## Evidence ledger
+
+- **Mocked/synthetic (407 unit/integration tests pass, plus lint, types, build):**
+  settings validation/units/migration/tenancy, budget caps (25 and 200/800),
+  exhaustion, page failure, cancellation, country switches, window filtering,
+  checkpoints (reuse, incremental, caps, failure, owners, attach, late jobs),
+  refusal/cooldown latches, cursor protection, dismissal/isolation, UI render.
+- **Live (dedicated synthetic DEV, no provider calls):** settings GET 200 with
+  defaults / 403 for ordinary / hidden from ordinary state; preview totals
+  server-side; panel renders with roles/settings/run report, save + restore
+  round-trip, zero console errors on desktop and 390px.
+- **Not tested by Spark:** any upstream request; 100-row pages (25 stays the
+  page size); newest-first/date-filter upstream support; built-test flows and
+  disposable-server acceptance (would disturb owner servers); Settings PUT
+  against live storage (unit-covered only, to avoid mutating reusable accounts).
+
+## Still required before close
+
+Codex bounded live proof (#118, incl. recency/newest-first evidence and the
+readiness configuration this DEV lacks), independent #69 verification, lead
+review of all four commits, then #126 activation with its final regression pass
+(swap to `INDEED_FINAL_BUDGET`, synchronise displayed caps, re-run evidence).
+`npm run build` passed 2026-09-22 on the #116 tree.
+
+---
 
 ## Current operator module (September 21 follow-up)
 

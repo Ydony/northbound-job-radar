@@ -511,4 +511,50 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'ALTER TABLE search_run_sources ADD COLUMN matched_count INTEGER',
     ],
   },
+  {
+    // #113: Indeed place and distance per country, account-scoped like every other
+    // user-data table. A missing row reads as defaults (Amsterdam/Switzerland, 16 km
+    // converting to the previous hardcoded 10 provider miles), so an account that
+    // predates this table keeps searching exactly what it searched yesterday.
+    // Kilometres are the stored and user-facing unit; collection converts to the
+    // provider's integer miles. No backfill: absence already means defaults.
+    version: 26,
+    name: 'indeed_place_distance_settings',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS indeed_settings (
+        user_id TEXT PRIMARY KEY NOT NULL,
+        nl_location TEXT NOT NULL DEFAULT 'Amsterdam, Netherlands',
+        nl_radius_km INTEGER NOT NULL DEFAULT 16,
+        ch_location TEXT NOT NULL DEFAULT 'Switzerland',
+        ch_radius_km INTEGER NOT NULL DEFAULT 16,
+        updated_at TEXT NOT NULL DEFAULT ''
+      )`,
+    ],
+  },
+  {
+    // #115: durable per-query coverage checkpoints, keyed by the canonical
+    // query identity (owner + role + country + place + provider radius +
+    // query version, see lib/indeed/settings.ts). covered_through_ms advances
+    // only on a fully exhausted query, to the run START time — never on
+    // failure, cap or cancellation. A missing row means no coverage yet.
+    version: 27,
+    name: 'indeed_coverage_checkpoints',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS indeed_coverage (
+        query_key TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        country TEXT NOT NULL,
+        role TEXT NOT NULL,
+        location TEXT NOT NULL,
+        radius_miles INTEGER NOT NULL,
+        covered_through_ms INTEGER NOT NULL DEFAULT 0,
+        window_start_ms INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'incomplete',
+        last_check TEXT NOT NULL DEFAULT '',
+        last_success TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT ''
+      )`,
+      'CREATE INDEX IF NOT EXISTS indeed_coverage_user_idx ON indeed_coverage(user_id)',
+    ],
+  },
 ];

@@ -529,3 +529,21 @@ test('totalForSource attributes retained jobs to their first-keeping source (#12
   assert.match(MATCHED_SNAPSHOT_NOTE, /snapshot/i);
   assert.match(TOTALS_DEDUPE_NOTE, /once/i);
 });
+
+test('per-source unique totals add up to the deduplicated overall (#124 fix)', () => {
+  // The counting contract: each counted job belongs to exactly one shown
+  // source (primaries under their own source, orphan copies under the copy's
+  // source); folded copies count only at their visible primary, never again.
+  // The explainer must say the per-source numbers add up — never that they
+  // can exceed the overall, which described a contract the query never had.
+  assert.match(TOTALS_DEDUPE_NOTE, /add up to the overall/i);
+  assert.doesNotMatch(TOTALS_DEDUPE_NOTE, /more than the overall/i);
+  const bySource = [
+    { sourceKey: 'eures-ch', total: 4 },
+    { sourceKey: 'jobs.ch', total: 1 },
+  ];
+  const overall = bySource.reduce((sum, entry) => sum + entry.total, 0);
+  assert.equal(overall, 5);
+  assert.equal(totalForSource(bySource, 'eures-ch'), 4);
+  assert.equal(totalForSource(bySource, 'jobs.ch'), 1);
+});

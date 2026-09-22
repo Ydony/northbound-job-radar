@@ -1,6 +1,7 @@
 import { authSecrets, ensureSchema } from '@/db/runtime';
 import { recordVisit } from '@/lib/analytics';
 import { clientIp, requireSession } from '@/lib/guard';
+import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
 import { decodeJobsCursor, parsePageLimit } from '@/lib/paging';
 import { criteriaFromRow, cvFromRow, ensureCurrentJobClusters, ensureSearchText, jobFromRow, normalizeStoredJobs, queryCollectionTotals, queryJobsPage, searchRunsFromRows, type CriteriaRow, type CvRow,
@@ -45,7 +46,21 @@ export async function GET(request: Request) {
   // Careerjet and IamExpat are the owner's to use, not a feature to offer. Excluded in SQL rather
   // than filtered after the fact, so an ordinary account cannot reach those rows by calling this
   // endpoint directly, and so they never count towards the page limit either.
-  const hiddenSourceKeys = user.role === 'admin' ? [] : [...adminOnlySourceKeys()];
+  //
+  // #124 fix (2026-09-22): an administrator's "view as user" preview must show
+  // the ordinary-audience numbers, not admin aggregates minus hidden sources.
+  // A hidden jobs.ch primary with a public EURES copy counts 0 under naive
+  // subtraction but 1 for a real ordinary account (the orphan copy is promoted
+  // server-side before aggregation). `?preview=user` applies the ordinary
+  // audience predicates before aggregation/dedupe, on the server, so the
+  // preview equals what an ordinary account actually receives. Admin-only, and
+  // only ever the caller's own rows: it reveals nothing another account holds.
+  const previewAsUser = url.searchParams.get('preview') === 'user' && user.role === 'admin';
+  const ordinaryHiddenSourceKeys = [...adminOnlySourceKeys()];
+  const hiddenSourceKeys = previewAsUser
+    ? ordinaryHiddenSourceKeys
+    : user.role === 'admin' ? [] : ordinaryHiddenSourceKeys;
+  const hideIndeedRecords = previewAsUser || user.role !== 'admin';
 
   // Copies of the same advertisement are kept in the database but folded into the job on screen,
   // which carries the count and the board names so the alternatives stay reachable.
@@ -56,11 +71,19 @@ export async function GET(request: Request) {
     db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
   const searchCriteria = criteriaFromRow(criteriaRow, roleRows.results);
+  // Indeed settings are administrator-only (#113). Ordinary accounts never
+  // receive them here, and the dedicated settings API refuses them outright,
+  // so they cannot learn these exist by direct API, guessed ID or UI.
+  const indeedSettingsRow = user.role === 'admin'
+    ? await db.prepare('SELECT nl_location, nl_radius_km, ch_location, ch_radius_km, updated_at FROM indeed_settings WHERE user_id = ?')
+      .bind(user.id).first<{ nl_location: unknown; nl_radius_km: unknown; ch_location: unknown; ch_radius_km: unknown; updated_at: unknown }>()
+      .catch(() => null)
+    : null;
   const [cvs, page, runs, collectionTotals] = await Promise.all([
     db.prepare('SELECT * FROM cvs WHERE user_id = ? ORDER BY slot').bind(user.id).all<CvRow>(),
     queryJobsPage(db, user.id, {
       hiddenSourceKeys,
-      hideIndeedRecords: user.role !== 'admin',
+      hideIndeedRecords,
       criteria: searchCriteria,
       cursor,
       limit: pageSize,
@@ -70,7 +93,7 @@ export async function GET(request: Request) {
     // server, never from loaded pages or summed run counts. Saved, applied and
     // dismissed rows are included; deleted rows are gone. Hidden sources are
     // excluded here, so ordinary accounts never learn admin-source counts.
-    queryCollectionTotals(db, user.id, hiddenSourceKeys, user.role !== 'admin'),
+    queryCollectionTotals(db, user.id, hiddenSourceKeys, hideIndeedRecords),
   ]);
   const runIds = runs.results.map((run) => run.id);
   const runSources = runIds.length
@@ -110,15 +133,20 @@ export async function GET(request: Request) {
     // Null when this page is the end: fewer rows than requested means nothing follows.
     nextCursor: page.nextCursor,
     criteria: searchCriteria,
+    // The ordinary-audience preview mirrors what an ordinary account receives,
+    // so it never carries Indeed settings even for the requesting administrator.
+    ...(!previewAsUser && user.role === 'admin' ? { indeedSettings: indeedSettingsFromRow(indeedSettingsRow) } : {}),
     // Page-fetching sources are an administrator capability, so their run rows are withheld from
-    // everyone else rather than only hidden in the interface.
-    searchRuns: searchRunsFromRows(runs.results, user.role === 'admin'
+    // everyone else rather than only hidden in the interface. The user preview
+    // applies the same ordinary-audience rule: audience filtering happens
+    // before aggregation, never as a client-side subtraction of admin rows.
+    searchRuns: searchRunsFromRows(runs.results, !previewAsUser && user.role === 'admin'
       ? runSources.results
       // Same rule as the jobs above, from the same derived list: an ordinary account is not told
       // that these sources were searched, let alone what they returned.
       : runSources.results.filter((row) => !hiddenSourceKeys.includes(row.source_key)))
-      .filter(run => user.role === 'admin' || run.sources.length > 0)
-      .map(run => user.role === 'admin' ? run : { ...run,
+      .filter(run => (!previewAsUser && user.role === 'admin') || run.sources.length > 0)
+      .map(run => (!previewAsUser && user.role === 'admin') ? run : { ...run,
         status: run.sources.every(source => source.status === 'complete') ? 'complete'
           : run.sources.every(source => source.status === 'failed') ? 'failed' : 'partial' }),
   });

@@ -211,9 +211,27 @@ export interface ExtractedRequirements {
    * Empty when the items were stated clearly in the text without a recognised
    * or unfamiliar heading (#125): the card labels those as extracted from the
    * available advertisement, never as a quoted section.
+   *
+   * The heading carries modality the items alone do not: "Nice to have" makes
+   * its items optional, "Must have" makes them mandatory. The card must render
+   * it (see formatRequirementsRailLabel), never drop it for a bare "Asks for".
    */
   heading: string;
   items: string[];
+}
+
+/**
+ * Label for the card's requirements rail (#125 fix, 2026-09-22).
+ *
+ * The extractor returns the heading verbatim because optionality lives there:
+ * `Nice to have\nExperience with Python\nExperience with SQL` yields heading
+ * "Nice to have" with two items, and rendering only "Asks for" silently
+ * promotes nice-to-haves to must-haves. Always preserve a non-empty heading
+ * as a qualifier; an empty heading (unheaded extraction) keeps the bare rail.
+ */
+export function formatRequirementsRailLabel(heading: string): string {
+  const qualifier = heading.trim();
+  return qualifier ? `Asks for — ${qualifier}` : 'Asks for';
 }
 
 const MAX_ITEMS = 6;
