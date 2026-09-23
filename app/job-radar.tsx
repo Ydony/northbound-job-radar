@@ -1149,19 +1149,10 @@ export default function JobRadar() {
         <p className="intro-limits"><strong>What it does not do.</strong> It does not apply for anything, it holds no account on any job board, and it reads only pages anyone can open. A verdict is a reading of the text, not a guarantee — when it says <em>Maybe English</em>, it means it, and the original advertisement is one click away on every card.</p>
       </section>
 
-      <section className="workflow">
-        <div className="workflow-copy">
-          <h2>Find new jobs</h2>
-          {/* Explaining what a search does is worth a lot on the first run and nothing on the
-              two hundredth, where it is only distance between you and your results. It stays
-              while the workspace is empty, which is exactly when it is read. */}
-          {!state.jobs.length
-            ? <p>One search runs every enabled Swiss and Netherlands source, records what each returned, removes duplicates, and applies the English gate.</p>
-            : lastRun && <p className="last-run">Last search {formatDate(lastRun).replace(/^Posted /, '')}{lastRunSummary}</p>}
-        </div>
-        <button className="jobs-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
-          {scrapeBusy === 'authorized' ? 'Searching…' : isAdmin ? 'Search — VPN off' : 'Find new jobs'} <span>⚡</span>
-        </button>
+      {/* What is left after UX-7c took Find new jobs to the criteria it runs: the
+          administrator run control, the warnings that stop a search, and the progress
+          line. The heading and the second Find new jobs button went with the design. */}
+      <section className="workflow run-strip">
         {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
@@ -1306,7 +1297,7 @@ export default function JobRadar() {
               </div>
             </div>}
             <div className="settings-bar">
-              <button className="run-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noRolesToSearch} onClick={() => findJobs('authorized')}>Find new jobs</button>
+              <button className="run-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('authorized')}>Find new jobs</button>
               <button className="save-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button>
               <button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button>
               <p className="note">{noRolesToSearch
@@ -1316,6 +1307,14 @@ export default function JobRadar() {
             <p aria-live="polite">{criteriaMessage}</p>
           </form>
         </section>
+        {/* Hide removes this section, and its own Show button with it. Without this bar
+            the only way back is the Statistics link in the top navigation, which says
+            nothing about having hidden anything. Mirrors the Search settings bar above. */}
+        {!statsOpen && <div className="settings-collapsed stats-collapsed">
+          <button type="button" onClick={() => setStatsOpen(true)}>
+            <span aria-hidden="true">▼</span> Show Search statistics
+          </button>
+        </div>}
         <section className="source-dashboard" id="sources" hidden={!statsOpen} aria-label="Search statistics">
             <div className="settings-head">
               <h2>Search statistics</h2>
