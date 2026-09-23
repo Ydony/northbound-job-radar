@@ -1551,6 +1551,26 @@ export default function JobRadar() {
               >{(Object.keys(SORT_MODE_LABELS) as SortMode[]).map((mode) => <option value={mode} key={mode}>{SORT_MODE_LABELS[mode]}</option>)}</select></label>
             </div>
             </div>
+            {/* UX-7g: on the phone the language result is a visible filter row,
+                not buried under the Filters disclosure. Same state and counts
+                as the sidebar group; the strip only renders at phone width. */}
+            {languageApplies && <div className="phone-language" role="group" aria-label="Language result">
+              {(Object.keys(LANGUAGE_FILTER_LABELS) as LanguageFilter[]).map((option) => <button
+                key={option}
+                type="button"
+                className={languageFilter === option ? 'active' : ''}
+                onClick={() => setLanguageFilter(option)}
+                title={option === 'all'
+                  ? 'Every verdict, including ads that need a local language.'
+                  : option === 'blocked'
+                    ? 'Only ads that need a local language. Nothing here is promoted to a match.'
+                    : option === 'review'
+                      ? 'Only ads screened as Maybe English — the whole ad was read and stayed ambiguous.'
+                      : option === 'unknown'
+                        ? 'Only ads screened as Not sure — usually a preview. Opening the original usually settles it.'
+                        : `Only ads screened as ${LANGUAGE_FILTER_LABELS[option].toLowerCase()}.`}
+              >{LANGUAGE_FILTER_LABELS[option]}<i>{languageCounts[option]}</i></button>)}
+            </div>}
             {/* One strip of view facets. Saved keywords are stated, never edited,
                 from the results screen: removing one there would silently rewrite
                 the saved criteria. */}
@@ -1633,10 +1653,11 @@ export default function JobRadar() {
                   <p className="job-subline">{[
                     job.company,
                     jobCity || job.location,
-                    formatDate(job.postedAt).replace(/^Posted /, ''),
                     job.workplaceType === 'unknown' ? '' : workplaceLabel(job.workplaceType),
                     countryLabel(job.country),
-                  ].filter(Boolean).join(' · ')}</p>
+                  ].filter(Boolean).join(' · ')}{job.postedAt
+                    ? ` · ${formatDate(job.postedAt).replace(/^Posted /, '')}`
+                    : <><span aria-hidden="true"> · </span><span className="date-missing">Posting date unavailable</span></>}</p>
                   {/* Tier 2 — Judge: the verdict chips. The verdict reason stays visible
                       underneath (the language decision is never shown without its reason). */}
                   <div className="judge-row">

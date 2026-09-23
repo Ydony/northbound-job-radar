@@ -400,6 +400,7 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .job-source { background:none; border:0; color:var(--green); cursor:pointer; display:inline-block; font-family:var(--font-display); font-size:17px; font-weight:600; margin:0 0 var(--space-2); padding:0; text-align:left; }
 .job-source:hover { text-decoration:underline; }
 .job-subline { color:var(--text-tertiary); font-size:12px; line-height:1.5; margin:0 0 var(--space-3); width:0; min-width:100%; }
+.job-subline .date-missing { color:var(--signal-attention-ink); }
 .judge-row { align-items:center; display:flex; flex-wrap:wrap; gap:var(--space-2); margin:0 0 var(--space-3); }
 .fit-chip { background:var(--paper); border:1px solid var(--line); border-radius:999px; color:var(--ink); font-size:12px; font-weight:750; padding:var(--space-1) var(--space-3); }
 /* #97: the advertisement closed after it was collected. Same chip grammar as the language
@@ -614,6 +615,39 @@ footer > a {
   .source-filter select { min-height:var(--size-tap-min,44px); }
 }
 
+/* UX-7g phone overrides (issue #136) — the only permitted deviations from the
+   desktop card, and why each is necessary:
+   one column ......... 320px of requirements will not sit beside 424px of job
+   48px action controls  a finger is not a cursor (tabs, filters and the
+                         language row stay 44px, as the canvas frames them)
+   15px/20px insets .... 40px each side would take a fifth of a 390px width
+   panel loses margin .. the same
+   asks before actions . decided by the owner on 2026-09-23: sharing desktop's
+                         order put the first job's requirements at 1008px
+                         against a fold at 844px (the DOM already orders the
+                         requirements ahead of the actions on every width)
+   no intro band ....... the canvas phone frame carries none, and 434px of
+                         introduction would bury the first job it exists to serve
+   Everything not in this block is inherited. A fifth deviation needs a reason
+   written here. */
+.phone-language { display:none; }
+@media(max-width:850px){
+  .topbar, .workflow, .intro-band, .rule-band, .setup-panels, .results, footer,
+  .policy-intro, .policy-group, .policy-principles, .workspace-load-error { padding-inline:20px; }
+  .intro-band { display:none; }
+  .job-card { gap:14px; padding:16px 18px; }
+  .job-card .job-subline { margin-bottom:10px; }
+  .job-card .judge-row { margin-bottom:10px; }
+  .job-card .job-requirements { margin:0 0 14px; padding:15px 20px; }
+  .job-card .act-row { gap:8px; }
+  .job-card .act-row .apply-link { height:48px; margin-bottom:8px; }
+  .job-card .act-row .save-icon, .job-card .act-row .card-menu > summary { height:48px; width:48px; }
+  .job-card .act-row .applied-check { flex:1 1 auto; height:48px; }
+  .phone-language { display:flex; gap:6px; margin-bottom:10px; overflow-x:auto; padding-bottom:4px; }
+  .phone-language button { align-items:center; background:var(--paper); border:0; border-radius:8px; color:var(--text-secondary); cursor:pointer; display:inline-flex; flex:0 0 auto; font-size:14px; gap:6px; height:44px; padding:0 12px; }
+  .phone-language button.active { background:var(--signal-good-bg); color:var(--signal-good-ink); font-weight:700; }
+  .phone-language button i { color:var(--text-tertiary); font-size:12px; font-style:normal; }
+}
 /* UX-6f: the phone views below 850px, from Mobile.html, MobileSettings.html and
    MobileStats.html. Three single-column layouts with the same content and order
    as desktop, not a reduced version of it. */
@@ -634,7 +668,7 @@ footer > a {
   .job-card .judge-row { order:4; }
   .job-card .language-summary { order:5; }
   .job-card .correction-summary { order:5; }
-  .job-card .job-requirements { order:6; width:auto; margin:0; }
+  .job-card .job-requirements { order:6; width:auto; }
   .job-card .act-row { order:7; gap:var(--space-2) var(--space-3); }
   .job-card .card-flash { order:8; }
   .apply-link { flex:1 1 100%; max-width:100%; min-height:48px; text-align:center; }
