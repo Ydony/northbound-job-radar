@@ -451,10 +451,19 @@ interface StoredJobForNormalization {
  * Language is recomputed but fit is not — fit depends on the CVs, which rescoreAllJobs already
  * handles whenever a CV or the criteria change.
  */
+/**
+ * How many advertisements one request may normalize. A search can add several thousand at
+ * once, and normalizing all of them inside the GET that follows took 22 seconds and lost
+ * the connection. The rest are picked up by the next read; a row that has not caught up
+ * yet shows the verdict it was stored with, which is the previous answer rather than a
+ * wrong one.
+ */
+export const NORMALIZE_BATCH = 400;
+
 export async function normalizeStoredJobs(db: D1Database, userId: string) {
   const rows = await db.prepare(`SELECT id, source_url, title, company, location, description FROM jobs
-    WHERE user_id = ? AND normalized_version < ?`)
-    .bind(userId, NORMALIZATION_VERSION).all<StoredJobForNormalization>();
+    WHERE user_id = ? AND normalized_version < ? LIMIT ?`)
+    .bind(userId, NORMALIZATION_VERSION, NORMALIZE_BATCH).all<StoredJobForNormalization>();
   if (!rows.results.length) return 0;
 
   const now = new Date().toISOString();
@@ -490,9 +499,12 @@ export async function normalizeStoredJobs(db: D1Database, userId: string) {
  * the TypeScript check agree on those too — and are excluded from the scan so the loop
  * always terminates.
  */
+/** Batches of 100, but no more than this many per request - see NORMALIZE_BATCH. */
+const SEARCH_TEXT_BATCHES = 5;
+
 export async function ensureSearchText(db: D1Database, userId: string) {
   let filled = 0;
-  for (;;) {
+  for (let pass = 0; pass < SEARCH_TEXT_BATCHES; pass += 1) {
     const rows = await db.prepare(`SELECT id, title, location, description FROM jobs
       WHERE user_id = ? AND search_text = '' AND (title || location || description) != ''
       LIMIT 100`)
@@ -504,6 +516,7 @@ export async function ensureSearchText(db: D1Database, userId: string) {
     await db.batch(statements);
     filled += rows.results.length;
   }
+  return filled;
 }
 
 // v1: re-evaluate links made before the first-seen fallback for missing posting dates (#5).

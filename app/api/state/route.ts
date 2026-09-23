@@ -43,9 +43,6 @@ export async function GET(request: Request) {
   // already has a cluster key. New imports and normalized fields also invalidate the version.
   // Order matters: decoding entities first means "Cost &amp; Inventory Analyst" and
   // "Cost & Inventory Analyst" produce the same cluster key and are recognised as one job.
-  await normalizeStoredJobs(db, user.id);
-  await ensureSearchText(db, user.id);
-  await ensureCurrentJobClusters(db, user.id);
 
   // Careerjet and IamExpat are the owner's to use, not a feature to offer. Excluded in SQL rather
   // than filtered after the fact, so an ordinary account cannot reach those rows by calling this
@@ -60,6 +57,16 @@ export async function GET(request: Request) {
   // preview equals what an ordinary account actually receives. Admin-only, and
   // only ever the caller's own rows: it reveals nothing another account holds.
   const previewAsUser = url.searchParams.get('preview') === 'user' && user.role === 'admin';
+
+  // The preview is a read-only view of rows the administrator's own request has already
+  // brought up to date, so it runs no maintenance. Pressing "view as user" used to fire a
+  // second full state read that redid every pass over the same rows, concurrently with the
+  // first, which is what turned a slow read into a lost connection.
+  if (!previewAsUser) {
+    await normalizeStoredJobs(db, user.id);
+    await ensureSearchText(db, user.id);
+    await ensureCurrentJobClusters(db, user.id);
+  }
   const ordinaryHiddenSourceKeys = [...adminOnlySourceKeys()];
   const hiddenSourceKeys = previewAsUser
     ? ordinaryHiddenSourceKeys
