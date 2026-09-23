@@ -1,5 +1,22 @@
 # Handover
 
+## 2026-09-24 first private Worker deployment (incomplete setup)
+
+`npm run deploy:prod` succeeded from an isolated worktree at
+`https://ikbeneenappel-prod.anddonatas.workers.dev` (version
+`7b7d2f6a-f30d-4c24-b058-ec7a7de4cbff`). `/login` returned 200;
+`/api/state` returned 503 because `SESSION_SECRET` is not set. That request
+did apply all 28 migrations to the independent remote D1. The remote `users`
+table had zero rows. `wrangler secret list --name ikbeneenappel-prod` returned
+an empty list. No administrator was created, no sign-in was tested, and no
+provider search was run. The owner must enter `SESSION_SECRET` and
+`ALLOW_SIGNUPS=false` locally as specified in `docs/DEPLOY.md`; never handle
+their values in an assistant. GitHub now has the exact CI secret *names*, but
+no CI deploy was approved; the earlier pending deploy runs were cancelled.
+Security headers were present on `/login`. An unauthenticated `/api/state`
+503 had no `Cache-Control` header, consistent with the existing readiness
+warning. The `.nl` registry still returned NXDOMAIN at the last check.
+
 ## 2026-09-24 Indeed completion and private production preparation
 
 Indeed epic #112 and blockers #69/#118/#126 were merged and closed. PR #151
@@ -8,17 +25,17 @@ are whole-click maxima, not coverage targets or provider-approved quotas. TEST
 was restarted from the merged build on port 3001; `/login` returned 200 and
 signed-out `/api/state` returned 401. No owner-account live search was run.
 
-Private Cloudflare milestone 12 is next. Production D1 exists but is separate
-and empty; first deploy, owner-only Worker secrets, bootstrap, and custom domain
-remain pending. `scripts/build-prod.mjs` verifies the generated Worker/D1 before
+At the start of private Cloudflare milestone 12, production D1 was separate
+and empty; the first deploy had not happened yet. See the newer entry above for
+the current state. `scripts/build-prod.mjs` verifies the generated Worker/D1 before
 any deploy; `scripts/bootstrap-prod-admin.mjs` is a one-time, local-only D1
 bootstrap that leaves hosted HTTP signup blocked. The deployment workflow is
 owner-approval-gated. Do not call the site live until issue #149 is verified.
-On 2026-09-24, GitHub's API showed the `Production` environment does have a
-required-reviewer rule (environment names are case-insensitive), but neither
-`CLOUDFLARE_API_TOKEN` nor `CLOUDFLARE_ACCOUNT_ID` is currently present among
-repository or environment secret **names**. The owner must set these before
-approving a CI deployment; no values were read or handled. The authoritative
+On the first 2026-09-24 check, GitHub's API showed the `Production` environment
+has a required-reviewer rule (environment names are case-insensitive), but
+neither Cloudflare CI secret name was present. A later names-only check found
+both `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` configured; their values
+and permissions were not read or tested. The authoritative
 `.nl` lookup still returned NXDOMAIN for `ikbeneenappel.nl`, so #148 remains
 externally blocked. The bootstrap dry-run used a disposable local D1 and a
 synthetic password; no production account or rows were created.
