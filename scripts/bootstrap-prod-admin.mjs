@@ -66,10 +66,12 @@ async function promptPassword() {
 }
 
 async function wrangler(args) {
+  const childEnvironment = { ...process.env };
+  delete childEnvironment.CLOUDFLARE_ENV;
   const child = spawn(process.execPath, [resolve('node_modules/wrangler/bin/wrangler.js'),
     'd1', 'execute', 'ikbeneenappel-prod', '--config', resolve('dist/server/wrangler.json'),
     dryRun ? '--local' : '--remote', '--json', '--yes', ...args],
-  { stdio: ['ignore', 'pipe', 'pipe'] });
+  { env: childEnvironment, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';
   let error = '';
   child.stdout.setEncoding('utf8').on('data', (chunk) => { output += chunk; });

@@ -6,6 +6,8 @@ import { resolve } from 'node:path';
 const PROD_DATABASE_ID = 'b0a513c7-0d01-486c-8b16-5cdb6690c959';
 const generatedConfig = resolve('dist/server/wrangler.json');
 const childEnvironment = { ...process.env, IKBENEENAPPEL_ENV: 'prod' };
+// A caller's local DEV setting must never select a Cloudflare deploy environment.
+delete childEnvironment.CLOUDFLARE_ENV;
 
 async function run(args) {
   const child = spawn(process.execPath, args, { env: childEnvironment, stdio: 'inherit' });
