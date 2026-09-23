@@ -79,7 +79,7 @@ export const atsCompanies: AtsCompany[] = [
   { slug: 'contentful', name: 'Contentful', platform: 'greenhouse', country: 'netherlands' },
   { slug: 'seenons', name: 'Seenons', platform: 'recruitee', country: 'netherlands' },
   { slug: 'xebia', name: 'Xebia', platform: 'personio', country: 'netherlands' },
-  // Master-data and data-governance vendors: closest match to the derived CV roles
+  // Master-data and data-governance vendors: relevant to configured search roles.
   { slug: 'collibra', name: 'Collibra', platform: 'greenhouse', country: 'netherlands' },
   { slug: 'reltio', name: 'Reltio', platform: 'greenhouse', country: 'netherlands' },
   { slug: 'atlan', name: 'Atlan', platform: 'ashby', country: 'netherlands' },

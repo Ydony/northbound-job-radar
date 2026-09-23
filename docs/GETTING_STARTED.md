@@ -1,6 +1,6 @@
 # Install and use Ik ben een appel
 
-Ik ben een appel is a private, local job-screening application. It stores CV files and analyzed jobs in
+Ik ben een appel is a private, local job-screening application. It stores analyzed jobs in
 one of two isolated local environments. Do not deploy it without a new explicit owner decision.
 
 ## Give the repository to Codex
@@ -23,7 +23,7 @@ the app with npm run dev:private:mac.
 ```
 
 Codex should preserve the visible VPN sign-in boundary. Never paste a Windscribe account
-hash, VPN password, WireGuard private key, CV, or `.wrangler/` directory into a prompt or
+hash, VPN password, WireGuard private key, or `.wrangler/` directory into a prompt or
 commit.
 
 ## Apple / macOS installation
@@ -118,39 +118,38 @@ auto-connect enabled. Ik ben een appel never reads or stores the VPN credentials
 
 ## Using Ik ben een appel
 
-1. Upload one or two text-based PDF, DOCX, or TXT CVs. Scanned image-only PDFs need OCR and
-   are not supported yet.
-2. Review the detected role for each CV and use the role-override fields when necessary.
-3. Add up to five role keywords, then set optional location, workplace, seniority,
-   contract, required keywords, and excluded keywords. Save the criteria.
-4. Use **Search — VPN off** for the ordinary sources. A local administrator may start the app with
+1. Add up to five role keywords, then set required or excluded keywords and choose the countries
+   to search. Save the criteria. A CV is neither accepted nor needed.
+2. Use **Search — VPN off** for the ordinary sources. A local administrator may start the app with
    the enforced VPN launcher and choose **Search all — VPN on** to add the restricted JobCloud and
-   Undutchables sources. The source report says exactly which Swiss and Netherlands adapters
+Undutchables sources. The source report says exactly which Swiss and Netherlands adapters
    completed, failed, or were blocked.
-5. Use country, Applied/Not applied, source, and result filters on the unified job list.
-   **Analyze a job** remains available for a public HTTPS ad that could not be fetched.
-6. Read the language result:
+3. Use country, Applied/Not applied, source, and language-result filters on the unified job list.
+   Manual job import is available through the authenticated API, not a dashboard control.
+4. Read the language result:
    - **English sufficient** means the full ad appears English and no local language was
      detected as mandatory.
    - **Needs review** means the evidence is ambiguous. Review it manually.
    - **Local language required** means German, French, Italian, or Dutch appears mandatory,
      or the advertisement is not predominantly English.
-7. Mark language decisions accurate or correct them with a reason. Save jobs, mark them
+5. Mark language decisions accurate or correct them with a reason. Save jobs, mark them
    Applied or Not applied, and dismiss/restore unsuitable roles. Dismissed adverts are
    suppressed during future searches.
-8. Open the original source to apply personally. Ik ben een appel does not log in or submit an
+6. Open the original source to apply personally. Ik ben een appel does not log in or submit an
    application for the user.
-9. Use JSON/CSV export and deletion controls to manage local data.
+7. Reset your workspace or delete your account from Settings. Self-service JSON/CSV export
+   has not yet been connected to the dashboard.
 
 ## Important source warning
 
 **Search all — VPN on** performs manually triggered, capped public-page fetches. The three
 JobCloud adapters (jobs.ch, jobup.ch, and JobScout24) are contrary to JobCloud's published
-automation terms and are not sanctioned integrations. Indeed remains blocked. IamExpat
+automation terms and are not sanctioned integrations. Indeed is a separate local,
+administrator-only experiment; it is not a public source. IamExpat
 and Undutchables use current public paths, but remain administrator-only and source policies and
 markup can change. The VPN-enabled tier was retained for 12 measured full-text English-confirmed
-jobs; it is supplementary and stays capped. A new user should read `docs/ARCHITECTURE.md` §2 and
-disable adapters they do not accept; manual **Analyze a job** remains the fallback. No source login
+jobs; it is supplementary and stays capped. A new user should read `docs/SOURCE_POLICY.md` and
+disable adapters they do not accept. No source login
 or application is automated.
 
 ## Local data and troubleshooting
@@ -159,7 +158,7 @@ or application is automated.
   `.wrangler/test/state`. Never copy one over the other while either server is running.
 - Use `npm run dev` for hot-reload development on port 3000. Use `npm run test:local` to build and
   run the stable local test Worker on port 3001.
-- Never share or commit `.wrangler/`, `.env`, `tmp/`, `work/`, VPN configurations, or CVs.
+- Never share or commit `.wrangler/`, `.env`, `tmp/`, `work/`, or VPN configurations. Copies made outside this project before CV removal may still contain CV data.
 - Only one `vinext dev` server can run on a computer. Stop the existing server before
   starting another checkout.
 - Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` after changes.

@@ -1,4 +1,4 @@
-import { analyzeJobLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
+import { analyzeJobLanguage, type LanguageStatus } from './analysis';
 import { detectWorkplaceType } from './workplace';
 import {
   advertisementToParsedJob,
@@ -31,16 +31,6 @@ interface BackfillJobRow {
   language_status: LanguageStatus;
 }
 
-interface BackfillCvRow {
-  slot: 'a' | 'b';
-  cv_text: string;
-  derived_role: string;
-}
-
-interface BackfillCriteriaRow {
-  role_override_a: string;
-  role_override_b: string;
-}
 
 export interface JobRoomBackfillReport {
   eligibleCount: number;
@@ -74,15 +64,6 @@ export interface JobRoomBackfillOptions {
 function boundedLimit(value: number | undefined) {
   if (!Number.isFinite(value)) return MAX_JOB_ROOM_DETAIL_FETCHES;
   return Math.max(1, Math.min(MAX_JOB_ROOM_DETAIL_FETCHES, Math.floor(value!)));
-}
-
-function cvsWithEffectiveRoles(rows: BackfillCvRow[], criteria: BackfillCriteriaRow | null): CvInput[] {
-  return rows.map((row) => ({
-    slot: row.slot,
-    cvText: row.cv_text,
-    derivedRole: ((row.slot === 'a' ? criteria?.role_override_a : criteria?.role_override_b) ?? '').trim()
-      || row.derived_role,
-  }));
 }
 
 async function remainingCount(db: D1Database, userId: string) {
@@ -199,19 +180,12 @@ export async function backfillJobRoomDescriptions(
   const delayMs = options.delayMs ?? JOB_ROOM_DETAIL_DELAY_MS;
   const pause = options.pause ?? delay;
   const eligibleCount = await remainingCount(db, userId);
-  const [jobs, cvRows, criteria] = await Promise.all([
-    db.prepare(`SELECT id, source_url, title, company, location, description, posted_at, expires_at, language_status FROM jobs
+  const jobs = await db.prepare(`SELECT id, source_url, title, company, location, description, posted_at, expires_at, language_status FROM jobs
       WHERE user_id = ? AND source_key = 'job-room.ch' AND length(description) < ?
         AND job_room_detail_version < ?
       ORDER BY updated_at, id LIMIT ?`)
       .bind(userId, JOB_ROOM_FULL_TEXT_THRESHOLD, JOB_ROOM_DETAIL_BACKFILL_VERSION, maxDetails)
-      .all<BackfillJobRow>(),
-    db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ? ORDER BY slot')
-      .bind(userId).all<BackfillCvRow>(),
-    db.prepare('SELECT role_override_a, role_override_b FROM search_settings WHERE user_id = ?')
-      .bind(userId).first<BackfillCriteriaRow>(),
-  ]);
-  const cvs = cvsWithEffectiveRoles(cvRows.results, criteria);
+      .all<BackfillJobRow>();
   const report = emptyReport(eligibleCount);
   report.attemptedCount = jobs.results.length;
 
@@ -282,11 +256,9 @@ export async function backfillJobRoomDescriptions(
     }
 
     const language = analyzeJobLanguage(description, job.title, detail.languageSkills);
-    const fit = scoreFitAcrossCvs(description, job.title, cvs);
     const workplaceType = detectWorkplaceType(`${job.title} ${detail.location} ${description}`);
     const result = await db.prepare(`UPDATE jobs SET description = ?, language_status = ?,
-      language_summary = ?, language_signals = ?, fit_score_a = ?, fit_score_b = ?,
-      best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
+      language_summary = ?, language_signals = ?, workplace_type = ?,
       search_text = ?,
       posted_at = CASE WHEN ? = '' THEN posted_at ELSE ? END,
       expires_at = CASE WHEN ? = '' THEN expires_at ELSE ? END,
@@ -295,8 +267,7 @@ export async function backfillJobRoomDescriptions(
       normalized_version = ?, job_room_detail_version = ?, job_room_posted_at_version = ?, updated_at = ?
       WHERE id = ? AND user_id = ? AND length(description) < ? AND job_room_detail_version < ?`)
       .bind(description, language.status, language.summary, JSON.stringify(language.signals),
-        fit.fitScoreA, fit.fitScoreB, fit.bestCvSlot, workplaceType,
-        JSON.stringify(fit.matchedKeywords), JSON.stringify(fit.missingKeywords),
+        workplaceType,
         searchTextForJob({ title: job.title, location: job.location, description }),
         dateFill, dateFill, expiresFill, expiresFill, dateFill, fingerprint, dateFill,
         NORMALIZATION_VERSION, JOB_ROOM_DETAIL_BACKFILL_VERSION, JOB_ROOM_POSTED_AT_BACKFILL_VERSION,
@@ -346,7 +317,7 @@ async function remainingDatelessCount(db: D1Database, userId: string) {
  * fingerprint (which hashes the posting day, and is empty on every dateless row by migration
  * 3) and can change duplicate grouping (which compares posting days), so the fingerprint is
  * recomputed and the cluster links invalidated for the next read to re-derive. Saved,
- * applied, dismissed, description, language, fit, duplicate and language_feedback state are
+ * applied, dismissed, description, language, duplicate and language_feedback state are
  * deliberately untouched: a date never rescreens a verdict.
  *
  * A fetch that succeeds but carries no date still marks the row — the source truly publishes

@@ -51,18 +51,18 @@ product or integration changes. Local environments and the no-hosting decision:
 
 - The supported environments are `dev` (`http://localhost:3000`) and `test`
   (`http://localhost:3001`). There is no production or hosted environment.
-- Dev and test must keep separate D1 and R2 state under `.wrangler/dev/state` and
+- Dev and test must keep separate D1 state under `.wrangler/dev/state` and
   `.wrangler/test/state`. Never point one environment at the other's state.
 - Do not deploy to OpenAI Sites, `chatgpt.site`, Cloudflare Workers, or another host without a new
   explicit owner decision. `.openai/hosting.json` contains logical local bindings only.
-- Keep `.dev.vars.dev`, `.dev.vars.test`, `.wrangler/`, CVs, and credentials out of Git and prompts.
+- Keep `.dev.vars.dev`, `.dev.vars.test`, `.wrangler/`, and credentials out of Git and prompts. External or older copies not under this project may still contain pre-removal CV data.
 
 ## Multi-user rules
 
 The app has accounts and roles. Every table holding user data has a `user_id`, and **every query
 must be scoped to the session user**. A missing `WHERE user_id = ?` is a cross-account data leak.
 Four such defects were found in review immediately after the tenancy change — including a workspace
-reset that would have deleted *every* account's jobs, and a CV upload that was silently broken for
+  reset that would have deleted *every* account's jobs, and a now-removed CV upload that was silently broken for
 everyone. None appeared in ordinary use, because the existing data had been adopted rather than
 freshly created. **When you touch anything tenancy-related, exercise the whole flow as a second
 account with new data**, not the account that already has rows.
@@ -129,16 +129,13 @@ Build a private job-search companion for a user seeking roles where English alon
 ## Technical shape
 
 - Next-compatible React app built with Vinext/Vite and the OpenAI Sites scaffold.
-- Cloudflare D1 binding `DB` stores the saved CVs and analyzed jobs.
-- Cloudflare R2 binding `CV_FILES` stores the original CV files.
-- CV text is extracted in the browser from PDF, DOCX, or TXT, then submitted with the file.
-- API routes live under `app/api`; deterministic analysis lives in `lib/analysis.ts` and
-  `lib/role-detection.ts`.
-- The app is multi-user. Every account can hold up to two CV versions keyed by `slot` (`a`/`b`),
-  and every user-data query must be scoped by `user_id`. Each search role is derived locally from
-  its CV, with an optional persisted override in `search_settings`; every job is scored against
-  both CVs. Explicit language-result feedback lives separately in `language_feedback` so
-  rescoring never overwrites the user's judgment.
+- Cloudflare D1 binding `DB` stores account-scoped analyzed jobs and search state.
+- CV upload, file storage, role derivation and personal-fit scoring were removed on 2026-09-23.
+  Historical migration versions 1–27 still mention the old schema; migration 28 removes it.
+- API routes live under `app/api`; deterministic language analysis lives in `lib/analysis.ts`.
+- The app is multi-user. Every user-data query must be scoped by `user_id`.
+  Search roles are explicit keywords saved in `search_roles`. Language-result feedback
+  lives separately in `language_feedback` so maintenance never overwrites the user's judgment.
 
 ## Commands
 
@@ -150,7 +147,6 @@ npm run lint
 npm test
 npm run typecheck
 npm run build
-npm run db:generate
 ```
 
 On Windows, `@rolldown/binding-win32-x64-msvc` is an explicit dev dependency because npm can omit
@@ -159,12 +155,12 @@ the optional native binding. Local Miniflare/Workers state is under the environm
 
 ## Engineering rules
 
-- Preserve the strict three-state language result: `pass`, `review`, `blocked`.
+- Preserve the language result states: `pass`, `unknown`, `review`, `blocked`.
 - Prefer false negatives over false positives for “English sufficient.”
 - Keep the reason for every language decision visible to the user.
 - Preserve the detector result when applying user language corrections; only an explicit
   user correction may change the effective result shown in Matches or Review.
-- Never send a CV or job description to a third-party model without explicit user consent and a documented retention policy.
+- Never send a job description to a third-party model without explicit user consent and a documented retention policy.
 - Never store VPN credentials or private tunnel keys in the project. Preserve the
   provider-supported, user-visible sign-in boundary in `docs/VPN.md`; do not replace it
   with UI automation, public proxies, proxy rotation, or IP cycling.
@@ -176,7 +172,7 @@ the optional native binding. Local Miniflare/Workers state is under the environm
   Add a new migration version for every schema change; never edit an applied
   migration or reset `.wrangler/` as a shortcut. Back up local state and test both existing
   and fresh databases. See `docs/ARCHITECTURE.md` §7a.
-- Do not expose `cv_text` or the R2 object key in API responses.
+- Do not reintroduce CV upload or personal-fit scoring without a new owner decision and data-handling review.
 - Preserve user-controlled external navigation for every source login and application.
 - Add tests whenever the language rules change, especially “optional” versus “mandatory” wording.
 
@@ -186,6 +182,7 @@ Run lint and the stable local build, exercise the affected API or UI flow in dev
 the relevant documentation, and record any unresolved platform-permission or privacy issue.
 
 Lint and build passing is not the same as working. If a flow was not actually exercised —
-or was exercised and failed — say so plainly in the summary and record it under "Known
-risks" in `docs/ARCHITECTURE.md` rather than implying the feature is done. The current
-two-CV verification evidence and remaining gaps are recorded in `docs/HANDOFF.md`.
+or was exercised and failed — say so plainly in the summary and record it in
+`docs/HANDOFF.md` rather than implying the feature is done. Historical architecture
+details are preserved in `docs/ARCHITECTURE.md`; use `docs/FUNCTIONALITY_MAP.md` for
+current code paths.

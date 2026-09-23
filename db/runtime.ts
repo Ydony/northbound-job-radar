@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { isLoopbackRequest } from '../lib/indeed/access';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
 import { detectWorkplaceType } from '../lib/workplace';
-import { runtimeMigrations } from './migrations';
+import { CV_REMOVAL_VERSION, runtimeMigrations } from './migrations';
 
 // This is the legacy base, not the final schema. Fresh databases also run every migration,
 // including the cluster_version column; adding it here would duplicate migration 17's ALTER.
@@ -118,8 +118,7 @@ async function backfillWorkplaceTypes(db: D1Database) {
 
 export function bindings() {
   if (!env.DB) throw new Error('D1 binding DB is unavailable.');
-  if (!env.CV_FILES) throw new Error('R2 binding CV_FILES is unavailable.');
-  return { db: env.DB, files: env.CV_FILES };
+  return { db: env.DB };
 }
 
 /** Optional free aggregator keys. Missing values leave the matching sources reported as unavailable rather than failing a run. */
@@ -157,7 +156,6 @@ export function ensureSchema() {
   if (!schemaReady) {
     const { db } = bindings();
     schemaReady = (async () => {
-      for (const statement of schemaStatements) await db.prepare(statement).run();
       await db.prepare(`CREATE TABLE IF NOT EXISTS schema_migrations (
         version INTEGER PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
@@ -165,6 +163,11 @@ export function ensureSchema() {
       )`).run();
       const applied = await db.prepare('SELECT version FROM schema_migrations').all<{ version: number }>();
       const appliedVersions = new Set(applied.results.map((row) => row.version));
+      // Fresh and pre-28 databases need the historical CV base while migrations 1–27 run.
+      // Once migration 28 has removed it, never recreate that table on a later boot.
+      for (const statement of schemaStatements.slice(appliedVersions.has(CV_REMOVAL_VERSION) ? 1 : 0)) {
+        await db.prepare(statement).run();
+      }
       for (const migration of runtimeMigrations) {
         if (appliedVersions.has(migration.version)) continue;
         const statements = migration.statements.map((statement) => db.prepare(statement));

@@ -1,4 +1,4 @@
-import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
+import { analyzeLanguage, type LanguageStatus } from './analysis';
 import { indeedSql, isIndeedRecord } from './indeed/access';
 import { isIndeedUrl, languageForIndeed } from './indeed/normalize';
 import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
@@ -10,15 +10,7 @@ import { jobExcerpt } from './excerpt';
 import { extractRequirements } from './requirements';
 import { readableLocation } from './nuts';
 import { detectWorkplaceType } from './workplace';
-import type { CvProfile, CvSlot, JobRecord, SearchCriteria, SearchRun, SearchRunSource } from './types';
-
-interface CvRow {
-  slot: CvSlot;
-  file_name: string;
-  cv_text: string;
-  derived_role: string;
-  updated_at: string;
-}
+import type { JobRecord, SearchCriteria, SearchRun, SearchRunSource } from './types';
 
 interface JobRow {
   id: string;
@@ -39,12 +31,7 @@ interface JobRow {
   feedback_corrected_status?: string | null;
   feedback_reason?: string | null;
   feedback_updated_at?: string | null;
-  fit_score_a: number;
-  fit_score_b: number;
-  best_cv_slot: JobRecord['bestCvSlot'];
   workplace_type: JobRecord['workplaceType'];
-  matched_keywords: string;
-  missing_keywords: string;
   identity_fingerprint: string;
   cluster_key: string;
   duplicate_of: string;
@@ -60,8 +47,6 @@ interface JobRow {
 }
 
 interface CriteriaRow {
-  role_override_a: string;
-  role_override_b: string;
   location: string;
   workplace: SearchCriteria['workplace'];
   seniority: SearchCriteria['seniority'];
@@ -111,16 +96,6 @@ function stringArray(value: string) {
   }
 }
 
-export function cvFromRow(row: CvRow): CvProfile {
-  return {
-    slot: row.slot,
-    cvFileName: row.file_name,
-    hasCvText: Boolean(row.cv_text.trim()),
-    derivedRole: row.derived_role,
-    updatedAt: row.updated_at,
-  };
-}
-
 /**
  * Maps a stored row to what a client is allowed to see.
  *
@@ -167,12 +142,7 @@ export function jobFromRow(row: JobRow, criteria?: SearchCriteria): JobRecord {
     correctedLanguageStatus,
     languageFeedbackReason: row.feedback_reason ?? '',
     languageFeedbackUpdatedAt: row.feedback_updated_at ?? '',
-    fitScoreA: row.fit_score_a,
-    fitScoreB: row.fit_score_b,
-    bestCvSlot: row.best_cv_slot,
     workplaceType: row.workplace_type || 'unknown',
-    matchedKeywords: stringArray(row.matched_keywords),
-    missingKeywords: stringArray(row.missing_keywords),
     identityFingerprint: row.identity_fingerprint || jobIdentityFingerprint({
       sourceUrl: row.source_url,
       title: row.title,
@@ -195,8 +165,6 @@ export function jobFromRow(row: JobRow, criteria?: SearchCriteria): JobRecord {
 
 export function criteriaFromRow(row: CriteriaRow | null, roleRows: SearchRoleRow[] = []): SearchCriteria {
   return {
-    roleOverrideA: row?.role_override_a ?? '',
-    roleOverrideB: row?.role_override_b ?? '',
     roleKeywords: roleRows.sort((a, b) => a.position - b.position).map((entry) => entry.role),
     location: row?.location ?? '',
     workplace: row?.workplace ?? 'any',
@@ -254,11 +222,6 @@ export interface UpsertJobInput {
   languageStatus: LanguageStatus;
   languageSummary: string;
   languageSignals: string[];
-  fitScoreA: number;
-  fitScoreB: number;
-  bestCvSlot: CvSlot | '';
-  matchedKeywords: string[];
-  missingKeywords: string[];
   postedAt?: string;
   /**
    * Publication end date when the source publishes one (Job-Room does, #97). Stored with
@@ -370,25 +333,23 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
   } else if (existing) {
     await db.prepare(`UPDATE jobs SET canonical_url = ?, source_key = ?, source_name = ?, source_job_id = ?,
       country = ?, title = ?, company = ?, location = ?, description = ?, search_text = ?, language_status = ?, language_summary = ?,
-      language_signals = ?, fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
+      language_signals = ?, workplace_type = ?,
       identity_fingerprint = ?, cluster_key = ?, visibility_status = ?, posted_at = CASE WHEN ? = '' THEN posted_at ELSE ? END,
       expires_at = CASE WHEN ? = '' THEN expires_at ELSE ? END,
       last_seen_at = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
       .bind(canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company, input.location,
-        input.description, searchText, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals), input.fitScoreA,
-        input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords), JSON.stringify(input.missingKeywords),
+        input.description, searchText, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals), workplaceType,
         identityFingerprint, clusterKey, visibilityStatus, postedAt, postedAt, expiresAt, expiresAt, now, now, id, userId).run();
   } else {
     await db.prepare(`INSERT INTO jobs (id, user_id, source_url, canonical_url, source_key, source_name, source_job_id, country,
-      title, company, location, description, search_text, language_status, language_summary, language_signals, fit_score_a, fit_score_b,
-      best_cv_slot, workplace_type, matched_keywords, missing_keywords, identity_fingerprint, cluster_key, duplicate_of,
+      title, company, location, description, search_text, language_status, language_summary, language_signals,
+      workplace_type, identity_fingerprint, cluster_key, duplicate_of,
       is_saved, application_status,
       visibility_status, posted_at, expires_at, first_seen_at, last_seen_at, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(id, userId, canonicalUrl, canonicalUrl, source.key, source.name, sourceJobId, source.country, input.title, input.company,
         input.location, input.description, searchText, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals),
-        input.fitScoreA, input.fitScoreB, input.bestCvSlot, workplaceType, JSON.stringify(input.matchedKeywords),
-        JSON.stringify(input.missingKeywords), identityFingerprint, clusterKey, duplicateOf, 0, 'not_applied', visibilityStatus, postedAt, expiresAt, now, now,
+        workplaceType, identityFingerprint, clusterKey, duplicateOf, 0, 'not_applied', visibilityStatus, postedAt, expiresAt, now, now,
         visibilityStatus === 'dismissed' ? 'ignored' : 'new', now, now).run();
   }
   const row = await db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,
@@ -448,8 +409,7 @@ interface StoredJobForNormalization {
  * verdicts on screen were still those of a gate that had never been shown the job title. Neither is
  * something a person should have to trigger, or even know about.
  *
- * Language is recomputed but fit is not — fit depends on the CVs, which rescoreAllJobs already
- * handles whenever a CV or the criteria change.
+ * Language is recomputed without touching application or feedback state.
  */
 /**
  * How many advertisements one request may normalize. A search can add several thousand at
@@ -621,26 +581,6 @@ export async function reclusterJobs(db: D1Database, userId: string) {
   return { clusters, duplicates };
 }
 
-export async function rescoreAllJobs(db: D1Database, userId: string, cvs: CvInput[]) {  const jobs = await db.prepare('SELECT id, source_url, title, description FROM jobs WHERE user_id = ?').bind(userId)
-    .all<{ id: string; source_url: string; title: string; description: string }>();
-  if (!jobs.results.length) return 0;
-
-  const updates = jobs.results.map((job) => {
-    const language = isIndeedUrl(job.source_url) ? languageForIndeed(job.description, job.title) : analyzeLanguage(job.description, job.title);
-    const fit = scoreFitAcrossCvs(job.description, job.title, cvs);
-    return db.prepare(`UPDATE jobs SET language_status = ?, language_summary = ?, language_signals = ?,
-      fit_score_a = ?, fit_score_b = ?, best_cv_slot = ?, matched_keywords = ?, missing_keywords = ?,
-      updated_at = ? WHERE id = ? AND user_id = ?`)
-      .bind(language.status, language.summary, JSON.stringify(language.signals), fit.fitScoreA, fit.fitScoreB,
-        fit.bestCvSlot, JSON.stringify(fit.matchedKeywords), JSON.stringify(fit.missingKeywords),
-        new Date().toISOString(), job.id, userId);
-  });
-  for (let start = 0; start < updates.length; start += 50) {
-    await db.batch(updates.slice(start, start + 50));
-  }
-  return updates.length;
-}
-
 export interface JobsPageQuery {
   /** Source keys this account must never see. Empty for an administrator. */
   hiddenSourceKeys: string[];
@@ -784,4 +724,4 @@ export async function queryCollectionTotals(
   };
 }
 
-export type { CriteriaRow, CvRow, JobRow, SearchRoleRow, SearchRunRow, SearchRunSourceRow };
+export type { CriteriaRow, JobRow, SearchRoleRow, SearchRunRow, SearchRunSourceRow };

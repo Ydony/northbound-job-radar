@@ -73,9 +73,6 @@ class FakeStatement {
       const [userId, threshold, version] = this.bindings as [string, number, number];
       return { total: this.database.eligible(userId, threshold, version).length } as T;
     }
-    if (this.sql.includes('FROM search_settings')) {
-      return { role_override_a: 'Data Governance Lead', role_override_b: '' } as T;
-    }
     return null;
   }
 
@@ -93,9 +90,6 @@ class FakeStatement {
         results: this.database.dateless(userId, version)
           .slice(0, limit).map((row) => ({ ...row })) as T[],
       };
-    }
-    if (this.sql.includes('SELECT slot, cv_text, derived_role FROM cvs')) {
-      return { results: [{ slot: 'a', cv_text: 'Data governance SQL stakeholder management', derived_role: 'Analyst' }] as T[] };
     }
     return { results: [] as T[] };
   }
@@ -140,13 +134,13 @@ class FakeStatement {
     if (this.sql.includes('UPDATE jobs SET description = ?')) {
       const description = this.bindings[0] as string;
       const languageStatus = this.bindings[1] as FakeJob['language_status'];
-      const dateFill = this.bindings[11] as string;
-      const expiresFill = this.bindings[13] as string;
-      const fingerprint = this.bindings[16] as string;
-      const postedAtVersion = this.bindings[20] as number;
-      const updatedAt = this.bindings[21] as string;
-      const id = this.bindings[22] as string;
-      const userId = this.bindings[23] as string;
+      const dateFill = this.bindings[6] as string;
+      const expiresFill = this.bindings[8] as string;
+      const fingerprint = this.bindings[11] as string;
+      const postedAtVersion = this.bindings[15] as number;
+      const updatedAt = this.bindings[16] as string;
+      const id = this.bindings[17] as string;
+      const userId = this.bindings[18] as string;
       const row = this.database.jobs.find((job) => job.id === id && job.user_id === userId);
       if (!row) return { meta: { changes: 0 } };
       row.description = description;

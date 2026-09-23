@@ -96,7 +96,7 @@ try {
   for (const page of ['/', '/settings', '/admin', '/sources', '/privacy', '/login']) await bootstrap.request(page);
   console.log(JSON.stringify({ result: 'passed', base: base.origin, upstreamRequests: 0,
     checks: ['country selection', 'disabled report', 'ordinary-user denial', 'two-account isolation', 'private/public duplicates', 'saved/applied/dismissed/correction retention', 'demotion hides jobs/history/feedback', 'export state', 'reset isolation', 'page HTTP rendering'],
-    notTested: ['live upstream', 'browser interaction', 'real CV upload'] }, null, 2));
+    notTested: ['live upstream', 'browser interaction'] }, null, 2));
 } finally {
   // The first administrator remains because the application forbids deleting its last admin.
   for (const connection of registered.filter(item => item !== bootstrap)) {

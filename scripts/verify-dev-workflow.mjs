@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
  *
  * `npm run verify:dev` is named in CLAUDE.md as the way to check a change locally, and it has
  * failed on a working app twice — once parsing only `application/json` while `/api/scrape`
- * streams NDJSON, once asserting a CV gate that `CV_MATCHING_ENABLED = false` removed. A failing
+ * streams NDJSON, once asserting a removed CV gate. A failing
  * harness looks exactly like a broken app, which trains everyone to skip the check. These pure
  * helpers hold the harness's own assumptions so `tests/verify-harness.test.ts` can check them
  * without needing a live server. They change nothing about what the harness demands.
@@ -50,13 +50,8 @@ export function parseVerifierPayload(contentType, bodyText) {
   return bodyText;
 }
 
-/**
- * The CV gate is shelved (`lib/features.ts`, `CV_MATCHING_ENABLED = false`), so importing
- * without a CV is no longer refused and the old hard-coded 400 failed on correct behaviour.
- * Either answer is correct; what matters is that the step still proves what it exists to prove.
- */
 export function isAllowedSecondaryImportStatus(status) {
-  return [200, 400].includes(status);
+  return status === 200;
 }
 
 /** Per-owner isolation: the same source URL must yield a distinct row per account. */
@@ -64,7 +59,7 @@ export function sameUrlIsolatedPerOwner(primaryJobId, secondaryJobId) {
   return Boolean(primaryJobId && secondaryJobId && secondaryJobId !== primaryJobId);
 }
 
-/** Export state must never carry CV text or the R2 object key. */
+/** Export state must never carry legacy CV text or object keys. */
 export function exportStateLeaksPrivateFields(serializedState) {
   return serializedState.includes('cvText') || serializedState.includes('objectKey');
 }
@@ -114,28 +109,11 @@ async function register(client, email, password) {
   assert(data.role === 'user', 'A later account must be a non-admin user.');
 }
 
-async function uploadCv(client) {
-  const cvText = `Data Governance Analyst
-Experienced data governance and master data professional focused on data quality, stewardship,
-metadata, supply chain processes, stakeholder management, SQL, reporting, and process improvement.
-Led cross-functional data-quality initiatives, defined governance controls, documented business
-rules, and delivered analysis in English for international teams.`;
-  const form = new FormData();
-  form.set('slot', 'a');
-  form.set('cvText', cvText);
-  form.set('file', new File([cvText], 'workflow-cv.txt', { type: 'text/plain' }));
-  const result = await client.request('/api/profile', { method: 'POST', body: form });
-  const data = await expectStatus(result, 200, 'upload CV');
-  assert(data.cv?.slot === 'a', 'CV response did not preserve slot a.');
-}
-
 async function saveCriteria(client) {
   const result = await client.request('/api/criteria', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      roleOverrideA: 'Data Governance Analyst',
-      roleOverrideB: '',
       roleKeywords: ['Master Data', 'Supply Chain', 'Data Analyst'],
       location: '',
       workplace: 'any',
@@ -217,8 +195,7 @@ async function main() {
     await register(primary, primaryEmail, password);
     await register(secondary, secondaryEmail, password);
 
-    console.log('2/10 Uploading a new CV and saving new criteria...');
-    await uploadCv(primary);
+    console.log('2/10 Saving new search criteria...');
     await saveCriteria(primary);
 
     console.log('3/10 Exercising authorized and refused restricted search modes...');
@@ -255,25 +232,8 @@ async function main() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(manualJobPayload(runId, 'primary')),
     });
-    // This step is about per-owner isolation, not about the CV gate. That gate is shelved
-    // (lib/features.ts, CV_MATCHING_ENABLED = false), so importing without a CV is no longer
-    // refused and the old hard-coded 400 failed on correct behaviour. Accept either answer, and
-    // when the import is allowed, prove the thing this step actually exists to prove.
-    const withoutCvStatus = sameUrlForSecondary.response.status;
-    assert(isAllowedSecondaryImportStatus(withoutCvStatus),
-      `secondary import without CV: expected 200 or 400, received ${withoutCvStatus}: ${JSON.stringify(sameUrlForSecondary.data)}`);
-    if (withoutCvStatus === 200) {
-      assert(sameUrlIsolatedPerOwner(primaryJobId, sameUrlForSecondary.data.job?.id),
-        'The same source URL was not isolated per owner when imported without a CV.');
-    }
-    await uploadCv(secondary);
-    const secondaryImport = await secondary.request('/api/jobs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(manualJobPayload(runId, 'primary')),
-    });
-    const secondaryJob = await expectStatus(secondaryImport, 200, 'same URL for second owner');
-    assert(sameUrlIsolatedPerOwner(primaryJobId, secondaryJob.job.id),
+    await expectStatus(sameUrlForSecondary, 200, 'same URL for second owner');
+    assert(sameUrlIsolatedPerOwner(primaryJobId, sameUrlForSecondary.data.job?.id),
       'The same source URL was not isolated per owner.');
     await patchJob(secondary, primaryJobId, { isSaved: false }, 'cross-account patch', 404);
     await expectStatus(await secondary.request(`/api/jobs/${primaryJobId}`, { method: 'DELETE' }), 200,
@@ -289,7 +249,7 @@ async function main() {
       'delete own job');
     const exportState = await expectStatus(await primary.request('/api/state'), 200, 'read export state');
     assert(!exportStateLeaksPrivateFields(JSON.stringify(exportState)),
-      'State exposed private CV text or its object key.');
+      'State exposed legacy CV text or its object key.');
     JSON.stringify(exportState);
 
     console.log('7/10 Exercising email/password change and session revocation...');
@@ -325,8 +285,8 @@ async function main() {
       });
       await expectStatus(reset, 200, 'reset workspace');
       const state = await expectStatus(await client.request('/api/state'), 200, 'state after reset');
-      assert(state.jobs.length === 0 && state.profiles.length === 0,
-        'Workspace reset left jobs or CV profiles behind.');
+      assert(state.jobs.length === 0 && !('profiles' in state),
+        'Workspace reset left jobs or legacy profiles behind.');
     }
 
     console.log('10/10 Deleting the disposable accounts...');
@@ -339,7 +299,7 @@ async function main() {
       ok: true,
       authorizedSourcesReported: authorizedData.run.sources.length,
       checks: [
-        'new accounts', 'CV upload', 'criteria', 'authorized search', 'restricted refusal',
+        'new accounts', 'criteria', 'authorized search', 'restricted refusal',
         'pipeline states', 'language correction', 'tenant isolation', 'safe export state',
         'credential change', 'session revocation', 'page rendering', 'workspace reset', 'account deletion',
       ],

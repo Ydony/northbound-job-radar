@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import IndeedStatusPanel from './indeed-status';
-import { CV_MATCHING_ENABLED } from '@/lib/features';
 import { defaultSearchCriteria, parseKeywordInput } from '@/lib/criteria';
 import { countryLabel } from '@/lib/job-identity';
 import { sourceNameForUrl } from '@/lib/job-sources';
@@ -12,7 +11,7 @@ import { MIN_CHARS_TO_CONFIRM_ENGLISH } from '@/lib/analysis';
 import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
   ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, needsElaAttribution } from '@/lib/attribution';
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
-import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday, criteriaToDraft,
+import { SOURCE_RUN_STATUS_RANK, activeFilterPills, closesToday, criteriaToDraft,
   DASHBOARD_VIEW_LABELS, emptyStateCopy, formatCountOrUnknown, formatDate, isJobExpired, jobInView,
   LANGUAGE_FILTER_LABELS, languageStatusLabel, missingIndeedDashRows, newSinceCutoff,
   runNewMatchedTotals, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, totalForSource, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
@@ -21,27 +20,16 @@ import { formatRequirementsRailLabel } from '@/lib/requirements';
 import { indeedActiveRoles } from '@/lib/indeed/settings';
 import type { HealthReport } from '@/app/api/health/route';
 import type { LanguageStatus } from '@/lib/analysis';
-import type { AppState, ApplicationStatus, CvSlot, JobCountry, JobRecord, SearchCriteria,
+import type { AppState, ApplicationStatus, JobCountry, JobRecord, SearchCriteria,
   SearchRun } from '@/lib/types';
 
 type CountryFilter = 'all' | Exclude<JobCountry, 'unknown'>;
 type ApplicationFilter = 'all' | ApplicationStatus;
 
-interface SlotState {
-  file: File | null;
-  text: string;
-  busy: boolean;
-  message: string;
-}
-
 interface FeedbackDraft {
   correctedStatus: LanguageStatus;
   reason: string;
 }
-
-const emptySlotState: SlotState = { file: null, text: '', busy: false, message: '' };
-const slots: CvSlot[] = ['a', 'b'];
-const slotLabels: Record<CvSlot, string> = { a: 'CV 1', b: 'CV 2' };
 
 async function responseJson<T>(response: Response): Promise<T> {
   const body = await response.json() as T & { error?: string };
@@ -49,32 +37,8 @@ async function responseJson<T>(response: Response): Promise<T> {
   return body;
 }
 
-async function extractCvText(file: File) {
-  const extension = file.name.split('.').pop()?.toLowerCase();
-  if (extension === 'txt') return file.text();
-  if (extension === 'docx') {
-    const mammoth = await import('mammoth');
-    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-    return result.value;
-  }
-  if (extension === 'pdf') {
-    const pdfjs = await import('pdfjs-dist');
-    const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
-    pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-    const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-    const pages: string[] = [];
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      pages.push(content.items.map((item) => ('str' in item ? item.str as string : '')).join(' '));
-    }
-    return pages.join('\n');
-  }
-  throw new Error('Use a PDF, DOCX, or TXT file.');
-}
-
 export default function JobRadar() {
-  const [state, setState] = useState<AppState>({ profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [], account: null });
+  const [state, setState] = useState<AppState>({ jobs: [], criteria: defaultSearchCriteria, searchRuns: [], account: null });
   const [loading, setLoading] = useState(true);
   /**
    * A failed workspace load, kept apart from search messages.
@@ -134,7 +98,6 @@ export default function JobRadar() {
     setCountryFilter(next);
     setCityFilter('all');
   }
-  const [cvSlots, setCvSlots] = useState<Record<CvSlot, SlotState>>({ a: { ...emptySlotState }, b: { ...emptySlotState } });
   const [scrapeBusy, setScrapeBusy] = useState<'' | 'authorized' | 'all'>('');
   /**
    * Double-click guard (#116). State updates propagate on re-render, so two
@@ -574,7 +537,15 @@ export default function JobRadar() {
    * older saved list exists. The server enforces the same rule, so a crafted
    * request cannot bypass the disabled button.
    */
-  const noRolesToSearch = !criteriaDraft.roleKeywords.some((keyword) => (keyword ?? '').trim());
+  /**
+   * #141: nothing on this page may state a fact about the account until the account has
+   * arrived. The client starts from an empty default and fetches /api/state afterwards,
+   * so for the first second every derived claim is about a workspace that does not exist:
+   * no roles, no runs, nothing saved. `loading` is already true for exactly that window.
+   */
+  const accountLoaded = !loading && !loadError;
+  const draftHasNoRoles = !criteriaDraft.roleKeywords.some((keyword) => (keyword ?? '').trim());
+  const noRolesToSearch = accountLoaded && draftHasNoRoles;
   const latestRun = useMemo(() => {
     // #124 fix: the user preview reads ordinary-audience runs from the server
     // (`/api/state?preview=user`), never by subtracting admin rows client-side.
@@ -647,44 +618,6 @@ export default function JobRadar() {
       setCriteriaMessage(error instanceof Error ? error.message : 'Could not reset criteria.');
     } finally {
       setCriteriaBusy(false);
-    }
-  }
-
-  function updateSlot(slot: CvSlot, patch: Partial<SlotState>) {
-    setCvSlots((current) => ({ ...current, [slot]: { ...current[slot], ...patch } }));
-  }
-
-  async function chooseCv(slot: CvSlot, file: File | null) {
-    updateSlot(slot, { file, text: '', message: '' });
-    if (!file) return;
-    try {
-      updateSlot(slot, { message: 'Reading your CV…' });
-      const text = (await extractCvText(file)).replace(/\s+/g, ' ').trim();
-      if (text.length < 80) throw new Error('This file contains too little readable text. Try a text-based PDF, DOCX, or TXT file.');
-      updateSlot(slot, { text, message: `${text.length.toLocaleString()} characters read. Ready to save.` });
-    } catch (error) {
-      updateSlot(slot, { file: null, message: error instanceof Error ? error.message : 'Could not read this CV.' });
-    }
-  }
-
-  async function saveCv(slot: CvSlot, event: FormEvent) {
-    event.preventDefault();
-    const current = cvSlots[slot];
-    if (!current.file || !current.text) return updateSlot(slot, { message: 'Choose a readable CV first.' });
-    updateSlot(slot, { busy: true, message: 'Saving and detecting a role…' });
-    try {
-      const form = new FormData();
-      form.set('slot', slot);
-      form.set('cvText', current.text);
-      form.set('file', current.file);
-      const result = await responseJson<{ cv: AppState['profiles'][number] }>(await fetch('/api/profile', { method: 'POST', body: form }));
-      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
-      setState(refreshed);
-      updateSlot(slot, { message: result.cv.derivedRole ? `Saved. Detected role: ${result.cv.derivedRole}` : 'Saved, but no role could be detected — try a CV with a clearer job title.' });
-    } catch (error) {
-      updateSlot(slot, { message: error instanceof Error ? error.message : 'Could not save this CV.' });
-    } finally {
-      updateSlot(slot, { busy: false });
     }
   }
 
@@ -952,23 +885,6 @@ export default function JobRadar() {
     }
   }
 
-  async function deleteCv(slot: CvSlot) {
-    const profile = state.profiles.find((entry) => entry.slot === slot);
-    if (!profile || !window.confirm(`Delete ${slotLabels[slot]} (${profile.cvFileName}) and its stored file? Existing jobs will be rescored with the remaining CV.`)) return;
-    updateSlot(slot, { busy: true, message: 'Deleting CV and rescoring jobs…' });
-    try {
-      await responseJson(await fetch(`/api/profile?slot=${slot}`, { method: 'DELETE' }));
-      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
-      setState(refreshed);
-      setCriteriaDraft(criteriaToDraft(refreshed.criteria));
-      setCvSlots((current) => ({ ...current, [slot]: { ...emptySlotState, message: 'CV deleted.' } }));
-    } catch (error) {
-      updateSlot(slot, { message: error instanceof Error ? error.message : 'Could not delete this CV.' });
-    } finally {
-      updateSlot(slot, { busy: false });
-    }
-  }
-
   /**
    * Dismiss everything ticked, one job at a time through the same call a card's own
    * Dismiss makes. Bulk endpoints for this would be a second code path to keep in step
@@ -1007,12 +923,11 @@ export default function JobRadar() {
         body: JSON.stringify({ confirm: 'RESET' }),
       }));
       setState({
-        profiles: [], jobs: [], criteria: defaultSearchCriteria, searchRuns: [],
+        jobs: [], criteria: defaultSearchCriteria, searchRuns: [],
         totalJobs: 0, matchingJobs: 0, collectionTotals: { total: 0, bySource: [] },
         account: state.account,
       });
       setCriteriaDraft(criteriaToDraft(defaultSearchCriteria));
-      setCvSlots({ a: { ...emptySlotState }, b: { ...emptySlotState } });
       setSelectedJobIds([]);
       setFeedbackOpen({});
       setFeedbackDrafts({});
@@ -1033,7 +948,7 @@ export default function JobRadar() {
           {/* aria-current is the state; the highlight is styled from it rather than from a
               second hand-maintained class, which is how this came to be highlighted on every
               scroll position regardless of where you were. */}
-          <a aria-current="page" href="#jobs">Jobs</a>{CV_MATCHING_ENABLED && <a href="#profile">My CVs</a>}
+          <a aria-current="page" href="#jobs">Jobs</a>
           <a href="#criteria" onClick={() => setSettingsOpen(true)}>Keywords</a>
           <a href="#sources" onClick={() => setStatsOpen(true)}>Statistics</a>
           <a href="/settings">Settings</a>
@@ -1138,6 +1053,15 @@ export default function JobRadar() {
         <button type="button" className="reset-button" onClick={() => void loadWorkspace()}>Retry loading</button>
       </div>}
 
+      {/* #141: nothing here exists without the account, so none of it paints until the
+          account arrives. Rendering it from the empty default showed a complete,
+          coherent picture of a workspace with nothing in it - no roles, no runs,
+          every count zero - and then replaced the lot a second later. One calm
+          transition rather than a page that fills in piece by piece. */}
+      {!accountLoaded && !loadError && <div className="workspace-loading" aria-busy="true">
+        <p>Loading your workspace…</p>
+      </div>}
+      {(accountLoaded || loadError) && <>
       <div className="setup-panels">
         {/* UX-7c: settings is a band on the page, open by default, not a panel
             behind a tab. Everything that decides what a search collects sits
@@ -1152,7 +1076,7 @@ export default function JobRadar() {
             <h2>Search settings</h2>
             <p>{latestRun
               ? `Last search ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · ${latestRunTotals.newJobs} added`
-              : 'No search run yet'}</p>
+              : accountLoaded ? 'No search run yet' : '\u00a0'}</p>
             <button type="button" onClick={() => setSettingsOpen((open) => !open)}>
               <span aria-hidden="true">{settingsOpen ? '▲' : '▼'}</span> {settingsOpen ? 'Hide' : 'Show'}
             </button>
@@ -1325,7 +1249,7 @@ export default function JobRadar() {
               that finds the advertisement collects it again. Dismissing writes the tombstone
               the importer checks, which is the one that lasts. */}
           <button type="button" disabled={!selectedJobIds.length || dataBusy} onClick={() => dismissSelected()}>Dismiss selected</button>
-          <button className="danger" type="button" disabled={dataBusy || (!state.jobs.length && !state.profiles.length)} onClick={resetWorkspace}>Reset workspace</button>
+          <button className="danger" type="button" disabled={dataBusy || !state.jobs.length} onClick={resetWorkspace}>Reset workspace</button>
           <p aria-live="polite">{dataMessage}</p>
         </details>
         <div className="result-layout">
@@ -1536,11 +1460,6 @@ export default function JobRadar() {
                     {expired && <span className="expired-chip" title={`This advertisement closed on ${job.expiresAt.slice(0, 10)}. The link may lead to a page saying it is no longer active.`}>Expired</span>}
                     {closing && <span className="expired-chip closing" title="This advertisement closes today. The link may stop working at any time.">Closes today</span>}
                     {showLanguageChip && <span className={`language-badge ${displayedLanguageStatus}`}>{languageStatusLabel(displayedLanguageStatus)}</span>}
-                    {/* bestFitScore is the better of the two CV slot scores, so with CV matching
-                        shelved it is 0 on every card - 140 chips all reading "Fit 0", implying a
-                        score the product does not currently compute. Gated like every other
-                        CV-derived element on this card. */}
-                    {CV_MATCHING_ENABLED && <span className="fit-chip" title="Fit against your saved search roles">Fit {bestFitScore(job)}</span>}
                   </div>
                   {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
                   {/* UX-6b: on a pass the chip already says Definitely English and a
@@ -1600,7 +1519,7 @@ export default function JobRadar() {
                 </div>
                 {/* UX-6b + #125: what the employer asks for holds the right side.
                     Extracted from the available advertisement — a grounded quotation,
-                    never a CV-match explanation and never a language-eligibility claim.
+                    never a personal-fit explanation and never a language-eligibility claim.
                     The source heading is preserved verbatim ("Nice to have" stays
                     optional; it is never flattened to a bare "Asks for").
                     A preview too short to judge says so; a full ad with nothing
@@ -1645,6 +1564,7 @@ export default function JobRadar() {
         </div>
       </section>
 
+      </>}
       {/* UX-7f: the language rule as a full-width band of three numbered columns,
           not a card adrift with an offset shadow. It states the rule, which is
           not how to use the product, so it survives the introduction. */}
@@ -1654,28 +1574,6 @@ export default function JobRadar() {
         <div><span aria-hidden="true">02</span><span>The text is predominantly English</span></div>
         <div><span aria-hidden="true">03</span><span>No local language is named as required</span></div>
       </section>
-
-      {CV_MATCHING_ENABLED && <section className="profile-section" id="profile">
-        <div className="profile-intro"><span className="section-label">Step one</span><h2>Upload up to two CVs</h2><p>Each CV is stored privately. We detect a likely target role and use it to shape your Swiss and Netherlands searches.</p></div>
-        <div className="cv-slots">
-          {slots.map((slot) => {
-            const saved = state.profiles.find((profile) => profile.slot === slot);
-            const local = cvSlots[slot];
-            return (
-              <form className="profile-form" key={slot} onSubmit={(event) => saveCv(slot, event)}>
-                <span className="cv-slot-label">{slotLabels[slot]}</span>
-                <label className={`upload-box ${local.file ? 'has-file' : ''}`}>
-                  <span className="upload-icon">↑</span>
-                  <span><b>{local.file?.name || saved?.cvFileName || 'Upload a CV'}</b><small>PDF, DOCX or TXT · max 10 MB</small></span>
-                  <input type="file" accept=".pdf,.docx,.txt" onChange={(event) => chooseCv(slot, event.target.files?.[0] ?? null)} />
-                </label>
-                <div className="cv-actions"><button className="search-button" type="submit" disabled={local.busy}>{local.busy ? 'Saving…' : saved ? 'Update' : 'Save'}</button>{saved && <button className="delete-button" type="button" disabled={local.busy} onClick={() => deleteCv(slot)}>Delete CV</button>}</div>
-                <p className="form-message" aria-live="polite">{local.message || (saved ? (saved.derivedRole ? `Detected role: ${saved.derivedRole}` : 'No role detected yet.') : 'Your CV never goes to jobs.ch from this app.')}</p>
-              </form>
-            );
-          })}
-        </div>
-      </section>}
 
       <dialog
         className="confirm-dialog"

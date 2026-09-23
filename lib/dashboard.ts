@@ -12,8 +12,6 @@ export interface CriteriaDraft extends Omit<SearchCriteria, 'requiredKeywords' |
 
 export function criteriaToDraft(criteria: SearchCriteria): CriteriaDraft {
   return {
-    roleOverrideA: criteria.roleOverrideA,
-    roleOverrideB: criteria.roleOverrideB,
     roleKeywords: [...criteria.roleKeywords],
     location: criteria.location,
     workplace: criteria.workplace,
@@ -183,10 +181,6 @@ export const MATCHED_SNAPSHOT_NOTE =
 export const TOTALS_DEDUPE_NOTE =
   'Overall counts each retained job once. Per-source totals show where each counted job is kept — primaries under their own source, orphan copies under the copy\u2019s source — so they add up to the overall. Copies folded into a visible card count only there, never twice.';
 
-export function bestFitScore(job: JobRecord) {
-  return Math.max(job.fitScoreA, job.fitScoreB);
-}
-
 export function languageStatusLabel(status: LanguageStatus) {
   // Canvas wording (UX-7b, confirmed by #137): the card chip, the sidebar
   // selector and the empty states all read Definitely / Maybe / Not sure.
@@ -327,7 +321,7 @@ function compareIsoDesc(a: string, b: string) {
 /**
  * Order one page of jobs for the list. Ties break on id so the order is
  * stable regardless of which page a job arrived on. There is no fit order:
- * CV matching is shelved, so no score exists to sort by (UX-7e).
+ * There is no personal-fit score; sort by posting date or first sighting (UX-7e).
  */
 export function sortJobs(jobs: JobRecord[], mode: SortMode): JobRecord[] {
   const copy = [...jobs];

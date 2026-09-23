@@ -137,25 +137,11 @@ test('every Indeed host alias is hidden from an ordinary account', () => {
   assert.deepEqual(exposed, [], 'these Indeed aliases would reach an ordinary account');
 });
 
-/**
- * The claim that closed #87: pdf.js is pointed at a same-origin worker URL, not a blob, so
- * `worker-src 'self'` does not break PDF CV parsing when CV matching is switched back on.
- *
- * This is the weakest check here, and worth saying so: it reads the source rather than running
- * the parser, because the parser needs a browser. It fails if someone switches to a blob worker,
- * which is the change that would make the dismissal wrong.
- */
-test('pdf.js uses a same-origin worker, so worker-src stays closed', async () => {
+test('removed CV parsing does not leave a PDF worker in the dashboard', async () => {
   const source = await readFile(new URL('../app/job-radar.tsx', import.meta.url), 'utf8');
-  assert.match(source, /pdfjs-dist\/build\/pdf\.worker\.min\.mjs\?url/,
-    'the worker must be imported as a URL, not constructed');
-
-  // Narrowed after the first version of this check failed on `URL.createObjectURL(new Blob(...))`
-  // in downloadText. That is the CSV/JSON export handing a file to an <a download>, which
-  // worker-src does not govern at all - a false positive in the check, not a defect in the code.
-  // What would actually reopen #87 is a worker built from a blob, so that is what is asserted.
+  assert.doesNotMatch(source, /pdfjs-dist|mammoth|workerSrc/);
   assert.doesNotMatch(source, /workerSrc\s*=\s*URL\.createObjectURL/,
-    'pointing pdf.js at a blob would be refused by worker-src and would reopen #87');
+    'a blob worker would violate the current worker-src policy');
   assert.doesNotMatch(source, /new Worker\(/,
     'a hand-constructed worker needs its source checked against worker-src before it is added');
 });

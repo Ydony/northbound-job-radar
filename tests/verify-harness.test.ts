@@ -84,11 +84,9 @@ test('malformed JSON fails loudly instead of passing silently', () => {
   assert.throws(() => parseVerifierPayload('application/json', '{not json'));
 });
 
-test('importing without a CV accepts either shelved-gate answer, nothing else', () => {
-  // The CV gate is shelved (CV_MATCHING_ENABLED = false): 200 means the import was allowed,
-  // 400 means a gate still refused it. Both are correct behaviour; anything else is a real error.
+test('importing a valid job with no CV requires a successful response', () => {
   assert.equal(isAllowedSecondaryImportStatus(200), true);
-  assert.equal(isAllowedSecondaryImportStatus(400), true);
+  assert.equal(isAllowedSecondaryImportStatus(400), false);
   assert.equal(isAllowedSecondaryImportStatus(401), false);
   assert.equal(isAllowedSecondaryImportStatus(404), false);
   assert.equal(isAllowedSecondaryImportStatus(500), false);

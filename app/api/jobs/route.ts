@@ -1,12 +1,9 @@
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
-import { analyzeLanguage, scoreFitAcrossCvs } from '@/lib/analysis';
-import { roleForSlot } from '@/lib/criteria';
+import { analyzeLanguage } from '@/lib/analysis';
 import { isSafeManualJobUrl } from '@/lib/job-sources';
 import { canonicalJobUrl } from '@/lib/job-identity';
-import { criteriaFromRow, upsertJob, type CriteriaRow } from '@/lib/server-data';
-import type { CvSlot } from '@/lib/types';
-import { CV_MATCHING_ENABLED } from '@/lib/features';
+import { upsertJob } from '@/lib/server-data';
 import { indeedSql } from '@/lib/indeed/access';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 
@@ -32,28 +29,11 @@ export async function POST(request: Request) {
   if (!title) return Response.json({ error: 'Add the job title.' }, { status: 400 });
   if (description.length < 160) return Response.json({ error: 'Paste the full job advertisement so the language gate has enough evidence.' }, { status: 400 });
 
-  const [cvRows, criteriaRow] = await Promise.all([
-    db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id)
-      .all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
-    db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
-  ]);
-  if (CV_MATCHING_ENABLED && !cvRows.results.length) {
-    return Response.json({ error: 'Upload at least one CV before analyzing jobs.' }, { status: 400 });
-  }
-  const criteria = criteriaFromRow(criteriaRow);
-  const cvs = cvRows.results.map((row) => ({
-    slot: row.slot,
-    cvText: row.cv_text,
-    derivedRole: roleForSlot(row.slot, row.derived_role, criteria),
-  }));
-
   const language = isIndeedUrl(sourceUrl) ? languageForIndeed(description, title) : analyzeLanguage(description, title);
-  const fit = scoreFitAcrossCvs(description, title, cvs);
   const result = await upsertJob(db, user.id, {
     sourceUrl, title, company, location, description,
     languageStatus: language.status, languageSummary: language.summary, languageSignals: language.signals,
     postedAt,
-    ...fit,
   });
   return Response.json({ job: result.job, duplicate: result.wasKnown || result.wasDuplicate, dismissed: result.wasDismissed });
 }

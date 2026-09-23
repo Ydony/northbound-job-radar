@@ -5,7 +5,6 @@ import { findUserById, userFromRow, type UserRecord } from './users';
 export interface Session {
   user: UserRecord;
   db: D1Database;
-  files: R2Bucket;
 }
 
 export type Guarded = { session: Session; response?: never } | { session?: never; response: Response };
@@ -13,7 +12,7 @@ export type Guarded = { session: Session; response?: never } | { session?: never
 /**
  * Every API route starts here. The app is closed by default: no valid session means no data, and a
  * missing signing secret refuses to serve rather than falling open, so a half-configured deployment
- * cannot expose anybody's CV.
+ * cannot expose anybody's saved jobs.
  */
 export async function requireSession(request: Request, options: { adminOnly?: boolean } = {}): Promise<Guarded> {
   const { sessionSecret } = authSecrets();
@@ -27,7 +26,7 @@ export async function requireSession(request: Request, options: { adminOnly?: bo
   const claims = await readSessionValue(readCookie(request), sessionSecret);
   if (!claims) return { response: Response.json({ error: 'Sign in to continue.' }, { status: 401 }) };
 
-  const { db, files } = bindings();
+  const { db } = bindings();
   const row = await findUserById(db, claims.userId);
   // A cookie issued before the account's epoch was raised is refused, which is what makes
   // "sign out everywhere" and a post-breach revocation actually take effect.
@@ -43,7 +42,7 @@ export async function requireSession(request: Request, options: { adminOnly?: bo
   if (options.adminOnly && user.role !== 'admin') {
     return { response: Response.json({ error: 'Administrator access required.' }, { status: 403 }) };
   }
-  return { session: { user, db, files } };
+  return { session: { user, db } };
 }
 
 interface RateWindow {

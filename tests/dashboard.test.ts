@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { defaultSearchCriteria } from '../lib/criteria';
-import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday,
+import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, closesToday,
   criteriaToDraft, DASHBOARD_VIEW_LABELS, emptyStateCopy, formatCountOrUnknown, formatDate, formatSourceReconciliation,
   isJobExpired, isNewJob, jobInView, jobMatchesLanguage, LANGUAGE_FILTER_LABELS, languageStatusLabel,
   MATCHED_SNAPSHOT_NOTE, missingIndeedDashRows, newSinceCutoff, RUN_TOTALS_HELP, runNewMatchedTotals, SORT_MODE_LABELS, sortJobs,
@@ -35,11 +35,6 @@ function job(overrides: Partial<JobRecord> = {}): JobRecord {
     correctedLanguageStatus: '',
     languageFeedbackReason: '',
     languageFeedbackUpdatedAt: '',
-    fitScoreA: 80,
-    fitScoreB: 90,
-    bestCvSlot: 'b',
-    matchedKeywords: ['sql'],
-    missingKeywords: [],
     identityFingerprint: 'job-v1-example',
     duplicateOf: '',
     isSaved: false,
@@ -147,12 +142,6 @@ test('languageStatusLabel uses the canvas words, never a near-miss', () => {
   for (const status of every) assert.ok(languageStatusLabel(status).length > 0);
 });
 
-test('bestFitScore takes the better of the two CV scores', () => {
-  assert.equal(bestFitScore(job({ fitScoreA: 80, fitScoreB: 90 })), 90);
-  assert.equal(bestFitScore(job({ fitScoreA: 95, fitScoreB: 40 })), 95);
-  assert.equal(bestFitScore(job({ fitScoreA: 0, fitScoreB: 0 })), 0);
-});
-
 test('formatDate handles empty, unparseable and valid dates', () => {
   assert.equal(formatDate(''), 'Posting date unavailable');
   assert.equal(formatDate('not-a-date'), 'Posted not-a-date');
@@ -160,19 +149,17 @@ test('formatDate handles empty, unparseable and valid dates', () => {
   assert.ok(formatDate('2026-01-05T12:00:00.000Z').startsWith('Posted '));
 });
 
-test('sortJobs orders by posting date or first sighting; there is no fit order', () => {
-  const old = job({ id: 'old', fitScoreA: 10, fitScoreB: 10, postedAt: '2026-07-01T00:00:00.000Z', firstSeenAt: '2026-07-02T00:00:00.000Z' });
-  const mid = job({ id: 'mid', fitScoreA: 50, fitScoreB: 50, postedAt: '2026-08-01T00:00:00.000Z', firstSeenAt: '2026-08-15T00:00:00.000Z' });
-  const top = job({ id: 'top', fitScoreA: 99, fitScoreB: 99, postedAt: '2026-08-20T00:00:00.000Z', firstSeenAt: '2026-08-10T00:00:00.000Z' });
-  const undated = job({ id: 'undated', fitScoreA: 60, fitScoreB: 60, postedAt: '', firstSeenAt: '' });
-  // Fit scores exist on the rows but CV matching is shelved, so no order may
-  // use them — the control must not promise what the product does not do.
+test('sortJobs orders by posting date or first sighting', () => {
+  const old = job({ id: 'old', postedAt: '2026-07-01T00:00:00.000Z', firstSeenAt: '2026-07-02T00:00:00.000Z' });
+  const mid = job({ id: 'mid', postedAt: '2026-08-01T00:00:00.000Z', firstSeenAt: '2026-08-15T00:00:00.000Z' });
+  const top = job({ id: 'top', postedAt: '2026-08-20T00:00:00.000Z', firstSeenAt: '2026-08-10T00:00:00.000Z' });
+  const undated = job({ id: 'undated', postedAt: '', firstSeenAt: '' });
   assert.deepEqual(sortJobs([old, mid, top, undated], 'posted').map((entry) => entry.id), ['top', 'mid', 'old', 'undated']);
   assert.deepEqual(sortJobs([old, mid, top, undated], 'found').map((entry) => entry.id), ['mid', 'top', 'old', 'undated']);
   // Undated rows sort after dated ones rather than as string-equal firsts.
   assert.deepEqual(sortJobs([undated, old], 'posted').map((entry) => entry.id), ['old', 'undated']);
   // Ties break on id, so the order never depends on which page a job arrived on.
-  const tied = [job({ id: 'b', fitScoreA: 10, fitScoreB: 10 }), job({ id: 'a', fitScoreA: 10, fitScoreB: 10 })];
+  const tied = [job({ id: 'b' }), job({ id: 'a' })];
   assert.deepEqual(sortJobs(tied, 'found').map((entry) => entry.id), ['a', 'b']);
   // The input is never reordered in place.
   const input = [old, top];
@@ -407,8 +394,6 @@ test('workspaceCountCopy never calls shown rows matching when they are folded du
 test('criteriaToDraft round-trips every SearchCriteria field', () => {
   const criteria: SearchCriteria = {
     ...defaultSearchCriteria,
-    roleOverrideA: 'Data Governance',
-    roleOverrideB: 'Supply Chain',
     roleKeywords: ['Master Data', 'Supply Chain'],
     location: 'Zürich',
     workplace: 'hybrid',
@@ -421,8 +406,6 @@ test('criteriaToDraft round-trips every SearchCriteria field', () => {
     updatedAt: '2026-09-20T00:00:00.000Z',
   };
   const draft = criteriaToDraft(criteria);
-  assert.equal(draft.roleOverrideA, 'Data Governance');
-  assert.equal(draft.roleOverrideB, 'Supply Chain');
   assert.deepEqual(draft.roleKeywords, ['Master Data', 'Supply Chain']);
   assert.equal(draft.location, 'Zürich');
   assert.equal(draft.workplace, 'hybrid');

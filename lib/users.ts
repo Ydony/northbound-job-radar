@@ -84,7 +84,6 @@ export async function createUser(db: D1Database, email: string, password: string
 
   if (isFirst) {
     await db.batch([
-      db.prepare("UPDATE cvs SET user_id = ? WHERE user_id = 'legacy'").bind(id),
       db.prepare("UPDATE jobs SET user_id = ? WHERE user_id = 'legacy'").bind(id),
       db.prepare("UPDATE search_settings SET user_id = ? WHERE user_id = 'legacy'").bind(id),
       db.prepare("UPDATE search_roles SET user_id = ? WHERE user_id = 'legacy'").bind(id),

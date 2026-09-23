@@ -92,7 +92,7 @@ them are illustrative. Where a frame and a task disagree, **the task on the boar
 authoritative** — it carries the exact values, and it says which parts are decided and which
 are still open.
 
-There is **no fit score**. `CV_MATCHING_ENABLED` is `false`, so no frame may show one; an
+There is **no fit score**. CV matching was removed outright, so no frame may show one; an
 earlier pass drew a “Fit 71” that does not exist anywhere in the product, and the sort
 control offers Newest posted and Recently found only.
 

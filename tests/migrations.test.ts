@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { runtimeMigrations } from '../db/migrations';
+import { CV_REMOVAL_VERSION, runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
   }
+});
+
+test('the final schema removes CV storage without recreating it after restart', async () => {
+  const migration = runtimeMigrations.find((entry) => entry.version === CV_REMOVAL_VERSION);
+  assert.ok(migration);
+  assert.match(migration.statements.join('\n'), /DROP TABLE IF EXISTS cvs/);
+  const runtime = await readFile(new URL('../db/runtime.ts', import.meta.url), 'utf8');
+  assert.match(runtime, /schemaStatements\.slice\(appliedVersions\.has\(CV_REMOVAL_VERSION\) \? 1 : 0\)/);
 });
 
 test('Job-Room backfill migration records successful detail fetches per owned job', () => {

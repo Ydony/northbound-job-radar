@@ -207,8 +207,8 @@ Official material rechecked 2026-09-09: [JobCloud terms](https://www.jobs.ch/en/
       EURES entry, which it had never had despite EURES being the largest source of usable jobs.
 - [x] **`/privacy`** re-read and corrected 2026-09-08. It was telling a stranger their CV is stored
       and read to score jobs, months after CV matching was shelved, and listing location and
-      filters as search settings that no longer exist. The CV disclosures are now gated on
-      `CV_MATCHING_ENABLED` rather than deleted, so they return with the feature.
+      filters as search settings that no longer exist. The CV disclosures were gated behind the
+      feature flag at the time and were removed outright with the feature on 2026-09-23.
       `tests/privacy-policy.test.ts` enforces it.
 
 ---

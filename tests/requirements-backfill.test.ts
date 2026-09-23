@@ -78,11 +78,6 @@ async function fixture() {
     language_status TEXT NOT NULL DEFAULT 'unknown',
     language_summary TEXT NOT NULL DEFAULT '',
     language_signals TEXT NOT NULL DEFAULT '[]',
-    fit_score_a INTEGER NOT NULL DEFAULT 0,
-    fit_score_b INTEGER NOT NULL DEFAULT 0,
-    best_cv_slot TEXT NOT NULL DEFAULT '',
-    matched_keywords TEXT NOT NULL DEFAULT '[]',
-    missing_keywords TEXT NOT NULL DEFAULT '[]',
     workplace_type TEXT NOT NULL DEFAULT 'unknown',
     is_saved INTEGER NOT NULL DEFAULT 0,
     application_status TEXT NOT NULL DEFAULT 'not_applied',
@@ -90,8 +85,6 @@ async function fixture() {
     normalized_version INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL DEFAULT '2026-09-01'
   )`).run();
-  await db.prepare("CREATE TABLE cvs (user_id TEXT, slot TEXT, cv_text TEXT, derived_role TEXT)").run();
-  await db.prepare("CREATE TABLE search_settings (user_id TEXT, role_override_a TEXT DEFAULT '', role_override_b TEXT DEFAULT '')").run();
   // The columns under test arrive through their own migrations, as they do in the real database.
   await db.batch(runtimeMigrations.find((entry) => entry.version === 20)!.statements.map((sql) => db.prepare(sql)));
   await db.batch(runtimeMigrations.find((entry) => entry.version === 21)!.statements.map((sql) => db.prepare(sql)));

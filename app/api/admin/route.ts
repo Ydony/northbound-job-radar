@@ -5,7 +5,7 @@ import { requireSession } from '@/lib/guard';
 import { listUsers, revokeSessions, type UserRecord } from '@/lib/users';
 
 export interface AdminOverview {
-  users: (UserRecord & { jobCount: number; cvCount: number })[];
+  users: (UserRecord & { jobCount: number })[];
   visits: { day: string; totalVisits: number; uniqueVisitors: number }[];
   totals: { users: number; admins: number; jobs: number };
   signupsOpen: boolean;
@@ -29,24 +29,21 @@ export async function GET(request: Request) {
   if (response) return response;
   const { db } = session;
 
-  const [users, visits, jobCounts, cvCounts, totals] = await Promise.all([
+  const [users, visits, jobCounts, totals] = await Promise.all([
     listUsers(db),
     readDailyVisits(db, 30),
     db.prepare('SELECT user_id, COUNT(*) AS total FROM jobs GROUP BY user_id').all<{ user_id: string; total: number }>(),
-    db.prepare('SELECT user_id, COUNT(*) AS total FROM cvs GROUP BY user_id').all<{ user_id: string; total: number }>(),
     db.prepare('SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM jobs) AS jobs')
       .first<{ users: number; jobs: number }>(),
   ]);
   const jobsByUser = new Map(jobCounts.results.map((row) => [row.user_id, row.total]));
-  const cvsByUser = new Map(cvCounts.results.map((row) => [row.user_id, row.total]));
 
   const overview: AdminOverview = {
     // Counts only: an administrator can see that an account exists and how much it holds, never
-    // its CV text or its job list.
+    // its job list.
     users: users.map((user) => ({
       ...user,
       jobCount: jobsByUser.get(user.id) ?? 0,
-      cvCount: cvsByUser.get(user.id) ?? 0,
     })),
     visits,
     totals: {
@@ -125,7 +122,7 @@ export async function DELETE(request: Request) {
   await ensureSchema();
   const { session, response } = await requireSession(request, { adminOnly: true });
   if (response) return response;
-  const { db, user: actor, files } = session;
+  const { db, user: actor } = session;
 
   const body = await request.json().catch(() => ({})) as { userId?: unknown; confirm?: unknown };
   const userId = typeof body.userId === 'string' ? body.userId : '';
@@ -139,15 +136,9 @@ export async function DELETE(request: Request) {
     return Response.json({ error: 'That is the only active administrator.' }, { status: 409 });
   }
 
-  const cvs = await db.prepare('SELECT object_key FROM cvs WHERE user_id = ?').bind(userId)
-    .all<{ object_key: string }>();
-  const objectKeys = cvs.results.map((cv) => cv.object_key).filter(Boolean);
-  if (objectKeys.length) await files.delete(objectKeys);
-
   await db.batch([
     db.prepare('DELETE FROM language_feedback WHERE user_id = ?').bind(userId),
     db.prepare('DELETE FROM jobs WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM cvs WHERE user_id = ?').bind(userId),
     db.prepare('DELETE FROM search_settings WHERE user_id = ?').bind(userId),
     db.prepare('DELETE FROM search_roles WHERE user_id = ?').bind(userId),
     db.prepare('DELETE FROM indeed_settings WHERE user_id = ?').bind(userId),

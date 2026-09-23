@@ -296,7 +296,8 @@ usable by someone who is not its author.
 
 ### Deferred, not dropped
 
-- **The CV fit score** (P4) — switched back on if a use for it becomes clear.
+- **The CV fit score** (P4) — shelved 2026-09-07, then removed outright 2026-09-23 (schema
+  migration 28). Returning it means rebuilding it, not setting a flag.
 - **Jooble** (TASKS E9) — owner registers a key, then one measurement decides it.
 - **Apify** (TASKS E11) — only with an actor that reads documented public endpoints.
 - **Arbeitnow** (TASKS E10) — strong source, wrong countries. Revisit if Germany or the UK is added.

@@ -49,26 +49,6 @@ export interface LanguageResult {
   signals: string[];
 }
 
-export interface FitResult {
-  score: number;
-  matched: string[];
-  missing: string[];
-}
-
-export interface CvInput {
-  slot: 'a' | 'b';
-  cvText: string;
-  derivedRole: string;
-}
-
-export interface FitBySlot {
-  fitScoreA: number;
-  fitScoreB: number;
-  bestCvSlot: 'a' | 'b' | '';
-  matchedKeywords: string[];
-  missingKeywords: string[];
-}
-
 /** Employer-declared language requirement, as published by sources that expose structured fields (currently Job-Room). */
 export interface StructuredLanguageSkill {
   languageIsoCode: string;
@@ -146,8 +126,6 @@ export function analyzeJobLanguage(
   return structured ?? fromText;
 }
 
-const localLanguages = ['german', 'french', 'italian', 'dutch', 'deutsch', 'français', 'francais', 'italiano', 'nederlands'];
-
 const englishMarkers = new Set([
   'and', 'are', 'as', 'at', 'be', 'business', 'candidate', 'company', 'customer', 'experience', 'for', 'from',
   'have', 'in', 'including', 'is', 'job', 'knowledge', 'management', 'of', 'our', 'position', 'project', 'requirements',
@@ -159,20 +137,6 @@ const nonEnglishMarkers = new Set([
   'mit', 'profil', 'sie', 'und', 'wir', 'à', 'avec', 'compétences', 'dans', 'de', 'des', 'du', 'expérience', 'le', 'les',
   'nous', 'poste', 'pour', 'profil', 'vous', 'con', 'esperienza', 'il', 'la', 'requisiti', 'ruolo', 'bij', 'de', 'een',
   'ervaring', 'functie', 'het', 'met', 'van', 'vereisten', 'voor', 'wij',
-]);
-
-const skillPhrases = [
-  'account management', 'agile', 'aws', 'azure', 'business analysis', 'change management', 'communication', 'crm',
-  'customer success', 'data analysis', 'docker', 'excel', 'figma', 'financial analysis', 'git', 'google analytics',
-  'javascript', 'jira', 'kubernetes', 'leadership', 'machine learning', 'marketing', 'negotiation', 'node.js', 'notion',
-  'people management', 'power bi', 'product management', 'project management', 'python', 'react', 'recruiting', 'sales',
-  'sap', 'scrum', 'sql', 'stakeholder management', 'strategy', 'tableau', 'typescript', 'ux research',
-];
-
-const stopWords = new Set([
-  'about', 'after', 'also', 'and', 'are', 'been', 'being', 'between', 'but', 'can', 'company', 'each', 'for', 'from',
-  'have', 'into', 'job', 'more', 'most', 'not', 'our', 'role', 'that', 'the', 'their', 'them', 'then', 'there', 'these',
-  'they', 'this', 'through', 'very', 'what', 'when', 'where', 'which', 'will', 'with', 'work', 'would', 'you', 'your',
 ]);
 
 function words(text: string) {
@@ -300,45 +264,5 @@ export function analyzeLanguage(description: string, title = ''): LanguageResult
     status: 'pass' as const,
     summary: 'English advertisement with no local-language requirement detected.',
     signals: ['Ad language: English'],
-  };
-}
-
-export function scoreFit(description: string, title: string, cvText: string, targetRole: string): FitResult {
-  if (!cvText.trim()) return { score: 0, matched: [] as string[], missing: [] as string[] };
-  const jobLower = `${title} ${description}`.toLowerCase();
-  const cvLower = cvText.toLowerCase();
-  const phraseRequirements = skillPhrases.filter((phrase) => jobLower.includes(phrase));
-  const frequency = new Map<string, number>();
-  for (const token of words(`${title} ${title} ${description}`)) {
-    if (token.length < 4 || stopWords.has(token) || englishMarkers.has(token) || localLanguages.includes(token)) continue;
-    frequency.set(token, (frequency.get(token) ?? 0) + 1);
-  }
-  const keywordRequirements = [...frequency.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([token]) => token)
-    .filter((token) => !phraseRequirements.some((phrase) => phrase.includes(token)))
-    .slice(0, 14);
-  const requirements = [...phraseRequirements, ...keywordRequirements].slice(0, 18);
-  const matched = requirements.filter((item) => cvLower.includes(item));
-  const missing = requirements.filter((item) => !cvLower.includes(item)).slice(0, 6);
-  const overlap = requirements.length ? matched.length / requirements.length : 0;
-  const titleTokens = words(title).filter((token) => token.length > 3 && !stopWords.has(token));
-  const titleMatch = titleTokens.length ? titleTokens.filter((token) => cvLower.includes(token)).length / titleTokens.length : 0;
-  const targetTokens = words(targetRole).filter((token) => token.length > 3 && !stopWords.has(token));
-  const targetMatch = targetTokens.length ? targetTokens.filter((token) => jobLower.includes(token)).length / targetTokens.length : 0;
-  const score = Math.round(Math.min(96, 8 + overlap * 58 + titleMatch * 20 + targetMatch * 10));
-  return { score, matched: matched.slice(0, 8), missing };
-}
-
-/** Scores one job against every saved CV and reports which slot fits best, since a job can be a better match for the generalist CV than the specialist one (or vice versa). */
-export function scoreFitAcrossCvs(description: string, title: string, cvs: CvInput[]): FitBySlot {
-  const scored = cvs.map((cv) => ({ slot: cv.slot, ...scoreFit(description, title, cv.cvText, cv.derivedRole) }));
-  const best = scored.reduce<typeof scored[number] | null>((acc, cur) => (!acc || cur.score > acc.score ? cur : acc), null);
-  return {
-    fitScoreA: scored.find((entry) => entry.slot === 'a')?.score ?? 0,
-    fitScoreB: scored.find((entry) => entry.slot === 'b')?.score ?? 0,
-    bestCvSlot: best?.slot ?? '',
-    matchedKeywords: best?.matched ?? [],
-    missingKeywords: best?.missing ?? [],
   };
 }

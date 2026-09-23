@@ -4,6 +4,8 @@ export interface RuntimeMigration {
   statements: string[];
 }
 
+export const CV_REMOVAL_VERSION = 28;
+
 export const runtimeMigrations: RuntimeMigration[] = [
   {
     version: 1,
@@ -555,6 +557,22 @@ export const runtimeMigrations: RuntimeMigration[] = [
         updated_at TEXT NOT NULL DEFAULT ''
       )`,
       'CREATE INDEX IF NOT EXISTS indeed_coverage_user_idx ON indeed_coverage(user_id)',
+    ],
+  },
+  {
+    // CV upload and fit scoring were removed. Historical migrations remain intact so
+    // installations can advance from any recorded version; this is the final schema.
+    version: CV_REMOVAL_VERSION,
+    name: 'remove_cv_storage_and_fit_scoring',
+    statements: [
+      'DROP TABLE IF EXISTS cvs',
+      'ALTER TABLE jobs DROP COLUMN fit_score_a',
+      'ALTER TABLE jobs DROP COLUMN fit_score_b',
+      'ALTER TABLE jobs DROP COLUMN best_cv_slot',
+      'ALTER TABLE jobs DROP COLUMN matched_keywords',
+      'ALTER TABLE jobs DROP COLUMN missing_keywords',
+      'ALTER TABLE search_settings DROP COLUMN role_override_a',
+      'ALTER TABLE search_settings DROP COLUMN role_override_b',
     ],
   },
 ];

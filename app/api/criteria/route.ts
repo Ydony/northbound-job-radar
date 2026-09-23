@@ -1,8 +1,8 @@
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
-import { normalizeRoleKeywords, roleForSlot } from '@/lib/criteria';
-import { criteriaFromRow, rescoreAllJobs, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
-import type { ContractType, CvSlot, Seniority, WorkplaceMode } from '@/lib/types';
+import { normalizeRoleKeywords } from '@/lib/criteria';
+import { criteriaFromRow, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
+import type { ContractType, Seniority, WorkplaceMode } from '@/lib/types';
 
 const workplaces = new Set<WorkplaceMode>(['any', 'remote', 'hybrid', 'onsite']);
 const seniorities = new Set<Seniority>(['any', 'internship', 'entry', 'mid', 'senior', 'lead']);
@@ -42,8 +42,6 @@ export async function PUT(request: Request) {
   }
 
   const input = {
-    roleOverrideA: cleanText(body.roleOverrideA),
-    roleOverrideB: cleanText(body.roleOverrideB),
     roleKeywords: normalizeRoleKeywords(Array.isArray(body.roleKeywords) ? body.roleKeywords : []),
     location: cleanText(body.location),
     workplace,
@@ -55,18 +53,17 @@ export async function PUT(request: Request) {
     searchSwitzerland: cleanSwitch(body.searchSwitzerland),
   };
   const now = new Date().toISOString();
-  const statements = [db.prepare(`INSERT INTO search_settings (id, user_id, role_override_a, role_override_b, location, workplace,
+  const statements = [db.prepare(`INSERT INTO search_settings (id, user_id, location, workplace,
       seniority, contract_type, required_keywords, excluded_keywords, search_netherlands,
       search_switzerland, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET role_override_a = excluded.role_override_a,
-      role_override_b = excluded.role_override_b, location = excluded.location, workplace = excluded.workplace,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET location = excluded.location, workplace = excluded.workplace,
       seniority = excluded.seniority, contract_type = excluded.contract_type,
       required_keywords = excluded.required_keywords, excluded_keywords = excluded.excluded_keywords,
       search_netherlands = excluded.search_netherlands,
       search_switzerland = excluded.search_switzerland,
       updated_at = excluded.updated_at`)
-    .bind(`settings:${user.id}`, user.id, input.roleOverrideA, input.roleOverrideB, input.location, input.workplace, input.seniority,
+    .bind(`settings:${user.id}`, user.id, input.location, input.workplace, input.seniority,
       input.contractType, JSON.stringify(input.requiredKeywords), JSON.stringify(input.excludedKeywords),
       input.searchNetherlands ? 1 : 0, input.searchSwitzerland ? 1 : 0, now),
     db.prepare('DELETE FROM search_roles WHERE user_id = ?').bind(user.id)];
@@ -79,12 +76,5 @@ export async function PUT(request: Request) {
     db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
   const criteria = criteriaFromRow(row, roles.results);
-  const cvRows = await db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id)
-    .all<{ slot: CvSlot; cv_text: string; derived_role: string }>();
-  const rescoredJobs = await rescoreAllJobs(db, user.id, cvRows.results.map((saved) => ({
-    slot: saved.slot,
-    cvText: saved.cv_text,
-    derivedRole: roleForSlot(saved.slot, saved.derived_role, criteria),
-  })));
-  return Response.json({ criteria, rescoredJobs });
+  return Response.json({ criteria });
 }

@@ -4,7 +4,7 @@ import { clientIp, requireSession } from '@/lib/guard';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
 import { decodeJobsCursor, parsePageLimit } from '@/lib/paging';
-import { criteriaFromRow, cvFromRow, ensureCurrentJobClusters, ensureSearchText, jobFromRow, normalizeStoredJobs, queryCollectionTotals, queryJobsPage, searchRunsFromRows, type CriteriaRow, type CvRow,
+import { criteriaFromRow, ensureCurrentJobClusters, ensureSearchText, jobFromRow, normalizeStoredJobs, queryCollectionTotals, queryJobsPage, searchRunsFromRows, type CriteriaRow,
   type SearchRoleRow, type SearchRunRow, type SearchRunSourceRow } from '@/lib/server-data';
 
 /**
@@ -94,8 +94,7 @@ export async function GET(request: Request) {
       .bind(user.id).first<{ nl_location: unknown; nl_radius_km: unknown; ch_location: unknown; ch_radius_km: unknown; updated_at: unknown }>()
       .catch(() => null)
     : null;
-  const [cvs, page, runs, collectionTotals] = await Promise.all([
-    db.prepare('SELECT * FROM cvs WHERE user_id = ? ORDER BY slot').bind(user.id).all<CvRow>(),
+  const [page, runs, collectionTotals] = await Promise.all([
     queryJobsPage(db, user.id, {
       hiddenSourceKeys,
       hideIndeedRecords,
@@ -136,7 +135,6 @@ export async function GET(request: Request) {
     // already withholds from everyone else. The server is what enforces it; this is what makes the
     // preview honest, and it is only ever non-empty for an administrator, who can see them anyway.
     adminOnlySources: user.role === 'admin' ? [...adminOnlySourceKeys()] : [],
-    profiles: cvs.results.map(cvFromRow),
     jobs: visibleJobs,
     hiddenDuplicates: allJobs.length - visibleJobs.length,
     totalJobs: page.total,

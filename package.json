@@ -35,8 +35,6 @@
     "verify:admin": "node scripts/verify-admin-actions.mjs"
   },
   "dependencies": {
-    "mammoth": "1.11.0",
-    "pdfjs-dist": "5.4.149",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },

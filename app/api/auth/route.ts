@@ -1,5 +1,5 @@
 import { authSecrets, bindings, ensureSchema } from '@/db/runtime';
-import { clearedSessionCookie, createSessionValue, isSameOrigin, sessionCookie } from '@/lib/auth';
+import { clearedSessionCookie, createSessionValue, isLocalBootstrapRequest, isSameOrigin, sessionCookie } from '@/lib/auth';
 import { clientIp, durableRateLimit } from '@/lib/guard';
 import { authenticate, countUsers, createUser, findUserByEmail, isValidEmail, normalizeEmail,
   passwordProblem, touchLastSeen } from '@/lib/users';
@@ -51,6 +51,11 @@ export async function POST(request: Request) {
     // Registration is closed by default once the owner exists, so a public deployment cannot be
     // signed up to by strangers. Set ALLOW_SIGNUPS=true to open it.
     const existing = await countUsers(db);
+    if (existing === 0 && !isLocalBootstrapRequest(request)) {
+      // Otherwise the first stranger to discover an empty hosted database becomes its admin,
+      // even though registration is "closed". Hosting needs an out-of-band admin bootstrap.
+      return Response.json({ error: 'Administrator setup is available only on this computer.' }, { status: 403 });
+    }
     if (existing > 0 && (authSecrets().allowSignups ?? '') !== 'true') {
       return Response.json({ error: 'Registration is closed on this installation.' }, { status: 403 });
     }

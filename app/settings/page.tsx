@@ -83,7 +83,7 @@ export default function SettingsPage() {
         <span className="eyebrow">Your account</span>
         <h1>Settings</h1>
         <p>
-          Change how you sign in, or remove your account and everything in it. Your CVs, saved jobs
+          Change how you sign in, or remove your account and everything in it. Your saved jobs
           and search criteria stay exactly as they are when you change your email or password.
         </p>
       </section>
@@ -114,7 +114,7 @@ export default function SettingsPage() {
         <form className="settings-card danger" onSubmit={deleteAccount}>
           <h2>Delete this account</h2>
           <p className="settings-hint">
-            Removes your account, both CVs and the stored files, every saved job, and all search
+            Removes your account, every saved job, and all search
             settings. This is immediate and cannot be undone.
           </p>
           <p className="settings-hint">Your current password above is also required.</p>
@@ -132,7 +132,7 @@ export default function SettingsPage() {
 
       <footer>
         <b>Ik ben een appel</b>
-        <span>Your CV is never sent to a job site</span>
+        <span>Your saved jobs stay private</span>
         <a href="/privacy">Privacy</a>
       </footer>
     </main>

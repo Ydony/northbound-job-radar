@@ -2,6 +2,10 @@
 
 Last updated: 2026-09-09.
 
+> Historical decision record, not a current implementation map. CV upload, matching, R2
+> storage and related API paths described below were removed on 2026-09-23. See
+> `docs/FUNCTIONALITY_MAP.md` and `docs/PUBLIC_DEPLOYMENT_READINESS.md` for current state.
+
 The accepted Swiss + Netherlands multi-source architecture in
 `docs/MULTI_SOURCE_PLAN.md` is implemented. The supported runtime is now local-only with isolated
 `dev` and `test` environments.
@@ -113,18 +117,13 @@ and every user-data query is scoped to the session account. The supported enviro
 
 ## 4. Data model
 
-`cvs` holds up to two rows per account, keyed by `user_id` plus `slot` (`a` or `b`): CV filename,
-private R2 object key, extracted CV text, the role derived from that CV's content (§6a), and an
-update timestamp.
+`search_settings` holds each account's filters. `search_roles` holds up to five ordered
+role keywords, deduplicated before adapter searches.
 
-`search_settings` holds each account's filters and optional role override for each CV.
-`search_roles` holds up to five ordered general role keywords. Normalized CV roles and
-general roles are deduplicated before adapter searches.
-
-`language_feedback` holds an optional user verdict per job. `correct` confirms the detector result. `incorrect` stores a user-selected corrected status (`pass`, `review`, or `blocked`) and an optional reason. It is separate from `jobs`, so a CV replacement, criteria rescore, or job re-import updates detector output without erasing user feedback.
+`language_feedback` holds an optional user verdict per job. `correct` confirms the detector result. `incorrect` stores a user-selected corrected status (`pass`, `review`, or `blocked`) and an optional reason. It is separate from `jobs`, so a criteria rescore or job re-import updates detector output without erasing user feedback.
 
 `jobs` stores source/canonical URL, source identity, country, title, company, location,
-original posting date, full description, language evidence, one fit score per CV,
+original posting date, full description, language evidence,
 cross-source identity fingerprint, first/last seen, and independent saved, application, and
 visibility fields. Exact source IDs/URLs and a conservative title+company+location+posting-
 day fingerprint suppress duplicates.
@@ -166,54 +165,42 @@ The heuristic is explainable but not complete. It must be covered with a growing
 
 The result views use the detector status unless the user explicitly marks it incorrect and selects a replacement. A correction never destroys the detector status or explanation: cards show both, making the feedback auditable and suitable for a future labeled regression corpus.
 
-## 6. CV-fit score
+## 6. Job scoring (removed 2026-09-23)
 
-Every job is scored once per saved CV (`scoreFitAcrossCvs` in `lib/analysis.ts`), so a job
-can fit the generalist CV better than the specialist one. The UI shows the best score and
-the per-CV breakdown; the stored keyword lists belong to the winning slot.
+There is no fit score. Every job was once scored against one or two uploaded CVs, with the
+role searched for derived from the CV text; the feature was shelved behind a flag and then
+removed outright, along with CV upload, CV storage in R2, and the derived-role heuristic.
 
-Each individual score is a transparent lexical heuristic, not an employability prediction. It combines:
+Migration 28 (`remove_cv_storage_and_fit_scoring`) drops the `cvs` table, the `fit_score_a`,
+`fit_score_b`, `best_cv_slot`, `matched_keywords` and `missing_keywords` columns on `jobs`,
+and the two `search_settings` role overrides. Earlier migrations are untouched so an
+installation can still advance from any recorded version.
 
-- overlap with known skill phrases;
-- frequent, meaningful job-description terms found in the CV;
-- title-term overlap; and
-- overlap with that CV's derived role (§6a).
-
-Matched keywords are displayed. Later semantic ranking must preserve explanations and should be calibrated against user feedback.
-
-## 6a. Role derivation
-
-`lib/role-detection.ts` derives each CV's likely target role locally and deterministically —
-no third-party model call, consistent with the CV-privacy rule in `AGENTS.md`. It scans for
-`modifier? word{0,2} title-noun` phrases (e.g. "senior software engineer"), ranks them by
-frequency with a strong bonus for a specific phrase near the document header (a target title
-under the name beats older titles repeated in work history), and returns the top phrase.
-
-It is a heuristic and can return `''` for an unconventionally-worded CV. That is handled,
-not an error: the CV still saves and scores jobs. `POST /api/scrape` fails clearly only if
-neither a CV-derived/overridden role nor one of the five general roles exists.
+What remains is the language gate (§5). A job is kept or set aside on the evidence of the
+advertisement's own language, and on the role keywords the account saved - not on a
+similarity judgement about the reader. Nothing in the product may display a fit score,
+a match percentage, or a per-CV breakdown.
 
 ## 7. API surface
 
-- `GET /api/state` — saved CV metadata, criteria/roles, analyzed jobs, and recent source runs
-- `POST /api/profile` — one CV slot (`a`/`b`): extracted CV text and CV file; derives and stores that CV's role
-- `DELETE /api/profile?slot=a|b` — delete one stored CV/file, clear its role override, and rescore jobs with the remaining CV
-- `PUT /api/criteria` — validate and persist CV role overrides, five general roles, and filters
-- `POST /api/jobs` — validate and analyze one user-supplied public HTTPS job ad against every saved CV; the URL is never fetched by this route
+- `GET /api/state` — criteria/roles, analyzed jobs, and recent source runs, one page at a time
+- `PUT /api/criteria` — validate and persist the five role keywords and the filters
+- `POST /api/jobs` — validate and analyze one user-supplied public HTTPS job ad; the URL is never fetched by this route
 - `POST /api/scrape` — run every configured adapter, deduplicate, analyze, and persist the full source report
 - `POST /api/admin/job-room-backfill` — administrator-only, bounded repair of that administrator's
   preview-length legacy Job-Room rows, with detector-transition reporting
 - `PATCH /api/jobs/:id` — independently update saved/application/visibility state and language feedback; dismissal writes a tombstone
 - `DELETE /api/jobs/:id` — delete one analyzed job and its language feedback
 - `DELETE /api/jobs` — delete selected job IDs or all jobs and their associated language feedback
-- `DELETE /api/workspace` — confirmation-gated deletion of CV objects, jobs, feedback, and criteria
+- `DELETE /api/workspace` — confirmation-gated deletion of jobs, feedback, and criteria
 
-JSON and CSV export are generated client-side from `GET /api/state`. JSON includes only
-the CV metadata already safe for the client, never extracted CV text or R2 object keys.
+The per-job delete and the JSON/CSV export were removed from the screen on 2026-09-22: a
+delete that leaves no tombstone returns the same advertisement on the next search, which
+reads as a bug. `DELETE /api/jobs`, `DELETE /api/jobs/:id` and `lib/export.ts` still exist
+behind the API and are unreferenced by the client.
 
-Saving either CV or changing role criteria recalculates every stored job's language result
-and two fit scores in D1 batches. The client reloads state afterward so classifications,
-visible scores, labels, and the winning CV are current.
+Changing role criteria recalculates every stored job's language result in D1 batches. The
+client reloads state afterward so classifications and labels are current.
 
 ## 7a. Schema changes and local state (read before changing a column)
 
@@ -364,11 +351,10 @@ CRMs. The same ATS endpoints are rich for direct employers.
 - Deterministic language detection has focused regression tests, a reviewed 24-ad live
   sample, and persisted correction controls. The user still needs to label a representative
   set before it can be treated as an evaluation corpus.
-- Role derivation (§6a) is a small hand-written heuristic. Its focused tests now cover
-  header specificity and older repeated roles, but other CV layouts will surface new cases.
-- Scanned/image-only PDFs require OCR; the MVP reports that the file is unreadable.
 - The local persistence emulator is not a backup.
-- User-triggered CV/job deletion, full reset, and JSON/CSV export are available. There is still no automated retention schedule, encryption policy, consent screen, or audit log.
+- A user-triggered full workspace reset is available. Per-job deletion and export were
+  removed from the screen (§7). There is still no automated retention schedule, encryption
+  policy, consent screen, or audit log.
 - No scheduled discovery, alerts, or expiry checks. Scheduling remains restricted to
   authorized sources.
 - Page-fetch rejection memory (2026-09-20, #93): remembered rejections, the

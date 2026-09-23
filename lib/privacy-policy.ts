@@ -2,14 +2,10 @@
  * Privacy policy content, written from what the code actually does rather than from a template.
  * If the data handling changes, change this in the same commit.
  *
- * The CV entries are gated on CV_MATCHING_ENABLED rather than deleted. While the flag is false
- * this page must not tell a stranger their CV is stored and read, because it is not — that is a
- * false statement on the one page whose whole purpose is being true. If the feature returns, the
- * disclosure returns with it in the same change rather than being remembered.
+ * The CV upload and matching feature was removed. Keep disclosures aligned with
+ * active routes and storage, not with a dormant feature flag.
  */
-import { CV_MATCHING_ENABLED } from './features';
-
-export const PRIVACY_UPDATED_ON = '2026-09-21';
+export const PRIVACY_UPDATED_ON = '2026-09-23';
 
 export interface DataItem {
   what: string;
@@ -57,45 +53,24 @@ export const dataWeHold: DataItem[] = [
   },
 ];
 
-const cvDataItem: DataItem = {
-  what: 'Your CV file and the text extracted from it',
-  why: 'To score how well each job advertisement matches your experience, and to suggest the role to search for.',
-  legalBasis: 'Performance of a contract. This is the core function you signed up for.',
-  kept: 'Until you replace or delete it. Deleting a CV removes the stored file at the same time.',
-};
-
-if (CV_MATCHING_ENABLED) dataWeHold.splice(1, 0, cvDataItem);
-
 /**
  * The page's own headline and summary, and the "where the data lives" list.
  *
  * These lived as hardcoded JSX in app/privacy/page.tsx, which is how the page went on promising
- * "Your CV stays yours" and "R2 (your CV file)" months after CV matching was shelved: the tests
- * checked this module, the copy was somewhere else, and both looked fine. Copy that makes a
+ * outdated storage promises after features changed: the tests checked this module, the copy was
+ * somewhere else, and both looked fine. Copy that makes a
  * factual claim about data handling belongs here, where it is covered.
  */
-export const privacyHeadline = CV_MATCHING_ENABLED
-  ? { lead: 'Your CV stays', emphasis: 'yours.' }
-  : { lead: 'Your job search stays', emphasis: 'yours.' };
+export const privacyHeadline = { lead: 'Your job search stays', emphasis: 'yours.' };
 
-export const privacySummary = CV_MATCHING_ENABLED
-  ? 'This page describes exactly what is stored, why, how long it is kept, and what you can do about it. '
-    + 'It is written from what the software actually does rather than from a template. If you only read one '
-    + 'line: your CV is never sent to any job site, aggregator, or AI service, and nothing about you is sold or shared.'
-  : 'This page describes exactly what is stored, why, how long it is kept, and what you can do about it. '
+export const privacySummary = 'This page describes exactly what is stored, why, how long it is kept, and what you can do about it. '
     + 'It is written from what the software actually does rather than from a template. If you only read one '
     + 'line: search keywords and locations are sent to selected job sources; account credentials and saved advertisements are not sent to job sites or AI services.';
 
 export const whereDataLives = [
-  CV_MATCHING_ENABLED
-    ? 'Data is stored in Cloudflare D1 (database) and R2 (your CV file). Cloudflare acts as a processor and is the only third party involved in hosting.'
-    : 'Data is stored in Cloudflare D1. Cloudflare acts as a processor and is the only third party involved in hosting.',
-  CV_MATCHING_ENABLED
-    ? 'Administrators of this installation can see that an account exists, its email address, and how many jobs and CVs it holds. They cannot read your CV text or your job list.'
-    : 'Administrators of this installation can see that an account exists, its email address, and how many jobs it holds. They cannot read your job list.',
-  CV_MATCHING_ENABLED
-    ? 'Job searches send only your role keywords to the job sources listed on the sources page. They never receive your CV, your email, or anything identifying you.'
-    : 'Job searches send only your role keywords to the job sources listed on the sources page. They never receive your email or anything identifying you.',
+  'Data is currently held in a local D1-compatible database on this computer. This installation is not publicly hosted.',
+  'Administrators of this installation can see that an account exists, its email address, and how many jobs it holds. They cannot read your job list through the admin screen.',
+  'Job searches send your role keywords and chosen locations to the job sources listed on the sources page. They never receive your email.',
   'There is no automated decision-making that produces legal or similarly significant effects. The language verdict is a suggestion for you to review, and you can correct any of them.',
 ];
 
@@ -110,7 +85,7 @@ export const notCollected = [
 export const yourRights = [
   {
     right: 'Access and portability',
-    how: 'Export your entire workspace as JSON or CSV from the dashboard at any time. It is a complete copy of what is stored about you.',
+    how: 'A self-service export is not yet available. Contact the installation owner for a copy of your stored data.',
   },
   {
     right: 'Rectification',

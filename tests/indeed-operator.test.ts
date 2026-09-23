@@ -67,7 +67,7 @@ test('Indeed button is immediately usable without a separate readiness click', (
     runSources: [{
       sourceKey: 'indeed-nl', sourceName: 'Indeed Netherlands', country: 'netherlands' as const,
       status: 'complete' as const, rolesSearched: ['Data Analyst'], foundCount: 25, knownCount: 20,
-      newCount: 5, importedCount: 5, matchedCount: 3, duplicateCount: 0, skippedCount: 0, message: 'ok',
+      newCount: 6, importedCount: 5, matchedCount: 3, duplicateCount: 1, skippedCount: 0, message: 'ok',
     }],
     runStartedAt: '2026-09-22T10:00:00.000Z',
   };
@@ -79,6 +79,8 @@ test('Indeed button is immediately usable without a separate readiness click', (
   assert.match(html, /Netherlands place/);
   assert.match(html, /Switzerland distance/);
   assert.match(html, /returned 25/);
+  assert.match(html, /new 5/);
+  assert.doesNotMatch(html, /new 6/);
   assert.match(html, /matched 3/);
   assert.match(renderToStaticMarkup(createElement(IndeedStatusPanel, { ...props, busy: true })), /disabled/);
   // Ordinary-role rendering never applies here: the parent only mounts this

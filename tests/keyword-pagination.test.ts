@@ -329,11 +329,6 @@ test('upserted jobs carry folded search text that follows later edits', async ()
       languageStatus: 'pass',
       languageSummary: 'English sufficient.',
       languageSignals: [],
-      fitScoreA: 0,
-      fitScoreB: 0,
-      bestCvSlot: '',
-      matchedKeywords: [],
-      missingKeywords: [],
       postedAt: '2026-09-01',
     });
     assert.equal(first.wasKnown, false);
@@ -353,11 +348,6 @@ test('upserted jobs carry folded search text that follows later edits', async ()
       languageStatus: 'pass',
       languageSummary: 'English sufficient.',
       languageSignals: [],
-      fitScoreA: 0,
-      fitScoreB: 0,
-      bestCvSlot: '',
-      matchedKeywords: [],
-      missingKeywords: [],
       postedAt: '2026-09-01',
     });
     assert.equal(second.wasKnown, true);
@@ -382,11 +372,6 @@ test('upserted jobs keep the published expiry and never clear one held', async (
       languageStatus: 'pass' as const,
       languageSummary: 'English sufficient.',
       languageSignals: [] as string[],
-      fitScoreA: 0,
-      fitScoreB: 0,
-      bestCvSlot: '' as const,
-      matchedKeywords: [] as string[],
-      missingKeywords: [] as string[],
       postedAt: '2026-09-01',
       expiresAt: '2026-10-01',
     };

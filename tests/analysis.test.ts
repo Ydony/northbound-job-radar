@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeLanguage, isTruncatedAdvertisement, scoreFitAcrossCvs } from '../lib/analysis';
+import { analyzeLanguage, isTruncatedAdvertisement } from '../lib/analysis';
 
 // Deliberately past MIN_CHARS_TO_CONFIRM_ENGLISH. The test below has always claimed this ad was
 // "sufficiently long" while it was in fact 411 characters - shorter than a single Adzuna preview -
@@ -148,15 +148,6 @@ test('blocks a bilingual requirement for a local language', () => {
   const result = analyzeLanguage(`${englishAd} You are bilingual in English and French.`);
   assert.equal(result.status, 'blocked');
   assert.match(result.summary, /French/);
-});
-
-test('reports the better fitting CV slot', () => {
-  const result = scoreFitAcrossCvs('We need Python, SQL, machine learning and data analysis experience.', 'Data Analyst', [
-    { slot: 'a', cvText: 'Project manager with stakeholder management and sales.', derivedRole: 'Project Manager' },
-    { slot: 'b', cvText: 'Data analyst using Python, SQL and machine learning.', derivedRole: 'Data Analyst' },
-  ]);
-  assert.equal(result.bestCvSlot, 'b');
-  assert.ok(result.fitScoreB > result.fitScoreA);
 });
 
 // EURES Netherlands ads arrive cut at ~2,000 characters ending in "...", usually before the

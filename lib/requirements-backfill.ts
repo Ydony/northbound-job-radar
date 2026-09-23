@@ -1,4 +1,4 @@
-import { analyzeLanguage, scoreFitAcrossCvs, type CvInput, type LanguageStatus } from './analysis';
+import { analyzeLanguage, type LanguageStatus } from './analysis';
 import { searchAtsBoards } from './ats-feeds';
 import { canonicalJobUrl } from './job-identity';
 import { stripHtml, type ParsedJob } from './jobsch';
@@ -57,16 +57,6 @@ interface BackfillJobRow {
   language_status: LanguageStatus;
 }
 
-interface BackfillCvRow {
-  slot: 'a' | 'b';
-  cv_text: string;
-  derived_role: string;
-}
-
-interface BackfillCriteriaRow {
-  role_override_a: string;
-  role_override_b: string;
-}
 
 export interface RequirementsBackfillReport {
   eligibleCount: number;
@@ -92,15 +82,6 @@ export interface RequirementsBackfillOptions {
 function boundedLimit(value: number | undefined) {
   if (!Number.isFinite(value)) return MAX_STRUCTURE_BACKFILL_ROWS;
   return Math.max(1, Math.min(MAX_STRUCTURE_BACKFILL_ROWS, Math.floor(value!)));
-}
-
-function cvsWithEffectiveRoles(rows: BackfillCvRow[], criteria: BackfillCriteriaRow | null): CvInput[] {
-  return rows.map((row) => ({
-    slot: row.slot,
-    cvText: row.cv_text,
-    derivedRole: ((row.slot === 'a' ? criteria?.role_override_a : criteria?.role_override_b) ?? '').trim()
-      || row.derived_role,
-  }));
 }
 
 /**
@@ -149,18 +130,11 @@ export async function backfillFlattenedDescriptions(
   // when there is nothing to apply it to.
   if (eligibleCount === 0) return report;
 
-  const [jobs, cvRows, criteria] = await Promise.all([
-    db.prepare(`SELECT id, canonical_url, title, location, description, language_status FROM jobs
+  const jobs = await db.prepare(`SELECT id, canonical_url, title, location, description, language_status FROM jobs
       WHERE ${ELIGIBLE_WHERE} ORDER BY updated_at, id LIMIT ?`)
       .bind(userId, MIN_STRUCTURE_BACKFILL_CHARS, STRUCTURE_BACKFILL_VERSION, maxRows)
-      .all<BackfillJobRow>(),
-    db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ? ORDER BY slot')
-      .bind(userId).all<BackfillCvRow>(),
-    db.prepare('SELECT role_override_a, role_override_b FROM search_settings WHERE user_id = ?')
-      .bind(userId).first<BackfillCriteriaRow>(),
-  ]);
+      .all<BackfillJobRow>();
   report.attemptedCount = jobs.results.length;
-  const cvs = cvsWithEffectiveRoles(cvRows.results, criteria);
 
   // One read of the configured boards serves every row, rather than a request per job. It is the
   // same cached call an ordinary search makes, so this adds no new kind of traffic.
@@ -198,17 +172,14 @@ export async function backfillFlattenedDescriptions(
     }
 
     const language = analyzeLanguage(description, job.title);
-    const fit = scoreFitAcrossCvs(description, job.title, cvs);
     const workplaceType = detectWorkplaceType(`${job.title} ${job.location} ${description}`);
     const result = await db.prepare(`UPDATE jobs SET description = ?, language_status = ?,
-      language_summary = ?, language_signals = ?, fit_score_a = ?, fit_score_b = ?,
-      best_cv_slot = ?, workplace_type = ?, matched_keywords = ?, missing_keywords = ?,
+      language_summary = ?, language_signals = ?, workplace_type = ?,
       search_text = ?,
       normalized_version = ?, structure_version = ?, updated_at = ?
       WHERE id = ? AND user_id = ? AND structure_version < ?`)
       .bind(description, language.status, language.summary, JSON.stringify(language.signals),
-        fit.fitScoreA, fit.fitScoreB, fit.bestCvSlot, workplaceType,
-        JSON.stringify(fit.matchedKeywords), JSON.stringify(fit.missingKeywords),
+        workplaceType,
         searchTextForJob({ title: job.title, location: job.location, description }),
         NORMALIZATION_VERSION, STRUCTURE_BACKFILL_VERSION, now,
         job.id, userId, STRUCTURE_BACKFILL_VERSION).run();

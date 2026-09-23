@@ -7,7 +7,7 @@ import { normalizeIndeed, languageForIndeed } from '../lib/indeed/normalize';
 import { indeedSql, isLoopbackRequest } from '../lib/indeed/access';
 import { adminOnlySourceKeys } from '../lib/job-adapters';
 import { canonicalJobUrl, sourceJobIdFromUrl } from '../lib/job-identity';
-import { normalizeStoredJobs, rescoreAllJobs, ensureCurrentJobClusters, upsertJob } from '../lib/server-data';
+import { normalizeStoredJobs, ensureCurrentJobClusters, upsertJob } from '../lib/server-data';
 import { stripHtml } from '../lib/jobsch';
 import type { IndeedRecord } from '../lib/indeed/contracts';
 
@@ -171,7 +171,7 @@ test('Indeed never merges/enriches public copies and rescoring never promotes un
   const input = { sourceUrl: 'https://example.test/job/one', title: 'Data Analyst', company: 'Example',
     location: 'Amsterdam, Netherlands', description: stripHtml(description), postedAt: '2026-09-01',
     languageStatus: 'unknown' as const, languageSummary: 'Fixture', languageSignals: [],
-    fitScoreA: 0, fitScoreB: 0, bestCvSlot: '' as const, matchedKeywords: [], missingKeywords: [] };
+  };
   try {
     const publicJob = await upsertJob(db, 'alice', input);
     const privateInput = { ...input, sourceUrl: 'https://nl.indeed.com/viewjob?jk=synthetic' };
@@ -185,7 +185,6 @@ test('Indeed never merges/enriches public copies and rescoring never promotes un
     const bobJob = await upsertJob(db, 'bob', privateInput);
     assert.notEqual(bobJob.job.id, privateJob.job.id);
     await normalizeStoredJobs(db, 'alice');
-    await rescoreAllJobs(db, 'alice', []);
     await ensureCurrentJobClusters(db, 'alice');
     const repeated = await upsertJob(db, 'alice', privateInput);
     assert.equal(repeated.wasDismissed, true);

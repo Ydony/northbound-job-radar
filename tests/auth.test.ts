@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createSessionValue, hashPassword, isSameOrigin, readCookie, readSessionValue,
+import { createSessionValue, hashPassword, isLocalBootstrapRequest, isSameOrigin, readCookie, readSessionValue,
   sessionCookie, verifyPassword } from '../lib/auth';
 import { isValidEmail, normalizeEmail, passwordProblem } from '../lib/users';
 
@@ -67,7 +67,17 @@ test('cross-origin state changes are refused', () => {
   });
   assert.equal(isSameOrigin(make('https://app.test')), true);
   assert.equal(isSameOrigin(make('https://evil.test')), false);
+  assert.equal(isSameOrigin(make('http://app.test')), false, 'a different scheme is a different origin');
+  assert.equal(isSameOrigin(make('https://app.test:8443')), false, 'a different port is a different origin');
+  assert.equal(isSameOrigin(make('null')), false);
   assert.equal(isSameOrigin(make()), true, 'same-origin fetches may omit Origin');
+});
+
+test('an empty remotely hosted installation cannot be claimed through first signup', () => {
+  assert.equal(isLocalBootstrapRequest(new Request('http://localhost:3000/api/auth')), true);
+  assert.equal(isLocalBootstrapRequest(new Request('http://127.0.0.1:3001/api/auth')), true);
+  assert.equal(isLocalBootstrapRequest(new Request('https://public.example/api/auth')), false);
+  assert.equal(isLocalBootstrapRequest(new Request('https://localhost.attacker.example/api/auth')), false);
 });
 
 test('email and password rules', () => {

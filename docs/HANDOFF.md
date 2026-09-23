@@ -1,5 +1,31 @@
 # Handover
 
+## 2026-09-23 refactor and CV removal (current working tree)
+
+The owner requested a functionality/code inventory, cleanup, security-gap review, and removal
+of CV upload/matching. The current map is `docs/FUNCTIONALITY_MAP.md`; public blockers are
+`docs/PUBLIC_DEPLOYMENT_READINESS.md`. CV UI, upload route, role derivation, match scoring,
+R2 binding and related dependencies were removed. Migration 28 drops `cvs` and the fit/role
+override columns, while migrations 1–27 remain immutable for older database upgrades.
+Search now requires explicit role keywords, not a CV. Privacy, setup and agent instructions
+must agree with that change. The owner explicitly authorized deleting TEST's two CV rows and
+their stored files without a CV backup. The two live rows/files were deleted; the old legacy
+state and all nine in-project TEST recovery snapshots were then scrubbed of CV rows and R2
+objects without removing saved jobs. Every inspected state now has zero CV rows/objects;
+an old and the newest backup both passed restore-manifest verification. Other copies outside
+this project (for example personal files or another checkout) were not inventoried.
+
+Security hardening in this tree compares the full origin (including scheme/port) for mutations
+and refuses first-administrator registration from a non-loopback URL. Public hosting remains
+blocked: no safe hosted admin bootstrap, verified registration/recovery, bounded shared
+collection or final source-policy review exists. Do not deploy.
+
+Validation: lint, typecheck, design checks, the unit suite, and build passed. TEST was restarted
+from the new build; login returned 200, signed-out `/api/state` returned 401, the removed
+`/api/profile` route returned 404, migration 28 applied, and all 4,413 job rows remained.
+After a second restart, the CV table stayed absent (the legacy base-schema replay was fixed).
+An authenticated end-to-end browser search was not run; no provider calls were made.
+
 ## 2026-09-22 Results clarity: totals and extracted requirements (#123/#124/#125, unmerged)
 
 Owner-clarified counting plus grounded requirements, on branch
@@ -128,8 +154,8 @@ Master is green: lint, typecheck, **289/289**, build, and `npm run verify:dev` e
 **Two things that are true and easy to forget:**
 
 - A **blob-URL Web Worker is blocked** by `worker-src 'self'` (#87). Pre-existing, not from the CSP
-  change. The only worker in app code is pdf.js for PDF CV parsing, which is dormant behind
-  `CV_MATCHING_ENABLED = false` - so if that flag is turned back on, check this first.
+  change. There is now no worker in app code at all - the only one was pdf.js, which went with
+  the CV feature - so this bites whoever adds the next one.
 - Workers wedge silently when they stop to ask permission for a tool call. `pm.py` now closes their
   stdin and bounds each run at 45 minutes; before that, two runs sat for over ten minutes producing
   a zero-byte log while `progress` reported them as "just started".
@@ -562,7 +588,7 @@ From `AGENTS.md`, repeated because they are easy to erode:
 |---|---|
 | Auth, sessions, guard | `lib/auth.ts`, `lib/guard.ts`, `lib/users.ts` |
 | Sources | `lib/job-adapters.ts` (registry), `lib/job-room.ts`, `lib/job-aggregators.ts`, `lib/ats-feeds.ts`, `lib/jobsch.ts` |
-| Screening | `lib/analysis.ts` (language gate, fit score), `lib/workplace.ts`, `lib/role-detection.ts` |
+| Screening | `lib/analysis.ts` (language gate), `lib/workplace.ts` |
 | Storage | `db/runtime.ts` (schema + migrations runner), `db/migrations.ts`, `lib/server-data.ts` |
 | Pages | `app/job-radar.tsx` (dashboard), `app/login`, `app/settings`, `app/admin`, `app/sources`, `app/privacy` |
 | Docs | `docs/TASKS.md`, `docs/ENVIRONMENTS.md`, `docs/DEPLOY.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md` |

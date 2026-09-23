@@ -148,7 +148,14 @@ test('empty roles refuse to run in the interface and on the API, and a run saves
   // Read from the draft: Find new jobs saves first, so what is on screen is
   // what would run — an untouched empty form must disable the button even if
   // an older saved list exists.
-  assert.match(radar, /const noRolesToSearch = !criteriaDraft\.roleKeywords\.some\(\(keyword\) => \(keyword \?\? ''\)\.trim\(\)\);/);
+  // Read from the draft, never the saved value: an emptied form must disable the button
+  // even while an older saved list exists.
+  assert.match(radar, /const draftHasNoRoles = !criteriaDraft\.roleKeywords\.some\(\(keyword\) => \(keyword \?\? ''\)\.trim\(\)\);/);
+  // #141: and never before the account has arrived. The client starts from an empty
+  // default, so an ungated derivation tells a populated account its criteria are empty
+  // for the first second of every load.
+  assert.match(radar, /const accountLoaded = !loading && !loadError;/);
+  assert.match(radar, /const noRolesToSearch = accountLoaded && draftHasNoRoles;/);
   assert.match(radar, /noCountrySearched \|\| noRolesToSearch\}/);
   // The alert is wired for assistive tech: invalid field, describedby, alert role.
   assert.match(radar, /aria-invalid=\{noRolesToSearch && index === 0\}/);

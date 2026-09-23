@@ -1,15 +1,15 @@
 # Local environments
 
 Ik ben een appel is local-only. It has two named environments and no hosted or public environment.
-Both use Cloudflare's local Miniflare/Workers runtime, so D1 and R2 behaviour remains realistic
-without sending CVs or job data to a hosted service.
+Both use Cloudflare's local Miniflare/Workers runtime, so D1 behaviour remains realistic
+without sending job data to a hosted service.
 
 | Environment | URL | Purpose | Storage |
 |---|---|---|---|
 | **dev** | `http://localhost:3000` | Hot-reload coding and disposable experiments | `.wrangler/dev/state` |
 | **test** | `http://localhost:3001` | Stable built release used as a real user | `.wrangler/test/state` |
 
-The paths are intentionally different. A dev reset cannot delete test jobs or CV files.
+The paths are intentionally different. A dev reset cannot delete test jobs.
 
 ## First setup
 
@@ -41,7 +41,7 @@ npm run test:local
 
 `dev` uses Vinext/Vite hot reload. `test:local` first builds the current source, then runs that
 fixed build through `wrangler dev` on port 3001. Wrangler receives an explicit `--persist-to`
-path, so test D1 and R2 data stay under `.wrangler/test/state`.
+path, so test D1 data stays under `.wrangler/test/state`.
 
 Both may run at the same time. Restart `test:local` only when a validated change is ready for real
 use; source edits do not hot-reload into the running test release.
@@ -95,7 +95,7 @@ migration pass.
 ## Disposable duplicate-workflow verification
 
 `scripts/verify-cluster-workflow.mjs` exercises duplicate handling using newly registered
-ordinary accounts, synthetic ads and a synthetic CV. Run it only in an isolated checkout with
+ordinary accounts and synthetic ads. Run it only in an isolated checkout with
 disposable storage and `ALLOW_SIGNUPS=true`. It makes no external source requests. Set
 `IKBENEENAPPEL_VERIFY_DISPOSABLE=true` and `IKBENEENAPPEL_VERIFY_URL` to that local instance,
 then run `node scripts/verify-cluster-workflow.mjs`. Run once against hot-reload dev and once

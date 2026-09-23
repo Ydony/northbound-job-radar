@@ -167,7 +167,7 @@ export function sourcePoliciesForRole(isAdmin: boolean) {
 export const collectionPrinciples = [
   'Only public job advertisements are read. No account is ever logged into, and no page behind a login or access control is fetched.',
   'No personal data about other people is collected. Employer contact details that appear inside an advertisement are stored only as part of that advertisement text.',
-  'Your CV never leaves this machine. It is not sent to any job site, aggregator or third-party model.',
+  'Account credentials and saved advertisements are not sent to job sites or third-party models.',
   'No detection evasion of any kind: no randomised or human-imitating timing, no fingerprint spoofing, no stealth browser plugins, no proxy or IP rotation.',
   'Page-fetched sources run only when explicitly triggered, are capped per run, and wait between requests.',
   'Everything collected stays in a local database on this machine and can be exported or deleted at any time.',

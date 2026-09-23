@@ -3,7 +3,6 @@ import type { WorkplaceType } from './workplace';
 import type { JobExcerpt } from './excerpt';
 import type { ExtractedRequirements } from './requirements';
 
-export type CvSlot = 'a' | 'b';
 export type WorkplaceMode = 'any' | 'remote' | 'hybrid' | 'onsite';
 export type Seniority = 'any' | 'internship' | 'entry' | 'mid' | 'senior' | 'lead';
 export type ContractType = 'any' | 'permanent' | 'temporary' | 'contract' | 'internship';
@@ -11,17 +10,7 @@ export type JobCountry = 'switzerland' | 'netherlands' | 'unknown';
 export type ApplicationStatus = 'not_applied' | 'applied';
 export type VisibilityStatus = 'active' | 'dismissed';
 
-export interface CvProfile {
-  slot: CvSlot;
-  cvFileName: string;
-  hasCvText: boolean;
-  derivedRole: string;
-  updatedAt: string;
-}
-
 export interface SearchCriteria {
-  roleOverrideA: string;
-  roleOverrideB: string;
   roleKeywords: string[];
   location: string;
   workplace: WorkplaceMode;
@@ -91,11 +80,6 @@ export interface JobRecord {
   correctedLanguageStatus: LanguageStatus | '';
   languageFeedbackReason: string;
   languageFeedbackUpdatedAt: string;
-  fitScoreA: number;
-  fitScoreB: number;
-  bestCvSlot: CvSlot | '';
-  matchedKeywords: string[];
-  missingKeywords: string[];
   identityFingerprint: string;
   /** Id of the job shown in this one's place when the same posting was found on another board. */
   duplicateOf: string;
@@ -201,7 +185,6 @@ export interface AppState {
    *  can see them anyway - it exists so the "view as user" preview hides the same rows the
    *  server already withholds from everyone else. */
   adminOnlySources?: string[];
-  profiles: CvProfile[];
   jobs: JobRecord[];
   criteria: SearchCriteria;
   /**

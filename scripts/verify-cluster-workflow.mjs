@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Run only on disposable, signup-enabled dev/test state in an isolated checkout.
-// Does not fetch external job sites. All accounts, advertisements and CVs are synthetic.
+// Does not fetch external job sites. All accounts and advertisements are synthetic.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
@@ -50,12 +50,6 @@ try {
   bootstrapRole = await register(bootstrap, 'bootstrap');
   assert.equal(await register(owner, 'owner'), 'user');
   assert.equal(await register(other, 'other'), 'user');
-  const cv = 'Data Analyst with data governance, SQL, reporting and stakeholder management experience.';
-  const form = new FormData();
-  form.set('slot', 'a');
-  form.set('cvText', cv);
-  form.set('file', new File([cv], 'synthetic-cluster-cv.txt', { type: 'text/plain' }));
-  await owner.request('/api/profile', 'POST', form);
   await owner.request('/api/criteria', 'PUT', {
     roleKeywords: ['Data Analyst', 'Supply Chain'], requiredKeywords: ['data'], excludedKeywords: ['mandatory Dutch'],
   });
@@ -79,7 +73,7 @@ try {
   assert.equal(kept.isSaved, true);
   assert.equal(kept.applicationStatus, 'applied');
   assert.equal(kept.correctedLanguageStatus, 'review');
-  assert.equal(state.profiles.length, 1);
+  assert.equal('profiles' in state, false);
   assert.deepEqual(state.criteria.roleKeywords, ['Data Analyst', 'Supply Chain']);
   assert.deepEqual((await other.request('/api/state')).jobs, otherBefore.jobs);
   await other.request(`/api/jobs/${first.id}`, 'PATCH', { isSaved: false }, 404);
@@ -94,7 +88,7 @@ try {
   assert.equal(dismissed.isSaved, true);
   assert.equal(dismissed.applicationStatus, 'applied');
   console.log(JSON.stringify({ ok: true, base: base.origin, checks: [
-    'fresh schema', 'two ordinary accounts', 'CV upload', 'criteria', 'duplicate folding',
+    'fresh schema', 'two ordinary accounts', 'criteria', 'duplicate folding',
     'distinct repost retained', 'saved/applied/correction preserved', 'owner isolation',
     'cross-account mutations refused', 'dismissal survives repeated import',
   ] }));

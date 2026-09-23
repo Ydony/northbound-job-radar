@@ -27,11 +27,6 @@ const job: JobRecord = {
   correctedLanguageStatus: 'pass',
   languageFeedbackReason: 'German is optional.',
   languageFeedbackUpdatedAt: '2026-08-26T00:00:00.000Z',
-  fitScoreA: 65,
-  fitScoreB: 72,
-  bestCvSlot: 'b',
-  matchedKeywords: ['sap', 'data governance'],
-  missingKeywords: ['python'],
   identityFingerprint: 'job-v1-example',
   duplicateOf: '',
   isSaved: true,
@@ -53,9 +48,8 @@ test('exports corrected language status and safely quotes CSV values', () => {
   assert.match(csv, /"Example ""AG"""/);
 });
 
-test('exports workspace metadata without hidden CV text or object keys', () => {
+test('exports workspace metadata without CV data', () => {
   const json = workspaceToJson({
-    profiles: [{ slot: 'a', cvFileName: 'cv.pdf', hasCvText: true, derivedRole: 'Data Analyst', updatedAt: 'now' }],
     criteria: defaultSearchCriteria,
     jobs: [job],
     searchRuns: [],
@@ -64,6 +58,6 @@ test('exports workspace metadata without hidden CV text or object keys', () => {
   const parsed = JSON.parse(json);
   assert.equal(parsed.exportedAt, '2026-08-26T12:00:00.000Z');
   assert.equal(parsed.jobs[0].effectiveLanguageStatus, 'pass');
-  assert.equal('cvText' in parsed.profiles[0], false);
-  assert.equal('objectKey' in parsed.profiles[0], false);
+  assert.equal('profiles' in parsed, false);
+  assert.equal('cvText' in parsed, false);
 });

@@ -22,7 +22,7 @@
  * requirement cues and never bare bullets: metadata carries no cue, so it stays out (#125).
  * Every item returned is a grounded quotation from the available text — modality
  * ("must", "preferred", "no ... required") and negations are preserved verbatim —
- * never a CV-match explanation and never a reason to promote language eligibility.
+ * never a personal-fit explanation and never a reason to promote language eligibility.
  */
 
 /**

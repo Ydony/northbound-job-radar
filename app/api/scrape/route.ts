@@ -3,8 +3,7 @@ import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 import { rateLimit, requireSession } from '@/lib/guard';
-import { CV_MATCHING_ENABLED } from '@/lib/features';
-import { analyzeLanguage, analyzeStructuredLanguages, scoreFitAcrossCvs, type LanguageResult } from '@/lib/analysis';
+import { analyzeLanguage, analyzeStructuredLanguages, type LanguageResult } from '@/lib/analysis';
 import { adminOnlySourceKeys, bulkJobIsRelevant, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
   sourceStatusForAvailability,
   type SearchMode } from '@/lib/job-adapters';
@@ -13,9 +12,9 @@ import { isSafeManualJobUrl } from '@/lib/job-sources';
 import { delay, stripHtml, type ParsedJob } from '@/lib/jobsch';
 import { isRejectedUrl, loadRejectedListings, rejectionRolesKey, rememberRejection,
   type RejectionReason } from '@/lib/rejected-listings';
-import { matchesSearchCriteria, roleForSlot, searchTermsForProfiles } from '@/lib/criteria';
+import { matchesSearchCriteria, searchTermsForRoles } from '@/lib/criteria';
 import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
-import type { CvSlot, JobCountry, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
+import type { JobCountry, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
 
 /**
  * Page-fetching sources cost one request per job, so they stay tightly capped.
@@ -184,8 +183,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   const permittedAdapters = jobSourceAdapters.filter((adapter) =>
     (mode === 'all' || adapter.access !== 'restricted') && !hiddenForAccount.has(adapter.key)
     && (!body.sourceGroup || adapter.experimentalIndeed));
-  const [cvRows, criteriaRow, roleRows] = await Promise.all([
-    db.prepare('SELECT slot, cv_text, derived_role FROM cvs WHERE user_id = ?').bind(user.id).all<{ slot: CvSlot; cv_text: string; derived_role: string }>(),
+  const [criteriaRow, roleRows] = await Promise.all([
     db.prepare('SELECT * FROM search_settings WHERE user_id = ?').bind(user.id).first<CriteriaRow>(),
     db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
@@ -196,13 +194,6 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     .bind(user.id).first<{ nl_location: unknown; nl_radius_km: unknown; ch_location: unknown; ch_radius_km: unknown; updated_at: unknown }>()
     .catch(() => null);
   const indeedSettings = indeedSettingsFromRow(indeedSettingsRow);
-  // A CV is no longer a precondition for searching. It used to be, because search terms were
-  // derived from one, which made an optional feature block the product's only job. Roles come from
-  // the role keywords now; a CV, when the feature is switched back on, only adds to them.
-  if (CV_MATCHING_ENABLED && !cvRows.results.length) {
-    return { kind: 'refused', response: Response.json({ error: 'Upload at least one CV first.' }, { status: 400 }) };
-  }
-
   const criteria = criteriaFromRow(criteriaRow, roleRows.results);
 
   /**
@@ -231,23 +222,12 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   const activeAdapters = permittedAdapters.filter((adapter) => countrySearched(adapter.country));
   const skippedAdapters = permittedAdapters.filter((adapter) => !countrySearched(adapter.country));
 
-  const searchTerms = searchTermsForProfiles(cvRows.results.map((row) => ({
-    slot: row.slot,
-    derivedRole: row.derived_role,
-  })), criteria);
+  const searchTerms = searchTermsForRoles(criteria);
   if (!searchTerms.length) {
     return { kind: 'refused', response: Response.json({
-      error: CV_MATCHING_ENABLED
-        ? 'Add at least one role keyword or use a CV with a detectable target role.'
-        : 'Add at least one role keyword in Search settings, then search again.',
+      error: 'Add at least one role keyword in Search settings, then search again.',
     }, { status: 400 }) };
   }
-
-  const cvs = cvRows.results.map((row) => ({
-    slot: row.slot,
-    cvText: row.cv_text,
-    derivedRole: roleForSlot(row.slot, row.derived_role, criteria),
-  }));
   const runId = crypto.randomUUID();
   const startedAt = new Date().toISOString();
   await db.prepare('INSERT INTO search_runs (id, user_id, status, started_at, completed_at) VALUES (?, ?, ?, ?, ?)')
@@ -486,7 +466,6 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         continue;
       }
       const language = languageForParsedJob(parsed, description);
-      const fit = scoreFitAcrossCvs(description, parsed.title, cvs);
       const stored = await upsertJob(db, user.id, {
         sourceUrl: parsed.sourceUrl,
         title: parsed.title,
@@ -500,7 +479,6 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         languageStatus: language.status,
         languageSummary: language.summary,
         languageSignals: language.signals,
-        ...fit,
       });
       known.push({
         source_key: stored.job.sourceKey,

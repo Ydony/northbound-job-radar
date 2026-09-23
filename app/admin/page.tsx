@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 interface AdminUser {
   id: string; email: string; role: 'admin' | 'user'; status: 'active' | 'disabled';
-  createdAt: string; lastSeenAt: string; jobCount: number; cvCount: number;
+  createdAt: string; lastSeenAt: string; jobCount: number;
 }
 interface Overview {
   users: AdminUser[];
@@ -144,7 +144,7 @@ export default function AdminPage() {
         <span className="eyebrow">Administrator</span>
         <h1>System manager</h1>
         <p>
-          Accounts, and how much the site is used. Account holders&apos; CV text and job lists are not
+          Accounts, and how much the site is used. Account holders&apos; job lists are not
           readable from here by design — only counts are shown.
         </p>
         <p className="form-message" aria-live="polite">{message}</p>
@@ -156,7 +156,7 @@ export default function AdminPage() {
             <h2>Job-Room repair</h2>
             <p>
               Replace old preview-length Job-Room records with the full public advertisement, then
-              recheck language and CV fit. One run is capped at 120 detail requests and uses the
+              recheck language. One run is capped at 120 detail requests and uses the
               source&apos;s existing fixed delay; saved, applied, dismissed, and corrected verdicts stay intact.
             </p>
           </div>
@@ -235,7 +235,7 @@ export default function AdminPage() {
                   <b>{user.email}</b>
                   <span>
                     {user.role === 'admin' ? 'Administrator' : 'User'} · {user.status}
-                    {' · '}{user.jobCount} jobs · {user.cvCount} CVs
+                    {' · '}{user.jobCount} jobs
                   </span>
                 </div>
                 {user.role === 'admin' && <span className="admin-badge">Admin</span>}
@@ -257,7 +257,7 @@ export default function AdminPage() {
 
       <footer>
         <b>Ik ben een appel</b>
-        <span>Counts only · no access to anyone&apos;s CV or job list</span>
+        <span>Counts only · no access to anyone&apos;s job list</span>
         <a href="/privacy">Privacy</a>
       </footer>
     </main>

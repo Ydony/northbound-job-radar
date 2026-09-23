@@ -11,15 +11,14 @@ export function jobsToCsv(jobs: JobRecord[]) {
     'title', 'company', 'location', 'country', 'sourceName', 'sourceUrl', 'postedAt',
     'effectiveLanguageStatus', 'detectorLanguageStatus',
     'languageSummary', 'languageSignals', 'languageFeedback', 'correctedLanguageStatus',
-    'languageFeedbackReason', 'fitScoreA', 'fitScoreB', 'bestCvSlot', 'matchedKeywords',
-    'missingKeywords', 'isSaved', 'applicationStatus', 'visibilityStatus', 'firstSeenAt', 'lastSeenAt', 'createdAt', 'updatedAt',
+    'languageFeedbackReason', 'isSaved', 'applicationStatus', 'visibilityStatus',
+    'firstSeenAt', 'lastSeenAt', 'createdAt', 'updatedAt',
   ];
   const rows = jobs.map((job) => [
     job.title, job.company, job.location, job.country, job.sourceName, job.sourceUrl, job.postedAt,
     effectiveLanguageStatus(job), job.languageStatus,
     job.languageSummary, job.languageSignals, job.languageFeedback, job.correctedLanguageStatus,
-    job.languageFeedbackReason, job.fitScoreA, job.fitScoreB, job.bestCvSlot, job.matchedKeywords,
-    job.missingKeywords, job.isSaved, job.applicationStatus, job.visibilityStatus, job.firstSeenAt, job.lastSeenAt,
+    job.languageFeedbackReason, job.isSaved, job.applicationStatus, job.visibilityStatus, job.firstSeenAt, job.lastSeenAt,
     job.createdAt, job.updatedAt,
   ]);
   return [columns.map(csvCell).join(','), ...rows.map((row) => row.map(csvCell).join(','))].join('\r\n');
@@ -28,7 +27,6 @@ export function jobsToCsv(jobs: JobRecord[]) {
 export function workspaceToJson(state: AppState, exportedAt = new Date().toISOString()) {
   return JSON.stringify({
     exportedAt,
-    profiles: state.profiles,
     criteria: state.criteria,
     searchRuns: state.searchRuns,
     jobs: state.jobs.map((job) => ({ ...job, effectiveLanguageStatus: effectiveLanguageStatus(job) })),

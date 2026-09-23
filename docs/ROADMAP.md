@@ -2,6 +2,10 @@
 
 This document describes the overall product, including capabilities that are intentionally outside the first jobs.ch MVP.
 
+> Historical roadmap. The CV and fit-scoring items below were explicitly removed on
+> 2026-09-23, and several other "current" statements are superseded by
+> `docs/FUNCTIONALITY_MAP.md`. Use the project board for open tasks.
+
 ## Phase 0 — testable local multi-source MVP (current)
 
 - One-click, manually triggered adapter orchestration for Switzerland and the Netherlands.
@@ -16,12 +20,12 @@ This document describes the overall product, including capabilities that are int
   `docs/ARCHITECTURE.md` §2 for the source-specific permission record.
 - Strict `pass / review / blocked` language gate.
 - Persisted accurate/incorrect feedback with an optional corrected status and reason; explicit corrections control views without erasing detector evidence.
-- Explainable CV-fit score.
 - Independent saved, Applied/Not applied, and active/dismissed state; durable suppression
   of dismissed duplicates; source/country/application/result filters.
 - Posted dates and source/country identity on cards; latest-run and cumulative source
   dashboards.
-- Delete either CV or selected/all jobs, reset the workspace, and export safe JSON/CSV data.
+- Reset the workspace. Per-job deletion and JSON/CSV export exist behind the API but were
+  removed from the screen on 2026-09-22.
 - Optional VPN-enforced local launchers for Windows and macOS.
 - Ordered local D1 migrations, R2 persistence, multi-user ownership, two real CV profiles, 916
   jobs in the stable test workspace, and a 90-test regression suite.

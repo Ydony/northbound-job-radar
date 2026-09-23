@@ -7,12 +7,11 @@ const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   '00000000-0000-4000-8000-000000000000';
 
 // The binding names live in .openai/hosting.json because that is where the scaffolding that
-// created this project put them. The file is kept and read - it is what names DB and CV_FILES -
+// created this project put them. The file is kept and read - it names DB -
 // but the @openai/sites-vite-plugin that came with it is gone: the project deploys to Cloudflare
 // and docs/DEPLOY.md rules out OpenAI Sites outright, so the plugin was building for a target
-// nobody intends to use. Verified by removing it: the worker builds, both bindings are still
-// declared, and the app reads D1 and R2 normally.
-const { d1, r2 } = hostingConfig;
+// nobody intends to use. The remaining binding is the local D1 database.
+const { d1 } = hostingConfig;
 const localEnvironment = process.env.IKBENEENAPPEL_ENV === 'test' ? 'test' : 'dev';
 const localStateDirectory = `.wrangler/${localEnvironment}`;
 const localPort = localEnvironment === 'test' ? 3001 : 3000;
@@ -29,14 +28,6 @@ const localBindingConfig = {
           binding: d1,
           database_name: 'site-creator-d1',
           database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
-        },
-      ]
-    : [],
-  r2_buckets: r2
-    ? [
-        {
-          binding: r2,
-          bucket_name: 'site-creator-r2',
         },
       ]
     : [],

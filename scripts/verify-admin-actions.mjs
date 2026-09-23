@@ -77,8 +77,8 @@ await expect(await admin.request('/api/auth', json({ email: adminEmail, password
   200, 'admin sign-in');
 const overview = await expect(await admin.request('/api/admin'), 200, 'admin overview');
 assert(Array.isArray(overview.users), 'the overview must list accounts');
-// Counts only: an administrator must never be handed anyone's CV text or job list.
-assert(!JSON.stringify(overview).includes('cvText'), 'the overview must not expose CV text');
+// Counts only: an administrator must never be handed anyone's job list.
+assert(!JSON.stringify(overview).includes('sourceUrl'), 'the overview must not expose job lists');
 checks.push('admin overview is counts-only');
 
 console.log('2/9 Creating a disposable target account...');

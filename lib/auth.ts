@@ -1,7 +1,7 @@
 /**
  * Password hashing and session cookies.
  *
- * Each account holds a CV and a private job pipeline, so every route is closed by default and
+ * Each account holds a private job pipeline, so every route is closed by default and
  * opened only by an explicit check. Passwords are PBKDF2-SHA256 with a per-user salt; sessions are
  * HMAC-signed cookies carrying the owner id, so a tampered cookie cannot select another account.
  */
@@ -121,15 +121,22 @@ export function clearedSessionCookie(secure: boolean) {
 }
 
 /**
- * Rejects cross-origin state changes. SameSite=Strict already blocks the browser from sending the
- * cookie, and this second check covers clients that do not enforce it.
+ * Rejects cross-origin state changes. An origin includes the scheme and port, not just the host:
+ * http://example.test and https://example.test are different browser origins. SameSite=Strict
+ * already blocks most cross-site cookie use; this check also covers clients that do not enforce it.
  */
 export function isSameOrigin(request: Request) {
   const origin = request.headers.get('origin');
   if (!origin) return true;
   try {
-    return new URL(origin).host === new URL(request.url).host;
+    return new URL(origin).origin === new URL(request.url).origin;
   } catch {
     return false;
   }
+}
+
+/** First-account self-registration is only an installer convenience for the local environments. */
+export function isLocalBootstrapRequest(request: Request) {
+  const url = new URL(request.url);
+  return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 }
