@@ -248,6 +248,21 @@ export default function JobRadar() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState('');
 
+  /**
+   * Pull the remaining pages in as they become reachable, rather than behind a button.
+   *
+   * Every facet count and every lifecycle tab is computed from the jobs held here, so
+   * an outstanding page means a count that is quietly short - and no reader can be
+   * expected to know that pressing "show more" is what makes a number correct. The
+   * pager cuts the list into pages; this makes sure the list is all of it.
+   */
+  useEffect(() => {
+    if (!state.nextCursor || loading || loadingMore || loadMoreError) return;
+    void loadMoreJobs();
+    // loadMoreJobs reads the cursor off state and is safe to call once per cursor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.nextCursor, loading, loadingMore, loadMoreError]);
+
   async function loadMoreJobs() {
     const cursor = state.nextCursor;
     if (!cursor || loadingMore) return;
@@ -1616,12 +1631,7 @@ export default function JobRadar() {
               <button type="button" disabled={jobPage >= pageCount - 1}
                 onClick={() => setJobPage((p) => Math.min(pageCount - 1, p + 1))}>Next &#8594;</button>
             </nav>}
-            {state.nextCursor && <div className="load-more">
-              <button className="search-button" type="button" disabled={loading || loadingMore} onClick={() => void loadMoreJobs()}>
-                {loadingMore ? 'Loading more jobs…' : 'Show more jobs'}
-              </button>
-              {loadMoreError && <p className="form-message" role="status">{loadMoreError}</p>}
-            </div>}
+            {loadMoreError && <p className="form-message" role="status">{loadMoreError}</p>}
           </div>
           {visibleAdzunaSources.length > 0 && <p className="source-attribution">
             {ADZUNA_ATTRIBUTION}{' '}
