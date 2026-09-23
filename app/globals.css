@@ -20,9 +20,11 @@
   --shadow-sm: 0 1px 2px rgba(24,34,28,.06), 0 2px 8px rgba(24,34,28,.04);
   --shadow-md: 0 12px 32px rgba(24,34,28,.16);
 
-  /* One gutter and one maximum width for every full-width band on the page. */
-  --page-gutter: clamp(24px, 7vw, 112px);
-  --page-max: 1200px;
+  /* One gutter for every full-width band on the page. Full width is the
+     owner's decision (UX-7a, issue #130): no maximum width, no side gaps
+     beyond the gutter — "correct full width, without barriers, empty spaces
+     on side." Every band's content edge is the same 48px line. */
+  --page-gutter: 48px;
   /* The reading measure. Body text past about 75 characters loses the eye on every line
      return, which is why the card summaries at 158 characters read as broken. */
   --measure: 72ch;
@@ -358,12 +360,10 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 
 
 /* ---------------------------------------------------------------- page frame
-   Every full-width band shares one gutter and one maximum width, so their content
-   edges line up. Before this the header inset 92px, the workflow and results 112px,
-   and the setup panels nothing at all.
-
-   max(gutter, (100% - max)/2): the gutter wins on a narrow screen and nothing changes;
-   the centring term wins on a wide one, so content stops stretching and sits centred. */
+   Every full-width band shares one 48px gutter, so their content edges line
+   up. Before this the header inset 92px, the workflow and results 112px,
+   and the setup panels nothing at all. There is no maximum width (UX-7a):
+   the frame is the gutter, full stop. */
 .topbar,
 .workflow,
 .setup-panels,
@@ -377,7 +377,7 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .policy-principles,
 .workspace-load-error,
 footer {
-  padding-inline: max(var(--page-gutter), (100% - var(--page-max)) / 2);
+  padding-inline: var(--page-gutter);
 }
 
 /* The reading measure. The card's prose ran to 158 characters at 1440px, which is the
