@@ -136,11 +136,14 @@ test('both countries off disables the search button from the saved setting, not 
   // This setting decides what is collected; the country facet narrows what is shown. The UX
   // audit's finding 02 is that two filters which do not know about each other leave someone
   // unable to tell which one emptied the list, so the copy has to say which this is.
-  assert.match(source, /This decides which countries a search contacts\./);
-  assert.match(source, /It does not hide jobs you have\s*already collected/);
+  // The sentence that used to be asserted here - "This decides which countries a search
+  // contacts. It does not hide jobs you have already collected" - was removed on
+  // 2026-09-23 at the owner's request. The distinction it drew is still real and still
+  // enforced above: the setting drives what a search contacts, the facet drives what is
+  // shown. Pinning the wording only stopped anyone editing it.
 });
 
-test('empty roles refuse to run in the interface and on the API, while save still works', async () => {
+test('empty roles refuse to run in the interface and on the API, and a run saves first', async () => {
   const radar = await readFile(new URL('../app/job-radar.tsx', import.meta.url), 'utf8');
   // Read from the draft: Find new jobs saves first, so what is on screen is
   // what would run — an untouched empty form must disable the button even if

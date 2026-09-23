@@ -1118,11 +1118,6 @@ export default function JobRadar() {
               : `${scrapeProgress.percent}%`}</b>
           </p>
         </div>}
-        {!scrapeProgress && !runSummaryDismissed && scrapeMessage && <div className="run-summary" role="status">
-          <span>{scrapeMessage}</span>
-          <a href="#sources" onClick={() => setStatsOpen(true)}>Source report</a>
-          <button type="button" onClick={() => setRunSummaryDismissed(true)} aria-label="Dismiss the run summary">Dismiss</button>
-        </div>}
       </header>
 
       {/* UX-7f: the introduction band. Dark because it is read once, not used —
@@ -1132,7 +1127,6 @@ export default function JobRadar() {
       <section className="intro-band" aria-label="Why this exists">
         <div className="intro-grid">
           <div>
-            <span className="intro-eyebrow">Why this exists</span>
             <h2>&ldquo;Ik ben een appel&rdquo; is all the Dutch I know, so I built this to find the jobs that only need English.</h2>
             <p>I am learning Dutch slowly now, and eventually I will master it. But if you are like me, do use this to find yourself a job.</p>
           </div>
@@ -1146,7 +1140,6 @@ export default function JobRadar() {
             </div>
           </div>
         </div>
-        <p className="intro-limits"><strong>What it does not do.</strong> It does not apply for anything, it holds no account on any job board, and it reads only pages anyone can open. A verdict is a reading of the text, not a guarantee — when it says <em>Maybe English</em>, it means it, and the original advertisement is one click away on every card.</p>
       </section>
 
       {/* What is left after UX-7c took Find new jobs to the criteria it runs: the
@@ -1271,9 +1264,6 @@ export default function JobRadar() {
                 {/* The UX audit's finding 02: two filtering systems that do not know about each
                     other leave someone unable to tell which one emptied the list. So this says
                     plainly which one it is. */}
-                <p>This decides which countries a search contacts. It does not hide jobs you have
-                  already collected — to narrow what is on screen, use the country filter above the
-                  results.</p>
                 {!criteriaDraft.searchNetherlands && !criteriaDraft.searchSwitzerland
                   && <p className="switch-warning">With both off there is nowhere to search, so the
                     search button stays disabled until you turn one back on.</p>}
@@ -1298,11 +1288,7 @@ export default function JobRadar() {
             </div>}
             <div className="settings-bar">
               <button className="run-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('authorized')}>Find new jobs</button>
-              <button className="save-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button>
               <button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button>
-              <p className="note">{noRolesToSearch
-                ? 'Save criteria still works — an empty role list is a valid thing to save while you decide.'
-                : `Find new jobs saves these criteria first, so a search always uses what is on screen. Last saved ${state.criteria.updatedAt ? new Date(state.criteria.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'never'}.`}</p>
             </div>
             <p aria-live="polite">{criteriaMessage}</p>
           </form>
@@ -1332,7 +1318,6 @@ export default function JobRadar() {
             {latestRun && latestRunTotals.matchedUnknown && <p className="source-dashboard-explainer">
               Matched is unknown for at least one contacted source that did not complete or predates
               matched tracking — shown as — rather than as a false zero.</p>}
-            {collectionView && <p className="source-dashboard-explainer">{TOTALS_DEDUPE_NOTE}</p>}
             {latestRun && <div className="source-table-scroll">
           <table className="source-table">
               <caption className="visually-hidden">Per-source results from the latest run</caption>

@@ -113,9 +113,6 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .place-list button { font-size:14px; min-height:30px; opacity:.85; }
 .place-list button.active { opacity:1; }
 
-.run-summary { align-items:center; color:var(--ink); display:flex; flex-wrap:wrap; font-size:14px; gap:var(--space-3); grid-column:1/-1; margin:0 0 var(--space-3); }
-.run-summary a { color:var(--text-secondary); text-decoration:underline; }
-.run-summary button { background:none; border:0; color:var(--text-secondary); cursor:pointer; font:inherit; min-height:var(--size-tap-min,44px); padding:0 var(--space-1); text-decoration:underline; }
 .scrape-bar { background:#d7ded6; border-radius:999px; height:5px; overflow:hidden; }
 .scrape-bar i { background:var(--green); border-radius:999px; display:block; height:100%; transition:width .35s ease; }
 .scrape-progress p { align-items:baseline; color:var(--text-tertiary); display:flex; font-size:12px; gap:var(--space-3); justify-content:space-between; margin:var(--space-2) 0 0; }
@@ -166,7 +163,6 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .settings-bar { align-items:center; display:flex; flex-wrap:wrap; gap:12px; margin-top:20px; }
 .run-button { background:var(--ink); border:1px solid var(--ink); border-radius:9px; color:white; cursor:pointer; font-size:14px; font-weight:700; height:44px; padding:0 22px; }
 .run-button:disabled { background:var(--signal-neutral-bg); border-color:var(--line); color:var(--text-tertiary); cursor:not-allowed; }
-.save-button { background:var(--cream); border:1px solid var(--ink); border-radius:9px; color:var(--ink); cursor:pointer; font-size:14px; font-weight:700; height:44px; padding:0 22px; }
 .settings-bar .reset-button { border-radius:9px; min-height:44px; }
 .settings-bar .note { color:var(--text-tertiary); font-size:12px; margin:0 0 0 8px; }
 .role-warning { align-items:flex-start; background:var(--signal-attention-bg); border-left:3px solid var(--signal-attention); border-radius:0 8px 8px 0; display:flex; gap:12px; margin-top:18px; padding:14px 16px; }
@@ -184,8 +180,6 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .intro-steps span[aria-hidden="true"] { color:var(--acid); display:block; font-family:var(--font-display); font-size:24px; font-weight:600; line-height:1; margin-bottom:10px; }
 .intro-steps strong { color:var(--cream); display:block; font-size:17px; font-weight:700; margin-bottom:6px; }
 .intro-steps p { color:var(--dark-body); font-size:14px; line-height:1.5; margin:0; }
-.intro-limits { border-top:1px solid var(--dark-line); color:var(--dark-muted); font-size:14px; line-height:1.55; margin:30px 0 0; max-width:110ch; padding-top:22px; }
-.intro-limits strong { color:var(--dark-body); }
 /* UX-7f: the language rule as a full-width band, surviving the introduction. */
 .rule-band { align-items:center; background:var(--band); border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:16px 44px; padding-block:26px; }
 .rule-band > span:first-child { color:var(--text-tertiary); font-size:12px; font-weight:700; letter-spacing:.1em; line-height:1.5; max-width:26ch; text-transform:uppercase; }
@@ -726,9 +720,7 @@ footer > a {
   .country-options { flex-direction:column; }
   .country-switches .switch { width:100%; }
   .add-role { align-self:flex-start; background:none; border:0; color:var(--green); cursor:pointer; font-size:14px; font-weight:800; min-height:var(--size-tap-min,44px); padding:0; }
-  .settings-bar .run-button, .settings-bar .save-button, .settings-bar .reset-button { min-height:48px; width:100%; }
-
-  /* Search statistics. The same three numbers in the same order; the cards stack
+  .settings-bar .run-button, .settings-bar /* Search statistics. The same three numbers in the same order; the cards stack
      one per row while the three cells inside each card stay side by side. */
   .source-dashboard { padding-block:20px 22px; }
   
