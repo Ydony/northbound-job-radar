@@ -113,27 +113,37 @@ export default function IndeedStatusPanel({ search, busy, searchDisabled, roles,
       saved, applied and dismissed states remain.</p>
 
     <form onSubmit={save}>
-      <fieldset>
+      <fieldset className="indeed-settings">
         <legend>Indeed places and distances</legend>
         {!netherlands && !switzerland && <p>No country is selected in Search settings, so there is nowhere to search.</p>}
         {netherlands && <>
-          <label htmlFor="indeed-nl-place">Netherlands place</label>
-          <input id="indeed-nl-place" value={draft.nlLocation} disabled={!draftReady || saving}
-            onChange={(event) => editDraft({ nlLocation: event.target.value })} placeholder="Amsterdam, Netherlands" />
-          <label htmlFor="indeed-nl-radius">Netherlands distance (km)</label>
-          <input id="indeed-nl-radius" type="number" min={0} max={800} step={1} value={draft.nlRadiusKm} disabled={!draftReady || saving}
-            onChange={(event) => editDraft({ nlRadiusKm: event.target.value })} />
+          <div className="indeed-field">
+            <label htmlFor="indeed-nl-place">Netherlands place</label>
+            <input id="indeed-nl-place" value={draft.nlLocation} disabled={!draftReady || saving}
+              onChange={(event) => editDraft({ nlLocation: event.target.value })} placeholder="Amsterdam, Netherlands" />
+          </div>
+          <div className="indeed-field indeed-field-narrow">
+            <label htmlFor="indeed-nl-radius">Netherlands distance (km)</label>
+            <input id="indeed-nl-radius" type="number" min={0} max={800} step={1} value={draft.nlRadiusKm} disabled={!draftReady || saving}
+              onChange={(event) => editDraft({ nlRadiusKm: event.target.value })} />
+          </div>
         </>}
         {switzerland && <>
-          <label htmlFor="indeed-ch-place">Switzerland place</label>
-          <input id="indeed-ch-place" value={draft.chLocation} disabled={!draftReady || saving}
-            onChange={(event) => editDraft({ chLocation: event.target.value })} placeholder="Switzerland" />
-          <label htmlFor="indeed-ch-radius">Switzerland distance (km)</label>
-          <input id="indeed-ch-radius" type="number" min={0} max={800} step={1} value={draft.chRadiusKm} disabled={!draftReady || saving}
-            onChange={(event) => editDraft({ chRadiusKm: event.target.value })} />
+          <div className="indeed-field">
+            <label htmlFor="indeed-ch-place">Switzerland place</label>
+            <input id="indeed-ch-place" value={draft.chLocation} disabled={!draftReady || saving}
+              onChange={(event) => editDraft({ chLocation: event.target.value })} placeholder="Switzerland" />
+          </div>
+          <div className="indeed-field indeed-field-narrow">
+            <label htmlFor="indeed-ch-radius">Switzerland distance (km)</label>
+            <input id="indeed-ch-radius" type="number" min={0} max={800} step={1} value={draft.chRadiusKm} disabled={!draftReady || saving}
+              onChange={(event) => editDraft({ chRadiusKm: event.target.value })} />
+          </div>
         </>}
         {!draftReady && <p>Loading saved settings…</p>}
-        <button className="jobs-button" type="submit" disabled={saving || !draftReady}>{saving ? 'Saving…' : 'Save Indeed settings'}</button>
+        <div className="indeed-settings-actions">
+          <button className="jobs-button" type="submit" disabled={saving || !draftReady}>{saving ? 'Saving…' : 'Save Indeed settings'}</button>
+        </div>
         {feedback && <p role="status">{feedback}</p>}
       </fieldset>
     </form>

@@ -145,6 +145,17 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .role-cell label, .keyword-cell label { color:var(--text-tertiary); display:block; font-size:12px; font-weight:700; letter-spacing:.1em; margin-bottom:7px; text-transform:uppercase; }
 .role-cell label.bad { color:var(--signal-attention-ink); }
 .warn-glyph { font-size:17px; line-height:1.2; }
+/* Indeed places and distances. The labels and fields were bare siblings with no rule
+   anywhere, so each label ran into its own input: "Netherlands placeAmsterdam,
+   Netherlands". A label above its field, place twice the width of the distance beside
+   it, as the Admin frame draws it. */
+.indeed-settings { border:0; display:grid; gap:var(--space-3) var(--space-4); grid-template-columns:minmax(0,2fr) minmax(0,1fr); margin:0; padding:0; }
+.indeed-settings > legend, .indeed-settings > p, .indeed-settings-actions { grid-column:1/-1; }
+.indeed-settings > legend { color:var(--text-tertiary); font-size:12px; font-weight:700; letter-spacing:.1em; padding:0; text-transform:uppercase; }
+.indeed-field { display:flex; flex-direction:column; gap:7px; min-width:0; }
+.indeed-field label { color:var(--text-tertiary); font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+.indeed-field input { background:var(--cream); border:1px solid var(--line); border-radius:8px; box-sizing:border-box; color:var(--ink); font-family:inherit; font-size:14px; height:var(--size-tap-min); padding:0 12px; width:100%; }
+.indeed-settings-actions { align-items:center; display:flex; flex-wrap:wrap; gap:var(--space-3); }
 .role-cell input, .keyword-cell input { background:var(--cream); border:1px solid var(--line); border-radius:8px; box-sizing:border-box; color:var(--ink); font-size:14px; height:44px; padding:0 12px; width:100%; }
 .role-cell input[aria-invalid="true"] { background:var(--signal-attention-bg); border:2px solid var(--signal-attention); }
 .criteria-grid .country-switches { grid-column:span 2; }
