@@ -70,6 +70,10 @@ with the working tree before blaming the cache or the build.
   `stylelint-suppressions.json`, so the fortieth is what breaks the build. Declare the
   token in the `:root` block with its measured contrast ratio. Only re-baseline with
   `npm run lint:css:rebaseline` if you meant to, and say why in the commit.
+  The suppressions file is an **experimental** stylelint feature, added in 16.25.0 and
+  still flagged as such in 17 - it prints a warning on every run. If a stylelint upgrade
+  changes its flags or its format, regenerate it with `lint:css:rebaseline`; the rule
+  itself is stable and is the part that matters.
 - **A check that cannot fail is not a check.** `check:visual` reported "all visual checks
   passed" for its whole life while rendering zero job cards. `npm run check:visual:canary`
   deletes the job card and asserts the check notices. Run it whenever that file changes.
