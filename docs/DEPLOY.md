@@ -1,8 +1,10 @@
 # Private production deployment
 
 The owner approved a private, single-admin Cloudflare Worker on 2026-09-23.
-The independent `ikbeneenappel-prod` D1 exists, but the Worker, first administrator
-and custom domain are **not live yet**. This is not approval for open registration
+The independent `ikbeneenappel-prod` D1 and first Worker version exist at
+`https://ikbeneenappel-prod.anddonatas.workers.dev`. Authentication is **not ready**:
+owner-only Worker secrets, the first administrator and the custom domain are
+still pending. This is not approval for open registration
 or a public job-search service. Do not deploy to OpenAI Sites or `chatgpt.site`.
 
 The supported environments are documented in `docs/ENVIRONMENTS.md`:
@@ -29,7 +31,8 @@ hosted project identifier.
 2. Build and verify without deploying: `npm run build:prod`. The generated
    Worker must be `ikbeneenappel-prod` and its D1 id
    `b0a513c7-0d01-486c-8b16-5cdb6690c959`.
-3. With the owner watching, run `npm run deploy:prod`. Request its
+3. The first `npm run deploy:prod` succeeded on 2026-09-24. For a future
+   approved release, run it with the owner watching. Request its
    `workers.dev/api/state` URL once so `ensureSchema()` applies migrations;
    signed-out HTTP 401 is expected. Merely opening `/login` does not apply the
    schema. Check the migration count remotely.
@@ -44,8 +47,9 @@ hosted project identifier.
 The deployment workflow builds on pushes to master, but its `production`
 environment needs the owner's explicit GitHub approval before the deploy job.
 Before approving it, the owner must also add repository Actions secrets
-`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; a 2026-09-24 names-only
-check found neither configured. Do not put their values in chat or source files.
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. A later 2026-09-24
+names-only check found both configured, but did not verify their values or
+permissions. Do not put their values in chat or source files.
 The custom `.nl` domain is a separate step after registry delegation is live.
 
 ## Before public/open-registration hosting

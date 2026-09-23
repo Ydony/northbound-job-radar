@@ -7,7 +7,7 @@ Cloudflare production environment is being prepared; it never shares their data.
 |---|---|---|---|
 | **dev** | `http://localhost:3000` | Hot-reload coding and disposable experiments | `.wrangler/dev/state` |
 | **test** | `http://localhost:3001` | Stable built release used as a real user | `.wrangler/test/state` |
-| **prod** | Worker URL pending first deploy; later `ikbeneenappel.nl` | Private, single-admin hosted release; registration closed | Remote `ikbeneenappel-prod` D1, never local TEST |
+| **prod** | `https://ikbeneenappel-prod.anddonatas.workers.dev`; custom `.nl` domain pending | Hosted Worker deployed; sign-in pending owner-only secrets and admin bootstrap | Remote `ikbeneenappel-prod` D1, never local TEST |
 
 The paths are intentionally different. A dev reset cannot delete test jobs.
 
