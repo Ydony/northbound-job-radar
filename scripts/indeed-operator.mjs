@@ -1,5 +1,8 @@
 // Reusable Node interface to the application's local, account-scoped Indeed search.
 // Does not call Indeed directly or bypass the server's admission controls.
+// The final collection ceiling permits 32 serial pages. Keep this longer than
+// the 15-minute server lease; routine login/status calls retain 2 minutes.
+export const INDEED_OPERATOR_SEARCH_TIMEOUT_MS = 960_000;
 export function localOrigin(value) {
   const url = new URL(value);
   if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
@@ -22,12 +25,12 @@ export function decodeSearch(text) {
 export function createIndeedOperator({ baseUrl, cookie = '', fetcher = fetch }) {
   const origin = localOrigin(baseUrl);
   if (cookie && !/^[^\s;=]+=[^\s;]+$/.test(cookie)) throw new Error('Invalid saved session');
-  async function call(path, method = 'GET', body) {
+  async function call(path, method = 'GET', body, timeoutMs = 120_000) {
     let response;
     try {
       response = await fetcher(origin + path, { method, redirect: 'error',
         headers: { Origin: origin, Cookie: cookie, 'Content-Type': 'application/json' },
-        body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(120000) });
+        body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) });
     } catch { throw new Error('Local app unavailable or request interrupted. Check the server and run history before retrying.'); }
     if (!response.ok) {
       const errors = { 401: 'Session expired; run Indeed login again.', 403: 'Local administrator access required.',
@@ -48,7 +51,8 @@ export function createIndeedOperator({ baseUrl, cookie = '', fetcher = fetch }) 
     },
     async status() { return (await call('/api/admin/indeed')).json(); },
     async search() {
-      const response = await call('/api/scrape', 'POST', { mode: 'authorized', sourceGroup: 'indeed' });
+      const response = await call('/api/scrape', 'POST', { mode: 'authorized', sourceGroup: 'indeed' },
+        INDEED_OPERATOR_SEARCH_TIMEOUT_MS);
       const result = decodeSearch(await response.text());
       if (result.run.sources.some(source => !['indeed-ch', 'indeed-nl'].includes(source.sourceKey))) {
         throw new Error('Unexpected source in Indeed-only response');

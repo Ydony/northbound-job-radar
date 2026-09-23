@@ -4,16 +4,18 @@
 
 Owner sequence: finish Indeed epic #112 and only its blockers (#69, #118, #126),
 review/merge, then prepare private Cloudflare #143–#149. Optional VPN #73 and
-unrelated backlog are not gates. The 200-per-role/country ceiling remains a
-safety maximum and is **not yet active**; only #126 may activate it last.
+unrelated backlog are not gates. #69/#118 are merged and closed. #126 is the
+last Indeed implementation: its branch activates the 200-per-role/country,
+800-whole-click safety ceiling. Do not call it a target or provider-safe quota.
 
 Codex's bounded date/filter probe and isolated website/operator acceptance are
 recorded in [INDEED_HANDOVER.md](INDEED_HANDOVER.md). The collector now requests
 date order plus a seven-day provider lookback, retains the local posting-date
-gate, reuses recent capped samples, and versions its query checkpoint. Run the
-updated tests/build before merging. Do not claim exhaustive coverage, exact
-provider indexing time, or an authorized quota. TEST on port 3001 was not
-restarted or modified for these code changes.
+gate, reuses recent capped samples, and versions its query checkpoint. #126
+still needs final regression and review before merge. Do not claim exhaustive
+coverage, exact provider indexing time, or an authorized quota. TEST on port
+3001 was restarted from the merged lower-budget build after a verified backup;
+it retained all 4,413 existing jobs. It does not yet run the #126 branch.
 
 ## 2026-09-23 refactor and CV removal (current working tree)
 

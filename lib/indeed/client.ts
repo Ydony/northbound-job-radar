@@ -3,12 +3,10 @@ import type { IndeedAccess, IndeedCredentials, IndeedRecord, IndeedSearchInput,
   IndeedSearchResult, IndeedStopReason } from './contracts';
 
 const ENDPOINT = 'https://apis.indeed.com/graphql';
-// Transport validation ceilings, not the live collection budget (that lives
-// with the collector in collection.ts). maxRequests 8 is the page-multiple the
-// eventual 200-rows-per-query design needs (8 x 25); the running collector
-// still sends 1 request per query and at most 4 per click.
-export const INDEED_LIMITS = Object.freeze({ maxRequests: 8, maxJobs: 400,
-  pageSize: 100, timeoutMs: 20_000, responseBytes: 2_000_000, delayMs: 500 });
+// Defensive per-query transport ceilings match the active collector: eight
+// validated 25-row pages, at most 200 upstream rows. These are not provider quotas.
+export const INDEED_LIMITS = Object.freeze({ maxRequests: 8, maxJobs: 200,
+  pageSize: 25, timeoutMs: 20_000, responseBytes: 2_000_000, delayMs: 500 });
 
 type JsonObject = Record<string, unknown>;
 const object = (value: unknown): JsonObject | null =>

@@ -58,22 +58,17 @@ export interface IndeedCollectorBudget {
   cooldownMs: number;
 }
 
-/** The live budget. Unchanged by #114 except the new 168-hour window filter. */
-export const INDEED_RUNNING_BUDGET: IndeedCollectorBudget = {
-  perQueryMaxRows: 25, totalMaxRows: 100, pageSize: 25, maxRequestsPerQuery: 1,
-  maxTotalRequests: 4, leaseMs: 180_000, cooldownMs: 60_000,
-};
-
 /**
- * The eventual design #126 activates (200 rows per role per country, 800 across
- * NL+CH). NOT live: 8 pages of the validated 25-row size reach 200 without
- * assuming the unevaluated 100-row page works. Lease covers 32 worst-case
- * 20-second requests plus delays. Synthetic tests only, until #126.
+ * Active safety ceiling (#126): 200 rows per role per country, 800 across
+ * NL+CH. Eight validated 25-row pages reach 200 without assuming 100-row
+ * pages work. This is a maximum, never a target, quota or coverage guarantee.
+ * The lease covers 32 worst-case 20-second requests plus delays.
  */
 export const INDEED_FINAL_BUDGET: IndeedCollectorBudget = {
   perQueryMaxRows: 200, totalMaxRows: 800, pageSize: 25, maxRequestsPerQuery: 8,
   maxTotalRequests: 32, leaseMs: 900_000, cooldownMs: 60_000,
 };
+export const INDEED_RUNNING_BUDGET: IndeedCollectorBudget = INDEED_FINAL_BUDGET;
 
 /** Initial recency window: the last 168 hours. #115 later accepts checkpoint windows. */
 export const INDEED_INITIAL_WINDOW_MS = 168 * 3_600_000;

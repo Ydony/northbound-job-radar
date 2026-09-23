@@ -4,7 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import IndeedStatusPanel from '../app/indeed-status';
-import { approvedProfile, configuredVars, createIndeedOperator, decodeSearch, localOrigin } from '../scripts/indeed-operator.mjs';
+import { approvedProfile, configuredVars, createIndeedOperator, decodeSearch, localOrigin,
+  INDEED_OPERATOR_SEARCH_TIMEOUT_MS } from '../scripts/indeed-operator.mjs';
+import { INDEED_RUNNING_BUDGET } from '../lib/indeed/collection';
 
 const profile = { INDEED_API_KEY: 'a'.repeat(64), INDEED_USER_AGENT: 'Synthetic fixture', INDEED_APP_INFO: 'synthetic=1' };
 const result = { added: [{ id: 'synthetic' }], scanned: 25, alreadyKnown: 2,
@@ -16,6 +18,8 @@ test('operator rejects remote targets, credentials in URLs, paths and query stri
   assert.equal(localOrigin('http://127.0.0.1:3001'), 'http://127.0.0.1:3001');
 });
 test('operator searches once without readiness or login preflight and returns added jobs', async () => {
+  assert.ok(INDEED_OPERATOR_SEARCH_TIMEOUT_MS > INDEED_RUNNING_BUDGET.leaseMs,
+    'the operator must not cancel before the final collection lease expires');
   const calls: string[] = [];
   const operator = createIndeedOperator({ baseUrl: 'http://localhost:3001', cookie: 'session=synthetic',
     fetcher: async (url, init) => {
@@ -76,6 +80,8 @@ test('Indeed button is immediately usable without a separate readiness click', (
   assert.doesNotMatch(html, /disabled/);
   // First-two-roles label, per-country settings, and the honest run report render.
   assert.match(html, /first two saved roles/);
+  assert.match(html, /at most 200 returned/);
+  assert.match(html, /800 in total/);
   assert.match(html, /Netherlands place/);
   assert.match(html, /Switzerland distance/);
   assert.match(html, /returned 25/);

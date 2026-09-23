@@ -214,12 +214,14 @@ test('a capped page with no valid jobs is not cached as a successful sample', as
   try {
     const seen: string[] = [];
     const { fetcher, calls } = scripted([{ rows: [{ key: 'bad', title: '' }], cursor: 'next' }], seen);
+    const onePage = { ...INDEED_FINAL_BUDGET, perQueryMaxRows: 25, totalMaxRows: 25,
+      maxRequestsPerQuery: 1, maxTotalRequests: 1 };
     await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL'],
-      undefined, undefined, undefined, 'alice');
+      undefined, onePage, undefined, 'alice');
     assert.equal((await coverage(db))[0].last_success, '');
     await cooldown(db);
     await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL'],
-      undefined, undefined, undefined, 'alice');
+      undefined, onePage, undefined, 'alice');
     assert.equal(calls(), 2);
   } finally {
     await dispose();

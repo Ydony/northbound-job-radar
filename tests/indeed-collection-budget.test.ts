@@ -59,19 +59,20 @@ function scripted(pages: Array<{ rows: unknown[]; cursor: string | null } | { st
 
 const recent = (n: number, country = 'NL') => Array.from({ length: n }, () => row(3_600_000, country));
 
-test('running budget is unchanged: 25-row pages, one request per query, four per click', async () => {
+test('running budget activates the 200/800 safety ceiling with eight 25-row pages per query', async () => {
   const { db, dispose } = await fixture();
   try {
     const seen: string[] = [];
     const endless = Array.from({ length: 8 }, (_, i) => ({ rows: recent(25), cursor: `c${i}` }));
     const { fetcher, calls } = scripted(endless, seen);
-    const result = await collectIndeed(db, config, ['analyst', 'master data'], undefined, fetcher, ['NL', 'CH']);
-    assert.equal(calls(), 4);
+    assert.deepEqual(INDEED_RUNNING_BUDGET, INDEED_FINAL_BUDGET);
+    const result = await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL']);
+    assert.equal(calls(), 8);
     assert.ok(seen.every((query) => query.includes('limit: 25')), 'every page asks for 25 rows');
-    // Full single pages with more upstream trigger the honest cap note, not a false complete.
+    // Eight full pages with more upstream trigger the honest cap note.
     assert.equal(result.NL.status, 'partial');
-    assert.match(result.NL.message, /25 per query/);
-    assert.equal(result.NL.retrieved, 50);
+    assert.match(result.NL.message, /200 per query/);
+    assert.equal(result.NL.retrieved, 200);
   } finally {
     await dispose();
   }
