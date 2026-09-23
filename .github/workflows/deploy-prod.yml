@@ -3,6 +3,7 @@ name: Build and approve private production deployment
 on:
   push:
     branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -46,6 +47,13 @@ jobs:
       - name: Confirm production artifact bindings
         run: |
           node -e "const c=require('./dist/server/wrangler.json');if(c.name!=='ikbeneenappel-prod'||c.d1_databases?.length!==1||c.d1_databases[0].database_id!=='b0a513c7-0d01-486c-8b16-5cdb6690c959')process.exit(1)"
+      - name: Refuse an obsolete approved run
+        run: |
+          latest=$(git ls-remote origin refs/heads/master | cut -f1)
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo 'A newer master commit exists; this approval cannot deploy an older build.'
+            exit 1
+          fi
       - name: Deploy approved artifact
         run: npx wrangler deploy --config dist/server/wrangler.json
         env:
