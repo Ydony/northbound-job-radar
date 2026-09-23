@@ -1,7 +1,7 @@
 import { createIndeedClient } from './client';
 import { indeedReadiness } from './auth';
 import { normalizeIndeed } from './normalize';
-import { defaultIndeedSettings, indeedActiveRoles, indeedQueryIdentity, indeedSearchLocation, indeedSearchRadiusMiles,
+import { defaultIndeedSettings, indeedActiveRoles, indeedQueryIdentity, indeedSearchLocation, indeedSearchRadiusMiles, INDEED_QUERY_VERSION,
   type IndeedSettings } from './settings';
 import type { IndeedCountry } from './contracts';
 import type { ParsedJob } from '../jobsch';
@@ -40,13 +40,10 @@ export async function indeedStatus(db: D1Database, config: Configuration): Promi
  * is enforced at request granularity (whole pages), so a run can overshoot by
  * less than one page; with the FINAL multiples below it lands exactly.
  *
- * Recency is enforced LOCALLY by posted date, because the transport asks for
- * RELEVANCE order and newest-first support is unverified (Codex #118 must
- * supply evidence before any upstream date/newest claim). Under relevance
- * ordering, stopping at the "window end" mid-paging would be unsound — old and
- * new rows interleave — so the collector pages to budget or exhaustion and
- * drops out-of-window rows. Jobs with unknown dates are kept: absence of a
- * date is not evidence of age.
+ * The provider receives a DATE sort and an approximate dateOnIndeed lookback;
+ * a bounded live request accepted this shape on 2026-09-23. The local
+ * datePublished gate remains authoritative for returned rows. Index age and
+ * publication age can differ, so this is not proof of exhaustive coverage.
  */
 export interface IndeedCollectorBudget {
   /** Upstream returned rows per role query per country. */
@@ -141,8 +138,8 @@ export async function indeedCoverage(db: D1Database, userId: string): Promise<In
   // aliases, so the shaping happens here, with safe fallbacks throughout.
   const rows = await db.prepare(`SELECT country, role, location, radius_miles,
       window_start_ms, covered_through_ms, status, last_check, last_success
-    FROM indeed_coverage WHERE user_id = ? ORDER BY country, role`)
-    .bind(userId).all<{
+    FROM indeed_coverage WHERE user_id = ? AND query_key LIKE ? ORDER BY country, role`)
+    .bind(userId, `indeed/v${INDEED_QUERY_VERSION}\n%`).all<{
       country: unknown; role: unknown; location: unknown; radius_miles: unknown;
       window_start_ms: unknown; covered_through_ms: unknown; status: unknown;
       last_check: unknown; last_success: unknown;
@@ -240,22 +237,27 @@ export async function collectIndeed(db: D1Database, config: Configuration,
           : '';
         const prior = queryKey ? await readCoverage(db, queryKey) : null;
         const priorCheckMs = prior ? Date.parse(prior.last_check) : NaN;
-        if (prior?.status === 'complete' && prior.covered_through_ms > 0 && Number.isFinite(priorCheckMs)
+        if (prior && prior.last_success === prior.last_check && Number.isFinite(priorCheckMs)
           && runStartMs - priorCheckMs < INDEED_REUSE_FRESHNESS_MS) {
-          // Recent identical click: reuse the successful check with no
-          // upstream request. Stored times are deliberately left alone, so a
+          // Recent identical click: reuse even an incomplete bounded sample
+          // with no upstream request. An error/refusal cannot be cached here.
+          // Stored times are deliberately left alone, so a
           // reuse can never extend its own freshness into an indefinite cache.
           value.roles.push(term);
-          reuseNotes.push(`Reused successful check of "${term}" from ${prior.last_success || prior.last_check}; no upstream request.`);
+          if (prior.status !== 'complete') value.status = 'partial';
+          reuseNotes.push(`Reused recent ${prior.status} check of "${term}" from ${prior.last_check}; no upstream request.`);
           continue;
         }
-        const queryWindowStart = prior?.status === 'complete' && prior.covered_through_ms > 0
+        const rawWindowStart = prior?.status === 'complete' && prior.covered_through_ms > 0
           // Incremental: since the previous successful boundary, minus a
           // bounded overlap for late indexing.
           ? prior.covered_through_ms - INDEED_COVERAGE_OVERLAP_MS
           // Incomplete or failed: retry the same window, never less. Coverage
           // advances only on success, so this cannot skip what was missed.
           : prior && prior.window_start_ms > 0 ? prior.window_start_ms : initialWindowStart;
+        // A partial check retries the same recent window, but never grows an
+        // unlimited historical backlog after days of capped searches.
+        const queryWindowStart = Math.max(rawWindowStart, runStartMs - INDEED_INITIAL_WINDOW_MS);
         earliestWindow = Math.min(earliestWindow, queryWindowStart);
         // Request granularity: whole pages, so the per-query and whole-run
         // ceilings bind at page boundaries without mid-query cursor threading.
@@ -264,7 +266,8 @@ export async function collectIndeed(db: D1Database, config: Configuration,
           Math.ceil(wholeRunRemaining / budget.pageSize)));
         if (requestsMade) await delay(500);
         const response = await client.search({ country, keywords: term,
-          location, radiusMiles,
+          location, radiusMiles, sort: 'DATE',
+          hoursOld: Math.max(1, Math.min(168, Math.ceil((runStartMs - queryWindowStart) / 3_600_000))),
           pageSize: budget.pageSize, maxJobs: budget.perQueryMaxRows, maxRequests: calls, signal });
         value.roles.push(term);
         value.requests += response.requestsMade;
@@ -289,7 +292,9 @@ export async function collectIndeed(db: D1Database, config: Configuration,
             windowStartMs: queryWindowStart,
             status: exhausted ? 'complete' : 'incomplete',
             lastCheck: attemptAt,
-            lastSuccess: exhausted ? attemptAt : (prior?.last_success ?? ''),
+            lastSuccess: (response.reason === 'end_of_results'
+              || (response.reason === 'budget_exhausted' && response.jobs.length > 0))
+              ? attemptAt : (prior?.last_success ?? ''),
           });
         }
         const queryCapped = response.hasMore && response.responseRows >= budget.perQueryMaxRows;

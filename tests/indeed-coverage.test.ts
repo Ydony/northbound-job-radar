@@ -117,7 +117,7 @@ test('an immediate identical click reuses results with no upstream request and n
     assert.equal(calls(), 1, 'the repeat click sends no upstream request');
     assert.equal(second.NL.jobs.length, 0);
     assert.equal(second.NL.status, 'complete');
-    assert.match(second.NL.message, /Reused successful check/);
+    assert.match(second.NL.message, /Reused recent complete check/);
     assert.match(second.NL.message, /no upstream request/);
     const kept = (await coverage(db))[0];
     assert.equal(kept.last_check, stored.last_check, 'reuse leaves stored times alone: no indefinite cache');
@@ -176,7 +176,7 @@ test('changed settings start fresh coverage and leave the old checkpoint alone',
   }
 });
 
-test('a capped run stays incomplete without advancing, and the retry resumes the same window', async () => {
+test('a capped run stays incomplete, reuses its recent sample, then retries the recent window', async () => {
   const { db, dispose } = await fixture();
   try {
     const seen: string[] = [];
@@ -188,13 +188,39 @@ test('a capped run stays incomplete without advancing, and the retry resumes the
     let rows = await coverage(db);
     assert.equal(rows[0].status, 'incomplete');
     assert.equal(rows[0].covered_through_ms, 0, 'no advance on a capped run');
-    const windowStart = rows[0].window_start_ms;
+    const windowStart = rows[0].window_start_ms as number;
+    await cooldown(db);
+    const cached = await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL'],
+      undefined, INDEED_FINAL_BUDGET, undefined, 'alice');
+    assert.equal(calls(), 8, 'repeat click does not re-request the same capped pages');
+    assert.equal(cached.NL.status, 'partial', 'reuse never claims full coverage');
+    assert.match(cached.NL.message, /no upstream request/);
+    await db.prepare('UPDATE indeed_coverage SET last_check = ?')
+      .bind(new Date(Date.now() - INDEED_REUSE_FRESHNESS_MS - 1000).toISOString()).run();
     await cooldown(db);
     await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL'],
       undefined, INDEED_FINAL_BUDGET, undefined, 'alice');
-    assert.ok(calls() > 8, 'incomplete coverage searches again instead of reusing');
+    assert.ok(calls() > 8, 'stale incomplete coverage searches again');
     rows = await coverage(db);
-    assert.equal(rows[0].window_start_ms, windowStart, 'the retry resumes the same window, never less');
+    assert.ok((rows[0].window_start_ms as number) >= windowStart,
+      'the retry keeps at most the rolling seven-day window');
+  } finally {
+    await dispose();
+  }
+});
+
+test('a capped page with no valid jobs is not cached as a successful sample', async () => {
+  const { db, dispose } = await fixture();
+  try {
+    const seen: string[] = [];
+    const { fetcher, calls } = scripted([{ rows: [{ key: 'bad', title: '' }], cursor: 'next' }], seen);
+    await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL'],
+      undefined, undefined, undefined, 'alice');
+    assert.equal((await coverage(db))[0].last_success, '');
+    await cooldown(db);
+    await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL'],
+      undefined, undefined, undefined, 'alice');
+    assert.equal(calls(), 2);
   } finally {
     await dispose();
   }
@@ -277,6 +303,14 @@ test('the admin panel loader returns the caller’s own summaries, shaping unkno
     assert.deepEqual(summaries.map((s) => s.country), ['CH', 'NL']);
     assert.ok(summaries.every((s) => s.role === 'analyst' && s.location.length > 0 && s.lastSuccess.length > 0));
     assert.deepEqual(await indeedCoverage(db, 'bob'), [], 'one account never sees another’s checkpoints');
+    await db.prepare(`INSERT INTO indeed_coverage
+      (query_key, user_id, country, role, location, radius_miles, covered_through_ms,
+       window_start_ms, status, last_check, last_success, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind('indeed/v1\nalice\nNL\nanalyst\namsterdam\n10', 'alice', 'NL', 'analyst', 'Amsterdam',
+        10, 1, 1, 'complete', '', '', '').run();
+    assert.equal((await indeedCoverage(db, 'alice')).length, 2,
+      'old query-version checkpoints remain stored but do not duplicate the current panel');
   } finally {
     await dispose();
   }

@@ -20,6 +20,9 @@ export interface IndeedSearchInput {
   keywords: string;
   location: string;
   radiusMiles?: number;
+  /** Provider-side dateOnIndeed lookback; an approximate prefilter, never an exact posting boundary. */
+  hoursOld?: number;
+  sort?: 'RELEVANCE' | 'DATE';
   pageSize?: number;
   maxRequests?: number;
   maxJobs?: number;

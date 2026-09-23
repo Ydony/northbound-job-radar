@@ -1,6 +1,34 @@
-# Indeed handover — current as of 2026-09-22 (Spark implementation #113–#116)
+# Indeed handover — current as of 2026-09-23
 
-Spark (public code + synthetic fixtures only) implemented the IND-Next series on
+## 2026-09-23 Codex verification and collection correction (#69/#118)
+
+The owner-approved local profile was exercised in an isolated built Worker, not in
+the owner's TEST data. One website search (two provider requests, one role in NL
+and CH) returned 25 rows per country and saved 26 distinct jobs: 15 CH, 11 NL;
+10 passed the English gate, 8 need review, and 8 were blocked. A later operator
+search against that same isolated account returned 50 rows, found 26 already
+known, added zero and left saved statuses intact. Both capped queries remained
+**incomplete**: a cap is not evidence of total catalogue coverage. The separate
+synthetic acceptance script passed two normal accounts, guessed IDs, admin denial,
+demotion, exports and reset isolation without provider traffic. After the query
+correction, all 407 tests, lint, typecheck and build passed.
+
+A single bounded live contract probe on 2026-09-23 requested five Dutch rows,
+Amsterdam at 12 miles, `sort: DATE`, and `dateOnIndeed` start `168h`. It returned
+HTTP 200, no GraphQL errors, five NL rows dated that day and a continuation
+cursor. This verifies acceptance of the query shape, **not** exact oldest/newest
+ordering, location-radius precision, full seven-day coverage, or a provider-safe
+quota. The project now sends this query shape, still checks `datePublished`
+locally, reuses a capped sample for 15 minutes instead of re-requesting the
+same first page, and keeps a rolling seven-day window. Query identity v2 keeps
+the old relevance-only checkpoints separate. Future complete checkpoints mean
+only that the available filtered pages were exhausted; they are not a guarantee
+that every job was indexed or returned. A separate one-request test through the
+actual collector returned five Dutch rows and kept five; an immediate identical
+repeat made **zero** upstream requests and stayed marked partial. This used
+disposable D1 and did not modify the owner's TEST database. No 200/800 activation yet.
+
+The following September 22 section is historical. Spark (public code + synthetic fixtures only) implemented the IND-Next series on
 `ai/indnext-spark-20260922-220000`, reusing the timed-out #113 partial worktree as
 reference. Codex owns configuration, live verification (#118), independent review
 (#69) and lead review; #126 (200/800 activation), epic #112 and this task stay open

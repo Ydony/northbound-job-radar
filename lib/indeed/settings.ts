@@ -37,7 +37,7 @@ export const INDEED_RADIUS_KM_MAX = 800;
 
 /** Bump when the upstream query shape changes so checkpoint keys (#115) miss
  * rather than reuse coverage from a different query. */
-export const INDEED_QUERY_VERSION = 1;
+export const INDEED_QUERY_VERSION = 2;
 
 const MILES_PER_KM = 0.621371;
 
