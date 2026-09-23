@@ -1,5 +1,25 @@
 # Indeed handover — current as of 2026-09-23
 
+## Final cap activation (#126)
+
+The active collector now permits at most 200 upstream listing rows for each of the
+first two distinct roles in each selected country, at most 800 rows/32 requests
+for the whole click. It still asks for only 25 rows per page, keeps the seven-day
+date request and local posting-date check, stops on exhaustion/refusal/cancellation,
+and marks capped results partial. The administrator panel reads the same active
+budget constant. The CLI uses the same server route and now has a 16-minute
+search timeout, longer than the 15-minute collection lease; login/status remain
+shorter. The ceilings are not a target, exhaustive coverage or a provider-safe quota.
+Synthetic tests exercise eight-page and whole-run boundaries. No 800-row live
+load test is authorized or claimed. The final branch passed 407 tests, lint,
+typecheck, build and the static design check (11/11). A one-request live
+collector smoke check returned five Dutch rows; an immediate identical repeat
+sent zero requests and stayed partial. The visual harness did render a synthetic
+job card at desktop/wide/phone, but failed its existing 16px type-ladder and
+phone first-card-height assertions (four failures). #126 changes no stylesheet
+or job-card layout; those visual failures remain separate UI debt, not a passed
+check. Owner TEST and its data were not changed by the final-cap branch.
+
 ## 2026-09-23 Codex verification and collection correction (#69/#118)
 
 The owner-approved local profile was exercised in an isolated built Worker, not in
@@ -26,7 +46,8 @@ only that the available filtered pages were exhausted; they are not a guarantee
 that every job was indexed or returned. A separate one-request test through the
 actual collector returned five Dutch rows and kept five; an immediate identical
 repeat made **zero** upstream requests and stayed marked partial. This used
-disposable D1 and did not modify the owner's TEST database. No 200/800 activation yet.
+disposable D1 and did not modify the owner's TEST database. This paragraph records
+the lower-budget evidence **before** #126 activation.
 
 The following September 22 section is historical. Spark (public code + synthetic fixtures only) implemented the IND-Next series on
 `ai/indnext-spark-20260922-220000`, reusing the timed-out #113 partial worktree as

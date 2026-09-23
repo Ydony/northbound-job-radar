@@ -65,7 +65,7 @@ test('Indeed normalization preserves blocks, requirements, country, dates and id
   assert.equal(isLoopbackRequest(new Request('https://public.example/')), false);
 });
 
-test('Indeed collection shares four requests across countries, and persists cooldown across clients', async () => {
+test('Indeed shares a custom four-request fixture budget and persists cooldown across clients', async () => {
   const { db, dispose } = await fixture();
   let calls = 0;
   const fetcher: typeof fetch = async (_url, init) => {
@@ -77,7 +77,10 @@ test('Indeed collection shares four requests across countries, and persists cool
       pageInfo: { nextCursor: 'more' } } } });
   };
   try {
-    const result = await collectIndeed(db, config, ['data analyst', 'master data', 'supply chain'], undefined, fetcher);
+    const fixtureBudget = { perQueryMaxRows: 25, totalMaxRows: 100, pageSize: 25,
+      maxRequestsPerQuery: 1, maxTotalRequests: 4, leaseMs: 180_000, cooldownMs: 60_000 };
+    const result = await collectIndeed(db, config, ['data analyst', 'master data', 'supply chain'],
+      undefined, fetcher, ['NL', 'CH'], undefined, fixtureBudget);
     assert.equal(calls, 4);
     assert.equal(result.NL.jobs.length, 2);
     assert.equal(result.CH.jobs.length, 2);

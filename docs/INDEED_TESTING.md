@@ -113,14 +113,18 @@ relevant job or that a capped first page is exhaustive. There is no background f
 
 ## Limits, disconnect and troubleshooting
 
-- First two distinct saved roles; selected NL/CH countries only; 25 rows per role/country.
-  Maximum four upstream requests/100 returned rows per click. The query requests date order
+- First two distinct saved roles; selected NL/CH countries only; **at most 200 returned rows
+  per role/country and 800 per click** (eight 25-row pages per query, at most 32 requests).
+  These are safety ceilings, never targets or provider-approved quotas. The query requests date order
   and a provider-side `dateOnIndeed` lookback; the collector separately rejects returned jobs
   with `datePublished` outside the rolling seven-day window (undated rows stay). Those two
   dates can differ. This is a bounded sample, not 200–400 jobs, guaranteed new jobs, or
   exhaustive paging. No unattended schedule is added.
 - A shared durable lease prevents concurrent runs. A normal run has a 60-second cooldown;
   provider Retry-After can require longer. No automatic retry or IP/profile rotation.
+- The CLI waits up to 16 minutes for a search because the 32-request worst case can outlast
+  its old two-minute limit. It never retries automatically; an interrupted run should be
+  checked in history before another click. Most searches may finish sooner or stop at a cap.
 - 401/403, redirects and malformed responses pause collection for operator review. Do not
   clear that pause or switch identities to retry a refusal. Correct configuration only after
   reviewing the cause/permission with the provider; setup deliberately does not clear the latch.
@@ -161,7 +165,8 @@ on fresh disposable storage at port 3115, with no upstream requests. Do not run 
 ## 2026-09-22 close-out status (Spark #113–#116, Codex/lead review pending)
 
 Historical checkpoint. The 2026-09-23 query correction is described above and in
-INDEED_HANDOVER.md. The conservative 25/100 collection caps still apply until #126.
+INDEED_HANDOVER.md. The 25/100 caps below were superseded by #126; the active limits
+are the 200/800 safety ceilings in the Limits section above.
 
 Live caps are unchanged: 25 rows per role/country, 4 requests/100 rows per click,
 7-day local window, 60s cooldown. The 200/800 design exists only in synthetic
