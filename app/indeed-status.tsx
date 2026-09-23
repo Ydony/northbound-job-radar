@@ -33,8 +33,8 @@ function formatDate(value: string): string {
   return Number.isNaN(parsed.getTime()) ? 'unknown' : parsed.toLocaleString();
 }
 
-export default function IndeedStatusPanel({ search, busy, roles, netherlands, switzerland,
-  settings, runSources, runStartedAt }: { search: () => void; busy: boolean } & IndeedPanelData) {
+export default function IndeedStatusPanel({ search, busy, searchDisabled, roles, netherlands, switzerland,
+  settings, runSources, runStartedAt }: { search: () => void; busy: boolean; searchDisabled?: boolean } & IndeedPanelData) {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
@@ -165,6 +165,6 @@ export default function IndeedStatusPanel({ search, busy, roles, netherlands, sw
         at 24px tall (under the 44px tap floor). Search actions use the shared
         pill so this one does too. The parent ignores repeat clicks while busy,
         and the disabled state below covers the round trip. */}
-    <button className="jobs-button" type="button" disabled={busy} onClick={search}>Search Indeed only</button>
+    <button className="jobs-button" type="button" disabled={busy || searchDisabled} onClick={search}>Search Indeed only</button>
   </div>;
 }

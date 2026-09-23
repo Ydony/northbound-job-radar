@@ -129,7 +129,7 @@ test('both countries off disables the search button from the saved setting, not 
 
   // Disabled AND told why. A button that silently does nothing is the most common reason someone
   // presses it twice.
-  const disabled = [...source.matchAll(/disabled=\{loading \|\| Boolean\(loadError\) \|\| Boolean\(scrapeBusy\) \|\| noCountrySearched\}/g)];
+  const disabled = [...source.matchAll(/disabled=\{loading \|\| Boolean\(loadError\) \|\| Boolean\(scrapeBusy\) \|\| noCountrySearched \|\| noRolesToSearch\}/g)];
   assert.equal(disabled.length, 2, 'both the authorized and the administrator search must be disabled');
   assert.match(source, /Both countries are switched off in\s*\{' '\}<a href="#criteria"/);
 
@@ -138,4 +138,31 @@ test('both countries off disables the search button from the saved setting, not 
   // unable to tell which one emptied the list, so the copy has to say which this is.
   assert.match(source, /This decides which countries a search contacts\./);
   assert.match(source, /It does not hide jobs you have\s*already collected/);
+});
+
+test('empty roles refuse to run in the interface and on the API, while save still works', async () => {
+  const radar = await readFile(new URL('../app/job-radar.tsx', import.meta.url), 'utf8');
+  // Read from the draft: Find new jobs saves first, so what is on screen is
+  // what would run — an untouched empty form must disable the button even if
+  // an older saved list exists.
+  assert.match(radar, /const noRolesToSearch = !criteriaDraft\.roleKeywords\.some\(\(keyword\) => \(keyword \?\? ''\)\.trim\(\)\);/);
+  assert.match(radar, /noCountrySearched \|\| noRolesToSearch\}/);
+  // The alert is wired for assistive tech: invalid field, describedby, alert role.
+  assert.match(radar, /aria-invalid=\{noRolesToSearch && index === 0\}/);
+  assert.match(radar, /aria-describedby=\{noRolesToSearch && index === 0 \? 'role-warning' : undefined\}/);
+  assert.match(radar, /id="role-warning" role="alert"/);
+  assert.match(radar, /Enter at least one role/);
+  // Save-first: the draft is persisted before anything runs, and a failed
+  // save aborts the run instead of searching with stale criteria.
+  assert.match(radar, /const saved = await persistCriteria\(criteriaDraft\);/);
+  assert.match(radar, /Could not save criteria — the search did not run\./);
+  // The band is open by default with Hide at the header end; the statistics
+  // trigger stays a tab until UX-7d converts it.
+  assert.match(radar, /settings-band/);
+  assert.match(radar, /\{settingsOpen \? '▲' : '▼'\}<\/span> \{settingsOpen \? 'Hide' : 'Show'\}/);
+
+  const scrape = await readFile(new URL('../app/api/scrape/route.ts', import.meta.url), 'utf8');
+  // Server-side: a disabled button is a courtesy, not a guarantee.
+  assert.match(scrape, /if \(!searchTerms\.length\) \{/);
+  assert.match(scrape, /Add at least one role keyword in Search settings, then search again\./);
 });

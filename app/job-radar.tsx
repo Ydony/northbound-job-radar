@@ -87,7 +87,9 @@ export default function JobRadar() {
    * codex-lead draft for #53.)
    */
   const [loadError, setLoadError] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // UX-7c: the settings band is open by default — the thing that decides what
+  // every search collects is not collapsed behind a trigger on arrival.
+  const [settingsOpen, setSettingsOpen] = useState(true);
   const [statsOpen, setStatsOpen] = useState(false);
   // All with Definitely English is the default landing view (#119): it restores
   // the old matches intent — Definitely English across saved active results —
@@ -324,12 +326,7 @@ export default function JobRadar() {
     return state.jobs.filter((job) => !hidden.has(job.sourceKey));
   }, [state.jobs, state.adminOnlySources, viewAsUser]);
 
-  // Decided on the server, against advertisement text the client is not sent. Criteria only
-  // count once saved, which was already true, and a save refetches this state.
-  const criteriaFilteredJobs = useMemo(
-    () => visibleToRole.filter((job) => job.matchesCriteria),
-    [visibleToRole],
-  );
+  // Decided on the server, against advertisement text the client is not sent.
 
   // The "what's new since last run" baseline: the latest finished run's start, or the
   // last seven days before any run. Read at render so the fallback tracks today.
@@ -583,10 +580,17 @@ export default function JobRadar() {
    * preview that is supposed to show what somebody else sees — which makes the preview useless for
    * the one thing it exists to check.
    */
-  const savedRoleKeywords = state.criteria.roleKeywords.map((keyword) => keyword.trim()).filter(Boolean);
   // Read from the saved criteria rather than the draft: a search uses what was saved, so an
   // untouched tick in the form must not change whether the button works.
   const noCountrySearched = !state.criteria.searchNetherlands && !state.criteria.searchSwitzerland;
+  /**
+   * Empty roles refuse to run (UX-7c). Read from the draft, not the saved
+   * criteria: Find new jobs saves first, so what is on screen is what would
+   * run — an empty draft means nothing to ask any source for, even if an
+   * older saved list exists. The server enforces the same rule, so a crafted
+   * request cannot bypass the disabled button.
+   */
+  const noRolesToSearch = !criteriaDraft.roleKeywords.some((keyword) => (keyword ?? '').trim());
   // The most recent finished run, for the compact bar. A returning user's first question is
   // "what happened last time", and until now the only answer was inside a collapsed panel.
   const lastRun = state.searchRuns.find((run) => run.completedAt)?.completedAt ?? '';
@@ -755,6 +759,21 @@ export default function JobRadar() {
     if (scrapeBusyRef.current) return;
     scrapeBusyRef.current = true;
     setScrapeBusy(mode);
+    // UX-7c: Find new jobs saves first. The draft on screen is persisted before
+    // anything runs, so a role edited but not saved is what the search uses —
+    // the stored role can no longer silently win. A failed save aborts the run
+    // instead of searching with stale criteria.
+    setScrapeMessage('Saving criteria…');
+    try {
+      const saved = await persistCriteria(criteriaDraft);
+      setCriteriaDraft(criteriaToDraft(saved.criteria));
+      setState((current) => ({ ...current, criteria: saved.criteria }));
+    } catch (error) {
+      setScrapeMessage(error instanceof Error ? error.message : 'Could not save criteria — the search did not run.');
+      scrapeBusyRef.current = false;
+      setScrapeBusy('');
+      return;
+    }
     setRunSummaryDismissed(true);
     setScrapeMessage(sourceGroup === 'indeed' ? 'Searching Indeed in the selected countries…' : mode === 'all'
       ? 'Searching every source, including the page-fetching ones. Keep the VPN connected…'
@@ -1186,17 +1205,17 @@ export default function JobRadar() {
             ? <p>One search runs every enabled Swiss and Netherlands source, records what each returned, removes duplicates, and applies the English gate.</p>
             : lastRun && <p className="last-run">Last search {formatDate(lastRun).replace(/^Posted /, '')}{lastRunSummary}</p>}
         </div>
-        <button className="jobs-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
+        <button className="jobs-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('authorized')} title="Searches the official and public job APIs. No VPN needed.">
           {scrapeBusy === 'authorized' ? 'Searching…' : isAdmin ? 'Search — VPN off' : 'Find new jobs'} <span>⚡</span>
         </button>
-        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
+        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
         {noCountrySearched && <p className="form-message" role="status">Both countries are switched off in
           {' '}<a href="#criteria" onClick={() => setSettingsOpen(true)}>Search settings</a>, so there is
           nowhere to search. Turn the Netherlands or Switzerland back on.</p>}
         <p className="form-message" aria-live="polite">{scrapeMessage}</p>
-        {isAdmin && <IndeedStatusPanel busy={loading || Boolean(loadError) || Boolean(scrapeBusy)} search={() => { void findJobs('authorized', 'indeed'); }}
+        {isAdmin && <IndeedStatusPanel busy={loading || Boolean(loadError) || Boolean(scrapeBusy)} searchDisabled={noRolesToSearch} search={() => { void findJobs('authorized', 'indeed'); }}
           roles={indeedActiveRoles(state.criteria.roleKeywords)}
           netherlands={state.criteria.searchNetherlands} switzerland={state.criteria.searchSwitzerland}
           settings={state.indeedSettings ?? null}
@@ -1249,19 +1268,6 @@ export default function JobRadar() {
         <div className="setup-tabs">
           <button
             type="button"
-            className={`setup-tab${settingsOpen ? ' is-open' : ''}`}
-            aria-expanded={settingsOpen}
-            aria-controls="criteria"
-            onClick={() => setSettingsOpen((open) => !open)}
-          >
-            <span className="setup-tab-arrow" aria-hidden="true">{settingsOpen ? '▲' : '▼'}</span>
-            <b>Search settings</b>
-            <span className="setup-tab-meta">{loadError ? 'Unavailable until the workspace loads'
-              : loading ? 'Loading…'
-              : savedRoleKeywords.length ? `Roles: ${savedRoleKeywords.join(' · ')}` : 'No role keywords yet — add one to search'}</span>
-          </button>
-          <button
-            type="button"
             className={`setup-tab${statsOpen ? ' is-open' : ''}`}
             aria-expanded={statsOpen}
             aria-controls="sources"
@@ -1280,13 +1286,58 @@ export default function JobRadar() {
                   : 'No search has run yet'}</span>
           </button>
         </div>
-        <section className="criteria-section" id="criteria" hidden={!settingsOpen} aria-label="Search settings">
-            <div className="criteria-intro">
-              <span className="section-label coral">Search criteria</span>
-              <h2>Define what fits</h2>
-              <p>Each search role is sent to every switched-on source, one at a time. What comes back is then narrowed: an advertisement must contain every required keyword, and is dropped if it contains any excluded one.</p>
-            </div>
-            <form className="criteria-form" onSubmit={saveCriteria}>
+        {/* UX-7c: settings is a band on the page, open by default, not a panel
+            behind a tab. Everything that decides what a search collects sits
+            here: five roles, countries, keywords, and the bar that runs. */}
+        {!settingsOpen && <div className="settings-collapsed">
+          <button type="button" onClick={() => setSettingsOpen(true)}>
+            <span aria-hidden="true">▼</span> Show Search settings
+          </button>
+        </div>}
+        <section className="settings-band" id="criteria" hidden={!settingsOpen} aria-label="Search settings">
+          <div className="settings-head">
+            <h2>Search settings</h2>
+            <p>{latestRun
+              ? `Last search ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · ${latestRunTotals.newJobs} added`
+              : 'No search run yet'}</p>
+            <button type="button" onClick={() => setSettingsOpen((open) => !open)}>
+              <span aria-hidden="true">{settingsOpen ? '▲' : '▼'}</span> {settingsOpen ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          <form onSubmit={saveCriteria}>
+            <div className="criteria-grid">
+              {(() => {
+                // Desktop keeps all five (SearchSettings.html); phones collapse to two
+                // plus the add button (MobileSettings.html), never hiding a filled role.
+                const filled = criteriaDraft.roleKeywords.filter((keyword) => (keyword ?? '').trim()).length;
+                const visible = isNarrow ? Math.min(5, Math.max(2, filled, roleFields)) : 5;
+                return <>
+                  {Array.from({ length: visible }, (_, index) => <div className="role-cell" key={index}>
+                    <label htmlFor={`role-keyword-${index}`} className={noRolesToSearch && index === 0 ? 'bad' : undefined}>Role {index + 1}</label>
+                    <input
+                      id={`role-keyword-${index}`}
+                      value={criteriaDraft.roleKeywords[index] ?? ''}
+                      onChange={(event) => {
+                        const roleKeywords = [...criteriaDraft.roleKeywords];
+                        roleKeywords[index] = event.target.value;
+                        setCriteriaDraft({ ...criteriaDraft, roleKeywords });
+                      }}
+                      placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : index === 2 ? 'Optional' : 'Optional role keyword'}
+                      aria-invalid={noRolesToSearch && index === 0}
+                      aria-describedby={noRolesToSearch && index === 0 ? 'role-warning' : undefined}
+                    />
+                  </div>)}
+                </>;
+              })()}
+              {isNarrow && (() => {
+                const filled = criteriaDraft.roleKeywords.filter((keyword) => (keyword ?? '').trim()).length;
+                const visible = Math.min(5, Math.max(2, filled, roleFields));
+                return visible < 5 && <button
+                  type="button"
+                  className="add-role"
+                  onClick={() => setRoleFields((count) => Math.min(5, count + 1))}
+                >+ Add another role</button>;
+              })()}
               <fieldset className="country-switches">
                 <legend>Countries to search</legend>
                 <div className="country-options">
@@ -1310,35 +1361,34 @@ export default function JobRadar() {
                   && <p className="switch-warning">With both off there is nowhere to search, so the
                     search button stays disabled until you turn one back on.</p>}
               </fieldset>
-              <div className="role-keywords">
-                <span>Search roles · up to five</span>
-                <p className="role-note">Each one is searched separately, so five roles means five times the requests and a longer run. Indeed is the exception: it only ever receives the first two roles above.</p>
-                {(() => {
-                  // Desktop keeps all five (SearchSettings.html); phones collapse to two
-                  // plus the add button (MobileSettings.html), never hiding a filled role.
-                  const filled = criteriaDraft.roleKeywords.filter((keyword) => (keyword ?? '').trim()).length;
-                  const visible = isNarrow ? Math.min(5, Math.max(2, filled, roleFields)) : 5;
-                  return <>
-                    <div>{Array.from({ length: visible }, (_, index) => <label className="field" key={index}>
-                      <span>Role {index + 1}</span>
-                      <input value={criteriaDraft.roleKeywords[index] ?? ''} onChange={(event) => {
-                        const roleKeywords = [...criteriaDraft.roleKeywords];
-                        roleKeywords[index] = event.target.value;
-                        setCriteriaDraft({ ...criteriaDraft, roleKeywords });
-                      }} placeholder={index === 0 ? 'e.g. Master Data' : index === 1 ? 'e.g. Supply Chain' : 'Optional role keyword'} />
-                    </label>)}</div>
-                    {isNarrow && visible < 5 && <button
-                      type="button"
-                      className="add-role"
-                      onClick={() => setRoleFields((count) => Math.min(5, count + 1))}
-                    >+ Add another role</button>}
-                  </>;
-                })()}
+              <div className="keyword-cell keywords-required">
+                <label htmlFor="required-keywords">Required keywords</label>
+                <input id="required-keywords" value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" />
+                <p>An ad must contain all of these.</p>
               </div>
-              <label className="field keywords"><span>Required keywords <span className="rule">— an ad must contain all of these</span></span><input value={criteriaDraft.requiredKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, requiredKeywords: event.target.value })} placeholder="e.g. SAP, data governance" /></label>
-              <label className="field keywords"><span>Exclude if ad contains <span className="rule">— any one drops it</span></span><input value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" /></label>
-              <div className="criteria-actions"><button className="search-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button><button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button><p aria-live="polite">{criteriaMessage || `${criteriaFilteredJobs.length} of ${state.jobs.length} analyzed jobs match the saved criteria.`}</p></div>
-            </form>
+              <div className="keyword-cell keywords-excluded">
+                <label htmlFor="excluded-keywords">Exclude if the ad contains</label>
+                <input id="excluded-keywords" value={criteriaDraft.excludedKeywords} onChange={(event) => setCriteriaDraft({ ...criteriaDraft, excludedKeywords: event.target.value })} placeholder="e.g. sales, internship" />
+                <p>Any one drops it.</p>
+              </div>
+            </div>
+            {noRolesToSearch && <div className="role-warning" id="role-warning" role="alert">
+              <span aria-hidden="true">⚠</span>
+              <div>
+                <strong>Enter at least one role</strong>
+                <p>A role is what the search looks for. With all five empty there is nothing to ask any source for, so the search will not run. Countries and keywords narrow a search; they cannot start one.</p>
+              </div>
+            </div>}
+            <div className="settings-bar">
+              <button className="run-button" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noRolesToSearch} onClick={() => findJobs('authorized')}>Find new jobs</button>
+              <button className="save-button" type="submit" disabled={criteriaBusy}>{criteriaBusy ? 'Saving…' : 'Save criteria'}</button>
+              <button className="reset-button" type="button" disabled={criteriaBusy} onClick={resetCriteria}>Reset</button>
+              <p className="note">{noRolesToSearch
+                ? 'Save criteria still works — an empty role list is a valid thing to save while you decide.'
+                : `Find new jobs saves these criteria first, so a search always uses what is on screen. Last saved ${state.criteria.updatedAt ? new Date(state.criteria.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'never'}.`}</p>
+            </div>
+            <p aria-live="polite">{criteriaMessage}</p>
+          </form>
         </section>
         <section className="source-dashboard" id="sources" hidden={!statsOpen} aria-label="Search statistics">
             <div className="source-dashboard-heading">
