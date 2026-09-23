@@ -29,8 +29,10 @@ hosted project identifier.
 2. Build and verify without deploying: `npm run build:prod`. The generated
    Worker must be `ikbeneenappel-prod` and its D1 id
    `b0a513c7-0d01-486c-8b16-5cdb6690c959`.
-3. With the owner watching, run `npm run deploy:prod`. Visit its workers.dev URL
-   once so `ensureSchema()` applies migrations. Check the migration count remotely.
+3. With the owner watching, run `npm run deploy:prod`. Request its
+   `workers.dev/api/state` URL once so `ensureSchema()` applies migrations;
+   signed-out HTTP 401 is expected. Merely opening `/login` does not apply the
+   schema. Check the migration count remotely.
 4. Run `npm run bootstrap:prod-admin -- --dry-run` first using synthetic credentials.
    Then run `npm run bootstrap:prod-admin` in a local terminal; it prompts for
    the owner's email and a hidden password. Never pass either as an argument.

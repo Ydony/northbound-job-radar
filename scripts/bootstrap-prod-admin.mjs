@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Deploy, visit the Worker once to apply migrations, then run this locally. Never use HTTP signup for bootstrap. */
+/** Deploy, request /api/state once to apply migrations, then run locally. Never use HTTP signup for bootstrap. */
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, rmdir, writeFile } from 'node:fs/promises';
@@ -11,7 +11,8 @@ import { isValidEmail, normalizeEmail, passwordProblem } from '../lib/users.ts';
 
 const help = `Usage: npm run bootstrap:prod-admin [-- --dry-run]
 
-Run locally, after deploying the Worker and visiting its URL once to apply the schema.
+Run locally, after deploying the Worker and requesting /api/state once to apply the schema.
+That signed-out request should return HTTP 401; the schema is created before the auth check.
 This creates the FIRST administrator directly in production D1; remote HTTP signup stays blocked.
 It refuses an existing user. --dry-run exercises a disposable local D1 only.
 Email and password are prompted locally; never put them in arguments or environment variables.`;
