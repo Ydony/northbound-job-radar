@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import IndeedStatusPanel from './indeed-status';
 import { CV_MATCHING_ENABLED } from '@/lib/features';
 import { defaultSearchCriteria, parseKeywordInput } from '@/lib/criteria';
-import { jobsToCsv, workspaceToJson } from '@/lib/export';
 import { countryLabel } from '@/lib/job-identity';
 import { sourceNameForUrl } from '@/lib/job-sources';
 import { effectiveLanguageStatus } from '@/lib/language-feedback';
@@ -16,8 +15,7 @@ import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday, criteriaToDraft,
   DASHBOARD_VIEW_LABELS, emptyStateCopy, formatCountOrUnknown, formatDate, isJobExpired, jobInView,
   LANGUAGE_FILTER_LABELS, languageStatusLabel, missingIndeedDashRows, newSinceCutoff,
-  runNewMatchedTotals, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, statusLabel,
-  TOTALS_DEDUPE_NOTE, totalForSource, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
+  runNewMatchedTotals, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, totalForSource, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
   type LanguageFilter, type SortMode } from '@/lib/dashboard';
 import { formatRequirementsRailLabel } from '@/lib/requirements';
 import { indeedActiveRoles } from '@/lib/indeed/settings';
@@ -178,7 +176,6 @@ export default function JobRadar() {
 
   // The finished-run line is a result, not a status, so it stays until it is read and dismissed
   // rather than vanishing with the progress bar that produced it.
-  const [runSummaryDismissed, setRunSummaryDismissed] = useState(true);
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(criteriaToDraft(defaultSearchCriteria));
   const [criteriaBusy, setCriteriaBusy] = useState(false);
   const [criteriaMessage, setCriteriaMessage] = useState('');
@@ -404,6 +401,25 @@ export default function JobRadar() {
     () => sortJobs(facets.visible, sortMode),
     [facets.visible, sortMode],
   );
+  /**
+   * Pages of forty, cut from the sorted list rather than requested from the server.
+   *
+   * The counts beside every filter and on every lifecycle tab are computed from the
+   * jobs this component holds, so they stay right only while it holds all of them -
+   * #140 covers moving that to the server. Until then the whole collection arrives and
+   * only the rendering is paged, which is the part the reader actually feels.
+   */
+  const pageOfJobs = 40;
+  const [jobPage, setJobPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(visibleJobs.length / pageOfJobs));
+  // Any change to what is being listed starts again at the first page: page seven of a
+  // filter you have just left is not where anyone wants to arrive.
+  useEffect(() => { setJobPage(0); }, [languageFilter, countryFilter, workTypeFilter,
+    applicationFilter, sourceFilter, cityFilter, view, sortMode]);
+  const pagedJobs = useMemo(
+    () => visibleJobs.slice(jobPage * pageOfJobs, (jobPage + 1) * pageOfJobs),
+    [visibleJobs, jobPage],
+  );
   const visibleAdzunaSources = useMemo(() => adzunaSourcesOnScreen(visibleJobs), [visibleJobs]);
 
   const sourceOptions = useMemo(() => [...new Map(visibleToRole.map((job) => [job.sourceKey, job.sourceName])).entries()]
@@ -524,7 +540,6 @@ export default function JobRadar() {
   }, [visibleToRole]);
 
 
-  const share = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : '—');
 
   /**
    * The most recent run, with admin-only sources dropped while previewing as a user.
@@ -545,17 +560,6 @@ export default function JobRadar() {
    * request cannot bypass the disabled button.
    */
   const noRolesToSearch = !criteriaDraft.roleKeywords.some((keyword) => (keyword ?? '').trim());
-  // The most recent finished run, for the compact bar. A returning user's first question is
-  // "what happened last time", and until now the only answer was inside a collapsed panel.
-  const lastRun = state.searchRuns.find((run) => run.completedAt)?.completedAt ?? '';
-  const lastRunSummary = (() => {
-    const run = state.searchRuns.find((entry) => entry.completedAt);
-    if (!run) return '';
-    const totals = runNewMatchedTotals(run.sources);
-    if (!totals.newJobs) return ' · nothing new';
-    const matched = totals.matchedUnknown ? 'matched unknown' : `${totals.matchedJobs} matched`;
-    return ` · ${totals.newJobs} new · ${matched}`;
-  })();
   const latestRun = useMemo(() => {
     // #124 fix: the user preview reads ordinary-audience runs from the server
     // (`/api/state?preview=user`), never by subtracting admin rows client-side.
@@ -704,7 +708,6 @@ export default function JobRadar() {
       setScrapeBusy('');
       return;
     }
-    setRunSummaryDismissed(true);
     setScrapeMessage(sourceGroup === 'indeed' ? 'Searching Indeed in the selected countries…' : mode === 'all'
       ? 'Searching every source, including the page-fetching ones. Keep the VPN connected…'
       : 'Searching every source available without the VPN…');
@@ -780,7 +783,6 @@ export default function JobRadar() {
         ? result.run.sources.filter(source => source.status !== 'skipped').map(source => source.message).join(' ')
         : '';
       setScrapeMessage(indeedUnavailable || `${completedSources} sources returned a result. ${result.added.length} jobs added, ${result.alreadyKnown} previously known. See the source report below.`);
-      setRunSummaryDismissed(false);
     } catch (error) {
       setScrapeMessage(error instanceof Error ? error.message : 'Could not search the configured job sources.');
     } finally {
@@ -952,98 +954,24 @@ export default function JobRadar() {
     }
   }
 
+  /**
+   * Dismiss everything ticked, one job at a time through the same call a card's own
+   * Dismiss makes. Bulk endpoints for this would be a second code path to keep in step
+   * with the first, and a selection is a handful of rows rather than thousands.
+   */
+  async function dismissSelected() {
+    const ids = [...selectedJobIds];
+    for (const id of ids) await updateJobState(id, { visibilityStatus: 'dismissed' });
+    setSelectedJobIds([]);
+  }
+
   function toggleJobSelection(id: string) {
     setSelectedJobIds((current) => current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]);
   }
 
-  function deleteJobs(ids: string[] = [], all = false) {
-    const count = all ? state.jobs.length : ids.length;
-    if (!count) return;
-    setConfirmAction({
-      title: all ? 'Delete every analyzed job?' : `Delete ${count} selected job${count === 1 ? '' : 's'}?`,
-      detail: all
-        ? `This permanently removes all ${count} jobs and their language feedback. Your search criteria remain.`
-        : 'This permanently removes the selected jobs and the language feedback recorded against them.',
-      confirmLabel: 'Delete',
-      run: () => { void runDeleteJobs(ids, all); },
-    });
-  }
 
-  async function runDeleteJobs(ids: string[], all: boolean) {
-    setDataBusy(true);
-    setDataMessage('Deleting jobs…');
-    try {
-      const result = await responseJson<{ deletedJobs: number }>(await fetch('/api/jobs', {
-        method: 'DELETE',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(all ? { all: true } : { ids }),
-      }));
-      setState((current) => ({
-        // #124 fix: the visible rows leave immediately, but Total collected is
-        // never derived by subtracting them. Deleting a visible primary whose
-        // folded copy is retained keeps the server unique total at 1 while
-        // naive subtraction shows 0; attribution and unloaded pages break it
-        // further. The reconcile fetch below reads the authoritative overall
-        // and per-source totals instead.
-        ...current,
-        jobs: all ? [] : current.jobs.filter((job) => !ids.includes(job.id)),
-      }));
-      // Deliberate deletion removes rows from the retained collection — Total
-      // collected must fall, not preserve deleted records. Reconcile the
-      // authoritative server totals right away rather than on the next load.
-      try {
-        const reconciled = await responseJson<AppState>(await fetch('/api/state'));
-        setState((current) => ({
-          ...current,
-          totalJobs: reconciled.totalJobs ?? (all ? 0 : current.totalJobs),
-          matchingJobs: reconciled.matchingJobs ?? current.matchingJobs,
-          collectionTotals: reconciled.collectionTotals
-            ?? (all ? { total: 0, bySource: [] } : current.collectionTotals),
-        }));
-        // A preview open during the delete shows the ordinary-audience totals;
-        // refresh it too so it never lags the authoritative numbers.
-        if (viewAsUser) {
-          try {
-            const preview = await responseJson<AppState>(await fetch('/api/state?preview=user'));
-            setUserPreview(preview);
-          } catch {
-            // The main totals above are authoritative; the preview retries on toggle.
-          }
-        }
-      } catch {
-        // The rows are gone on screen; totals reconcile on the next state load.
-        if (all) {
-          setState((current) => ({
-            ...current, totalJobs: 0, collectionTotals: { total: 0, bySource: [] },
-          }));
-        }
-      }
-      setSelectedJobIds([]);
-      setDataMessage(`Deleted ${result.deletedJobs} job${result.deletedJobs === 1 ? '' : 's'}. Total collected now excludes them.`);
-    } catch (error) {
-      setDataMessage(error instanceof Error ? error.message : 'Could not delete jobs.');
-    } finally {
-      setDataBusy(false);
-    }
-  }
 
-  function downloadText(fileName: string, type: string, content: string) {
-    const url = URL.createObjectURL(new Blob([content], { type }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  }
 
-  function exportWorkspace(format: 'json' | 'csv') {
-    const date = new Date().toISOString().slice(0, 10);
-    if (format === 'json') downloadText(`ik-ben-een-appel-${date}.json`, 'application/json', workspaceToJson(state));
-    else downloadText(`ik-ben-een-appel-jobs-${date}.csv`, 'text/csv;charset=utf-8', jobsToCsv(state.jobs));
-    setDataMessage(`Exported ${state.jobs.length} job${state.jobs.length === 1 ? '' : 's'} as ${format.toUpperCase()}.`);
-  }
 
   function resetWorkspace() {
     setConfirmAction({
@@ -1378,10 +1306,10 @@ export default function JobRadar() {
           })}</span></div>
         <details className="data-toolbar" open={selectedJobIds.length > 0}>
           <summary>{selectedJobIds.length ? `${selectedJobIds.length} selected` : 'Data controls'}</summary>
-          <button type="button" disabled={!selectedJobIds.length || dataBusy} onClick={() => deleteJobs(selectedJobIds)}>Delete selected</button>
-          <button type="button" disabled={!state.jobs.length || dataBusy} onClick={() => exportWorkspace('json')}>Export JSON</button>
-          <button type="button" disabled={!state.jobs.length || dataBusy} onClick={() => exportWorkspace('csv')}>Export CSV</button>
-          <button className="danger" type="button" disabled={!state.jobs.length || dataBusy} onClick={() => deleteJobs([], true)}>Clear all jobs</button>
+          {/* Dismiss rather than delete: deleting only removes the row, so the next search
+              that finds the advertisement collects it again. Dismissing writes the tombstone
+              the importer checks, which is the one that lasts. */}
+          <button type="button" disabled={!selectedJobIds.length || dataBusy} onClick={() => dismissSelected()}>Dismiss selected</button>
           <button className="danger" type="button" disabled={dataBusy || (!state.jobs.length && !state.profiles.length)} onClick={resetWorkspace}>Reset workspace</button>
           <p aria-live="polite">{dataMessage}</p>
         </details>
@@ -1533,7 +1461,7 @@ export default function JobRadar() {
               });
               return <div className="empty-state"><span>◎</span><h3>{copy.title}</h3><p>{copy.detail}</p></div>;
             })()}
-            {visibleJobs.map((job) => {
+            {pagedJobs.map((job) => {
               const displayedLanguageStatus = effectiveLanguageStatus(job);
               const requirements = job.requirements;
               const hasCorrection = job.languageFeedback === 'incorrect' && Boolean(job.correctedLanguageStatus);
@@ -1681,6 +1609,13 @@ export default function JobRadar() {
             })}
             {/* Paging beyond the first page. Only rendered while the server says more follow;
                 loading every page up front would bring back the unbounded response this replaces. */}
+            {pageCount > 1 && <nav className="job-pager" aria-label="Job list pages">
+              <button type="button" disabled={jobPage === 0}
+                onClick={() => setJobPage((p) => Math.max(0, p - 1))}>&#8592; Previous</button>
+              <span>Page {jobPage + 1} of {pageCount} &middot; {visibleJobs.length} matching</span>
+              <button type="button" disabled={jobPage >= pageCount - 1}
+                onClick={() => setJobPage((p) => Math.min(pageCount - 1, p + 1))}>Next &#8594;</button>
+            </nav>}
             {state.nextCursor && <div className="load-more">
               <button className="search-button" type="button" disabled={loading || loadingMore} onClick={() => void loadMoreJobs()}>
                 {loadingMore ? 'Loading more jobs…' : 'Show more jobs'}
