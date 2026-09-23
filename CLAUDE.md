@@ -55,6 +55,13 @@ changes need a signed-in look at a running server before they are called done.
 `EPERM ... dist` on build means a previous `workerd` still holds the folder. Stop it,
 delete `dist`, rebuild. **A running server is not proof of a current build.**
 
+Stale CSS in the browser is almost never the stylesheet cache: `/app/globals.css`
+is served with `Cache-Control: no-cache` plus a content ETag, and a token edit
+lands on plain reload (proven 2026-09-23, #139). Suspect first that the browser
+is talking to the wrong server or port (`:3000` vs `:3001` vs a disposable),
+or that hot-reload has not picked the file up — `curl` the CSS URL and compare
+with the working tree before blaming the cache or the build.
+
 ## Ground rules
 
 - Synthetic data only. Never commit real identity data, CVs, credentials or `.dev.vars.*`.
