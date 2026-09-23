@@ -10,8 +10,8 @@ search against that same isolated account returned 50 rows, found 26 already
 known, added zero and left saved statuses intact. Both capped queries remained
 **incomplete**: a cap is not evidence of total catalogue coverage. The separate
 synthetic acceptance script passed two normal accounts, guessed IDs, admin denial,
-demotion, exports and reset isolation without provider traffic. Current 405-test
-suite, lint, typecheck and build passed before the query correction.
+demotion, exports and reset isolation without provider traffic. After the query
+correction, all 407 tests, lint, typecheck and build passed.
 
 A single bounded live contract probe on 2026-09-23 requested five Dutch rows,
 Amsterdam at 12 miles, `sort: DATE`, and `dateOnIndeed` start `168h`. It returned
