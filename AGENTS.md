@@ -47,14 +47,18 @@ source adapters. Then `README.md`, `docs/ARCHITECTURE.md`, and `docs/ROADMAP.md`
 product or integration changes. Local environments and the no-hosting decision:
 `docs/ENVIRONMENTS.md`, `docs/DEPLOY.md`.
 
-## Local-only boundary
+## Environment boundary
 
-- The supported environments are `dev` (`http://localhost:3000`) and `test`
-  (`http://localhost:3001`). There is no production or hosted environment.
+- `dev` (`http://localhost:3000`) and `test` (`http://localhost:3001`) remain local
+  and isolated. The owner approved a separate, private Cloudflare production environment
+  on 2026-09-23. Its database exists; deployment and administrator bootstrap are tracked
+  in milestone 12 and must not be described as live until verified.
 - Dev and test must keep separate D1 state under `.wrangler/dev/state` and
-  `.wrangler/test/state`. Never point one environment at the other's state.
-- Do not deploy to OpenAI Sites, `chatgpt.site`, Cloudflare Workers, or another host without a new
-  explicit owner decision. `.openai/hosting.json` contains logical local bindings only.
+  `.wrangler/test/state`. Production has its own remote D1; never copy local state or
+  credentials into it.
+- Production is single-admin with closed registration. Do not open public signups,
+  deploy to OpenAI Sites/`chatgpt.site`, or broaden hosting without a new owner decision.
+  `.openai/hosting.json` supplies logical binding names, not a hosting target.
 - Keep `.dev.vars.dev`, `.dev.vars.test`, `.wrangler/`, and credentials out of Git and prompts. External or older copies not under this project may still contain pre-removal CV data.
 
 ## Multi-user rules
@@ -114,8 +118,11 @@ Build a private job-search companion for a user seeking roles where English alon
   listing page, not the query-string paths disallowed by its robots policy. The private portfolio
   produced 12 measured English-confirmed jobs. Keep caps, fixed delays, truthful reporting and the
   no-evasion rule; do not expand the volume because of that result.
-- Indeed Switzerland/Netherlands remain `blocked`: their rules prohibit automated access
-  without written permission and live requests returned HTTP 403. Nationale
+- The ordinary/public Indeed adapter remains `blocked`: its rules prohibit automated
+  access without written permission and direct web requests returned HTTP 403.
+  A separate, explicitly configured Indeed experiment is available only to a
+  loopback administrator; see `docs/INDEED_TESTING.md`. Never enable it on hosted prod.
+  Nationale
   Vacaturebank is `unavailable` after HTTP 403, and I amsterdam is `disabled` because it
   is a guide rather than a job feed. Never bypass these outcomes. LinkedIn is excluded.
 - **Job-Room (arbeit.swiss) is live, not unavailable.** An earlier note here called it

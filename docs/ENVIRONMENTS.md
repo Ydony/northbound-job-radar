@@ -1,13 +1,13 @@
 # Local environments
 
-Ik ben een appel is local-only. It has two named environments and no hosted or public environment.
-Both use Cloudflare's local Miniflare/Workers runtime, so D1 behaviour remains realistic
-without sending job data to a hosted service.
+Dev and test use Cloudflare's local Miniflare/Workers runtime. A separate private
+Cloudflare production environment is being prepared; it never shares their data.
 
 | Environment | URL | Purpose | Storage |
 |---|---|---|---|
 | **dev** | `http://localhost:3000` | Hot-reload coding and disposable experiments | `.wrangler/dev/state` |
 | **test** | `http://localhost:3001` | Stable built release used as a real user | `.wrangler/test/state` |
+| **prod** | Worker URL pending first deploy; later `ikbeneenappel.nl` | Private, single-admin hosted release; registration closed | Remote `ikbeneenappel-prod` D1, never local TEST |
 
 The paths are intentionally different. A dev reset cannot delete test jobs.
 
@@ -45,6 +45,14 @@ path, so test D1 data stays under `.wrangler/test/state`.
 
 Both may run at the same time. Restart `test:local` only when a validated change is ready for real
 use; source edits do not hot-reload into the running test release.
+
+Production is not a third local server. `npm run build:prod` builds and verifies its
+Worker/D1 bindings. `npm run deploy:prod` performs a real Cloudflare deployment;
+use it only during the owner-witnessed first release or an approved update. The
+GitHub `production` environment requires the owner's review before a CI deploy.
+Deployment does not copy jobs or accounts from TEST. After the first deployment,
+visit the Worker once to apply migrations, then use the one-time local
+`npm run bootstrap:prod-admin` script. See `docs/DEPLOY.md`.
 
 ## What differs between dev and test, deliberately
 

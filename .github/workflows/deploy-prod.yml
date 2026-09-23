@@ -1,0 +1,53 @@
+name: Build and approve private production deployment
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build:prod
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-worker-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: production-worker-${{ github.sha }}
+          path: dist/
+      - name: Confirm production artifact bindings
+        run: |
+          node -e "const c=require('./dist/server/wrangler.json');if(c.name!=='ikbeneenappel-prod'||c.d1_databases?.length!==1||c.d1_databases[0].database_id!=='b0a513c7-0d01-486c-8b16-5cdb6690c959')process.exit(1)"
+      - name: Deploy approved artifact
+        run: npx wrangler deploy --config dist/server/wrangler.json
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

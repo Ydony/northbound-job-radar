@@ -1,5 +1,28 @@
 # Handover
 
+## 2026-09-24 Indeed completion and private production preparation
+
+Indeed epic #112 and blockers #69/#118/#126 were merged and closed. PR #151
+activated the bounded 200-row per role/country ceiling; 800 rows and 32 requests
+are whole-click maxima, not coverage targets or provider-approved quotas. TEST
+was restarted from the merged build on port 3001; `/login` returned 200 and
+signed-out `/api/state` returned 401. No owner-account live search was run.
+
+Private Cloudflare milestone 12 is next. Production D1 exists but is separate
+and empty; first deploy, owner-only Worker secrets, bootstrap, and custom domain
+remain pending. `scripts/build-prod.mjs` verifies the generated Worker/D1 before
+any deploy; `scripts/bootstrap-prod-admin.mjs` is a one-time, local-only D1
+bootstrap that leaves hosted HTTP signup blocked. The deployment workflow is
+owner-approval-gated. Do not call the site live until issue #149 is verified.
+On 2026-09-24, GitHub's API showed the `Production` environment does have a
+required-reviewer rule (environment names are case-insensitive), but neither
+`CLOUDFLARE_API_TOKEN` nor `CLOUDFLARE_ACCOUNT_ID` is currently present among
+repository or environment secret **names**. The owner must set these before
+approving a CI deployment; no values were read or handled. The authoritative
+`.nl` lookup still returned NXDOMAIN for `ikbeneenappel.nl`, so #148 remains
+externally blocked. The bootstrap dry-run used a disposable local D1 and a
+synthetic password; no production account or rows were created.
+
 ## 2026-09-23 Indeed gate before private Cloudflare
 
 Owner sequence: finish Indeed epic #112 and only its blockers (#69, #118, #126),
