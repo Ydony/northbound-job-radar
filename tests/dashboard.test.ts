@@ -160,22 +160,23 @@ test('formatDate handles empty, unparseable and valid dates', () => {
   assert.ok(formatDate('2026-01-05T12:00:00.000Z').startsWith('Posted '));
 });
 
-test('sortJobs orders by fit, posting date, or first sighting', () => {
+test('sortJobs orders by posting date or first sighting; there is no fit order', () => {
   const old = job({ id: 'old', fitScoreA: 10, fitScoreB: 10, postedAt: '2026-07-01T00:00:00.000Z', firstSeenAt: '2026-07-02T00:00:00.000Z' });
   const mid = job({ id: 'mid', fitScoreA: 50, fitScoreB: 50, postedAt: '2026-08-01T00:00:00.000Z', firstSeenAt: '2026-08-15T00:00:00.000Z' });
   const top = job({ id: 'top', fitScoreA: 99, fitScoreB: 99, postedAt: '2026-08-20T00:00:00.000Z', firstSeenAt: '2026-08-10T00:00:00.000Z' });
   const undated = job({ id: 'undated', fitScoreA: 60, fitScoreB: 60, postedAt: '', firstSeenAt: '' });
-  assert.deepEqual(sortJobs([old, mid, top], 'fit').map((entry) => entry.id), ['top', 'mid', 'old']);
+  // Fit scores exist on the rows but CV matching is shelved, so no order may
+  // use them — the control must not promise what the product does not do.
   assert.deepEqual(sortJobs([old, mid, top, undated], 'posted').map((entry) => entry.id), ['top', 'mid', 'old', 'undated']);
   assert.deepEqual(sortJobs([old, mid, top, undated], 'found').map((entry) => entry.id), ['mid', 'top', 'old', 'undated']);
   // Undated rows sort after dated ones rather than as string-equal firsts.
   assert.deepEqual(sortJobs([undated, old], 'posted').map((entry) => entry.id), ['old', 'undated']);
   // Ties break on id, so the order never depends on which page a job arrived on.
   const tied = [job({ id: 'b', fitScoreA: 10, fitScoreB: 10 }), job({ id: 'a', fitScoreA: 10, fitScoreB: 10 })];
-  assert.deepEqual(sortJobs(tied, 'fit').map((entry) => entry.id), ['a', 'b']);
+  assert.deepEqual(sortJobs(tied, 'found').map((entry) => entry.id), ['a', 'b']);
   // The input is never reordered in place.
   const input = [old, top];
-  sortJobs(input, 'fit');
+  sortJobs(input, 'found');
   assert.deepEqual(input.map((entry) => entry.id), ['old', 'top']);
 });
 
@@ -292,7 +293,7 @@ test('jobInView separates language from lifecycle: every verdict individually re
     pass: 'Definitely English', review: 'Maybe English', unknown: 'Not sure',
     blocked: 'Local language required', all: 'All language results',
   });
-  assert.deepEqual(SORT_MODE_LABELS, { fit: 'Best fit', posted: 'Newest posted', found: 'Recently found' });
+  assert.deepEqual(SORT_MODE_LABELS, { posted: 'Newest posted', found: 'Recently found' });
 });
 
 test('jobMatchesLanguage follows the effective verdict, never promoting blocked', () => {

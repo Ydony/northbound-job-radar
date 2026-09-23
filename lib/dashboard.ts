@@ -277,10 +277,9 @@ export const LANGUAGE_FILTER_LABELS: Record<LanguageFilter, string> = {
   all: 'All language results',
 };
 
-export type SortMode = 'fit' | 'posted' | 'found';
+export type SortMode = 'posted' | 'found';
 
 export const SORT_MODE_LABELS: Record<SortMode, string> = {
-  fit: 'Best fit',
   posted: 'Newest posted',
   found: 'Recently found',
 };
@@ -327,14 +326,13 @@ function compareIsoDesc(a: string, b: string) {
 
 /**
  * Order one page of jobs for the list. Ties break on id so the order is
- * stable regardless of which page a job arrived on — the fit order callers
- * used to get inline, plus the two orders the sort control offers.
+ * stable regardless of which page a job arrived on. There is no fit order:
+ * CV matching is shelved, so no score exists to sort by (UX-7e).
  */
 export function sortJobs(jobs: JobRecord[], mode: SortMode): JobRecord[] {
   const copy = [...jobs];
   if (mode === 'posted') copy.sort((a, b) => compareIsoDesc(a.postedAt, b.postedAt) || a.id.localeCompare(b.id));
-  else if (mode === 'found') copy.sort((a, b) => compareIsoDesc(a.firstSeenAt, b.firstSeenAt) || a.id.localeCompare(b.id));
-  else copy.sort((a, b) => bestFitScore(b) - bestFitScore(a) || a.id.localeCompare(b.id));
+  else copy.sort((a, b) => compareIsoDesc(a.firstSeenAt, b.firstSeenAt) || a.id.localeCompare(b.id));
   return copy;
 }
 

@@ -97,7 +97,7 @@ export default function JobRadar() {
   // Pipeline and Dismissed ignore the language choice (ride-along).
   const [view, setView] = useState<DashboardView>('all');
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>('pass');
-  const [sortMode, setSortMode] = useState<SortMode>('fit');
+  const [sortMode, setSortMode] = useState<SortMode>('found');
   const [countryFilter, setCountryFilter] = useState<CountryFilter>('all');
   const [applicationFilter, setApplicationFilter] = useState<ApplicationFilter>('all');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -410,11 +410,10 @@ export default function JobRadar() {
     .sort((a, b) => a[1].localeCompare(b[1])), [visibleToRole]);
 
   /**
-   * The one filter surface: every active constraint — saved keywords, the
-   * language choice and temporary facets alike — as a single removable row
-   * above the list. Saved keywords come first because they are the ones that
-   * silently empty the list from another screen. The language pill is hidden
-   * in Pipeline/Dismissed, where the choice does not narrow the list.
+   * The one filter surface: temporary view facets only. The language choice
+   * always has a value and lives in the sidebar, so it gets no pill; saved
+   * keywords are stated in the quiet line below, never edited from here —
+   * removing one would silently rewrite the saved criteria (UX-7e).
    */
   const pills = useMemo(() => activeFilterPills({
     country: countryFilter,
@@ -426,7 +425,8 @@ export default function JobRadar() {
     language: languageApplies ? languageFilter : 'all',
     requiredKeywords: state.criteria.requiredKeywords,
     excludedKeywords: state.criteria.excludedKeywords,
-  }), [applicationFilter, cityFilter, countryFilter, languageApplies, languageFilter, sourceFilter, sourceOptions, state.criteria, workTypeFilter]);
+  }).filter((pill) => pill.key !== 'language' && pill.key !== 'required' && pill.key !== 'excluded'),
+    [applicationFilter, cityFilter, countryFilter, languageApplies, languageFilter, sourceFilter, sourceOptions, state.criteria, workTypeFilter]);
 
   function removePill(key: FilterPill['key']) {
     if (key === 'country') chooseCountry('all');
@@ -434,9 +434,6 @@ export default function JobRadar() {
     else if (key === 'source') setSourceFilter('all');
     else if (key === 'workType') setWorkTypeFilter('all');
     else if (key === 'application') setApplicationFilter('all');
-    else if (key === 'language') setLanguageFilter('all');
-    else if (key === 'required') void clearSavedKeywords('required');
-    else void clearSavedKeywords('excluded');
   }
 
   function clearAllFilters() {
@@ -446,11 +443,6 @@ export default function JobRadar() {
     setApplicationFilter('all');
     setCityFilter('all');
     setLanguageFilter('all');
-    // Facets alone may not be the culprit: the keywords empty the list from the
-    // settings screen, so clearing everything means clearing those too.
-    if (state.criteria.requiredKeywords.length || state.criteria.excludedKeywords.length) {
-      void clearSavedKeywords('both');
-    }
   }
 
   /**
@@ -653,30 +645,6 @@ export default function JobRadar() {
       setCriteriaMessage('Criteria saved and applied to search and results.');
     } catch (error) {
       setCriteriaMessage(error instanceof Error ? error.message : 'Could not save criteria.');
-    } finally {
-      setCriteriaBusy(false);
-    }
-  }
-
-  /**
-   * Removing a keyword pill edits the *saved* criteria, not just the screen: the pills
-   * name what is actually hiding jobs, so taking one off must bring those jobs back.
-   * The draft follows the save, so the settings form never disagrees with the list.
-   */
-  async function clearSavedKeywords(which: 'required' | 'excluded' | 'both') {
-    const draft = criteriaToDraft(state.criteria);
-    if (which !== 'required') draft.excludedKeywords = '';
-    if (which !== 'excluded') draft.requiredKeywords = '';
-    setCriteriaDraft(draft);
-    setCriteriaBusy(true);
-    setCriteriaMessage('Updating keywords…');
-    try {
-      await persistCriteria(draft);
-      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
-      setState(refreshed);
-      setCriteriaMessage('Keywords cleared — the list now shows everything they hid.');
-    } catch (error) {
-      setCriteriaMessage(error instanceof Error ? error.message : 'Could not update keywords.');
     } finally {
       setCriteriaBusy(false);
     }
@@ -1478,6 +1446,24 @@ export default function JobRadar() {
             {/* Names the view you are in, so collapsing it does not hide where you are. */}
             <summary>Filters<span>{DASHBOARD_VIEW_LABELS[view]}{languageApplies && languageFilter !== 'all' ? ` · ${LANGUAGE_FILTER_LABELS[languageFilter]}` : ''}</span></summary>
             {/* Lifecycle tabs live above the list; this column keeps the facets. */}
+            {languageApplies ? <>
+            <b className="filter-group">Language result</b>
+            {(Object.keys(LANGUAGE_FILTER_LABELS) as LanguageFilter[]).map((option) => <button
+              key={option}
+              type="button"
+              className={languageFilter === option ? 'active' : ''}
+              onClick={() => setLanguageFilter(option)}
+              title={option === 'all'
+                ? 'Every verdict, including ads that need a local language.'
+                : option === 'blocked'
+                  ? 'Only ads that need a local language. Nothing here is promoted to a match.'
+                  : option === 'review'
+                    ? 'Only ads screened as Maybe English — the whole ad was read and stayed ambiguous. There is nothing more to get.'
+                    : option === 'unknown'
+                      ? 'Only ads screened as Not sure — usually a preview. Opening the original usually settles it.'
+                      : `Only ads screened as ${LANGUAGE_FILTER_LABELS[option].toLowerCase()}.`}
+            ><span>{LANGUAGE_FILTER_LABELS[option]}</span><i>{languageCounts[option]}</i></button>)}
+            </> : <p className="language-note" role="note">Pipeline and Dismissed show everything you put there, whatever the language screen says.</p>}
             <b className="filter-group">Country</b>
             <button className={countryFilter === 'all' ? 'active' : ''} onClick={() => chooseCountry('all')}><span>All countries</span><i>{facets.country.all}</i></button>
             {/* Places unfold under the country they belong to, rather than sitting in a separate
@@ -1532,38 +1518,18 @@ export default function JobRadar() {
               <button type="button" className={view === 'new' ? 'active' : ''} onClick={() => setView('new')} title="Jobs first seen since the last search. The language choice below narrows this list."><span>New</span><i>{counts.new}</i></button>
               <button type="button" className={view === 'all' ? 'active' : ''} onClick={() => setView('all')} title="Every saved result, not just what is new. The language choice below narrows this list."><span>All</span><i>{counts.all}</i></button>
               <button type="button" className={view === 'pipeline' ? 'active' : ''} onClick={() => setView('pipeline')} title="Everything you saved or marked applied, whatever the language screen says."><span>Pipeline</span><i>{counts.pipeline}</i></button>
+              <button type="button" className={view === 'dismissed' ? 'active' : ''} onClick={() => setView('dismissed')} title="Jobs you dismissed. Dismissing is reversible — restore one from here."><span>Dismissed</span><i>{counts.dismissed}</i></button>
             </div>
             <div className="results-side">
-            <div className="quiet-links">
-              <button type="button" className={view === 'dismissed' ? 'active' : ''} onClick={() => setView('dismissed')}>
-                {counts.dismissed ? `Dismissed (${counts.dismissed})` : 'Dismissed'}
-              </button>
-            </div>
               <label className="sort-control"><span>Sort</span><select
                 value={sortMode}
                 onChange={(event) => setSortMode(event.target.value as SortMode)}
               >{(Object.keys(SORT_MODE_LABELS) as SortMode[]).map((mode) => <option value={mode} key={mode}>{SORT_MODE_LABELS[mode]}</option>)}</select></label>
             </div>
             </div>
-            {/* Explicit language filters (#119), separate from the lifecycle tabs above.
-                The screen is a best-effort gate, not a promise of perfect classification:
-                counts are loaded-page rows in this view, and a correction moves the card. */}
-            {languageApplies ? <div className="language-tabs" role="group" aria-label="Language">
-              {(Object.keys(LANGUAGE_FILTER_LABELS) as LanguageFilter[]).map((option) => <button
-                key={option}
-                type="button"
-                className={languageFilter === option ? 'active' : ''}
-                aria-pressed={languageFilter === option}
-                onClick={() => setLanguageFilter(option)}
-                title={option === 'all'
-                  ? 'Every verdict, including ads that need a local language.'
-                  : option === 'blocked'
-                    ? 'Only ads that need a local language. Nothing here is promoted to a match.'
-                    : `Only ads screened as ${LANGUAGE_FILTER_LABELS[option].toLowerCase()}.`}
-              ><span>{LANGUAGE_FILTER_LABELS[option]}</span><i>{languageCounts[option]}</i></button>)}
-            </div> : <p className="language-note" role="note">Pipeline and Dismissed show everything you put there, whatever the language screen says.</p>}
-            {/* One filter surface: every active constraint as a removable pill, saved
-                keywords first. "Clear all" appears once there is more than one. */}
+            {/* One strip of view facets. Saved keywords are stated, never edited,
+                from the results screen: removing one there would silently rewrite
+                the saved criteria. */}
             {pills.length > 0 && <div className="list-toolbar">
               <div className="pills" aria-label="Active filters">
                 {pills.map((pill) => <button
@@ -1571,15 +1537,13 @@ export default function JobRadar() {
                   type="button"
                   className="pill"
                   onClick={() => removePill(pill.key)}
-                  title={pill.key === 'required' || pill.key === 'excluded'
-                    ? 'Remove these keywords from your saved criteria'
-                    : pill.key === 'language'
-                      ? 'Show all language results'
-                      : 'Remove this filter'}
+                  title="Remove this filter"
                 ><span>{pill.label}</span><i aria-hidden="true">×</i></button>)}
                 {pills.length > 1 && <button type="button" className="pill-clear" onClick={clearAllFilters}>Clear all</button>}
               </div>
             </div>}
+            {(state.criteria.requiredKeywords.length > 0 || state.criteria.excludedKeywords.length > 0) && <p className="saved-criteria-note">
+              Saved criteria{state.criteria.requiredKeywords.length > 0 && <> require <b>{state.criteria.requiredKeywords.join(', ')}</b></>}{state.criteria.requiredKeywords.length > 0 && state.criteria.excludedKeywords.length > 0 && <> and</>}{state.criteria.excludedKeywords.length > 0 && <> exclude <b>{state.criteria.excludedKeywords.join(', ')}</b></>} — <a href="#criteria" onClick={() => setSettingsOpen(true)}>change in Search settings</a></p>}
             {undoDismiss && <div className="undo-bar" role="status">
               <span>Dismissed “{undoDismiss.title}”.</span>
               <button type="button" onClick={() => updateJobState(undoDismiss.id, { visibilityStatus: 'active' })}>Undo</button>
