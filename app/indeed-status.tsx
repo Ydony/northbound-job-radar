@@ -107,7 +107,7 @@ export default function IndeedStatusPanel({ search, busy, searchDisabled, roles,
 
     <p>Searching as {roles.length ? roles.map((role) => `“${role}”`).join(' and ') : 'no saved roles yet — save role keywords first'}
       {roles.length ? ' (the first two saved roles; Indeed never receives the other three)' : ''}.
-      Refresh looks back at recent postings only — at most {INDEED_RUNNING_BUDGET.perQueryMaxRows} returned
+      Refresh requests the latest seven days, sorted by date, then checks posting dates locally — at most {INDEED_RUNNING_BUDGET.perQueryMaxRows} returned
       rows per role per country and {INDEED_RUNNING_BUDGET.totalMaxRows} in total, a cap, never a
       target it fills with older results. Previously collected jobs and their
       saved, applied and dismissed states remain.</p>
@@ -165,8 +165,8 @@ export default function IndeedStatusPanel({ search, busy, searchDisabled, roles,
       {coverage.map((entry) => <p key={`${entry.country}-${entry.role}`}>
         “{entry.role}” · {entry.country === 'NL' ? 'Netherlands' : 'Switzerland'} · {entry.location} · {entry.radiusMiles} mi
         {entry.status === 'complete' && entry.coveredThroughMs > 0
-          ? ` · covered through ${formatDate(new Date(entry.coveredThroughMs).toISOString())}; the next refresh continues from there`
-          : ' · incomplete — the next refresh retries the same window'}
+          ? ` · available filtered pages exhausted through ${formatDate(new Date(entry.coveredThroughMs).toISOString())}; the next refresh uses an overlap`
+          : ' · incomplete — a quick repeat reuses this sample; a later refresh searches the recent window again'}
         {entry.lastSuccess && ` · last success ${formatDate(entry.lastSuccess)}`}
       </p>)}
     </div>

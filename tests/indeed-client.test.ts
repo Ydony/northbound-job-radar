@@ -81,6 +81,19 @@ test('Indeed safely quotes search input and pagination cursors', async () => {
   assert.ok(query1.includes(`cursor: ${JSON.stringify(cursor)}`));
 });
 
+test('Indeed sends only validated date sort and bounded dateOnIndeed lookback', async () => {
+  const fixture = transport([Response.json(payload([job()]))]);
+  await createIndeedClient(config(), fixture.fetcher).search({ ...input, sort: 'DATE', hoursOld: 168 });
+  const query = JSON.parse(String(fixture.calls[0].init.body)).query;
+  assert.match(query, /sort: DATE/);
+  assert.match(query, /filters: \{date: \{field: "dateOnIndeed", start: "168h"\}\}/);
+  for (const invalid of [{ hoursOld: 0 }, { hoursOld: 169 }, { sort: 'DATE) { secret' }]) {
+    const result = await createIndeedClient(config(), fixture.fetcher).search({ ...input, ...invalid } as IndeedSearchInput);
+    assert.equal(result.reason, 'invalid_input');
+  }
+  assert.equal(fixture.calls.length, 1);
+});
+
 test('Indeed enforces budgets and does not call a continuation automatically', async () => {
   const fixture = transport([Response.json(payload([job()], 'next'))]);
   const result = await createIndeedClient(config(), fixture.fetcher).search(input);

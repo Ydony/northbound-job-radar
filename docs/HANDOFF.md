@@ -1,5 +1,20 @@
 # Handover
 
+## 2026-09-23 Indeed gate before private Cloudflare
+
+Owner sequence: finish Indeed epic #112 and only its blockers (#69, #118, #126),
+review/merge, then prepare private Cloudflare #143–#149. Optional VPN #73 and
+unrelated backlog are not gates. The 200-per-role/country ceiling remains a
+safety maximum and is **not yet active**; only #126 may activate it last.
+
+Codex's bounded date/filter probe and isolated website/operator acceptance are
+recorded in [INDEED_HANDOVER.md](INDEED_HANDOVER.md). The collector now requests
+date order plus a seven-day provider lookback, retains the local posting-date
+gate, reuses recent capped samples, and versions its query checkpoint. Run the
+updated tests/build before merging. Do not claim exhaustive coverage, exact
+provider indexing time, or an authorized quota. TEST on port 3001 was not
+restarted or modified for these code changes.
+
 ## 2026-09-23 refactor and CV removal (current working tree)
 
 The owner requested a functionality/code inventory, cleanup, security-gap review, and removal

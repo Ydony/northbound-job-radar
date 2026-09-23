@@ -100,24 +100,25 @@ status message, and per-query coverage after Check readiness. Ordinary accounts 
 none of this: no section, no settings, no run history.
 ## Incremental coverage (no rescan of what is already covered)
 
-Each account keeps a checkpoint per query (role, country, place, distance): the
-time a query was fully covered through, and the window it used. A repeat click
-within 15 minutes of a successful check reuses it with no upstream request and
-says when it last checked; the reuse never extends its own freshness. Later
-searches cover only what is new since the successful boundary, minus a 6-hour
-overlap for late-indexed jobs. Coverage advances only on fully exhausted
-queries, to the run start — never on failure, caps or cancellation, which keep
-an incomplete checkpoint and retry the same window. Any settings change is a
-new query with fresh coverage. A click while a run is active attaches to it
-rather than sending duplicate requests. There is no background fetching.
+Each account keeps a checkpoint per query (role, country, place, distance and
+query version). A repeat click within 15 minutes reuses a valid complete **or
+capped** check with no upstream request; the reuse never extends its own
+freshness. A later check requests the newest listings in the recent window.
+Fully exhausted filtered results allow the next check to use a six-hour overlap
+from the last boundary. A capped/failed/cancelled check never advances that
+boundary; a later check retries within a rolling seven-day window. A changed
+setting starts a new query. A click while a run is active sends no second
+request. These are best-effort checkpoints, not proof that Indeed indexed every
+relevant job or that a capped first page is exhaustive. There is no background fetching.
 
 ## Limits, disconnect and troubleshooting
 
 - First two distinct saved roles; selected NL/CH countries only; 25 rows per role/country.
-  Maximum four upstream requests/100 returned rows per click. Only jobs posted in the last
-  seven days are kept (older rows are dropped, undated rows stay); the window is applied
-  locally because upstream relevance ordering is unverified. This is a bounded sample, not
-  200–400 jobs, guaranteed new jobs, or exhaustive paging. No unattended schedule is added.
+  Maximum four upstream requests/100 returned rows per click. The query requests date order
+  and a provider-side `dateOnIndeed` lookback; the collector separately rejects returned jobs
+  with `datePublished` outside the rolling seven-day window (undated rows stay). Those two
+  dates can differ. This is a bounded sample, not 200–400 jobs, guaranteed new jobs, or
+  exhaustive paging. No unattended schedule is added.
 - A shared durable lease prevents concurrent runs. A normal run has a 60-second cooldown;
   provider Retry-After can require longer. No automatic retry or IP/profile rotation.
 - 401/403, redirects and malformed responses pause collection for operator review. Do not
@@ -158,6 +159,9 @@ saved/applied/dismissed retention and reset isolation. It passed against the fin
 on fresh disposable storage at port 3115, with no upstream requests. Do not run it on the owner's workspace.
 
 ## 2026-09-22 close-out status (Spark #113–#116, Codex/lead review pending)
+
+Historical checkpoint. The 2026-09-23 query correction is described above and in
+INDEED_HANDOVER.md. The conservative 25/100 collection caps still apply until #126.
 
 Live caps are unchanged: 25 rows per role/country, 4 requests/100 rows per click,
 7-day local window, 60s cooldown. The 200/800 design exists only in synthetic

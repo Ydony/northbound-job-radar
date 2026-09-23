@@ -77,7 +77,7 @@ test('running budget is unchanged: 25-row pages, one request per query, four per
   }
 });
 
-test('recency is enforced locally: relevance order is sent, old rows drop, unknown dates stay', async () => {
+test('provider receives date sort/lookback, while local publication gate drops old rows and keeps unknowns', async () => {
   const { db, dispose } = await fixture();
   try {
     const seen: string[] = [];
@@ -86,7 +86,9 @@ test('recency is enforced locally: relevance order is sent, old rows drop, unkno
     assert.ok(seen.length === 0);
     const result = await collectIndeed(db, config, ['analyst'], undefined, fetcher, ['NL'],
       undefined, INDEED_RUNNING_BUDGET, Date.now() - INDEED_INITIAL_WINDOW_MS);
-    assert.ok(seen[0].includes('sort: RELEVANCE'), 'upstream order is relevance; the window is applied here, not upstream');
+    assert.ok(seen[0].includes('sort: DATE'));
+    assert.ok(seen[0].includes('field: \\"dateOnIndeed\\", start: \\"168h\\"'),
+      'the provider gets an approximate 7-day prefilter');
     // Exhausted source, but out-of-window rows were dropped: partial is honest,
     // and retrieved (9) vs kept (4) shows what the window removed.
     assert.equal(result.NL.status, 'partial');

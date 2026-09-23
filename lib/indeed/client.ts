@@ -28,7 +28,8 @@ function queryFor(input: IndeedSearchInput, limit: number, cursor: string | null
   return `query LocalDescriptionCheck {
     jobSearch(what: ${JSON.stringify(input.keywords)},
       location: {where: ${JSON.stringify(input.location)}, radius: ${input.radiusMiles ?? 10}, radiusUnit: MILES},
-      limit: ${limit}, sort: RELEVANCE${cursor ? `, cursor: ${JSON.stringify(cursor)}` : ''}) {
+      limit: ${limit}, sort: ${input.sort ?? 'RELEVANCE'}${input.hoursOld ? `,
+      filters: {date: {field: "dateOnIndeed", start: "${input.hoursOld}h"}}` : ''}${cursor ? `, cursor: ${JSON.stringify(cursor)}` : ''}) {
       pageInfo { nextCursor }
       results { job { key title datePublished description { html }
         location { city countryCode } employer { name } } }
@@ -170,6 +171,8 @@ export function createIndeedClient(config: { access: IndeedAccess; credentials?:
       if (!['NL', 'CH'].includes(input.country) || typeof input.keywords !== 'string' || !input.keywords.trim()
         || input.keywords.length > 300 || typeof input.location !== 'string' || !input.location.trim()
         || input.location.length > 300 || !integer(input.radiusMiles ?? 10, 0, 500)
+        || (input.hoursOld !== undefined && !integer(input.hoursOld, 1, 168))
+        || (input.sort !== undefined && !['RELEVANCE', 'DATE'].includes(input.sort))
         || !integer(pageSize, 1, INDEED_LIMITS.pageSize) || !integer(maxRequests, 1, INDEED_LIMITS.maxRequests)
         || !integer(maxJobs, 1, INDEED_LIMITS.maxJobs)) return finish('invalid_input');
       if (input.signal?.aborted) return finish('cancelled');
