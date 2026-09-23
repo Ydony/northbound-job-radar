@@ -1704,12 +1704,6 @@ export default function JobRadar() {
               {loadMoreError && <p className="form-message" role="status">{loadMoreError}</p>}
             </div>}
           </div>
-          {/* The condition EURES reuse rests on: ELA acknowledged as the source, where the
-              material is shown. Rendered from the job list actually on screen rather than
-              unconditionally, so it is a true statement about what you are looking at. */}
-          {needsElaAttribution(visibleJobs) && <p className="source-attribution">
-            {ELA_ATTRIBUTION} <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a>
-          </p>}
           {visibleAdzunaSources.length > 0 && <p className="source-attribution">
             {ADZUNA_ATTRIBUTION}{' '}
             {visibleAdzunaSources.map((key, index) => <span key={key}>
@@ -1775,7 +1769,7 @@ export default function JobRadar() {
         </>}
       </dialog>
 
-      <footer><span className="footer-attribution">{ELA_ATTRIBUTION} <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a></span><div className="footer-links"><a href="#sources" onClick={() => setStatsOpen(true)}>Source report ↑</a><a href="/sources">Where the jobs come from →</a><a href="/privacy">Privacy</a></div></footer>
+      <footer>{needsElaAttribution(visibleJobs) && <span className="footer-attribution">{ELA_ATTRIBUTION} <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a></span>}<div className="footer-links"><a href="#sources" onClick={() => setStatsOpen(true)}>Source report ↑</a><a href="/sources">Where the jobs come from →</a><a href="/privacy">Privacy</a></div></footer>
     </main>
   );
 }
