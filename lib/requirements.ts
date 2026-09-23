@@ -254,11 +254,35 @@ function tidyHeading(raw: string) {
   return raw.replace(/^[#*\s]+/, '').replace(/[#*:\s]+$/, '');
 }
 
+/**
+ * Rejoin a sentence a hard wrap split in two.
+ *
+ * Advertisements arrive wrapped - at a column, or wherever the HTML had a <br> - and this
+ * file reads line by line, so a wrapped sentence was cut at the wrap: "...experience in a
+ * comparable analyst" with "role, confidence with SQL..." dropped on the floor. Only a soft
+ * wrap is rejoined: a line that does not end a sentence, followed by one continuing in lower
+ * case. A heading, a bullet or a list item starts with a marker or a capital, and the line
+ * structure is what identifies those, so they are left alone.
+ */
+function rejoinWrappedLines(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const line of lines) {
+    const previous = out.length ? out[out.length - 1] : '';
+    const continues = previous
+      && !/[.!?:;]$/.test(previous)
+      && !/^[-–—*•\d]/.test(line)
+      && /^[a-zà-öø-ÿ(]/.test(line);
+    if (continues) out[out.length - 1] = `${previous} ${line}`;
+    else out.push(line);
+  }
+  return out;
+}
+
 export function extractRequirements(description: string): ExtractedRequirements | null {
   if (!description || !description.trim()) return null;
   // Truncated feeds end mid-sentence with an ellipsis; what precedes it can
   // still be quoted, and the card labels it as from the available text.
-  const lines = description.split('\n').map((line) => line.trim());
+  const lines = rejoinWrappedLines(description.split('\n').map((line) => line.trim()));
   const headingIndex = lines.findIndex((line) => isAnyRequirementHeading(line));
   if (headingIndex !== -1) {
     const items: string[] = [];

@@ -85,6 +85,20 @@ export function normalizePlace(location: string): { place: string; countryWide: 
     return !code || cantonCodes.has(code) ? '' : match;
   });
 
+  // "Amsterdam, Netherlands" and "Zurich, Switzerland" — the country appended to a city. The job
+  // card prints the country itself, immediately after the place, so leaving it here rendered
+  // "Amsterdam, Netherlands · Netherlands", and the city filter carried "Amsterdam" and
+  // "Amsterdam, Netherlands" as two entries for one city. Stripped only when something is left,
+  // so a location that is nothing but a country is still handled above as countryWide.
+  for (const word of countryWords.keys()) {
+    const pattern = new RegExp(`[,\\s]+${word.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i');
+    const stripped = working.replace(pattern, '').trim();
+    if (stripped && fold(stripped) !== fold(working)) {
+      working = stripped;
+      break;
+    }
+  }
+
   // "Amsterdam, Noord-Holland" and "Amsterdam Noord-Holland" — a region appended to a city. Only
   // stripped when something is left over, so "Utrecht" on its own survives as the city it also is.
   for (const suffix of regionSuffixes) {
