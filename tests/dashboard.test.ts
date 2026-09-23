@@ -4,7 +4,7 @@ import { defaultSearchCriteria } from '../lib/criteria';
 import { SOURCE_RUN_STATUS_LABELS, SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday,
   criteriaToDraft, DASHBOARD_VIEW_LABELS, emptyStateCopy, formatCountOrUnknown, formatDate, formatSourceReconciliation,
   isJobExpired, isNewJob, jobInView, jobMatchesLanguage, LANGUAGE_FILTER_LABELS, languageStatusLabel,
-  MATCHED_SNAPSHOT_NOTE, newSinceCutoff, RUN_TOTALS_HELP, runNewMatchedTotals, SORT_MODE_LABELS, sortJobs,
+  MATCHED_SNAPSHOT_NOTE, missingIndeedDashRows, newSinceCutoff, RUN_TOTALS_HELP, runNewMatchedTotals, SORT_MODE_LABELS, sortJobs,
   sourceRunStatusLabel, sourceRunTotals, statusLabel, TOTALS_DEDUPE_NOTE, totalForSource,
   workspaceCountCopy } from '../lib/dashboard';
 import type { LanguageFilter } from '../lib/dashboard';
@@ -545,4 +545,19 @@ test('per-source unique totals add up to the deduplicated overall (#124 fix)', (
   assert.equal(overall, 5);
   assert.equal(totalForSource(bySource, 'eures-ch'), 4);
   assert.equal(totalForSource(bySource, 'jobs.ch'), 1);
+});
+
+test('admin preview shows Indeed dash rows only when the run lacks them; ordinary never', () => {
+  const pub = [{ sourceKey: 'eures-ch' }, { sourceKey: 'job-room' }];
+  // Ordinary accounts get nothing: the server withholds Indeed rows before
+  // aggregation, so there must be no trace of a fourth source to disclose.
+  assert.deepEqual(missingIndeedDashRows(pub, false), []);
+  assert.deepEqual(missingIndeedDashRows([...pub, { sourceKey: 'indeed-nl' }], false), []);
+  // Administrators see both Indeed sources as dashes until they have run.
+  const dash = missingIndeedDashRows(pub, true);
+  assert.deepEqual(dash.map((row) => row.sourceKey), ['indeed-ch', 'indeed-nl']);
+  assert.deepEqual(dash.map((row) => row.sourceName), ['Indeed Switzerland', 'Indeed Netherlands']);
+  // A source that ran is never duplicated by a dash row.
+  assert.deepEqual(missingIndeedDashRows([...pub, { sourceKey: 'indeed-nl' }], true).map((row) => row.sourceKey), ['indeed-ch']);
+  assert.deepEqual(missingIndeedDashRows([...pub, { sourceKey: 'indeed-ch' }, { sourceKey: 'indeed-nl' }], true), []);
 });

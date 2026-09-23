@@ -15,7 +15,7 @@ import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, adzunaSourcesOnScreen,
 import { workplaceLabel, type WorkplaceType } from '@/lib/workplace';
 import { SOURCE_RUN_STATUS_RANK, activeFilterPills, bestFitScore, closesToday, criteriaToDraft,
   DASHBOARD_VIEW_LABELS, emptyStateCopy, formatCountOrUnknown, formatDate, isJobExpired, jobInView,
-  LANGUAGE_FILTER_LABELS, languageStatusLabel, MATCHED_SNAPSHOT_NOTE, newSinceCutoff, RUN_TOTALS_HELP,
+  LANGUAGE_FILTER_LABELS, languageStatusLabel, missingIndeedDashRows, newSinceCutoff,
   runNewMatchedTotals, SORT_MODE_LABELS, sortJobs, sourceRunStatusLabel, statusLabel,
   TOTALS_DEDUPE_NOTE, totalForSource, workspaceCountCopy, type CriteriaDraft, type DashboardView, type FilterPill,
   type LanguageFilter, type SortMode } from '@/lib/dashboard';
@@ -90,7 +90,7 @@ export default function JobRadar() {
   // UX-7c: the settings band is open by default — the thing that decides what
   // every search collects is not collapsed behind a trigger on arrival.
   const [settingsOpen, setSettingsOpen] = useState(true);
-  const [statsOpen, setStatsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(true);
   // All with Definitely English is the default landing view (#119): it restores
   // the old matches intent — Definitely English across saved active results —
   // while New stays a pure recency inbox that the language choice narrows.
@@ -1250,42 +1250,14 @@ export default function JobRadar() {
         </div>}
       </section>
 
-      {/* Search settings and statistics sit directly under the search, above the job list.
-
-          #51 put results first by moving these two below every job card. With a real workspace of
-          nearly two thousand jobs that is several thousand pixels down, and the owner reported both
-          as missing (#53). The audit asked for results first *with setup in a panel*; these are
-          that panel in its simplest form. UX-6d: the two triggers are tab buttons in one row, so
-          both closed is a single line and the job list still starts near the top. One click opens
-          a panel attached below its trigger, with the list never between you and your own
-          settings. */}
+      {/* UX-7c/7d: settings and statistics are bands on the page, open by
+          default — not panels behind tabs. */}
       {loadError && <div className="workspace-load-error" role="alert">
         <p>{loadError}</p>
         <button type="button" className="reset-button" onClick={() => void loadWorkspace()}>Retry loading</button>
       </div>}
 
       <div className="setup-panels">
-        <div className="setup-tabs">
-          <button
-            type="button"
-            className={`setup-tab${statsOpen ? ' is-open' : ''}`}
-            aria-expanded={statsOpen}
-            aria-controls="sources"
-            onClick={() => setStatsOpen((open) => !open)}
-          >
-            <span className="setup-tab-arrow" aria-hidden="true">{statsOpen ? '▲' : '▼'}</span>
-            <b>Search statistics</b>
-            <span className="setup-tab-meta">{loadError ? 'Unavailable until the workspace loads'
-              : loading ? 'Loading…'
-              : latestRun
-                ? `${latestRunTotals.newJobs} new · ${
-                  latestRunTotals.matchedUnknown ? 'matched unknown' : `${latestRunTotals.matchedJobs} matched`
-                } · ${collectionView ? `${collectionView.total} collected` : 'collected unknown'}`
-                : collectionView && collectionView.total > 0
-                  ? `${collectionView.total} collected · No search has run yet`
-                  : 'No search has run yet'}</span>
-          </button>
-        </div>
         {/* UX-7c: settings is a band on the page, open by default, not a panel
             behind a tab. Everything that decides what a search collects sits
             here: five roles, countries, keywords, and the bar that runs. */}
@@ -1391,21 +1363,28 @@ export default function JobRadar() {
           </form>
         </section>
         <section className="source-dashboard" id="sources" hidden={!statsOpen} aria-label="Search statistics">
-            <div className="source-dashboard-heading">
-              <div><span className="section-label coral">Search coverage</span><h2>New, matched and collected</h2></div>
-              <p>{latestRun ? `Latest run ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleString('en-GB')}` : 'Run a job search to create the first source report.'}</p>
+            <div className="settings-head">
+              <h2>Search statistics</h2>
+              <p>What the last run did. A figure that was never recorded shows as —, never as zero.</p>
+              <button type="button" onClick={() => setStatsOpen((open) => !open)}>
+                <span aria-hidden="true">{statsOpen ? '▲' : '▼'}</span> {statsOpen ? 'Hide' : 'Show'}
+              </button>
             </div>
-            <p className="source-dashboard-explainer">{RUN_TOTALS_HELP} {MATCHED_SNAPSHOT_NOTE}</p>
-            {latestRun && <div className="source-overall" role="status" aria-label="Overall search totals">
-              <div><b>{latestRunTotals.newJobs}</b><span>New this search</span><small>first-time jobs this run added</small></div>
-              <div><b>{latestRunTotals.matchedUnknown ? '—' : latestRunTotals.matchedJobs}</b><span>Matched this search</span><small>new jobs English-confirmed and meeting criteria then</small></div>
-              <div><b>{collectionView ? collectionView.total : '—'}</b><span>Total collected</span><small>unique retained jobs, this and previous searches</small></div>
-            </div>}
+            {latestRun && <div className="stats-layout">
+              <div className="source-overall" role="status" aria-label="Overall search totals">
+              <div><b>{latestRunTotals.newJobs}</b><span>New this search</span><small>advertisements this run had not seen before</small></div>
+              <div><b>{latestRunTotals.matchedUnknown ? '—' : latestRunTotals.matchedJobs}</b><span>Matched this search</span><small>passed the saved criteria and the language gate</small></div>
+              <div><b>{collectionView ? collectionView.total : '—'}</b><span>Total collected</span><small>everything retained on the server, across all runs</small></div>
+              </div>
             {latestRun && latestRunTotals.matchedUnknown && <p className="source-dashboard-explainer">
               Matched is unknown for at least one contacted source that did not complete or predates
               matched tracking — shown as — rather than as a false zero.</p>}
             {collectionView && <p className="source-dashboard-explainer">{TOTALS_DEDUPE_NOTE}</p>}
-            {latestRun && <div className="source-report-grid">
+            {latestRun && <div className="source-table-scroll">
+          <table className="source-table">
+              <caption className="visually-hidden">Per-source results from the latest run</caption>
+              <thead><tr><th scope="col">Source</th><th scope="col">Status</th><th scope="col">Found</th><th scope="col">Added</th><th scope="col">Matched</th><th scope="col">Total collected</th></tr></thead>
+              <tbody>
               {[...latestRun.sources]
                 .sort((a, b) => SOURCE_RUN_STATUS_RANK[a.status] - SOURCE_RUN_STATUS_RANK[b.status]
                   || a.sourceName.localeCompare(b.sourceName))
@@ -1414,20 +1393,30 @@ export default function JobRadar() {
                   // numbers. Anything else is unknown (—), never a false zero.
                   // Total collected is server-retained and stays known across runs.
                   const completed = source.status === 'complete' || source.status === 'partial';
-                  const newDisplay = completed ? `${source.importedCount}` : '—';
-                  const matchedDisplay = completed ? formatCountOrUnknown(source.matchedCount) : '—';
                   const collected = collectionView ? totalForSource(collectionView.bySource, source.sourceKey) : null;
-                  return <article className={`source-report ${source.status}`} key={source.sourceKey}>
-                <div className="source-top"><span>{countryLabel(source.country)}</span><span className={`source-status ${source.status}`}><i aria-hidden="true" />{sourceRunStatusLabel(source.status)}</span></div>
-                <h3>{source.sourceName}</h3>
-                <div className="source-cells">
-                  <div><b className={!completed || source.importedCount === 0 ? 'is-zero' : ''} title={completed ? 'First-time unique jobs this run added to this account.' : 'This source did not complete, so new jobs are unknown rather than zero.'}>{newDisplay}</b><span>New this search</span></div>
-                  <div className={completed && (source.matchedCount ?? 0) > 0 ? 'is-added' : ''}><b className={matchedDisplay === '—' || matchedDisplay === '0' ? 'is-zero' : ''} title="New jobs that were English-confirmed and met the saved criteria at search time. A snapshot; later corrections do not rewrite it.">{matchedDisplay}</b><span>Matched this search</span></div>
-                  <div><b title="Unique retained jobs attributed to this source, this and previous searches. Saved, applied and dismissed rows are included; deleted rows are gone.">{collected == null ? '—' : collected}</b><span>Total collected</span></div>
-                </div>
-                {source.status !== 'complete' && source.message.trim() && <p className="source-message">{source.message}</p>}
-              </article>;})}
+                  return <tr key={source.sourceKey}>
+                    <td>{source.sourceName}</td>
+                    <td>{sourceRunStatusLabel(source.status)}</td>
+                    <td>{completed ? source.foundCount : '—'}</td>
+                    <td>{completed ? source.importedCount : '—'}</td>
+                    <td>{completed ? formatCountOrUnknown(source.matchedCount) : '—'}</td>
+                    <td>{collected == null ? '—' : collected}</td>
+                  </tr>;})}
+              {/* UX-7d: an administrator sees Indeed as a dash until it has run.
+                  Ordinary accounts never reach this branch — the server withholds
+                  Indeed rows before aggregation, so there is nothing to disclose. */}
+              {missingIndeedDashRows(latestRun.sources, isAdmin).map((row) => <tr className="is-dash" key={row.sourceKey}>
+                <td>{row.sourceName}</td><td>Not run</td><td>—</td><td>—</td><td>—</td><td>—</td>
+              </tr>)}
+              </tbody>
+            </table>
+          </div>}
             </div>}
+            {latestRun && latestRun.sources.some((source) => source.status !== 'complete' && source.message.trim()) && <ul className="source-messages">
+              {latestRun.sources.filter((source) => source.status !== 'complete' && source.message.trim()).map((source) => <li key={source.sourceKey}>
+                <b>{source.sourceName}:</b> {source.message}
+              </li>)}
+            </ul>}
             {!latestRun && collectionView && collectionView.total > 0 && <p className="source-dashboard-explainer">
               No search has run yet in this view, but {collectionView.total} unique retained job{collectionView.total === 1 ? '' : 's'} from
               previous searches or imports {collectionView.total === 1 ? 'is' : 'are'} still collected.</p>}

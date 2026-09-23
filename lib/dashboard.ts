@@ -285,6 +285,38 @@ export const SORT_MODE_LABELS: Record<SortMode, string> = {
   found: 'Recently found',
 };
 
+/**
+ * Administrator-only Indeed dash rows (UX-7d, issue #133). Keys and names
+ * mirror the adapter registry (`lib/job-adapters.ts`, indeed-ch/nl) without
+ * importing its search code into the client bundle; if those keys ever move,
+ * this list and its test must move with them.
+ */
+export interface IndeedDashRow {
+  sourceKey: string;
+  sourceName: string;
+  country: JobCountry;
+}
+
+export const INDEED_DASH_ROWS: readonly IndeedDashRow[] = [
+  { sourceKey: 'indeed-ch', sourceName: 'Indeed Switzerland', country: 'switzerland' },
+  { sourceKey: 'indeed-nl', sourceName: 'Indeed Netherlands', country: 'netherlands' },
+];
+
+/**
+ * Which Indeed dash rows the statistics band shows. Administrators see a dash
+ * row for every Indeed source the latest run did not report — "we did not
+ * look", never a false zero. Ordinary accounts get nothing: the server
+ * already withholds Indeed rows before aggregation, so there is no trace of a
+ * fourth source for the client to disclose.
+ */
+export function missingIndeedDashRows(
+  sources: readonly { sourceKey: string }[],
+  isAdmin: boolean,
+): IndeedDashRow[] {
+  if (!isAdmin) return [];
+  return INDEED_DASH_ROWS.filter((row) => !sources.some((source) => source.sourceKey === row.sourceKey));
+}
+
 /** ISO timestamps compare lexicographically; missing dates sort after dated ones. */
 function compareIsoDesc(a: string, b: string) {
   if (!a && !b) return 0;
