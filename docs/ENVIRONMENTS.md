@@ -51,7 +51,8 @@ Worker/D1 bindings. `npm run deploy:prod` performs a real Cloudflare deployment;
 use it only during the owner-witnessed first release or an approved update. The
 GitHub `production` environment requires the owner's review before a CI deploy.
 Deployment does not copy jobs or accounts from TEST. After the first deployment,
-visit the Worker once to apply migrations, then use the one-time local
+request `/api/state` once (expect signed-out HTTP 401) to apply migrations,
+then use the one-time local
 `npm run bootstrap:prod-admin` script. See `docs/DEPLOY.md`.
 
 ## What differs between dev and test, deliberately

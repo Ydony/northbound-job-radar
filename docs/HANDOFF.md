@@ -22,6 +22,8 @@ approving a CI deployment; no values were read or handled. The authoritative
 `.nl` lookup still returned NXDOMAIN for `ikbeneenappel.nl`, so #148 remains
 externally blocked. The bootstrap dry-run used a disposable local D1 and a
 synthetic password; no production account or rows were created.
+For first migration, request the deployed `/api/state` route (401 while signed
+out): it calls `ensureSchema()` before authentication. `/login` alone does not.
 
 ## 2026-09-23 Indeed gate before private Cloudflare
 
