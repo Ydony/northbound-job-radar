@@ -89,8 +89,8 @@ export default function JobRadar() {
   const [loadError, setLoadError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
-  // All with English confirmed is the default landing view (#119): it restores
-  // the old matches intent — English confirmed across saved active results —
+  // All with Definitely English is the default landing view (#119): it restores
+  // the old matches intent — Definitely English across saved active results —
   // while New stays a pure recency inbox that the language choice narrows.
   // Pipeline and Dismissed ignore the language choice (ride-along).
   const [view, setView] = useState<DashboardView>('all');
@@ -1585,8 +1585,8 @@ export default function JobRadar() {
               // heading the extractor knows - the two must not look alike.
               const isPreview = !requirements && job.descriptionLength < MIN_CHARS_TO_CONFIRM_ENGLISH;
               // The unseen accent edge is #46's; the verdict's own edge is untouched by it.
-              return <article className={`job-card ${displayedLanguageStatus}${openedJobs.has(job.id) ? '' : ' is-unseen'}`} key={job.id}>
-                <div className="score-column"><label className="job-select"><input type="checkbox" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /><span>Select</span></label></div>
+              return <article className={`job-card ${displayedLanguageStatus}${openedJobs.has(job.id) ? '' : ' is-unseen'}${selectedJobIds.includes(job.id) ? ' is-selected' : ''}`} key={job.id}>
+                <div className="score-column"><label className="job-select"><input type="checkbox" aria-label="Select this job" checked={selectedJobIds.includes(job.id)} onChange={() => toggleJobSelection(job.id)} /></label></div>
                 <div className="job-body">
                   {/* Tier 1 — Read: title first and largest, then one grey line of facts,
                       then the source as the second-largest thing, acting as a filter. */}
@@ -1627,7 +1627,7 @@ export default function JobRadar() {
                     {CV_MATCHING_ENABLED && <span className="fit-chip" title="Fit against your saved search roles">Fit {bestFitScore(job)}</span>}
                   </div>
                   {hasCorrection && <p className="correction-summary"><b>Your correction:</b> {languageStatusLabel(displayedLanguageStatus)} <span>· Detector: {languageStatusLabel(job.languageStatus)}</span></p>}
-                  {/* UX-6b: on a pass the chip already says English confirmed and a
+                  {/* UX-6b: on a pass the chip already says Definitely English and a
                       sentence repeating it adds nothing; on every other verdict the
                       reason earns its place under the chips. */}
                   {displayedLanguageStatus !== 'pass' && job.languageSummary
@@ -1636,13 +1636,13 @@ export default function JobRadar() {
                       icon, an applied checkbox, and everything else behind the "…" menu. */}
                   <div className="act-row">
                     <a
-                      className="apply-link apply-pill"
+                      className={`apply-link${displayedLanguageStatus === 'blocked' ? ' ghost' : ''}`}
                       href={job.sourceUrl}
                       target="_blank"
                       rel="noreferrer"
                       title={expired ? `This advertisement closed on ${job.expiresAt.slice(0, 10)} — the page may say it is no longer active.` : undefined}
                       onClick={() => { openedApply.current.set(job.id, sourceDisplayName); markJobOpened(job.id); }}
-                    >Apply on {sourceDisplayName} ↗</a>
+                    >{displayedLanguageStatus === 'blocked' ? `Open on ${sourceDisplayName} ↗` : `Apply on ${sourceDisplayName} ↗`}</a>
                     <button
                       type="button"
                       className={`save-icon ${job.isSaved ? 'selected' : ''}`}
@@ -1651,14 +1651,16 @@ export default function JobRadar() {
                       title={job.isSaved ? 'Saved — remove from Pipeline' : 'Save to Pipeline'}
                       onClick={() => updateJobState(job.id, { isSaved: !job.isSaved })}
                     >{job.isSaved ? '♥' : '♡'}</button>
-                    <label className="applied-check" title="Tick once you have applied on the job site">
+                    {/* Canvas state 4: a blocked card is dimmed and carries no
+                        Applied toggle — there is nothing to apply for. */}
+                    {displayedLanguageStatus !== 'blocked' && <label className="applied-check" title="Tick once you have applied on the job site">
                       <input
                         type="checkbox"
                         checked={applied}
                         onChange={() => updateJobState(job.id, { applicationStatus: applied ? 'not_applied' : 'applied' })}
                       />
                       <span>Applied</span>
-                    </label>
+                    </label>}
                     <details className="card-menu">
                       <summary aria-label="More actions for this job">…</summary>
                       <div className="card-menu-body">
@@ -1666,12 +1668,12 @@ export default function JobRadar() {
                         <div className="card-menu-feedback">
                           <span>Was the language result right?</span>
                           <button type="button" className={job.languageFeedback === 'correct' ? 'selected' : ''} disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'correct')}>✓ Accurate</button>
-                          <button type="button" className={job.languageFeedback === 'incorrect' ? 'selected' : ''} disabled={feedbackBusy === job.id} onClick={() => openFeedbackCorrection(job)}>Flag wrong</button>
+                          <button type="button" className={`report-link${job.languageFeedback === 'incorrect' ? ' selected' : ''}`} disabled={feedbackBusy === job.id} onClick={() => openFeedbackCorrection(job)}>Flag wrong</button>
                           {job.languageFeedback && <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, '')}>Clear</button>}
                           {feedbackMessages[job.id] && <small aria-live="polite">{feedbackMessages[job.id]}</small>}
                         </div>
                         {feedbackOpen[job.id] && <div className="feedback-form">
-                          <label><span>Correct result</span><select value={feedbackDraft.correctedStatus} onChange={(event) => updateFeedbackDraft(job.id, { correctedStatus: event.target.value as LanguageStatus })}><option value="pass">English confirmed</option><option value="unknown">Not enough of the ad</option><option value="review">Needs review</option><option value="blocked">Local language required</option></select></label>
+                          <label><span>Correct result</span><select value={feedbackDraft.correctedStatus} onChange={(event) => updateFeedbackDraft(job.id, { correctedStatus: event.target.value as LanguageStatus })}><option value="pass">Definitely English</option><option value="unknown">Not sure</option><option value="review">Maybe English</option><option value="blocked">Local language required</option></select></label>
                           <label><span>Reason (optional)</span><input maxLength={500} value={feedbackDraft.reason} onChange={(event) => updateFeedbackDraft(job.id, { reason: event.target.value })} placeholder="e.g. German is only a plus" /></label>
                           <button type="button" disabled={feedbackBusy === job.id} onClick={() => saveLanguageFeedback(job, 'incorrect', feedbackDraft.correctedStatus, feedbackDraft.reason)}>Save correction</button>
                         </div>}
@@ -1740,7 +1742,7 @@ export default function JobRadar() {
             <li><b>02</b><span>The text is predominantly English</span></li>
             <li><b>03</b><span>No local language is named as required</span></li>
           </ol>
-          <p>An ad too short to judge goes to <b>Not enough of the ad</b>, not to your matches. Anything that names a language without clearly requiring it goes to <b>Review</b>. You apply on the original job site yourself.</p>
+          <p>An ad too short to judge goes to <b>Not sure</b>, not to your matches. Anything that names a language without clearly requiring it goes to <b>Maybe English</b>. You apply on the original job site yourself.</p>
         </aside>
       </section>
 

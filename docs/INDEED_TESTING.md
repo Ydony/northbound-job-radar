@@ -32,7 +32,7 @@ Do not copy databases between environments or reset them.
 Sign into the app as an administrator, save your role keywords and countries, then click
 **Search Indeed only**. No **Check readiness** click is needed. The check button is optional
 diagnostics and sends no Indeed request. Results are screened, deduplicated and saved in that
-account. Use All with English confirmed for passing jobs (the default arrival); New shows only additions since the latest search under the chosen language filter.
+account. Use All with Definitely English for passing jobs (the default arrival); New shows only additions since the latest search under the chosen language filter.
 Previously saved/applied/dismissed jobs retain those states. A repeat search can legitimately add zero.
 
 ## Call from another LLM or a script

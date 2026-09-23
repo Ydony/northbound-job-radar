@@ -135,14 +135,13 @@ test('sourceRunTotals sums the two live card numbers across one run', () => {
   assert.deepEqual(sourceRunTotals([]), { searched: 0, added: 0 });
 });
 
-test('languageStatusLabel never phrases unknown as a near-miss', () => {
-  assert.equal(languageStatusLabel('pass'), 'English confirmed');
+test('languageStatusLabel uses the canvas words, never a near-miss', () => {
+  assert.equal(languageStatusLabel('pass'), 'Definitely English');
   // The ad was too short to judge, which is different from looking acceptable;
   // the old wording claimed the latter.
-  assert.equal(languageStatusLabel('unknown'), 'Not enough of the ad');
-  assert.match(languageStatusLabel('unknown'), /not enough/i);
-  assert.doesNotMatch(languageStatusLabel('unknown'), /almost|near|maybe|likely|promising/i);
-  assert.equal(languageStatusLabel('review'), 'Review language');
+  assert.equal(languageStatusLabel('unknown'), 'Not sure');
+  assert.doesNotMatch(languageStatusLabel('unknown'), /almost|near|likely|promising/i);
+  assert.equal(languageStatusLabel('review'), 'Maybe English');
   assert.equal(languageStatusLabel('blocked'), 'Local language required');
   const every: LanguageStatus[] = ['pass', 'unknown', 'review', 'blocked'];
   for (const status of every) assert.ok(languageStatusLabel(status).length > 0);
@@ -232,7 +231,7 @@ test('jobInView separates language from lifecycle: every verdict individually re
     assert.ok(jobInView(fixture, 'all', cutoff, 'all'), `${fixture.id} browses under All language results`);
   }
   // New means first discovered, not language approval: it composes with the
-  // choice, so New narrows to confirmed-only under English confirmed.
+  // choice, so New narrows to confirmed-only under Definitely English.
   assert.ok(jobInView(freshPass, 'new', cutoff, 'pass'));
   assert.ok(!jobInView(stalePass, 'new', cutoff, 'pass'));
   assert.ok(jobInView(freshReview, 'new', cutoff, 'review'));
@@ -290,7 +289,7 @@ test('jobInView separates language from lifecycle: every verdict individually re
     new: 'New', all: 'All', pipeline: 'Pipeline', dismissed: 'Dismissed',
   });
   assert.deepEqual(LANGUAGE_FILTER_LABELS, {
-    pass: 'English confirmed', review: 'Needs review', unknown: 'Not enough of the ad',
+    pass: 'Definitely English', review: 'Maybe English', unknown: 'Not sure',
     blocked: 'Local language required', all: 'All language results',
   });
   assert.deepEqual(SORT_MODE_LABELS, { fit: 'Best fit', posted: 'Newest posted', found: 'Recently found' });
@@ -314,13 +313,13 @@ test('activeFilterPills lists saved keywords and language before facets, and onl
     language: 'all', requiredKeywords: [], excludedKeywords: [],
   });
   assert.deepEqual(none, []);
-  // The default arrival (English confirmed) is a constraint, so it shows a pill.
+  // The default arrival (Definitely English) is a constraint, so it shows a pill.
   const englishOnly = activeFilterPills({
     country: 'all', city: 'all', source: 'all', sourceName: '', workType: 'all', application: 'all',
     language: 'pass', requiredKeywords: [], excludedKeywords: [],
   });
   assert.deepEqual(englishOnly.map((pill) => pill.key), ['language']);
-  assert.equal(englishOnly[0].label, 'English confirmed');
+  assert.equal(englishOnly[0].label, 'Definitely English');
   const pills = activeFilterPills({
     country: 'switzerland', city: 'Zürich', source: 'jobs.ch', sourceName: 'jobs.ch',
     workType: 'remote', application: 'applied', language: 'blocked',
@@ -358,8 +357,8 @@ test('emptyStateCopy names the culprit instead of shrugging, per view and langua
   assert.match(paging.detail, /still loading/);
   // Each lifecycle-and-language combination gets its own quiet line.
   assert.equal(emptyStateCopy('new', 'all', base).title, 'Nothing new since the last search');
-  assert.equal(emptyStateCopy('new', 'pass', base).title, 'Nothing new in English confirmed');
-  assert.equal(emptyStateCopy('all', 'pass', base).title, 'No English-confirmed jobs yet');
+  assert.equal(emptyStateCopy('new', 'pass', base).title, 'Nothing new in Definitely English');
+  assert.equal(emptyStateCopy('all', 'pass', base).title, 'No Definitely English jobs yet');
   assert.equal(emptyStateCopy('all', 'review', base).title, 'Nothing needs review');
   assert.equal(emptyStateCopy('all', 'unknown', base).title, 'Nothing is too short to judge');
   assert.equal(emptyStateCopy('all', 'blocked', base).title, 'No local-language jobs in view');

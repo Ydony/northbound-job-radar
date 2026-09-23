@@ -188,11 +188,13 @@ export function bestFitScore(job: JobRecord) {
 }
 
 export function languageStatusLabel(status: LanguageStatus) {
-  if (status === 'pass') return 'English confirmed';
+  // Canvas wording (UX-7b, confirmed by #137): the card chip, the sidebar
+  // selector and the empty states all read Definitely / Maybe / Not sure.
+  if (status === 'pass') return 'Definitely English';
   // Deliberately not phrased as a near-miss. The advertisement was too short to judge, which is a
   // different thing from looking acceptable, and the old wording claimed the latter.
-  if (status === 'unknown') return 'Not enough of the ad';
-  if (status === 'review') return 'Review language';
+  if (status === 'unknown') return 'Not sure';
+  if (status === 'review') return 'Maybe English';
   return 'Local language required';
 }
 
@@ -232,16 +234,17 @@ export function closesToday(job: Pick<JobRecord, 'expiresAt'>, today = new Date(
 // effective pass but was labelled "All matches", review and unknown were only
 // reachable together, and New (the default) mixed pass/review/unknown. The
 // stored verdicts never went away, so this restores them as an orthogonal
-// selector: English confirmed / Needs review / Not enough of the ad / Local
+// selector: Definitely English / Maybe English / Not sure / Local
 // language required / All language results.
 //
-// Lifecycle (New / All / Pipeline / Dismissed) answers "how recent / what did
+// // Lifecycle (New / All / Pipeline / Dismissed) answers "how recent / what did
 // I do"; language answers "what did the screen say". New means first
 // discovered since the cutoff, never language approval, so New narrows by the
 // language choice like All does. Pipeline and Dismissed are records of what
 // the person did and keep their ride-along: they ignore the language choice,
 // exactly as they already ignore the saved keywords. Blocked rows browse only
 // under Local language required or All language results, never promoted.
+// Labels are the canvas words (UX-7b, confirmed by #137).
 // ---------------------------------------------------------------------------
 
 /**
@@ -267,9 +270,9 @@ export const DASHBOARD_VIEW_LABELS: Record<DashboardView, string> = {
 export type LanguageFilter = 'pass' | 'review' | 'unknown' | 'blocked' | 'all';
 
 export const LANGUAGE_FILTER_LABELS: Record<LanguageFilter, string> = {
-  pass: 'English confirmed',
-  review: 'Needs review',
-  unknown: 'Not enough of the ad',
+  pass: 'Definitely English',
+  review: 'Maybe English',
+  unknown: 'Not sure',
   blocked: 'Local language required',
   all: 'All language results',
 };
@@ -502,8 +505,8 @@ export function emptyStateCopy(
   switch (language) {
     case 'pass':
       return isNew
-        ? { title: 'Nothing new in English confirmed', detail: 'Run a search to look for more. Other new arrivals may wait under a different language filter.' }
-        : { title: 'No English-confirmed jobs yet', detail: 'Run a search, or widen the language filter to check the other verdicts.' };
+        ? { title: 'Nothing new in Definitely English', detail: 'Run a search to look for more. Other new arrivals may wait under a different language filter.' }
+        : { title: 'No Definitely English jobs yet', detail: 'Run a search, or widen the language filter to check the other verdicts.' };
     case 'review':
       return isNew
         ? { title: 'Nothing new needs review', detail: 'Run a search to look for more, or check another language filter.' }
