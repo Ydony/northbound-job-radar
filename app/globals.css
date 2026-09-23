@@ -141,6 +141,7 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .criteria-grid { align-items:start; display:grid; gap:20px 24px; grid-template-columns:repeat(5,minmax(0,1fr)); }
 .role-cell label, .keyword-cell label { color:var(--text-tertiary); display:block; font-size:12px; font-weight:700; letter-spacing:.1em; margin-bottom:7px; text-transform:uppercase; }
 .role-cell label.bad { color:var(--signal-attention-ink); }
+.warn-glyph { font-size:17px; line-height:1.2; }
 .role-cell input, .keyword-cell input { background:var(--cream); border:1px solid var(--line); border-radius:8px; box-sizing:border-box; color:var(--ink); font-size:14px; height:44px; padding:0 12px; width:100%; }
 .role-cell input[aria-invalid="true"] { background:var(--signal-attention-bg); border:2px solid var(--signal-attention); }
 .criteria-grid .country-switches { grid-column:span 2; }
@@ -634,6 +635,13 @@ footer > a {
 @media(max-width:850px){
   .topbar, .workflow, .intro-band, .rule-band, .setup-panels, .results, footer,
   .policy-intro, .policy-group, .policy-principles, .workspace-load-error { padding-inline:20px; }
+  /* Four columns and 96px of gaps do not fit 350px: the band measured 420px inside a
+     390px page and pushed it sideways. One column, and the label stops being a column
+     of its own. */
+  .rule-band { gap:14px; grid-template-columns:minmax(0,1fr); }
+  .rule-band > span:first-child { max-width:none; }
+  /* A footer link is a tap target on a phone, and this one was 16px tall. */
+  footer a { align-items:center; display:inline-flex; min-height:var(--size-tap-min); }
   .intro-band { display:none; }
   .job-card { gap:14px; padding:16px 18px; }
   .job-card .job-subline { margin-bottom:10px; }

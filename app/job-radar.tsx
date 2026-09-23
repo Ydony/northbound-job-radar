@@ -1337,7 +1337,7 @@ export default function JobRadar() {
               </div>
             </div>
             {noRolesToSearch && <div className="role-warning" id="role-warning" role="alert">
-              <span aria-hidden="true">⚠</span>
+              <span aria-hidden="true" className="warn-glyph">⚠</span>
               <div>
                 <strong>Enter at least one role</strong>
                 <p>A role is what the search looks for. With all five empty there is nothing to ask any source for, so the search will not run. Countries and keywords narrow a search; they cannot start one.</p>

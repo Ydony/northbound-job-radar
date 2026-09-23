@@ -143,7 +143,7 @@ export default function IndeedStatusPanel({ search, busy, searchDisabled, roles,
       {runSources.length === 0 && <p>No Indeed search has run in this account yet.</p>}
       {runSources.map((source) => <div key={`${source.sourceKey}-${source.country}`}>
         <b>{source.sourceName}</b> <span>{sourceRunStatusLabel(source.status)}</span>
-        <span> · returned {source.foundCount} · new {source.newCount} · known {source.knownCount} · matched {source.matchedCount ?? 'unknown'}</span>
+        <span> · returned {source.foundCount} · new {source.newCount} · known {source.knownCount} · matched {source.matchedCount ?? '—'}</span>
         {source.message && <p>{source.message}</p>}
       </div>)}
     </div>

@@ -133,7 +133,16 @@ const MEASURE = `(() => {
       const box = e.getBoundingClientRect();
       const inProse = e.tagName === 'A' && e.parentElement
         && /^(P|LI|SPAN)$/.test(e.parentElement.tagName);
-      if (box.height > 0 && box.height < tapFloor && !inProse) {
+      // A <label> is only a tap target when the label IS what you tap: one wrapping or
+      // pointing at a checkbox or radio, where the box itself is 15px. A label above a
+      // text input is not a target - the input under it is, and buttons and links are
+      // measured on their own. Counting every label reported five role captions as
+      // controls, naming nothing anyone can tap and hiding the one real finding.
+      const labelForTyping = e.tagName === 'LABEL' && !e.querySelector(
+        'input[type=checkbox], input[type=radio]')
+        && !(e.htmlFor && document.getElementById(e.htmlFor)
+          && /^(checkbox|radio)$/.test(document.getElementById(e.htmlFor).type || ''));
+      if (box.height > 0 && box.height < tapFloor && !inProse && !labelForTyping) {
         shortTargets.push({ el: el(e), height: Math.round(box.height), text: e.textContent.trim().slice(0, 30) });
       }
     }
