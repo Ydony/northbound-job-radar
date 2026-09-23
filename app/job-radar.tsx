@@ -1163,6 +1163,30 @@ export default function JobRadar() {
         </div>}
       </header>
 
+      {/* UX-7f: the introduction band. Dark because it is read once, not used —
+          and it must not look like another panel. The owner's words verbatim;
+          the steps; what it does not do. No collapse: that was offered and not
+          answered, so the band stays whole until the owner decides. */}
+      <section className="intro-band" aria-label="Why this exists">
+        <div className="intro-grid">
+          <div>
+            <span className="intro-eyebrow">Why this exists</span>
+            <h2>&ldquo;Ik ben een appel&rdquo; is all the Dutch I know, so I built this to find the jobs that only need English.</h2>
+            <p>I am learning Dutch slowly now, and eventually I will master it. But if you are like me, do use this to find yourself a job.</p>
+          </div>
+          <div>
+            <span className="intro-eyebrow">How to use it</span>
+            <div className="intro-steps">
+              <div><span aria-hidden="true">01</span><strong>Say what you do</strong><p>Up to five roles, one or two words each — analyst, supply chain. They are the only thing a search really needs.</p></div>
+              <div><span aria-hidden="true">02</span><strong>Press Find new jobs</strong><p>It reads the public job boards for Switzerland and the Netherlands. It signs in to nothing and submits nothing on your behalf.</p></div>
+              <div><span aria-hidden="true">03</span><strong>Every advertisement is read</strong><p>Each one is judged on language alone: definitely English, maybe English, not sure, or local language required.</p></div>
+              <div><span aria-hidden="true">04</span><strong>Open the ones worth opening</strong><p>Apply on the employer&rsquo;s own page, mark what you have applied for, and dismiss the rest. Dismissed is reversible.</p></div>
+            </div>
+          </div>
+        </div>
+        <p className="intro-limits"><strong>What it does not do.</strong> It does not apply for anything, it holds no account on any job board, and it reads only pages anyone can open. A verdict is a reading of the text, not a guarantee — when it says <em>Maybe English</em>, it means it, and the original advertisement is one click away on every card.</p>
+      </section>
+
       <section className="workflow">
         <div className="workflow-copy">
           <h2>Find new jobs</h2>
@@ -1737,16 +1761,14 @@ export default function JobRadar() {
         </div>
       </section>
 
-      <section className="promise-section">
-        <aside className="promise-card">
-          <span className="label">A role reaches your match list when</span>
-          <ol>
-            <li><b>01</b><span>Enough of the advertisement was published to judge it</span></li>
-            <li><b>02</b><span>The text is predominantly English</span></li>
-            <li><b>03</b><span>No local language is named as required</span></li>
-          </ol>
-          <p>An ad too short to judge goes to <b>Not sure</b>, not to your matches. Anything that names a language without clearly requiring it goes to <b>Maybe English</b>. You apply on the original job site yourself.</p>
-        </aside>
+      {/* UX-7f: the language rule as a full-width band of three numbered columns,
+          not a card adrift with an offset shadow. It states the rule, which is
+          not how to use the product, so it survives the introduction. */}
+      <section className="rule-band" aria-label="When a role reaches your match list">
+        <span>A role reaches your match list when</span>
+        <div><span aria-hidden="true">01</span><span>Enough of the advertisement was published to judge it</span></div>
+        <div><span aria-hidden="true">02</span><span>The text is predominantly English</span></div>
+        <div><span aria-hidden="true">03</span><span>No local language is named as required</span></div>
       </section>
 
       {CV_MATCHING_ENABLED && <section className="profile-section" id="profile">
@@ -1792,7 +1814,7 @@ export default function JobRadar() {
         </>}
       </dialog>
 
-      <footer><b>Ik ben een appel</b><span>An English job-search filter for people who do not speak Dutch · you apply yourself, always</span><a href="#sources" onClick={() => setStatsOpen(true)}>Source report ↑</a><a href="/sources">Where the jobs come from →</a><a href="/privacy">Privacy</a></footer>
+      <footer><span className="footer-attribution">{ELA_ATTRIBUTION} <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a></span><div className="footer-links"><a href="#sources" onClick={() => setStatsOpen(true)}>Source report ↑</a><a href="/sources">Where the jobs come from →</a><a href="/privacy">Privacy</a></div></footer>
     </main>
   );
 }
