@@ -25,9 +25,11 @@ export function decodeJobsCursor(raw: string | null): { cursor: JobsCursor | nul
   return { cursor: { updatedAt, id }, error: null };
 }
 
-/** Null means "no parameter", which reads as the default page size rather than an error. */
-export function parsePageLimit(raw: string | null, max: number): { size: number; error: string | null } {
-  if (raw === null) return { size: max, error: null };
+/** Null means "no parameter", which reads as the default page size rather than an error.
+ *  The default is separate from the ceiling: a caller may ask for far more than a page
+ *  shows, but should not be handed it for not having asked. */
+export function parsePageLimit(raw: string | null, max: number, fallback = max): { size: number; error: string | null } {
+  if (raw === null) return { size: Math.min(fallback, max), error: null };
   const size = Number(raw);
   if (!Number.isInteger(size) || size < 1 || size > max) {
     return { size: 0, error: `Limit must be a whole number from 1 to ${max}.` };

@@ -1692,14 +1692,13 @@ export default function JobRadar() {
                       ? <><span>Requirements not published</span><p>{sourceDisplayName} published a preview rather than the full advertisement. The requirements are on the <a href={job.sourceUrl} target="_blank" rel="noreferrer">original page ↗</a>.</p></>
                       : <><span>Asks for</span><p>Could not extract requirements from the available text — the employer may still list them. See the <a href={job.sourceUrl} target="_blank" rel="noreferrer">original ad ↗</a>.</p></>}
                 </div>
-                {statusLabel(job) && <span className="status-chip">{statusLabel(job)}</span>}
               </article>;
             })}
             {/* Paging beyond the first page. Only rendered while the server says more follow;
                 loading every page up front would bring back the unbounded response this replaces. */}
             {state.nextCursor && <div className="load-more">
               <button className="search-button" type="button" disabled={loading || loadingMore} onClick={() => void loadMoreJobs()}>
-                {loadingMore ? 'Loading more jobs…' : `Show more jobs (${state.jobs.length} of ${state.matchingJobs ?? state.jobs.length} matching)`}
+                {loadingMore ? 'Loading more jobs…' : 'Show more jobs'}
               </button>
               {loadMoreError && <p className="form-message" role="status">{loadMoreError}</p>}
             </div>}

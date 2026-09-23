@@ -106,7 +106,7 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .requirements li { margin-bottom:var(--space-1); }
 
 .login-tagline { color:#9eb3a8; font-size:14px; line-height:1.5; margin:var(--space-2) 0 0; }
-.card-flash { color:var(--green); font-size:14px; font-weight:750; margin:var(--space-2) 0 0; }
+.card-flash { color:var(--text-tertiary); font-size:12px; font-weight:700; inset-block-end:10px; inset-inline-start:0; margin:0; position:absolute; }
 .scrape-progress { grid-column:1/-1; margin:0 0 var(--space-3); max-width:none; width:100%; }
 .country-group { display:contents; }
 .place-list { border-left:2px solid var(--line); display:grid; margin:var(--space-1) 0 var(--space-2) var(--space-3); padding-left:var(--space-3); }
@@ -126,7 +126,9 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
 .view-toggle.as-user { background:var(--coral); border-color:var(--coral); color:white; }
 
 .source-dashboard[hidden] { display:none; }
-.stats-layout { align-items:start; display:grid; gap:24px 48px; grid-template-columns:repeat(3,minmax(0,220px)) minmax(0,1fr); }
+.stats-layout { align-items:start; display:grid; gap:24px 48px; grid-template-columns:minmax(0,3fr) minmax(0,2fr); }
+.stats-layout > .source-overall { display:grid; gap:24px; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.stats-layout > .source-table-scroll { grid-column:1/-1; }
 .source-table-scroll { min-width:0; overflow-x:auto; }.reset-button { background:transparent; border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:14px; font-weight:800; min-height:42px; padding:var(--space-3) var(--space-4); }
 /* UX-7c: search settings is a band on the page, open by default — the frame
    carries the side edges, so the band only sets its own ground, dividers and
@@ -134,7 +136,7 @@ h1 { font-family:var(--font-display),Georgia,serif; font-size:clamp(58px,7vw,104
    shade off and not worth a token. */
 .settings-band { background:var(--band); border-bottom:1px solid var(--line); border-top:1px solid var(--line); padding-block:24px; }
 .settings-band[hidden] { display:none; }
-.settings-collapsed { padding-block:12px; }
+.settings-collapsed { display:flex; justify-content:flex-end; padding-block:12px; }
 .stats-collapsed { border-top:1px solid var(--line-pale); }
 .settings-collapsed button { align-items:center; background:var(--cream); border:1px solid var(--line); border-radius:9px; color:var(--text-secondary); cursor:pointer; display:inline-flex; font-size:14px; gap:9px; min-height:44px; padding:0 14px; }
 .settings-head { align-items:baseline; display:flex; gap:16px; margin-bottom:18px; }
@@ -202,19 +204,22 @@ footer { align-items:center; background:var(--cream); border-top:1px solid var(-
 .workflow { align-items:center; background:var(--band); border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:var(--space-3) var(--space-4); padding-block:var(--space-4); }.workflow .jobs-button { margin-left:auto; }.section-label.coral { color:var(--text-secondary); }.workflow-copy p { color:var(--text-secondary); font-size:14px; line-height:1.55; margin:var(--space-2) 0 0; max-width:440px; }.workflow-steps { display:grid; gap:var(--space-2); }.workflow-steps span { align-items:center; color:var(--text-secondary); display:flex; font-size:14px; gap:var(--space-2); }.workflow-steps b { align-items:center; border:1px solid var(--line); border-radius:50%; color:var(--ink); display:flex; height:23px; justify-content:center; width:23px; }.jobs-button,.import-button { border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:14px; font-weight:800; min-height:var(--size-tap-min,44px); padding:var(--space-3) var(--space-4); white-space:nowrap; }.jobs-button { background:var(--ink); color:white; }.jobs-button span { color:var(--acid); }.jobs-button.disabled { cursor:not-allowed; opacity:.45; }.import-button { background:transparent; }.import-button span { color:var(--coral); }
 .import-panel { background:var(--ink); color:white; padding:44px clamp(24px,9vw,150px) 52px; scroll-margin-top:var(--space-3); }.import-heading { align-items:start; display:flex; justify-content:space-between; margin-bottom:var(--space-6); }.import-heading>button { background:transparent; border:1px solid #597064; border-radius:50%; color:#c8d5ce; cursor:pointer; font-size:24px; height:36px; line-height:1; width:36px; }.import-panel form { display:grid; gap:var(--space-4); grid-template-columns:repeat(3,minmax(0,1fr)); }.import-panel .field { color:#9eb3a8; }.import-panel .field input,.import-panel .field textarea { border-color:#4c5e55; color:white; }.import-panel .field input:focus,.import-panel .field textarea:focus { border-color:var(--acid); }.import-panel .wide { grid-column:1/-1; }.import-footer { align-items:center; display:flex; gap:var(--space-5); grid-column:1/-1; justify-content:space-between; }.import-footer p { color:#9eb3a8; font-size:14px; margin:0; }.import-footer .primary { background:var(--acid); color:var(--ink); white-space:nowrap; }
 .results { background:var(--cream); min-height:500px; padding-block:var(--space-8) var(--space-9); }.section-heading { align-items:end; display:flex; justify-content:space-between; margin-bottom:var(--space-6); }.status-note { color:var(--text-tertiary); font-size:12px; }.result-layout { display:grid; gap:var(--space-6); grid-template-columns:190px minmax(0,1fr); }.filters { display:flex; flex-direction:column; gap:2px; }.filters>b { color:var(--text-tertiary); font-size:12px; font-weight:700; letter-spacing:.1em; margin-bottom:var(--space-2); padding-left:var(--space-3); text-transform:uppercase; }.filters button { align-items:center; width:100%; background:transparent; border:0; border-left:3px solid transparent; border-radius:0 8px 8px 0; color:var(--text-secondary); cursor:pointer; display:flex; font-size:14px; gap:var(--space-2); justify-content:space-between; min-height:40px; padding:9px var(--space-3); text-align:left; }.filters button i { background:none; border:0; color:var(--text-tertiary); font-size:12px; font-style:normal; text-align:right; }.filters button.active { background:var(--signal-good-bg); border-left-color:var(--signal-good); color:var(--ink); font-weight:700; }.filters button.active i { background:none; border:0; color:var(--text-tertiary); }
-.results .section-heading { margin-bottom:var(--space-4); }.data-toolbar { align-items:center; background:var(--paper); border:1px solid var(--line); display:flex; flex-wrap:wrap; gap:var(--space-2); margin-bottom:var(--space-5); padding:var(--space-3) var(--space-3); }.data-toolbar>span { font-size:12px; font-weight:800; margin-right:var(--space-1); text-transform:uppercase; }.data-toolbar button { background:var(--cream); border:1px solid var(--line); border-radius:999px; cursor:pointer; font-size:14px; font-weight:750; padding:var(--space-2) var(--space-2); }.data-toolbar button.danger { border-color:#d4a298; color:var(--danger); }.data-toolbar button:disabled { cursor:not-allowed; opacity:.45; }.data-toolbar p { color:var(--text-tertiary); font-size:12px; margin:0 0 0 auto; }
+.results .section-heading { margin-bottom:var(--space-4); }.data-toolbar { align-items:center; background:var(--paper); border:1px solid var(--line); border-radius:10px; display:flex; flex-wrap:wrap; gap:var(--space-2); margin-bottom:var(--space-5); padding:var(--space-3) var(--space-3); }
+/* While something is selected the controls follow you down the list: the box you
+   tick can be a thousand pixels below the toolbar that acts on it. */
+.data-toolbar[open] { bottom:var(--space-3); box-shadow:var(--shadow-md); margin-bottom:0; position:sticky; z-index:5; }.data-toolbar>span { font-size:12px; font-weight:800; margin-right:var(--space-1); text-transform:uppercase; }.data-toolbar button { background:var(--cream); border:1px solid var(--line); border-radius:999px; cursor:pointer; font-size:14px; font-weight:750; padding:var(--space-2) var(--space-2); }.data-toolbar button.danger { border-color:#d4a298; color:var(--danger); }.data-toolbar button:disabled { cursor:not-allowed; opacity:.45; }.data-toolbar p { color:var(--text-tertiary); font-size:12px; margin:0 0 0 auto; }
 .job-list { display:grid; gap:var(--space-3); grid-template-columns:minmax(0,1fr); }.job-card { align-items:stretch; background:var(--cream); border-left:3px solid var(--signal-neutral); border-radius:0 10px 10px 0; box-shadow:0 1px 2px rgba(24,34,28,.05), 0 4px 12px rgba(24,34,28,.05); display:grid; column-gap:clamp(14px,1.8vw,26px); row-gap:26px; grid-template-columns:max-content fit-content(560px) minmax(320px,1fr); padding:22px clamp(14px,1.8vw,26px); position:relative; }
 @media (min-width: 1101px) {
   /* One height for every card, but only where the card is three columns. Below
      this the requirements panel wraps to its own row and the card needs the
      height for it. */
-  .job-card { height:var(--card-height); }
+  .job-card { min-height:var(--card-height); }
   /* Opening the full requirement list is the one thing allowed to change a
      card's height: the list is what you asked to see. */
-  .job-card:has(details.requirements-more[open]) { height:auto; }
+  .job-card:has(details.requirements-more[open]) { min-height:0; }
 }.job-card.blocked { border-left-color:var(--signal-attention-ink); opacity:.72; }.job-card.is-selected { background:var(--selected); }.job-card.review { border-left-color:var(--signal-attention); }.job-card.pass { border-left-color:var(--signal-good); }.job-card.unknown { border-left-color:var(--signal-neutral); }.job-body { display:flex; flex-direction:column; min-width:0; }.job-requirements { background:var(--inset); border-radius:8px; margin:0 22px; min-width:0; overflow-y:auto; padding:20px 40px; }.job-requirements>span { color:var(--text-tertiary); display:block; font-size:12px; font-weight:700; letter-spacing:.1em; margin-bottom:8px; text-transform:uppercase; }.job-requirements ul { color:var(--text-secondary); font-size:14px; line-height:1.5; list-style-position:outside; list-style-type:disc; margin:0 0 6px; padding:0; }.job-requirements p { color:var(--text-secondary); font-size:14px; line-height:1.5; margin:0; }.score { align-items:center; background:var(--paper); border-radius:50%; display:flex; flex-direction:column; height:74px; justify-content:center; width:74px; }.score strong { font-family:var(--font-display); font-size:32px; }.score span { color:var(--text-tertiary); font-size:12px; text-transform:uppercase; }.job-topline { align-items:center; display:flex; flex-wrap:wrap; gap:var(--space-2); justify-content:space-between; }.job-meta { color:var(--coral); font-size:12px; }.language-badge { border-radius:6px; font-size:12px; font-weight:700; letter-spacing:.04em; padding:4px 8px; text-transform:uppercase; }.language-badge.pass { background:var(--signal-good-bg); color:var(--signal-good-ink); }.language-badge.review { background:var(--signal-attention-bg); color:var(--signal-attention-ink); }.language-badge.unknown { background:var(--signal-neutral-bg); color:var(--signal-neutral-ink); }.language-badge.blocked { background:var(--signal-blocked-bg); color:var(--signal-attention-ink); }.job-card h3 { font-family:var(--font-display); font-size:24px; font-weight:500; margin:var(--space-2) 0; }.language-summary { color:var(--text-secondary); font-size:14px; line-height:1.45; margin:0 0 var(--space-3); }.tags { display:flex; flex-wrap:wrap; gap:var(--space-2); }.tags span { background:#e8ece5; border-radius:999px; color:var(--green); font-size:14px; padding:var(--space-1) var(--space-2); }.card-actions { display:flex; flex-wrap:wrap; gap:var(--space-3); margin-top:var(--space-4); }.card-actions button { background:transparent; border:0; color:var(--text-secondary); cursor:pointer; font-size:14px; padding:0; }.card-actions button:hover,.card-actions button.selected { color:var(--green); font-weight:800; }.apply-link { align-items:center; background:var(--ink); border:1px solid var(--ink); border-radius:8px; box-sizing:border-box; color:white; cursor:pointer; display:inline-flex; font-size:14px; font-weight:700; height:44px; justify-content:center; max-width:100%; overflow:hidden; padding:0 20px; text-decoration:none; text-overflow:ellipsis; white-space:nowrap; }
 .apply-link:hover { background:var(--green); border-color:var(--green); }
-.apply-link.ghost { background:var(--cream); border-color:var(--line); color:var(--text-secondary); font-weight:500; }.status-chip { bottom:10px; color:var(--text-secondary); font-size:14px; position:absolute; right:14px; text-transform:uppercase; }
+.apply-link.ghost { background:var(--cream); border-color:var(--line); color:var(--text-secondary); font-weight:500; }
 .score-column { align-items:center; display:inline-flex; margin-top:6px; min-height:24px; }.job-select { cursor:pointer; display:inline-flex; }.job-select input { accent-color:var(--green); height:16px; margin:0; width:16px; }
 .correction-summary { background:#edf0e7; border-left:3px solid var(--coral); color:var(--ink); font-size:14px; margin:0 0 var(--space-2); padding:var(--space-2) var(--space-3); }.correction-summary span { color:var(--text-tertiary); }.language-feedback { align-items:center; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:var(--space-3); margin-top:var(--space-3); padding-top:var(--space-3); }.language-feedback>span { color:var(--text-secondary); font-size:12px; font-weight:700; margin-right:var(--space-1); }.language-feedback button { background:transparent; border:1px solid var(--line); border-radius:999px; cursor:pointer; font-size:14px; font-weight:750; padding:var(--space-1) var(--space-2); }.language-feedback button.selected { background:var(--green); border-color:var(--green); color:white; }.language-feedback button:disabled,.feedback-form button:disabled { cursor:wait; opacity:.6; }.language-feedback small { color:var(--text-tertiary); font-size:12px; }.feedback-form { align-items:end; background:var(--paper); display:grid; gap:var(--space-3); grid-template-columns:minmax(150px,.65fr) minmax(220px,1.35fr) auto; margin-top:var(--space-3); padding:var(--space-3); }.feedback-form label span { color:var(--text-secondary); display:block; font-size:12px; font-weight:750; margin-bottom:var(--space-1); text-transform:uppercase; }.feedback-form input,.feedback-form select { background:var(--cream); border:1px solid var(--line); min-height:var(--size-tap-min); padding:var(--space-2) var(--space-2); width:100%; }.feedback-form button { background:var(--ink); border:0; border-radius:999px; color:white; cursor:pointer; font-size:14px; font-weight:800; min-height:var(--size-tap-min); padding:var(--space-2) var(--space-3); white-space:nowrap; }
 .empty-state { align-items:center; border:1px dashed var(--line); display:flex; flex-direction:column; min-height:280px; justify-content:center; padding:var(--space-6); text-align:center; }.empty-state>span { color:var(--coral); font-family:var(--font-display); font-size:32px; }.empty-state h3 { font-family:var(--font-display); font-size:24px; font-weight:500; margin:var(--space-3) 0 var(--space-1); }.empty-state p { color:var(--text-secondary); font-size:14px; line-height:1.6; max-width:420px; }.empty-state button { background:transparent; border:1px solid var(--ink); border-radius:999px; cursor:pointer; font-size:14px; font-weight:800; margin-top:var(--space-3); padding:var(--space-2) var(--space-3); }
@@ -442,7 +447,7 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .save-icon.selected { border-color:var(--green); color:var(--green); }
 .applied-check { align-items:center; background:var(--cream); border:1px solid var(--line); border-radius:8px; box-sizing:border-box; color:var(--text-secondary); cursor:pointer; display:inline-flex; font-size:14px; font-weight:500; gap:8px; height:44px; justify-content:center; padding:0 14px; }
 .applied-check input { accent-color:var(--green); height:15px; margin:0; width:15px; }
-.applied-check:has(input:checked) { border-color:var(--green); color:var(--green); font-weight:700; }
+.applied-check:has(input:checked) { border-color:var(--ink); color:var(--ink); font-weight:700; }
 .card-menu { position:relative; }
 .card-menu > summary { align-items:center; background:var(--cream); border:1px solid var(--line); border-radius:8px; box-sizing:border-box; color:var(--ink); cursor:pointer; display:inline-flex; font-size:17px; font-weight:800; height:44px; justify-content:center; letter-spacing:.1em; line-height:1; list-style:none; padding:0; width:44px; }
 .card-menu > summary::-webkit-details-marker { display:none; }
@@ -469,7 +474,12 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
 .workflow,
 .intro-band,
 .rule-band,
-.setup-panels,
+/* The tinted setup bands carry the gutter themselves rather than inheriting it from
+   .setup-panels around them: a band with a background has to reach both screen edges,
+   and padding on the wrapper started its tint 48px in on each side. */
+.settings-band,
+.settings-collapsed,
+.source-dashboard,
 .results,
 .import-panel,
 .profile-section,
@@ -656,7 +666,8 @@ footer > a {
    written here. */
 .phone-language { display:none; }
 @media(max-width:850px){
-  .topbar, .workflow, .intro-band, .rule-band, .setup-panels, .results, footer,
+  .topbar, .workflow, .intro-band, .rule-band, .settings-band, .settings-collapsed,
+  .source-dashboard, .results, footer,
   .policy-intro, .policy-group, .policy-principles, .workspace-load-error { padding-inline:20px; }
   /* Four columns and 96px of gaps do not fit 350px: the band measured 420px inside a
      390px page and pushed it sideways. One column, and the label stops being a column
@@ -719,7 +730,7 @@ footer > a {
 
   /* Search statistics. The same three numbers in the same order; the cards stack
      one per row while the three cells inside each card stay side by side. */
-  .source-dashboard { padding:20px 18px 22px; }
+  .source-dashboard { padding-block:20px 22px; }
   
   
   .source-overall { grid-template-columns:minmax(0,1fr); }
@@ -731,7 +742,7 @@ footer > a {
 }
 
 .source-overall{display:contents}
-.stats-layout{align-items:start;display:grid;gap:24px 48px;grid-template-columns:repeat(3,minmax(0,220px)) minmax(0,1fr)}
+.stats-layout{grid-template-columns:minmax(0,1fr)}
 .source-table-scroll{min-width:0;overflow-x:auto}
 .source-table{border-collapse:collapse;width:100%}
 .source-table th{color:var(--text-tertiary);font-size:12px;font-weight:700;letter-spacing:.1em;padding:0 0 8px;text-transform:uppercase}

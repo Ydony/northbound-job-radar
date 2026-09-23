@@ -20,6 +20,10 @@ import { criteriaFromRow, cvFromRow, ensureCurrentJobClusters, ensureSearchText,
  * the value the client renders; the two agree by construction.
  */
 const JOB_PAGE_LIMIT = 2000;
+/** What a page holds when nothing asks for more. The ceiling above stays, because a
+ *  caller that wants everything can still say so, but handing back two thousand job
+ *  cards to a screen that shows forty of them is a page nobody can use. */
+const JOB_PAGE_DEFAULT = 40;
 
 export async function GET(request: Request) {
   await ensureSchema();
@@ -27,7 +31,7 @@ export async function GET(request: Request) {
   if (response) return response;
   const { db, user } = session;
   const url = new URL(request.url);
-  const { size: pageSize, error: limitError } = parsePageLimit(url.searchParams.get('limit'), JOB_PAGE_LIMIT);
+  const { size: pageSize, error: limitError } = parsePageLimit(url.searchParams.get('limit'), JOB_PAGE_LIMIT, JOB_PAGE_DEFAULT);
   if (limitError) return Response.json({ error: limitError }, { status: 400 });
   const { cursor, error: cursorError } = decodeJobsCursor(url.searchParams.get('cursor'));
   if (cursorError) return Response.json({ error: cursorError }, { status: 400 });
