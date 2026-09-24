@@ -213,6 +213,66 @@ export function searchRunsFromRows(runRows: SearchRunRow[], sourceRows: SearchRu
   }));
 }
 
+/**
+ * The per-source rows of a search run an account may be told about (INT-02, #161).
+ *
+ * Ordinary accounts never learn that admin-only sources were searched, let alone what they
+ * returned: those rows are removed, not masked. Administrators receive everything. This is the
+ * single function both the stored-run read path (/api/state) and the fresh-search response
+ * (/api/scrape) filter through, so the two cannot disagree about what "visible" means.
+ */
+export function visibleSourceReports(
+  reports: SearchRunSource[],
+  isAdmin: boolean,
+  hiddenSourceKeys: ReadonlySet<string>,
+): SearchRunSource[] {
+  return isAdmin ? reports : reports.filter((source) => !hiddenSourceKeys.has(source.sourceKey));
+}
+
+/**
+ * Stored search runs shaped for one audience (INT-02, #161).
+ *
+ * Ordinary accounts receive only runs that still name at least one source they may use; a run
+ * that searched admin-only sources alone vanishes entirely rather than arriving as an empty
+ * shell that discloses its timing. The overall status is recomputed from the visible rows, so
+ * an admin-only failure can never flip an ordinary account's run to partial or failed.
+ */
+export function visibleSearchRuns(
+  runRows: SearchRunRow[],
+  sourceRows: SearchRunSourceRow[],
+  isAdmin: boolean,
+  hiddenSourceKeys: ReadonlySet<string>,
+): SearchRun[] {
+  const audienceSourceRows = isAdmin
+    ? sourceRows
+    : sourceRows.filter((row) => !hiddenSourceKeys.has(row.source_key));
+  return searchRunsFromRows(runRows, audienceSourceRows)
+    .filter((run) => isAdmin || run.sources.length > 0)
+    .map((run) => isAdmin ? run : {
+      ...run,
+      status: run.sources.every((source) => source.status === 'complete')
+        ? 'complete'
+        : run.sources.every((source) => source.status === 'failed') ? 'failed' : 'partial',
+    });
+}
+
+/**
+ * The SQL half of audience isolation (INT-02, #161): hidden source keys plus the Indeed URL
+ * patterns for legacy rows whose key is missing or wrong. Empty for an administrator.
+ *
+ * One shared predicate so /api/feedback, /api/jobs and /api/jobs/[id] cannot disagree about
+ * which rows an ordinary account may touch. Callers splice `clause` into the WHERE they
+ * already scope by user_id and spread `params` into the bind list in order.
+ */
+export function audienceExclusionClause(tableAlias: string, hiddenSourceKeys: string[]): { clause: string; params: string[] } {
+  if (!hiddenSourceKeys.length) return { clause: '', params: [] };
+  const column = tableAlias ? `${tableAlias}.source_key` : 'source_key';
+  return {
+    clause: ` AND ${column} NOT IN (${hiddenSourceKeys.map(() => '?').join(',')}) AND NOT ${indeedSql(tableAlias)}`,
+    params: [...hiddenSourceKeys],
+  };
+}
+
 export interface UpsertJobInput {
   sourceUrl: string;
   title: string;

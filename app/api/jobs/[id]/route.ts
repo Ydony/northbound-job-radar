@@ -1,6 +1,7 @@
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
-import { indeedSql, isIndeedRecord } from '@/lib/indeed/access';
+import { adminOnlySourceKeys, isHiddenSourceForRole } from '@/lib/job-adapters';
+import { audienceExclusionClause } from '@/lib/server-data';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { normalizeLanguageFeedback } from '@/lib/language-feedback';
 import type { ApplicationStatus, VisibilityStatus } from '@/lib/types';
@@ -51,7 +52,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       posted_at: string;
     }>();
   if (!job) return Response.json({ error: 'Job not found.' }, { status: 404 });
-  if (user.role !== 'admin' && isIndeedRecord(job.source_key, job.source_url)) return Response.json({ error: 'Job not found.' }, { status: 404 });
+  // A stored row from an admin-only source is unreachable to an ordinary account, even by a
+  // guessed id: the same 404 as a missing row, so existence is never disclosed. This covers
+  // historical rows kept across a demotion, not just fresh search results.
+  if (isHiddenSourceForRole(job.source_key, job.source_url, user.role === 'admin')) {
+    return Response.json({ error: 'Job not found.' }, { status: 404 });
+  }
 
   const statements: D1PreparedStatement[] = [];
   const now = new Date().toISOString();
@@ -123,10 +129,18 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   if (response) return response;
   const { db, user } = session;
   const { id } = await context.params;
+  // Deletion obeys the same audience rule as reads: an ordinary account's delete targets only
+  // rows it may see, so a historical admin-only row can neither be confirmed nor removed through
+  // this account. Same two guards as /api/feedback: hidden keys plus the Indeed URL patterns for
+  // legacy rows whose key is missing or wrong.
+  const hiddenKeys = user.role === 'admin' ? [] : [...adminOnlySourceKeys()];
+  const audience = audienceExclusionClause('', hiddenKeys);
+  const audienceClause = audience.clause;
+  const audienceParams = audience.params;
   await db.batch([
     db.prepare(`DELETE FROM language_feedback WHERE job_id = ? AND user_id = ? AND job_id IN
-      (SELECT id FROM jobs WHERE user_id = ?${user.role === 'admin' ? '' : ` AND NOT ${indeedSql()}`})`).bind(id, user.id, user.id),
-    db.prepare(`DELETE FROM jobs WHERE id = ? AND user_id = ?${user.role === 'admin' ? '' : ` AND NOT ${indeedSql()}`}`).bind(id, user.id),
+      (SELECT id FROM jobs WHERE user_id = ?${audienceClause})`).bind(id, user.id, user.id, ...audienceParams),
+    db.prepare(`DELETE FROM jobs WHERE id = ? AND user_id = ?${audienceClause}`).bind(id, user.id, ...audienceParams),
   ]);
   return Response.json({ ok: true });
 }

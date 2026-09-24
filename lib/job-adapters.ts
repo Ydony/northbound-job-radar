@@ -1,9 +1,10 @@
 import { searchAtsBoards } from './ats-feeds';
-import { INDEED_SOURCE_KEYS } from './indeed/access';
+import { INDEED_SOURCE_KEYS, isIndeedRecord } from './indeed/access';
 import { searchAdzuna, searchCareerjet, type AggregatorCredentials } from './job-aggregators';
 import { searchEures } from './eures';
 import { searchJobRoom } from './job-room';
 import { sourceInfoForUrl } from './job-identity';
+import { sourcePolicyFor } from './source-policy';
 import { delay, extractJobPosting, interleaveUnique, stripHtml, type ParsedJob } from './jobsch';
 import type { JobCountry, SourceRunStatus } from './types';
 
@@ -75,11 +76,36 @@ export interface JobSourceAdapter {
   resultSourceKeys?: string[];
 }
 
-/** Source keys an ordinary account may never see results from. Derived, so the list cannot drift. */
+/**
+ * Source keys an ordinary account may never see results from.
+ *
+ * Driven by the INT-01 registry in `lib/source-policy.ts`, not by the adapter flags below, so the
+ * recorded audience and the enforced gate cannot drift apart: a source the registry calls
+ * admin-only is hidden here whatever its flags say. An adapter with no registry entry, or an
+ * entry that is anything other than `public`, fails closed into this set — a new source never
+ * silently defaults to visible (see tests/source-policy.test.ts). The adapter still declares
+ * `resultSourceKeys` for the keys its results are actually stored under, which is a property of
+ * the adapter's upstream responses, not of the policy.
+ */
 export function adminOnlySourceKeys() {
   return new Set(jobSourceAdapters
-    .filter((adapter) => adapter.adminOnly || adapter.access === 'restricted')
+    .filter((adapter) => sourcePolicyFor(adapter.key)?.audience !== 'public')
     .flatMap((adapter) => [adapter.key, ...(adapter.resultSourceKeys ?? [])]));
+}
+
+/**
+ * Whether a record from this source must be invisible to an ordinary (non-admin) account.
+ *
+ * Covers three shapes the key-only gate misses on its own: legacy Indeed rows stored under a
+ * missing or wrong key (matched by URL, as the SQL audience predicates do), and legacy rows
+ * from any other admin source whose stored key is wrong (re-resolved from the URL). Pass the
+ * gate set when the caller already holds it; otherwise it is derived here.
+ */
+export function isHiddenSourceForRole(sourceKey: string, sourceUrl: string, isAdmin: boolean, hidden = adminOnlySourceKeys()) {
+  if (isAdmin) return false;
+  if (hidden.has(sourceKey)) return true;
+  if (isIndeedRecord(sourceKey, sourceUrl)) return true;
+  return hidden.has(sourceInfoForUrl(sourceUrl).key);
 }
 
 async function fetchHtml(url: string, sourceName: string) {

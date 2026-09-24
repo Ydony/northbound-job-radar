@@ -13,7 +13,7 @@ import { delay, stripHtml, type ParsedJob } from '@/lib/jobsch';
 import { isRejectedUrl, loadRejectedListings, rejectionRolesKey, rememberRejection,
   type RejectionReason } from '@/lib/rejected-listings';
 import { matchesSearchCriteria, searchTermsForRoles } from '@/lib/criteria';
-import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
+import { criteriaFromRow, upsertJob, visibleSourceReports, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
 import type { JobCountry, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
 
 /**
@@ -571,15 +571,17 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     .bind(overallStatus, completedAt, runId, user.id));
   await db.batch(statements);
 
-  const visibleSources = user.role === 'admin'
-    ? sourceReports
-    : sourceReports.filter((source) => !hiddenForAccount.has(source.sourceKey));
+  // An ordinary account is not told that hidden sources were searched, let alone what they
+  // returned: the same visibleSourceReports shape /api/state serves for stored runs. The
+  // aggregate counts below are summed over exactly these visible rows, so an ordinary
+  // account's totals disclose nothing about admin-only volume either.
+  const visibleSources = visibleSourceReports(sourceReports, user.role === 'admin', hiddenForAccount);
   const run: SearchRun = { id: runId, status: overallStatus, startedAt, completedAt, sources: visibleSources };
   const added = [...addedById.values()];
   return { kind: 'done', body: {
     added,
     run,
-    scanned: sourceReports.reduce((sum, source) => sum + source.foundCount, 0),
-    alreadyKnown: sourceReports.reduce((sum, source) => sum + source.knownCount, 0),
+    scanned: visibleSources.reduce((sum, source) => sum + source.foundCount, 0),
+    alreadyKnown: visibleSources.reduce((sum, source) => sum + source.knownCount, 0),
   } };
 }

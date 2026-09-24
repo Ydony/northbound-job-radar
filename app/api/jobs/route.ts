@@ -1,10 +1,11 @@
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
 import { analyzeLanguage } from '@/lib/analysis';
+import { adminOnlySourceKeys, isHiddenSourceForRole } from '@/lib/job-adapters';
+import { audienceExclusionClause } from '@/lib/server-data';
 import { isSafeManualJobUrl } from '@/lib/job-sources';
-import { canonicalJobUrl } from '@/lib/job-identity';
+import { canonicalJobUrl, sourceInfoForUrl } from '@/lib/job-identity';
 import { upsertJob } from '@/lib/server-data';
-import { indeedSql } from '@/lib/indeed/access';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 
 function clean(value: unknown, max: number) {
@@ -25,7 +26,13 @@ export async function POST(request: Request) {
   const postedAt = clean(payload.postedAt, 80);
 
   if (!isSafeManualJobUrl(sourceUrl)) return Response.json({ error: 'Paste a valid public HTTPS job-ad URL.' }, { status: 400 });
-  if (isIndeedUrl(sourceUrl) && user.role !== 'admin') return Response.json({ error: 'This source is not available.' }, { status: 403 });
+  // Administrator-only sources cannot be imported into an ordinary account: the row would be
+  // stored under a hidden key and vanish from every response, which is confusing, and accepting
+  // it would give a non-admin a write path into an audience they must never read. The refusal
+  // names no source, exactly like the Indeed-only refusal it generalizes.
+  if (isHiddenSourceForRole(sourceInfoForUrl(sourceUrl).key, sourceUrl, user.role === 'admin')) {
+    return Response.json({ error: 'This source is not available.' }, { status: 403 });
+  }
   if (!title) return Response.json({ error: 'Add the job title.' }, { status: 400 });
   if (description.length < 160) return Response.json({ error: 'Paste the full job advertisement so the language gate has enough evidence.' }, { status: 400 });
 
@@ -44,7 +51,13 @@ export async function DELETE(request: Request) {
   if (response) return response;
   const { db, user } = session;
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
-  const visible = user.role === 'admin' ? '' : ` AND NOT ${indeedSql()}`;
+  // Deletion targets only rows this audience may see, so counts and side effects disclose
+  // nothing about hidden sources. Historical admin-only rows survive an ordinary account's
+  // "delete everything", exactly as Indeed rows already did; only an administrator removes them.
+  const hiddenKeys = user.role === 'admin' ? [] : [...adminOnlySourceKeys()];
+  const audience = audienceExclusionClause('', hiddenKeys);
+  const visible = audience.clause;
+  const hiddenParams = audience.params;
   const all = body.all === true;
   const ids = Array.isArray(body.ids)
     ? [...new Set(body.ids.filter((id): id is string => typeof id === 'string' && id.length > 0))].slice(0, 250)
@@ -53,16 +66,16 @@ export async function DELETE(request: Request) {
 
   if (all) {
     const results = await db.batch([
-      db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (SELECT id FROM jobs WHERE user_id = ?${visible})`).bind(user.id, user.id),
-      db.prepare(`DELETE FROM jobs WHERE user_id = ?${visible}`).bind(user.id),
+      db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (SELECT id FROM jobs WHERE user_id = ?${visible})`).bind(user.id, user.id, ...hiddenParams),
+      db.prepare(`DELETE FROM jobs WHERE user_id = ?${visible}`).bind(user.id, ...hiddenParams),
     ]);
     return Response.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
   }
 
   const placeholders = ids.map(() => '?').join(',');
   const results = await db.batch([
-    db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (SELECT id FROM jobs WHERE user_id = ? AND id IN (${placeholders})${visible})`).bind(user.id, user.id, ...ids),
-    db.prepare(`DELETE FROM jobs WHERE user_id = ? AND id IN (${placeholders})${visible}`).bind(user.id, ...ids),
+    db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (SELECT id FROM jobs WHERE user_id = ? AND id IN (${placeholders})${visible})`).bind(user.id, user.id, ...ids, ...hiddenParams),
+    db.prepare(`DELETE FROM jobs WHERE user_id = ? AND id IN (${placeholders})${visible}`).bind(user.id, ...ids, ...hiddenParams),
   ]);
   return Response.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
 }
