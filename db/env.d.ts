@@ -39,5 +39,17 @@ declare namespace Cloudflare {
     RESEND_API_KEY?: string;
     /** Sender shown on verification and reset emails, e.g. 'Ik ben een appel <noreply@example.com>'. */
     RESEND_FROM?: string;
+    /**
+     * INT-06 (#165) bounded public refresh. Exactly 'true' lets the cron
+     * handler run; anything else (including unset) is a no-op. Prod-only and
+     * owner-supervised; never set in dev/test.
+     */
+    PUBLIC_REFRESH_ENABLED?: string;
+    /**
+     * Comma-separated role keywords the public refresh searches (e.g.
+     * 'engineer,analyst'). Empty wires no fetchers: the run keeps locks and
+     * freshness truthful but contacts no upstream source.
+     */
+    PUBLIC_REFRESH_TERMS?: string;
   }
 }

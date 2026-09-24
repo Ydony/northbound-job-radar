@@ -181,5 +181,6 @@ export const collectionPrinciples = [
   'No detection evasion of any kind: no randomised or human-imitating timing, no fingerprint spoofing, no stealth browser plugins, no proxy or IP rotation.',
   'Page-fetched sources run only when explicitly triggered, are capped per run, and wait between requests.',
   'A source that refuses access is left alone for the rest of the run: the refusal is reported, and nothing retries it, routes around it, or disguises the traffic.',
+  'Eligible public sources are additionally re-read by a bounded scheduled refresh — at most once per refresh window behind per-source locks — rather than once per visitor: an expired catalogue queues a single shared refresh, rate-limit cooldowns and access pauses persist across restarts, and administrator-only sources are never part of that path.',
   'Everything collected stays in a local database on this machine and can be exported or deleted at any time.',
 ];

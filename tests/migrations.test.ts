@@ -4,7 +4,7 @@ import test from 'node:test';
 import { CV_REMOVAL_VERSION, runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
@@ -128,6 +128,27 @@ test('fresh databases reach every migration: base columns must not duplicate a l
         `base table ${table} already defines ${column}, which a migration re-adds`);
     }
   }
+});
+
+test('public refresh persists locks, cursors, cooldowns and a single queue row', () => {
+  // INT-06 (#165): the scheduled refresh shared by every visitor must survive
+  // restarts — a 429 cooldown, a 401/403 pause and a run lease mean nothing if
+  // a worker recycle clears them. One row per public-eligible source, one
+  // single-row queue for the coalesced refresh. Operational state only: no
+  // user_id anywhere on either table.
+  const migration = runtimeMigrations.find((entry) => entry.version === 31);
+  assert.ok(migration, 'migration 31 is missing');
+  const sql = migration.statements.join('\n');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS public_refresh_state \(/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS public_refresh_queue \(/);
+  assert.match(sql, /source_key TEXT PRIMARY KEY NOT NULL/);
+  assert.match(sql, /cooldown_until INTEGER NOT NULL DEFAULT 0/);
+  assert.match(sql, /lease_token TEXT NOT NULL DEFAULT ''/);
+  assert.match(sql, /lease_until INTEGER NOT NULL DEFAULT 0/);
+  assert.match(sql, /cursor TEXT NOT NULL DEFAULT ''/);
+  assert.match(sql, /last_success TEXT NOT NULL DEFAULT ''/);
+  assert.doesNotMatch(sql, /user_id/);
+  assert.doesNotMatch(sql, /DELETE FROM|DROP TABLE/);
 });
 
 test('catalogue split creates shared and private tables with a lossless backfill', () => {
