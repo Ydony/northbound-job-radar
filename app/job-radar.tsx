@@ -179,10 +179,42 @@ export default function JobRadar() {
   const [jobFlash, setJobFlash] = useState<Record<string, string>>({});
   const flashTimers = useRef<Record<string, number>>({});
 
-  const loadWorkspace = useCallback(() => {
+  const PAGE_SIZE = 40;
+
+  const stateQuery = useCallback((preview: boolean, cursor: string | null) => {
+    const params = new URLSearchParams();
+    params.set('limit', String(PAGE_SIZE));
+    params.set('view', view);
+    params.set('language', languageFilter);
+    params.set('sort', sortMode);
+    params.set('country', countryFilter);
+    params.set('place', cityFilter);
+    params.set('source', sourceFilter);
+    params.set('application', applicationFilter);
+    params.set('workType', workTypeFilter);
+    if (cursor) params.set('cursor', cursor);
+    if (preview) params.set('preview', 'user');
+    return `/api/state?${params.toString()}`;
+  }, [view, languageFilter, sortMode, countryFilter, cityFilter, sourceFilter, applicationFilter, workTypeFilter]);
+
+  function applyPage(current: AppState, next: AppState): AppState {
+    return {
+      ...current,
+      jobs: next.jobs,
+      totalJobs: next.totalJobs ?? current.totalJobs,
+      matchingJobs: next.matchingJobs ?? current.matchingJobs,
+      collectionTotals: next.collectionTotals ?? current.collectionTotals,
+      catalogue: next.catalogue ?? current.catalogue,
+      hiddenDuplicates: next.hiddenDuplicates ?? current.hiddenDuplicates,
+      jobLimit: next.jobLimit ?? current.jobLimit,
+      nextCursor: next.nextCursor ?? null,
+    };
+  }
+
+  const loadWorkspace = useCallback((cursor: string | null = null) => {
     setLoading(true);
     setLoadError('');
-    return fetch('/api/state')
+    return fetch(stateQuery(false, cursor))
       .then((response) => responseJson<AppState>(response))
       .then((next) => {
         const criteria = next.criteria ?? defaultSearchCriteria;
@@ -201,30 +233,67 @@ export default function JobRadar() {
         else setLoadError('Could not load your saved keywords, jobs and statistics. Check the local server is running, then try again.');
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [stateQuery]);
 
-  useEffect(() => { void loadWorkspace(); }, [loadWorkspace]);
+  // Server pager: Previous/Next fetch that page from the server. Keyset
+  // cursors make pages stable when imports land between two loads.
+  // (The filter-change effect lives after the pager declarations.)
+  const cursorsRef = useRef<(string | null)[]>([null]);
+  const previewCursorsRef = useRef<(string | null)[]>([null]);
+  const [pageNumber, setPageNumber] = useState(0);
+  const [previewPageNumber, setPreviewPageNumber] = useState(0);
+  const [pageBusy, setPageBusy] = useState(false);
+  const [pageError, setPageError] = useState('');
 
-  // Older pages beyond the first. The server filters by the saved keywords before paging, so
-  // the limit is spent on jobs the criteria keep; this walks the rest. Appended rows are
-  // deduplicated by id because a re-seen job can move ahead of the cursor between two loads.
+  async function gotoPage(index: number, preview: boolean) {
+    const stack = preview ? previewCursorsRef.current : cursorsRef.current;
+    const cursor = stack[index] ?? null;
+    setPageBusy(true);
+    setPageError('');
+    try {
+      const next = await responseJson<AppState>(await fetch(stateQuery(preview, cursor)));
+      if (preview) {
+        setUserPreview((current) => current ? applyPage(current, next) : next);
+        setPreviewPageNumber(index);
+      } else {
+        setState((current) => applyPage(current, next));
+        setPageNumber(index);
+      }
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Could not load that page.');
+    } finally {
+      setPageBusy(false);
+    }
+  }
+
+  async function nextServerPage(preview: boolean) {
+    const effective = preview ? userPreview : state;
+    const number = preview ? previewPageNumber : pageNumber;
+    const stack = preview ? previewCursorsRef : cursorsRef;
+    const next = effective?.nextCursor;
+    if (!next || pageBusy) return;
+    stack.current[number + 1] = next;
+    await gotoPage(number + 1, preview);
+  }
+
+  async function previousServerPage(preview: boolean) {
+    const number = preview ? previewPageNumber : pageNumber;
+    if (number === 0 || pageBusy) return;
+    await gotoPage(number - 1, preview);
+  }
+
+  // Pre-catalogue fallback: responses without aggregates predate migration 30.
+  // The client counts over everything it holds, so it keeps loading pages
+  // until none remain — the unbounded download INT-05 removes.
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState('');
 
-  /**
-   * Pull the remaining pages in as they become reachable, rather than behind a button.
-   *
-   * Every facet count and every lifecycle tab is computed from the jobs held here, so
-   * an outstanding page means a count that is quietly short - and no reader can be
-   * expected to know that pressing "show more" is what makes a number correct. The
-   * pager cuts the list into pages; this makes sure the list is all of it.
-   */
   useEffect(() => {
-    if (!state.nextCursor || loading || loadingMore || loadMoreError) return;
+    if (state.catalogue || !state.nextCursor || loading || loadingMore || loadMoreError) return;
     void loadMoreJobs();
     // loadMoreJobs reads the cursor off state and is safe to call once per cursor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.nextCursor, loading, loadingMore, loadMoreError]);
+  }, [state.catalogue, state.nextCursor, loading, loadingMore, loadMoreError]);
 
   async function loadMoreJobs() {
     const cursor = state.nextCursor;
@@ -252,6 +321,25 @@ export default function JobRadar() {
       setLoadingMore(false);
     }
   }
+
+  /** Reconcile the current page after a mutation, so server counts stay truthful. */
+  async function refreshList(preview: boolean) {
+    const number = preview ? previewPageNumber : pageNumber;
+    await gotoPage(number, preview);
+  }
+
+  // Any filter change fetches page one of that filter (rather than
+  // re-filtering what is loaded) and rewinds both pagers.
+  const filterSignature = stateQuery(false, null);
+  useEffect(() => {
+    cursorsRef.current = [null];
+    previewCursorsRef.current = [null];
+    setPageNumber(0);
+    setPreviewPageNumber(0);
+    void loadWorkspace(null);
+    // One fetch per filter state: the signature string is the dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterSignature]);
 
   const accountIsAdmin = state.account?.role === 'admin';
   /**
@@ -286,20 +374,30 @@ export default function JobRadar() {
       return;
     }
     let cancelled = false;
-    fetch('/api/state?preview=user')
+    fetch(stateQuery(true, null))
       .then((response) => responseJson<AppState>(response))
       .then((next) => { if (!cancelled) setUserPreview(next); })
       .catch(() => { if (!cancelled) setUserPreview(null); });
     return () => { cancelled = true; };
-  }, [accountIsAdmin, viewAsUser]);
+    // Same filters as the main list: the preview is page one of what an
+    // ordinary account receives under the current filters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountIsAdmin, viewAsUser, filterSignature]);
+
+  // The results section renders the server's catalogue page plus its
+  // whole-collection aggregates. Only responses that predate them (no
+  // `catalogue` block) fall back to deriving counts client-side from loaded
+  // rows — each memo below keeps that legacy computation as its fallback.
+  const effective = viewAsUser ? (userPreview ?? state) : state;
+  const serverCatalogue = effective.catalogue ?? null;
 
   // In the user preview, drop the rows the server would never have sent to an ordinary account.
   // The server is what enforces this; hiding here is only what makes the preview truthful.
   const visibleToRole = useMemo(() => {
-    if (!viewAsUser) return state.jobs;
+    if (!viewAsUser) return effective.jobs;
     const hidden = new Set(state.adminOnlySources ?? []);
-    return state.jobs.filter((job) => !hidden.has(job.sourceKey));
-  }, [state.jobs, state.adminOnlySources, viewAsUser]);
+    return effective.jobs.filter((job) => !hidden.has(job.sourceKey));
+  }, [effective.jobs, state.adminOnlySources, viewAsUser]);
 
   // Decided on the server, against advertisement text the client is not sent.
 
@@ -313,23 +411,47 @@ export default function JobRadar() {
   // View-tab counts honour the language choice for the two browsable lifecycles,
   // so the New tab shows new arrivals under the current verdict filter.
   // Pipeline and Dismissed ignore it (ride-along), so their counts are stable.
-  // These are loaded-page counts, never whole-workspace totals.
-  const counts = useMemo(() => ({
-    new: visibleToRole.filter((job) => jobInView(job, 'new', newCutoff, languageFilter)).length,
-    all: visibleToRole.filter((job) => jobInView(job, 'all', newCutoff, languageFilter)).length,
-    pipeline: visibleToRole.filter((job) => jobInView(job, 'pipeline', newCutoff, languageFilter)).length,
-    dismissed: visibleToRole.filter((job) => jobInView(job, 'dismissed', newCutoff, languageFilter)).length,
-  }), [languageFilter, newCutoff, visibleToRole]);
+  // With a catalogue block these are whole-collection server counts; without
+  // one they are loaded-page counts, never whole-workspace totals.
+  const counts = useMemo(() => {
+    if (serverCatalogue) {
+      const views = serverCatalogue.viewCounts;
+      return {
+        new: views.new ?? 0,
+        all: views.all ?? 0,
+        pipeline: views.pipeline ?? 0,
+        dismissed: views.dismissed ?? 0,
+      };
+    }
+    return {
+      new: visibleToRole.filter((job) => jobInView(job, 'new', newCutoff, languageFilter)).length,
+      all: visibleToRole.filter((job) => jobInView(job, 'all', newCutoff, languageFilter)).length,
+      pipeline: visibleToRole.filter((job) => jobInView(job, 'pipeline', newCutoff, languageFilter)).length,
+      dismissed: visibleToRole.filter((job) => jobInView(job, 'dismissed', newCutoff, languageFilter)).length,
+    };
+  }, [serverCatalogue, languageFilter, newCutoff, visibleToRole]);
 
   // Language-option counts within the current lifecycle view, before the facet
   // filters narrow them — the same scope the view tabs use, so the two agree.
-  const languageCounts = useMemo(() => ({
-    pass: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'pass')).length,
-    review: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'review')).length,
-    unknown: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'unknown')).length,
-    blocked: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'blocked')).length,
-    all: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'all')).length,
-  }), [newCutoff, view, visibleToRole]);
+  const languageCounts = useMemo(() => {
+    if (serverCatalogue) {
+      const languages = serverCatalogue.languageCounts;
+      return {
+        pass: languages.pass ?? 0,
+        review: languages.review ?? 0,
+        unknown: languages.unknown ?? 0,
+        blocked: languages.blocked ?? 0,
+        all: languages.all ?? 0,
+      };
+    }
+    return {
+      pass: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'pass')).length,
+      review: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'review')).length,
+      unknown: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'unknown')).length,
+      blocked: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'blocked')).length,
+      all: visibleToRole.filter((job) => jobInView(job, view, newCutoff, 'all')).length,
+    };
+  }, [serverCatalogue, newCutoff, view, visibleToRole]);
 
   // Pipeline and Dismissed are records of what the person did: the language
   // choice does not narrow them, and the selector says so where it renders.
@@ -343,8 +465,31 @@ export default function JobRadar() {
   /**
    * Facet counts: each dimension is counted with every *other* filter applied, so a number shows
    * what selecting that option would actually return rather than a total that may be unreachable.
+   * With a catalogue block these arrive from the server; the client computation below only
+   * serves responses that predate them.
    */
   const facets = useMemo(() => {
+    if (serverCatalogue) {
+      const lookup = (values: { key: string; count: number }[]) => {
+        const counts = new Map(values.map((entry) => [entry.key, entry.count]));
+        return (key: string) => counts.get(key) ?? 0;
+      };
+      const cityCounts = new Map<string, number>();
+      for (const group of serverCatalogue.places.groups) {
+        for (const [city, count] of group.cities) cityCounts.set(city, (cityCounts.get(city) ?? 0) + count);
+      }
+      return {
+        country: { all: serverCatalogue.facets.country.all, get: lookup(serverCatalogue.facets.country.values) },
+        application: { all: serverCatalogue.facets.application.all, get: lookup(serverCatalogue.facets.application.values) },
+        source: { all: serverCatalogue.facets.source.all, get: lookup(serverCatalogue.facets.source.values) },
+        workType: { all: serverCatalogue.facets.workType.all, get: lookup(serverCatalogue.facets.workType.values) },
+        city: { all: serverCatalogue.places.all, get: (key: string) => cityCounts.get(key) ?? 0 },
+        // Vacancies in this view before the facets narrow them: the empty state reads this to
+        // tell facet-hiding apart from keyword-hiding.
+        inViewCount: serverCatalogue.inView,
+        visible: effective.jobs,
+      };
+    }
     const inView = visibleToRole.filter(passesView);
     const byCountry = (job: JobRecord) => countryFilter === 'all' || job.country === countryFilter;
     const byApplication = (job: JobRecord) => applicationFilter === 'all' || job.applicationStatus === applicationFilter;
@@ -373,35 +518,57 @@ export default function JobRadar() {
       inViewCount: inView.length,
       visible: inView.filter((job) => byCountry(job) && byApplication(job) && bySource(job) && byWorkType(job) && byCity(job)),
     };
-  }, [applicationFilter, cityFilter, countryFilter, passesView, sourceFilter, visibleToRole, workTypeFilter]);
+  }, [serverCatalogue, effective.jobs, applicationFilter, cityFilter, countryFilter, passesView, sourceFilter, visibleToRole, workTypeFilter]);
 
+  // The server page arrives filtered and sorted; only legacy responses are
+  // sorted and sliced here.
   const visibleJobs = useMemo(
-    () => sortJobs(facets.visible, sortMode),
-    [facets.visible, sortMode],
+    () => serverCatalogue ? facets.visible : sortJobs(facets.visible, sortMode),
+    [serverCatalogue, facets.visible, sortMode],
   );
   /**
-   * Pages of forty, cut from the sorted list rather than requested from the server.
+   * Legacy rendering pages: forty rows cut from the sorted list.
    *
-   * The counts beside every filter and on every lifecycle tab are computed from the
-   * jobs this component holds, so they stay right only while it holds all of them -
-   * #140 covers moving that to the server. Until then the whole collection arrives and
-   * only the rendering is paged, which is the part the reader actually feels.
+   * With a catalogue block the pager below navigates server pages instead —
+   * this slice only serves responses that predate the aggregates.
    */
   const pageOfJobs = 40;
   const [jobPage, setJobPage] = useState(0);
-  const pageCount = Math.max(1, Math.ceil(visibleJobs.length / pageOfJobs));
+  const legacyPageCount = Math.max(1, Math.ceil(visibleJobs.length / pageOfJobs));
   // Any change to what is being listed starts again at the first page: page seven of a
   // filter you have just left is not where anyone wants to arrive.
   useEffect(() => { setJobPage(0); }, [languageFilter, countryFilter, workTypeFilter,
     applicationFilter, sourceFilter, cityFilter, view, sortMode]);
   const pagedJobs = useMemo(
-    () => visibleJobs.slice(jobPage * pageOfJobs, (jobPage + 1) * pageOfJobs),
-    [visibleJobs, jobPage],
+    () => serverCatalogue ? visibleJobs : visibleJobs.slice(jobPage * pageOfJobs, (jobPage + 1) * pageOfJobs),
+    [serverCatalogue, visibleJobs, jobPage, pageOfJobs],
   );
+  // Server page position: the full filtered size is known, so the page count
+  // is exact even though keyset cursors address pages relatively.
+  const serverPageSize = effective.jobLimit ?? PAGE_SIZE;
+  const serverPageCount = Math.max(1, Math.ceil((serverCatalogue?.matching ?? pagedJobs.length) / serverPageSize));
+  const serverPageIndex = viewAsUser ? previewPageNumber : pageNumber;
+
+  function pagerPrevious() {
+    if (serverCatalogue) void previousServerPage(viewAsUser);
+    else setJobPage((p) => Math.max(0, p - 1));
+  }
+
+  function pagerNext() {
+    if (serverCatalogue) void nextServerPage(viewAsUser);
+    else setJobPage((p) => Math.min(legacyPageCount - 1, p + 1));
+  }
   const visibleAdzunaSources = useMemo(() => adzunaSourcesOnScreen(visibleJobs), [visibleJobs]);
 
-  const sourceOptions = useMemo(() => [...new Map(visibleToRole.map((job) => [job.sourceKey, job.sourceName])).entries()]
-    .sort((a, b) => a[1].localeCompare(b[1])), [visibleToRole]);
+  const sourceOptions = useMemo(() => {
+    if (serverCatalogue) {
+      return serverCatalogue.facets.source.values
+        .map((entry) => [entry.key, entry.name || entry.key] as [string, string])
+        .sort((a, b) => a[1].localeCompare(b[1]));
+    }
+    return [...new Map(visibleToRole.map((job) => [job.sourceKey, job.sourceName])).entries()]
+      .sort((a, b) => a[1].localeCompare(b[1]));
+  }, [serverCatalogue, visibleToRole]);
 
   /**
    * The one filter surface: temporary view facets only. The language choice
@@ -497,6 +664,9 @@ export default function JobRadar() {
    * codes were mapped, on the source that supplies the most jobs.
    */
   const cityOptions = useMemo(() => {
+    // Server-grouped places (whole collection); the client grouping below
+    // only serves responses that predate the aggregates.
+    if (serverCatalogue) return serverCatalogue.places.groups;
     const byCountry = new Map<JobCountry, Map<string, number>>();
     for (const job of visibleToRole) {
       // Grouped by the tidied name, so one city is one entry: "Zürich" and "Zürich 8000 ZH" were
@@ -515,7 +685,7 @@ export default function JobRadar() {
         // Busiest first: with a few hundred places, alphabetical buries the ones worth seeing.
         cities: [...cities.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])),
       }));
-  }, [visibleToRole]);
+  }, [serverCatalogue, visibleToRole]);
 
 
 
@@ -572,6 +742,14 @@ export default function JobRadar() {
     if (viewAsUser) return userPreview?.collectionTotals ?? null;
     return state.collectionTotals ?? null;
   }, [state.collectionTotals, userPreview, viewAsUser]);
+  // Catalogue freshness (ingest side) beside the search recency above: the
+  // newest sighting over retained holdings, not a run event.
+  const catalogueFreshLine = useMemo(() => {
+    const refreshedAt = (viewAsUser ? userPreview?.catalogue : state.catalogue)?.freshness.refreshedAt;
+    if (!refreshedAt) return '';
+    const day = new Date(refreshedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return ` · Catalogue refreshed ${day}`;
+  }, [state.catalogue, userPreview, viewAsUser]);
 
   async function persistCriteria(draft: CriteriaDraft) {
     return responseJson<{ criteria: SearchCriteria }>(await fetch('/api/criteria', {
@@ -591,7 +769,11 @@ export default function JobRadar() {
     setCriteriaMessage('Saving search criteria…');
     try {
       const result = await persistCriteria(criteriaDraft);
-      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
+      // Saved roles changed, so the catalogue serves a new set: rewind to
+      // page one under the current view filters (roles come from the server).
+      cursorsRef.current = [null];
+      setPageNumber(0);
+      const refreshed = await responseJson<AppState>(await fetch(stateQuery(false, null)));
       setState(refreshed);
       setCriteriaDraft(criteriaToDraft(result.criteria));
       setCriteriaMessage('Criteria saved and applied to search and results.');
@@ -610,7 +792,9 @@ export default function JobRadar() {
     setCriteriaMessage('Resetting criteria…');
     try {
       const result = await persistCriteria(draft);
-      const refreshed = await responseJson<AppState>(await fetch('/api/state'));
+      cursorsRef.current = [null];
+      setPageNumber(0);
+      const refreshed = await responseJson<AppState>(await fetch(stateQuery(false, null)));
       setState(refreshed);
       setCriteriaDraft(criteriaToDraft(result.criteria));
       setCriteriaMessage('All optional criteria reset.');
@@ -702,29 +886,23 @@ export default function JobRadar() {
       }
       const result = last as { added: JobRecord[]; run: SearchRun; scanned: number; alreadyKnown: number } | null;
       if (!result?.run) throw new Error('The search ended without returning a result.');
+      // The run row updates immediately; the list itself is refetched from
+      // the server (page one — new arrivals sort first), because prepending
+      // into a server-paged list would corrupt page boundaries and counts.
+      // Totals and facets arrive with that refetch, never derived here.
       setState((current) => ({
-        // #124 fix: jobs and the run row update immediately, but Total
-        // collected is never derived here. Duplicate folding, orphan promotion
-        // and per-source attribution are server-side; the authoritative totals
-        // arrive via the reconcile fetch below. Deriving them from
-        // importedCount/added.length guesses wrong on folded and unloaded rows.
         ...current,
-        jobs: [...result.added, ...current.jobs.filter((job) => !result.added.some((added) => added.id === job.id))],
         searchRuns: [result.run, ...current.searchRuns.filter((run) => run.id !== result.run.id)].slice(0, 12),
       }));
-      // Reconcile authoritative retained totals (overall and per-source) right
-      // away; do not wait for the next page load. A failure keeps the previous
-      // totals rather than a guessed number.
       try {
-        const reconciled = await responseJson<AppState>(await fetch('/api/state'));
-        setState((current) => ({
-          ...current,
-          totalJobs: reconciled.totalJobs ?? current.totalJobs,
-          matchingJobs: reconciled.matchingJobs ?? current.matchingJobs,
-          collectionTotals: reconciled.collectionTotals ?? current.collectionTotals,
-        }));
+        cursorsRef.current = [null];
+        setPageNumber(0);
+        const reconciled = await responseJson<AppState>(await fetch(stateQuery(false, null)));
+        setState((current) => applyPage({ ...current,
+          searchRuns: [result.run, ...current.searchRuns.filter((run) => run.id !== result.run.id)].slice(0, 12) },
+        reconciled));
       } catch {
-        // Totals stay as they were; the next full state load reconciles them.
+        // The run row above stays; the next page navigation reconciles the list.
       }
       const completedSources = result.run.sources.filter((source) => source.status === 'complete' || source.status === 'partial').length;
       const indeedUnavailable = sourceGroup === 'indeed' && completedSources === 0
@@ -799,11 +977,14 @@ export default function JobRadar() {
   }
 
   async function updateJobState(id: string, patch: Partial<Pick<JobRecord, 'isSaved' | 'applicationStatus' | 'visibilityStatus'>>) {
+    // Mutations act on the administrator's own rows even in preview mode; the
+    // preview is a display mode, not a second workspace.
     const previous = state.jobs;
+    const shown = effective.jobs;
     // Acting on a card counts as looking at it: the unseen edge clears either way.
     markJobOpened(id);
     if (patch.visibilityStatus === 'dismissed') {
-      offerUndo(id, previous.find((job) => job.id === id)?.title ?? 'Job');
+      offerUndo(id, shown.find((job) => job.id === id)?.title ?? 'Job');
     } else if (patch.visibilityStatus === 'active') {
       setUndoDismiss((current) => (current?.id === id ? null : current));
     }
@@ -815,6 +996,10 @@ export default function JobRadar() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(patch),
       }));
+      // The row may have left this view (dismissed, saved into Pipeline), and
+      // the server counts moved with it: reconcile the page rather than
+      // guessing the new numbers here.
+      await refreshList(viewAsUser);
     } catch (error) {
       setState((current) => ({ ...current, jobs: previous }));
       setUndoDismiss((current) => (current?.id === id && patch.visibilityStatus === 'dismissed' ? null : current));
@@ -875,6 +1060,9 @@ export default function JobRadar() {
         ...current,
         [job.id]: result.feedback.verdict ? 'Language feedback saved.' : 'Language feedback cleared.',
       }));
+      // A correction moves the card between verdict buckets: reconcile the
+      // page so the language counts stay truthful.
+      await refreshList(viewAsUser);
     } catch (error) {
       setFeedbackMessages((current) => ({
         ...current,
@@ -925,6 +1113,7 @@ export default function JobRadar() {
       setState({
         jobs: [], criteria: defaultSearchCriteria, searchRuns: [],
         totalJobs: 0, matchingJobs: 0, collectionTotals: { total: 0, bySource: [] },
+        catalogue: undefined, hiddenDuplicates: 0, nextCursor: null,
         account: state.account,
       });
       setCriteriaDraft(criteriaToDraft(defaultSearchCriteria));
@@ -1074,9 +1263,12 @@ export default function JobRadar() {
         <section className="settings-band" id="criteria" hidden={!settingsOpen} aria-label="Search settings">
           <div className="settings-head">
             <h2>Search settings</h2>
+            {/* Search recency and catalogue freshness are stated separately:
+                the last run is this account's search event; the catalogue
+                refresh is ingest recency over retained holdings. */}
             <p>{latestRun
               ? `Last search ${new Date(latestRun.completedAt || latestRun.startedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · ${latestRunTotals.newJobs} added`
-              : accountLoaded ? 'No search run yet' : '\u00a0'}</p>
+              : accountLoaded ? 'No search run yet' : '\u00a0'}{catalogueFreshLine}</p>
             <button type="button" onClick={() => setSettingsOpen((open) => !open)}>
               <span aria-hidden="true">{settingsOpen ? '▲' : '▼'}</span> {settingsOpen ? 'Hide' : 'Show'}
             </button>
@@ -1233,15 +1425,15 @@ export default function JobRadar() {
             repeats the hero directly above it; the counts line is the part that
             says something, so the heading stands alone on every width. */}
         <div className="section-heading"><div><h2>Screened jobs</h2></div><span className="status-note">{loading ? 'Loading…'
-          // Shown rows are deduplicated on screen, so the count names each live effect
-          // separately: keyword filtering (matching, from the server) and duplicate
-          // folding (folded copies), rather than calling the shown rows "matching" (#92).
+          // Shown rows are one server page; matching/total/folded are
+          // whole-collection server numbers, so the count names each live
+          // effect separately rather than calling the shown rows "matching".
           : workspaceCountCopy({
-            shown: state.jobs.length,
-            matching: state.matchingJobs ?? state.jobs.length,
-            total: state.totalJobs ?? state.jobs.length,
-            hiddenDuplicates: state.hiddenDuplicates ?? 0,
-            hasMorePages: Boolean(state.nextCursor),
+            shown: effective.jobs.length,
+            matching: effective.matchingJobs ?? effective.jobs.length,
+            total: effective.totalJobs ?? effective.jobs.length,
+            hiddenDuplicates: effective.hiddenDuplicates ?? 0,
+            hasMorePages: Boolean(effective.nextCursor),
           })}</span></div>
         <details className="data-toolbar" open={selectedJobIds.length > 0}>
           <summary>{selectedJobIds.length ? `${selectedJobIds.length} selected` : 'Data controls'}</summary>
@@ -1386,17 +1578,18 @@ export default function JobRadar() {
               <button type="button" className="undo-close" onClick={() => setUndoDismiss(null)} aria-label="Dismiss this notice">×</button>
             </div>}
             {!loading && visibleJobs.length === 0 && (() => {
-              // Server-exact keyword count: total minus matching across every page, not the
-              // loaded one — the culprit it names is measured, not guessed.
-              const totalJobs = state.totalJobs ?? state.jobs.length;
-              const matchingJobs = state.matchingJobs ?? state.jobs.length;
+              // Server-exact counts across every page, not the loaded one — the
+              // culprit named is measured, not guessed. Facet-hiding is told
+              // apart by inViewCount before keywords are blamed.
+              const totalJobs = effective.totalJobs ?? effective.jobs.length;
+              const matchingJobs = effective.matchingJobs ?? effective.jobs.length;
               const copy = emptyStateCopy(view, languageApplies ? languageFilter : 'all', {
                 totalJobs,
                 removedByKeywords: Math.max(0, totalJobs - matchingJobs),
                 inViewCount: facets.inViewCount,
                 hasExcludedKeywords: state.criteria.excludedKeywords.length > 0,
                 hasRequiredKeywords: state.criteria.requiredKeywords.length > 0,
-                hasMorePages: Boolean(state.nextCursor),
+                hasMorePages: Boolean(effective.nextCursor),
               });
               return <div className="empty-state"><span>◎</span><h3>{copy.title}</h3><p>{copy.detail}</p></div>;
             })()}
@@ -1541,15 +1734,18 @@ export default function JobRadar() {
                 </div>
               </article>;
             })}
-            {/* Paging beyond the first page. Only rendered while the server says more follow;
-                loading every page up front would bring back the unbounded response this replaces. */}
-            {pageCount > 1 && <nav className="job-pager" aria-label="Job list pages">
-              <button type="button" disabled={jobPage === 0}
-                onClick={() => setJobPage((p) => Math.max(0, p - 1))}>&#8592; Previous</button>
-              <span>Page {jobPage + 1} of {pageCount} &middot; {visibleJobs.length} matching</span>
-              <button type="button" disabled={jobPage >= pageCount - 1}
-                onClick={() => setJobPage((p) => Math.min(pageCount - 1, p + 1))}>Next &#8594;</button>
+            {/* Paging beyond the first page. With a catalogue block Previous/Next
+                fetch that server page; without one they slice the loaded list.
+                Loading every page up front would bring back the unbounded
+                response server paging replaces. */}
+            {(serverCatalogue ? serverPageCount > 1 : legacyPageCount > 1) && <nav className="job-pager" aria-label="Job list pages">
+              <button type="button" disabled={pageBusy || (serverCatalogue ? serverPageIndex === 0 : jobPage === 0)}
+                onClick={pagerPrevious}>&#8592; Previous</button>
+              <span>Page {serverCatalogue ? serverPageIndex + 1 : jobPage + 1} of {serverCatalogue ? serverPageCount : legacyPageCount} &middot; {serverCatalogue ? (serverCatalogue.matching) : visibleJobs.length} matching{pageBusy ? ' — loading…' : ''}</span>
+              <button type="button" disabled={pageBusy || (serverCatalogue ? !effective.nextCursor : jobPage >= legacyPageCount - 1)}
+                onClick={pagerNext}>Next &#8594;</button>
             </nav>}
+            {pageError && <p className="form-message" role="status">{pageError}</p>}
             {loadMoreError && <p className="form-message" role="status">{loadMoreError}</p>}
           </div>
           {visibleAdzunaSources.length > 0 && <p className="source-attribution">

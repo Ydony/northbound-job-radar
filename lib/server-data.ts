@@ -1,5 +1,5 @@
 import { analyzeLanguage, type LanguageStatus } from './analysis';
-import { mirrorCatalogueForJob } from './catalogue';
+import { mirrorCatalogueForJob, mirrorCatalogueForJobs } from './catalogue';
 import { indeedSql, isIndeedRecord } from './indeed/access';
 import { isIndeedUrl, languageForIndeed } from './indeed/normalize';
 import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
@@ -451,6 +451,10 @@ export async function normalizeStoredJobs(db: D1Database, userId: string) {
   for (let index = 0; index < statements.length; index += 50) {
     await db.batch(statements.slice(index, index + 50));
   }
+  // INT-05 serves advert content from the shared catalogue, so rows rewritten
+  // here are mirrored there too — otherwise the catalogue keeps the stale
+  // verdicts this pass just replaced.
+  await mirrorCatalogueForJobs(db, userId, rows.results.map((row) => row.id), NORMALIZATION_VERSION);
   return rows.results.length;
 }
 
@@ -479,6 +483,9 @@ export async function ensureSearchText(db: D1Database, userId: string) {
       'UPDATE jobs SET search_text = ? WHERE id = ? AND user_id = ?')
       .bind(searchTextForJob(row), row.id, userId));
     await db.batch(statements);
+    // The folded text is what the catalogue keyword and role filters read, so
+    // backfilled rows are mirrored there too (see normalizeStoredJobs above).
+    await mirrorCatalogueForJobs(db, userId, rows.results.map((row) => row.id), NORMALIZATION_VERSION);
     filled += rows.results.length;
   }
   return filled;
