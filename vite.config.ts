@@ -45,6 +45,18 @@ const localBindingConfig = {
         },
       ]
     : [],
+  // Native edge rate limiter for the auth endpoints (#171): a per-location burst brake in front
+  // of the exact database budgets. The window can only be 10 or 60 seconds, so the 15-minute
+  // sign-in budgets stay in D1; this binding only absorbs floods. Absent locally, the app falls
+  // back to the database limiter alone — see lib/guard.ts. The namespace id must stay unique
+  // within the Cloudflare account; bindings sharing one share their counters.
+  ratelimits: [
+    {
+      name: 'AUTH_RATE_LIMIT',
+      namespace_id: '17101',
+      simple: { limit: 30, period: 60 as const },
+    },
+  ],
 };
 
 export default defineConfig(async () => {

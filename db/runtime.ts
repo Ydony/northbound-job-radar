@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { isLoopbackRequest } from '../lib/indeed/access';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
+import type { NativeRateLimiter } from '../lib/rate-limit';
 import { detectWorkplaceType } from '../lib/workplace';
 import { CV_REMOVAL_VERSION, runtimeMigrations } from './migrations';
 
@@ -118,7 +119,11 @@ async function backfillWorkplaceTypes(db: D1Database) {
 
 export function bindings() {
   if (!env.DB) throw new Error('D1 binding DB is unavailable.');
-  return { db: env.DB };
+  // The native edge rate limiter is optional: local development without the `ratelimits`
+  // configuration simply skips that layer and relies on the database limiter. Never throw here —
+  // a missing edge brake must not take the whole app down.
+  const authRateLimiter = (env.AUTH_RATE_LIMIT ?? undefined) as NativeRateLimiter | undefined;
+  return { db: env.DB, authRateLimiter };
 }
 
 /** Optional free aggregator keys. Missing values leave the matching sources reported as unavailable rather than failing a run. */
@@ -149,6 +154,18 @@ export function authSecrets() {
     sessionSecret: env.SESSION_SECRET ?? '',
     allowSignups: env.ALLOW_SIGNUPS ?? '',
     vpnEnforced: env.VPN_ENFORCED === 'true',
+  };
+}
+
+/**
+ * Turnstile bot-protection credentials (#171). The sitekey is public and served to the
+ * registration form; the secret key is owner-set (`wrangler secret put TURNSTILE_SECRET_KEY`)
+ * and only ever read here, never serialized into a response. Empty values mean unconfigured.
+ */
+export function turnstileSecrets() {
+  return {
+    siteKey: env.TURNSTILE_SITE_KEY ?? '',
+    secretKey: env.TURNSTILE_SECRET_KEY ?? '',
   };
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -9,16 +9,90 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [message, setMessage] = useState('');
+  // Turnstile bot protection (#171) renders only for registration. The sitekey is public; the
+  // resulting token is verified server-side before any account is created.
+  const [sitekey, setSitekey] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState('');
+  const widgetHost = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (mode !== 'register') return;
+    let cancelled = false;
+    fetch('/api/turnstile')
+      .then((response) => response.json())
+      .then((body: unknown) => {
+        if (cancelled) return;
+        const served = (body as { sitekey?: unknown } | null)?.sitekey;
+        if (typeof served === 'string' && served.length > 0) setSitekey(served);
+        else setTurnstileError('The bot check could not load. Reload and try again.');
+      })
+      .catch(() => {
+        if (!cancelled) setTurnstileError('The bot check could not load. Reload and try again.');
+      });
+    return () => { cancelled = true; };
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== 'register' || sitekey === '' || !widgetHost.current) return;
+    let cancelled = false;
+    let widgetId: string | null = null;
+    const started = Date.now();
+    // The loader script is emitted server-side with the request nonce (see app/login/layout.tsx);
+    // poll briefly for it rather than assuming it already ran.
+    const timer = setInterval(() => {
+      if (cancelled) return;
+      if (window.turnstile && widgetHost.current && widgetId === null) {
+        clearInterval(timer);
+        widgetId = window.turnstile.render(widgetHost.current, {
+          sitekey,
+          callback: (token) => { if (!cancelled) setTurnstileToken(token); },
+          'expired-callback': () => { if (!cancelled) setTurnstileToken(''); },
+          'error-callback': () => {
+            if (!cancelled) {
+              setTurnstileToken('');
+              setTurnstileError('The bot check failed to load. Reload and try again.');
+            }
+          },
+        });
+      } else if (Date.now() - started > 10000) {
+        clearInterval(timer);
+        if (!cancelled && widgetId === null) {
+          setTurnstileError('The bot check could not load. Reload and try again.');
+        }
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      if (widgetId !== null && window.turnstile) {
+        try {
+          window.turnstile.remove(widgetId);
+        } catch {
+          // The widget is already gone; nothing to clean up.
+        }
+      }
+    };
+  }, [mode, sitekey]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (mode === 'register' && turnstileError === '' && (sitekey === '' || turnstileToken === '')) {
+      setMessage('Wait for the bot check to finish, then try again.');
+      return;
+    }
     setBusy(true);
     setMessage('');
     try {
       const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, password, action: mode }),
+        body: JSON.stringify({
+          email,
+          password,
+          action: mode,
+          turnstileToken: mode === 'register' ? turnstileToken : undefined,
+        }),
       });
       const body = await response.json() as { error?: string; claimedLegacyWorkspace?: boolean };
       if (!response.ok) throw new Error(body.error || 'Could not sign in.');
@@ -29,6 +103,9 @@ export default function LoginPage() {
       setBusy(false);
     }
   }
+
+  const turnstilePending = mode === 'register' && turnstileError === ''
+    && (sitekey === '' || turnstileToken === '');
 
   return (
     <main className="shell">
@@ -56,6 +133,8 @@ export default function LoginPage() {
             </label>
             {mode === 'register' && <>
               <p className="login-hint">At least 12 characters. Length matters more than symbols.</p>
+              <div ref={widgetHost} />
+              {turnstileError !== '' && <p className="form-message" aria-live="polite">{turnstileError}</p>}
               <label className="consent">
                 <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
                 <span>
@@ -67,13 +146,19 @@ export default function LoginPage() {
                 </span>
               </label>
             </>}
-            <button className="ink-submit" type="submit" disabled={busy || (mode === 'register' && !accepted)}>
+            <button className="ink-submit" type="submit" disabled={busy || (mode === 'register' && (!accepted || turnstilePending))}>
               {busy ? 'Working…' : mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
             <p className="form-message" aria-live="polite">{message}</p>
           </form>
           <button className="login-switch" type="button"
-            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setMessage(''); }}>
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login');
+              setMessage('');
+              setSitekey('');
+              setTurnstileToken('');
+              setTurnstileError('');
+            }}>
             {mode === 'login' ? 'Need an account? Register' : 'Already registered? Sign in'}
           </button>
         </div>

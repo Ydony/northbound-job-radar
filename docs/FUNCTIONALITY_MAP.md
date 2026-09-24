@@ -21,7 +21,7 @@ Manual search: criteria → source registry → source adapters → language gat
 
 | Function | UI / entry point | Server and core code | Persisted data / tests |
 |---|---|---|---|
-| Registration, sign-in/out and sessions | `app/login/page.tsx`, `app/settings/page.tsx` | `app/api/auth/route.ts`, `app/api/account/route.ts`, `lib/auth.ts`, `lib/users.ts`, `lib/guard.ts` | `users`, `auth_events`, `rate_limits`; `tests/auth.test.ts`, `tests/tenant-route-bindings.test.ts` |
+| Registration, sign-in/out and sessions | `app/login/page.tsx`, `app/login/layout.tsx`, `app/settings/page.tsx` | `app/api/auth/route.ts`, `app/api/account/route.ts`, `app/api/turnstile/route.ts`, `lib/auth.ts`, `lib/users.ts`, `lib/guard.ts`, `lib/rate-limit.ts`, `lib/turnstile.ts` | `users`, `auth_events`, `rate_limits`; `tests/auth.test.ts`, `tests/tenant-route-bindings.test.ts`, `tests/rate-limit.test.ts`, `tests/turnstile.test.ts` |
 | Dashboard and job list | `app/page.tsx`, `app/job-radar.tsx` | `app/api/state/route.ts`, `lib/server-data.ts`, `lib/dashboard.ts`, `lib/paging.ts` | `jobs`, `search_runs`, `search_run_sources`; `tests/dashboard.test.ts`, `tests/keyword-pagination.test.ts`, `tests/collection-totals.test.ts` |
 | Roles, country switches and required/excluded words | Dashboard search controls | `app/api/criteria/route.ts`, `lib/criteria.ts`, `lib/server-data.ts` | `search_settings`, `search_roles`; `tests/criteria.test.ts`, `tests/country-switches.test.ts` |
 | Manually triggered multi-source collection | Dashboard search buttons; local CLI for Indeed | `app/api/scrape/route.ts`, `lib/job-adapters.ts`, `lib/eures.ts`, `lib/job-room.ts`, `lib/ats-feeds.ts`, `lib/job-aggregators.ts`, `lib/jobsch.ts`, `lib/indeed/*`, `scripts/indeed*.mjs` | `jobs`, `search_runs`, `search_run_sources`, `indeed_control`, `indeed_coverage`; adapter/Indeed tests |
@@ -48,7 +48,7 @@ The VPN setup and private launchers in `scripts/` are local administrator toolin
 ## Security boundaries and verification
 
 - `requireSession()` in `lib/guard.ts` checks the signed, revocable session and optionally the administrator role. User-data SQL must also bind `user_id`; a valid session alone is not a tenancy check.
-- `lib/auth.ts` checks mutating requests against the full request origin. `middleware.ts` adds a per-request script nonce; `lib/security-policy.ts` constructs the CSP. `next.config.ts` supplies the other security headers.
+- `lib/auth.ts` checks mutating requests against the full request origin. `middleware.ts` adds a per-request script nonce; `lib/security-policy.ts` constructs the CSP. The policy admits exactly the Turnstile challenge host (widget script and frame) for the registration bot check, nothing else. `next.config.ts` supplies the other security headers.
 - `lib/job-sources.ts` checks manually supplied apply URLs. The automated search path validates source-provided URLs before saving them.
 - `tests/` covers core transformations and several route contracts. `scripts/verify-dev-workflow.mjs` and `scripts/verify-admin-actions.mjs` exercise fresh synthetic accounts; `npm run check:visual` exercises a browser. Passing unit tests does not prove a hosted multi-user deployment is safe.
 

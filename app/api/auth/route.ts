@@ -1,6 +1,7 @@
-import { authSecrets, bindings, ensureSchema } from '@/db/runtime';
+import { authSecrets, bindings, ensureSchema, turnstileSecrets } from '@/db/runtime';
 import { clearedSessionCookie, createSessionValue, isLocalBootstrapRequest, isSameOrigin, sessionCookie } from '@/lib/auth';
-import { clientIp, durableRateLimit } from '@/lib/guard';
+import { clientIp, durableRateLimit, nativeRateLimit } from '@/lib/guard';
+import { TURNSTILE_TEST_SECRET_ALWAYS_PASS, verifyTurnstileToken } from '@/lib/turnstile';
 import { authenticate, countUsers, createUser, findUserByEmail, isValidEmail, normalizeEmail,
   passwordProblem, touchLastSeen } from '@/lib/users';
 
@@ -14,6 +15,35 @@ async function recordAttempt(db: D1Database, email: string, ip: string, kind: st
     .bind(crypto.randomUUID(), email, ip, kind, new Date().toISOString()).run();
 }
 
+/**
+ * Turnstile bot check for registration (#171). The secret key is owner-set and read from the
+ * environment only; without one the committed test keys stand in, and those accept everyone, so
+ * they are honored on this computer alone. A non-local host without a real secret refuses
+ * registration rather than pretending to check bots. Returns a refusal response, or null to
+ * continue. Fails closed: an unverifiable token never registers.
+ */
+async function verifyRegistrationBot(
+  request: Request,
+  db: D1Database,
+  email: string,
+  ip: string,
+  token: unknown,
+): Promise<Response | null> {
+  const { secretKey } = turnstileSecrets();
+  if (!secretKey && !isLocalBootstrapRequest(request)) {
+    return Response.json({ error: 'Registration is not available on this installation.' }, { status: 503 });
+  }
+  const verification = await verifyTurnstileToken(token, {
+    secretKey: secretKey || TURNSTILE_TEST_SECRET_ALWAYS_PASS,
+    remoteIp: ip,
+  });
+  if (!verification.ok) {
+    await recordAttempt(db, email, ip, 'bot-rejected');
+    return Response.json({ error: 'The bot check did not pass. Reload and try again.' }, { status: 400 });
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   await ensureSchema();
   if (!isSameOrigin(request)) {
@@ -25,17 +55,25 @@ export async function POST(request: Request) {
   }
 
   const ip = clientIp(request);
-  const body = await request.json().catch(() => ({})) as { email?: unknown; password?: unknown; action?: unknown };
+  const body = await request.json().catch(() => ({})) as { email?: unknown; password?: unknown; action?: unknown; turnstileToken?: unknown };
   const email = normalizeEmail(body.email);
   const password = typeof body.password === 'string' ? body.password : '';
   const action = body.action === 'register' ? 'register' : 'login';
-  const { db } = bindings();
+  const { db, authRateLimiter } = bindings();
 
-  // Two limits: per address slows a targeted attack on one account, per IP slows spraying across
-  // many. Registration is capped hardest because it is the only endpoint that creates state.
-  // Held in the database rather than in memory. These counters used to reset whenever the worker
-  // recycled, which on Cloudflare is routine and needs no help from an attacker - so an attempt
-  // spread over restarts would never have reached the limit at all.
+  // Three layers, cheapest first. The native edge limiter brakes bursts per location without a
+  // database round trip; the two database buckets below keep the exact 15-minute budgets — per
+  // address to slow a targeted attack on one account, per IP to slow spraying across many.
+  // Registration is capped hardest because it is the only endpoint that creates state.
+  // Either layer can refuse on its own. Held in the database rather than in memory. These
+  // counters used to reset whenever the worker recycled, which on Cloudflare is routine and
+  // needs no help from an attacker - so an attempt spread over restarts would never have
+  // reached the limit at all.
+  const edgeLimited = await nativeRateLimit(authRateLimiter, `auth:${ip}`);
+  if (edgeLimited) {
+    await recordAttempt(db, email, ip, 'throttled');
+    return edgeLimited;
+  }
   const limited = await durableRateLimit(db, `auth:ip:${ip}`, action === 'register' ? 5 : 20, 15 * 60_000)
     ?? await durableRateLimit(db, `auth:email:${email}`, 10, 15 * 60_000);
   if (limited) {
@@ -48,6 +86,8 @@ export async function POST(request: Request) {
   if (action === 'register') {
     const problem = passwordProblem(password);
     if (problem) return Response.json({ error: problem }, { status: 400 });
+    const botCheck = await verifyRegistrationBot(request, db, email, ip, body.turnstileToken);
+    if (botCheck) return botCheck;
     // Registration is closed by default once the owner exists, so a public deployment cannot be
     // signed up to by strangers. Set ALLOW_SIGNUPS=true to open it.
     const existing = await countUsers(db);
@@ -71,6 +111,16 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, role: user.role, claimedLegacyWorkspace }, {
       headers: { 'set-cookie': sessionCookie(value, isSecureRequest(request)) },
     });
+  }
+
+  // A login token is verified only when the owner configured a real secret: the login form
+  // carries no bot widget, so a token here is an opt-in hardening signal, not a requirement.
+  if (typeof body.turnstileToken === 'string' && body.turnstileToken.length > 0) {
+    const { secretKey } = turnstileSecrets();
+    if (secretKey) {
+      const check = await verifyTurnstileToken(body.turnstileToken, { secretKey, remoteIp: ip });
+      if (!check.ok) return Response.json({ error: 'The bot check did not pass. Reload and try again.' }, { status: 400 });
+    }
   }
 
   const user = await authenticate(db, email, password);

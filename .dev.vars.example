@@ -42,3 +42,14 @@ INDEED_APP_IDENTITY_APPROVED=false
 INDEED_API_KEY=
 INDEED_USER_AGENT=
 INDEED_APP_INFO=
+
+# Turnstile bot protection for registration (#171). The sitekey is public; the secret key is
+# owner-set and never committed — `wrangler secret put TURNSTILE_SECRET_KEY`.
+# Leave both empty for local development: the app then uses Turnstile's documented
+# always-pass test pair, honored on this computer only. Set the test secret below to exercise
+# the real verification round trip locally; set both to real values before any public use.
+# Test credentials: https://developers.cloudflare.com/turnstile/troubleshooting/testing/
+#   always-pass sitekey: 1x00000000000000000000AA
+#   always-pass secret:  1x0000000000000000000000000000000AA
+TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET_KEY=
