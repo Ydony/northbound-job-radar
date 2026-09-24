@@ -21,10 +21,37 @@ completeness (schema-derived table list); #164 server-side catalogue
 pagination/facets; #165 cron refresh scaffolding (v31 locks/cursors/durable 429
 cooldown, coalesced queue, fail-closed empty terms).
 
-Open / owner decisions: PR #182 (INT-02 isolation, fixed real leaks — hidden-source
-counts, `jobs/[id]` admin guard, admin-URL import refusal) is **unmerged, needs human
-review**; #168 waits on it; #173 (go-live flag) is owner-only. Owner calls still
-needed: `PUBLIC_REFRESH_TERMS` before any prod refresh, 6h cron cadence + ATS
+PR #182 (INT-02 isolation) **merged 2026-09-24 as d418af1**, after a close review that
+verified each of its four claims against master rather than accepting the PR's own
+account: `jobs/[id]` guarded Indeed alone, `DELETE /api/jobs` likewise, an admin-only
+URL imported invisibly, and `scanned`/`alreadyKnown` summed unfiltered `sourceReports`
+eight lines after `visibleSources` filtered the same array. The owner's review gates
+promotion to production, not the path into master and test. Two things worth keeping:
+GitHub reported it MERGEABLE/CLEAN and it was not — `app/api/state/route.ts` conflicted
+because master had grown the same audience rule inline during the catalogue work, so the
+resolution takes the shared `visibleSearchRuns` and drops master's copy — and its recorded
+evidence (421/421) was 23 commits stale. Re-verified on current master: 536/536.
+**#168 is unblocked.** #173 (go-live flag) is owner-only.
+
+Then (bec4589): job deletion removed entirely at the owner's call — a delete wrote no
+tombstone, so the advertisement returned on the next search. `DELETE /api/jobs` and
+`DELETE /api/jobs/:id` now answer 405 unauthenticated; dismissal is the only way to put a
+job away, and `verify:dev` proves the tombstone survives re-import.
+
+**The five local harnesses were broken by the INT-14 work and are now fixed.** None of
+them is in the merge gate, so it happened silently. INT-14b demanded a Turnstile token no
+headless caller sends — local registration now has no bot check at all, rather than
+verifying against an always-pass test secret that accepts any token anyway. INT-14a then
+left new accounts unverified, so every following call answered 401; only verify:dev
+handled it. check-visual was the worst case: it seeded nothing and measured a page with
+zero job cards, the exact failure its canary exists to catch. Also fixed: verify:dev's
+cross-account assertion read /api/state's default 40-job page and reported a cross-account
+deletion that had not happened — INT-05's paging, not a leak; reproduced by hand before
+changing anything. Note for whoever runs these: the durable limiter buckets all local
+traffic under `auth:ip:local`, 5 registrations per 15 minutes machine-wide, so the
+harnesses cannot be run back to back.
+
+Owner decisions still needed: `PUBLIC_REFRESH_TERMS` before any prod refresh, 6h cron cadence + ATS
 282-board/tick cost, FreeHire redistribution confirmation, detail-404=transient
 semantic, `auth_events` old-email rows (30-day purge, not deleted with account).
 Refresh writes no catalogue rows yet — the `onBatch` seam is #164's side to complete.
