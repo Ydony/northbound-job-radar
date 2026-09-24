@@ -5,10 +5,10 @@
  * opened only by an explicit check. Passwords are PBKDF2-SHA256 with a per-user salt; sessions are
  * HMAC-signed cookies carrying the owner id, so a tampered cookie cannot select another account.
  */
-
 const SESSION_COOKIE = 'ike_session';
 const SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
-const PBKDF2_ITERATIONS = 210_000;
+// Cloudflare Workers rejects PBKDF2 operations above 100,000 iterations.
+const PBKDF2_ITERATIONS = 100_000;
 
 const encoder = new TextEncoder();
 
