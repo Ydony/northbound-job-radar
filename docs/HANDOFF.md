@@ -1,5 +1,18 @@
 # Handover
 
+## 2026-09-24 search-engine exclusion
+
+Owner requested no indexing while the site is private. Deployed and verified
+`X-Robots-Tag: noindex, nofollow, nosnippet, noimageindex` on the Worker root,
+login, privacy, sources, unauthenticated API (401), robots.txt and favicon.
+HTML pages additionally render robots metadata. The robots file allows fetching
+so compliant search engines can see noindex; this does not give access to account
+data. Static asset cache headers remain intact. Domain delegation now resolves
+to Cloudflare, but its zone API still reports pending. Custom-domain attachment
+failed with 100117 (existing apex DNS record); the OAuth token lacks DNS-edit
+access. Owner was asked to remove only the conflicting apex A record. #148 is
+still open; no custom-domain configuration is committed until attachment works.
+
 ## 2026-09-24 production sign-in repair
 
 The private production Worker at `https://ikbeneenappel-prod.anddonatas.workers.dev`
