@@ -1,5 +1,36 @@
 # Handover
 
+## 2026-09-24 public-launch backlog implementation (INT-01–INT-14, #35)
+
+Twelve PRs merged to master (#174–#181, #183–#186), one per issue, all green on the
+merged tree: lint, typecheck, **527/527 tests**, build (verified on a clean worktree
+at `fc12c8d`). Dev/test + synthetic fixtures only; prod Worker/D1, secrets and #173
+untouched throughout. Seven parallel worktrees under `worker-worktrees/`; two merge
+conflicts resolved by the owning workers (duplicate migration v29 → catalogue split is
+v30; email vs Turnstile auth-route overlap).
+
+Landed: #160 source-policy registry (`lib/source-policy.ts`, drift tests); #162 budgets
++ stop-on-block (200/source, 4/page-fetch, 800/run); #163 catalogue/user-state split
+(migration v30, lossless on disposable copies); #166 FreeHire adapter (recorded
+fixtures, 7-upstream allowlist); #167 Job-Room public validation (fixture-based —
+live probe from the worker network hit a WAF block and stopped, so volume rests on
+code shapes; re-check live from the deployment network); #169 attribution + quality
+(0 false passes, 100% pass precision on fixtures); #170 email verify/reset (mocked
+Resend, migration v29); #171 Turnstile + atomic fail-closed limiter; #172 deletion
+completeness (schema-derived table list); #164 server-side catalogue
+pagination/facets; #165 cron refresh scaffolding (v31 locks/cursors/durable 429
+cooldown, coalesced queue, fail-closed empty terms).
+
+Open / owner decisions: PR #182 (INT-02 isolation, fixed real leaks — hidden-source
+counts, `jobs/[id]` admin guard, admin-URL import refusal) is **unmerged, needs human
+review**; #168 waits on it; #173 (go-live flag) is owner-only. Owner calls still
+needed: `PUBLIC_REFRESH_TERMS` before any prod refresh, 6h cron cadence + ATS
+282-board/tick cost, FreeHire redistribution confirmation, detail-404=transient
+semantic, `auth_events` old-email rows (30-day purge, not deleted with account).
+Refresh writes no catalogue rows yet — the `onBatch` seam is #164's side to complete.
+This entry's companion change marks the export row Accepted-gap per the 2026-09-24
+no-export decision (was stashed, never committed).
+
 ## 2026-09-24 search-engine exclusion
 
 Owner requested no indexing while the site is private. Deployed and verified
