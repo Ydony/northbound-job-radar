@@ -97,7 +97,7 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     audience: 'public',
     policyStatus: 'owner-assumed',
     enabled: true,
-    basis: 'Unauthenticated public search/detail API of the Swiss public employment service, but no verified grant: permission is an explicit owner assumption. Keep paced and capped. SOURCE_POLICY.md §2; AGENTS.md.',
+    basis: 'Unauthenticated public search/detail API of the Swiss public employment service, but no verified grant: permission is an explicit owner assumption (INT-08, #167). Measured as public-sustainable: search reads at most 6 pages of 100 previews per role keyword and stops at the first short page; at most 200 short previews are re-read in full at a fixed 400ms interval (~80s worst case); searches are rate-limited per account (6 per 10min). Metadata + link only per SOURCE_POLICY.md §1. 2026-09-24 probe: an unauthenticated request from a non-local network answered HTTP 400 with a WAF block page, so volume assumes the runtime network the adapter has historically run from; stop on block, never retry. SOURCE_POLICY.md §2; AGENTS.md.',
   },
   {
     key: 'adzuna-ch',
