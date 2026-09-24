@@ -298,6 +298,44 @@ export interface UpsertJobResult {
   wasDismissed: boolean;
 }
 
+/**
+ * Raise one primary row to the strongest engagement held by any copy folded behind it (#189).
+ *
+ * Only ever raises: `is_saved` can go 0 -> 1 and `application_status` can go -> 'applied',
+ * never the reverse, so a duplicate arriving can never take a decision away. `status` is
+ * rederived from the result with the same precedence the PATCH route uses.
+ */
+function raiseToFoldedState(db: D1Database, userId: string, primaryId: string, now: string) {
+  return db.prepare(`UPDATE jobs SET
+      is_saved = CASE WHEN EXISTS (SELECT 1 FROM jobs d WHERE d.user_id = ? AND d.duplicate_of = ? AND d.is_saved = 1)
+        THEN 1 ELSE is_saved END,
+      application_status = CASE WHEN EXISTS (SELECT 1 FROM jobs d WHERE d.user_id = ? AND d.duplicate_of = ? AND d.application_status = 'applied')
+        THEN 'applied' ELSE application_status END,
+      updated_at = ?
+    WHERE id = ? AND user_id = ?`)
+    .bind(userId, primaryId, userId, primaryId, now, primaryId, userId);
+}
+
+/** Rederive the denormalized `status` column after the state above may have changed. */
+function restatusJob(db: D1Database, userId: string, jobId: string) {
+  return db.prepare(`UPDATE jobs SET status = CASE
+      WHEN visibility_status = 'dismissed' THEN 'ignored'
+      WHEN application_status = 'applied' THEN 'applied'
+      WHEN is_saved = 1 THEN 'saved'
+      ELSE 'new' END WHERE id = ? AND user_id = ?`)
+    .bind(jobId, userId);
+}
+
+/**
+ * Raise one primary to the strongest decision among the copies folded behind it, and
+ * rederive its status. Exported for the PATCH route, where a write can land on a folded
+ * copy and would otherwise never reach the card (#189).
+ */
+export async function raiseFoldedStateToPrimary(db: D1Database, userId: string, primaryId: string) {
+  const now = new Date().toISOString();
+  await db.batch([raiseToFoldedState(db, userId, primaryId, now), restatusJob(db, userId, primaryId)]);
+}
+
 interface NearDuplicateCandidate {
   id: string;
   location: string;
@@ -441,6 +479,10 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
   if (supersedesIndeedCopy && nearMatch && !existing) {
     await db.prepare('UPDATE jobs SET duplicate_of = ?, updated_at = ? WHERE user_id = ? AND (id = ? OR duplicate_of = ?)')
       .bind(id, now, userId, nearMatch.id, nearMatch.id).run();
+    // #189: the reader may have saved or applied to the copy this row just took the card
+    // from. Carry that up, or "I applied to this" silently stops being true the moment a
+    // second copy of the same advertisement turns up.
+    await db.batch([raiseToFoldedState(db, userId, id, now), restatusJob(db, userId, id)]);
   }
   const row = await db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,
     language_feedback.corrected_status AS feedback_corrected_status,
@@ -686,6 +728,16 @@ export async function reclusterJobs(db: D1Database, userId: string) {
   // A concurrently inserted row likewise remains stale; it cannot be marked without a link.
   for (let index = 0; index < statements.length; index += 50) {
     await db.batch(statements.slice(index, index + 50));
+  }
+  // #189: after the links exist, raise each primary to the strongest decision among the
+  // copies now folded behind it. Runs second by necessity - it reads `duplicate_of`, so it
+  // would find nothing if it shared a batch with the statements that set it. Reclustering
+  // can move the card between copies, so this has to hold here too and not only at import.
+  const promoted = [...new Set([...assignment.values()].map((value) => value.duplicateOf).filter(Boolean))];
+  const merges = promoted.flatMap((primaryId) =>
+    [raiseToFoldedState(db, userId, primaryId, new Date().toISOString()), restatusJob(db, userId, primaryId)]);
+  for (let index = 0; index < merges.length; index += 50) {
+    await db.batch(merges.slice(index, index + 50));
   }
   return { clusters, duplicates };
 }

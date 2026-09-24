@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/guard';
 import { isHiddenSourceForRole } from '@/lib/job-adapters';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { normalizeLanguageFeedback } from '@/lib/language-feedback';
-import { NORMALIZATION_VERSION } from '@/lib/server-data';
+import { NORMALIZATION_VERSION, raiseFoldedStateToPrimary } from '@/lib/server-data';
 import type { ApplicationStatus, VisibilityStatus } from '@/lib/types';
 
 const applicationStatuses = new Set<ApplicationStatus>(['not_applied', 'applied']);
@@ -35,8 +35,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (hasLanguageFeedback && !feedback) return Response.json({ error: 'Invalid language feedback.' }, { status: 400 });
 
   const job = await db.prepare(`SELECT id, source_url, source_key, source_job_id, canonical_url, identity_fingerprint,
-      title, company, location, posted_at, language_status, language_summary, language_signals, description
+      title, company, location, posted_at, language_status, language_summary, language_signals, description, duplicate_of
     FROM jobs WHERE id = ? AND user_id = ?`).bind(id, user.id).first<{
+      duplicate_of: string;
       language_status: string;
       language_summary: string;
       language_signals: string;
@@ -121,6 +122,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ELSE 'new' END WHERE id = ? AND user_id = ?`).bind(id, user.id));
   }
   await db.batch(statements);
+  // #189: a write can land on a copy that is folded behind another. The card is the primary,
+  // so a decision made here has to reach it or it is invisible - the same loss the fold rule
+  // was meant to end, arriving by a different door. Only ever raises, so this cannot undo
+  // anything the primary already held.
+  if (job.duplicate_of) {
+    await raiseFoldedStateToPrimary(db, user.id, job.duplicate_of);
+  }
   // INT-04 (#163): the saved/applied/dismissed/correction change above is private
   // state — mirror it so the catalogue side agrees with the `jobs` row.
   await mirrorCatalogueForJob(db, user.id, id, NORMALIZATION_VERSION);

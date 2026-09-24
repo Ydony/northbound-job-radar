@@ -102,7 +102,9 @@ try {
   await owner.request(`/api/jobs/${first.id}`, 'PATCH', { visibilityStatus: 'dismissed' });
   const repeated = await owner.request('/api/jobs', 'POST', ad('first', '2026-09-01'));
   assert.equal(repeated.dismissed, true);
-  const dismissed = (await owner.request('/api/state')).jobs.find((job) => job.id === first.id);
+  // Since INT-05 (#164) the default view is filtered server-side — `view=all` still means
+  // active only, because the dismissed tab fetches its own page. Ask for that page.
+  const dismissed = (await owner.request('/api/state?view=dismissed&limit=2000')).jobs.find((job) => job.id === first.id);
   assert.equal(dismissed.visibilityStatus, 'dismissed');
   assert.equal(dismissed.correctedLanguageStatus, 'review');
   assert.equal(dismissed.isSaved, true);

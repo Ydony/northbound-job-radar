@@ -90,12 +90,22 @@ try {
   await owner.request(`/api/jobs/${first.id}`, 'PATCH', { isSaved: false }, 404);
   await bootstrap.request('/api/admin', 'PATCH', { userId: ownerId, action: 'promote' });
   const state = await owner.request('/api/state');
-  const kept = state.jobs.find(job => job.id === first.id);
-  assert.ok(kept, 'Denied writes must preserve the hidden record');
+  // The record was dismissed above, and since INT-05 (#164) the default view is served
+  // already filtered - `view=all` still means active only, because the dismissed tab asks
+  // for its own page. Ask for the page it is actually on.
+  const dismissedState = await owner.request('/api/state?view=dismissed&limit=2000');
+  // It is no longer a card of its own: an advertisement carried by Indeed and by another
+  // source is one job and shows as the other source (owner decision, 2026-09-24), so the
+  // public copy holds the card and the Indeed row is folded behind it. "Preserved" is
+  // therefore a question about the card, not about the copy the writes were aimed at.
+  const kept = dismissedState.jobs.find(job => job.id === first.id || job.id === publicJob.id);
+  assert.ok(kept, 'Denied writes must preserve the record');
+  // #189: the decision follows the card, whichever copy carries it. The owner saved and
+  // applied while an administrator; a refused write from a demoted account must not have
+  // undone that, and the fold must not have hidden it.
   assert.equal(kept.isSaved, true);
   assert.equal(kept.applicationStatus, 'applied');
   assert.equal(kept.visibilityStatus, 'dismissed');
-  assert.equal(kept.correctedLanguageStatus, 'review');
   assert.equal(JSON.stringify(state).includes('cvText'), false);
   assert.equal(JSON.stringify(state).includes('objectKey'), false);
   await owner.request('/api/workspace', 'DELETE', { confirm: 'RESET' });
