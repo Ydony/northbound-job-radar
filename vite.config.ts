@@ -29,7 +29,11 @@ const localPort = appEnvironment === 'test' ? 3001 : 3000;
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 
 const localBindingConfig = {
-  ...(isProd ? { name: 'ikbeneenappel-prod' } : {}),
+  ...(isProd ? {
+    name: 'ikbeneenappel-prod',
+    workers_dev: true,
+    routes: [{ pattern: 'ikbeneenappel.nl', custom_domain: true }],
+  } : {}),
   main: 'vinext/server/app-router-entry',
   compatibility_flags: ['nodejs_compat'],
   d1_databases: d1

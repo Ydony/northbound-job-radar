@@ -4,9 +4,10 @@ The owner approved a private, single-admin Cloudflare Worker on 2026-09-23.
 The independent `ikbeneenappel-prod` D1 and first Worker version exist at
 `https://ikbeneenappel-prod.anddonatas.workers.dev`. The owner-only Worker
 secrets and sole administrator are configured; an actual production sign-in
-returned HTTP 200 with an admin session on 2026-09-24. The domain now delegates
-to Cloudflare, but attaching it is pending removal of the conflicting apex DNS
-record and zone activation. The current CLI token cannot edit DNS records.
+returned HTTP 200 with an admin session on 2026-09-24. Cloudflare accepted
+`ikbeneenappel.nl` as a custom domain after the owner removed the conflicting
+apex A record. The .nl registry still delegates to OVH; public HTTPS verification
+remains pending the nameserver update and certificate readiness.
 This is not approval for open registration
 or a public job-search service. Do not deploy to OpenAI Sites or `chatgpt.site`.
 
