@@ -269,8 +269,13 @@ test('ordinary accounts never receive Indeed settings from state or the API', as
 });
 
 test('deleting an account or resetting a workspace removes its Indeed settings', async () => {
+  // The owned-data list lives in exactly one place; every deletion path shares it.
+  const helper = await readFile(new URL('../lib/account-deletion.ts', import.meta.url), 'utf8');
+  assert.match(helper, /DELETE FROM indeed_settings WHERE user_id = \?/);
+  assert.match(helper, /DELETE FROM indeed_coverage WHERE user_id = \?/);
   for (const file of ['../app/api/account/route.ts', '../app/api/workspace/route.ts', '../app/api/admin/route.ts']) {
     const source = await readFile(new URL(file, import.meta.url), 'utf8');
-    assert.match(source, /DELETE FROM indeed_settings WHERE user_id = \?/, file);
+    assert.match(source, /account-deletion/, file);
+    assert.doesNotMatch(source, /DELETE FROM indeed_settings WHERE user_id = \?/, file);
   }
 });

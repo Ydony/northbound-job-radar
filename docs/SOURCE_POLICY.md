@@ -59,6 +59,7 @@ one click away on a page the employer chose to publish it on.
 | **EURES CH/NL** | Public endpoint (`/public/` in the path), `robots.txt` does not disallow `/eures/`, and the EURES legal notice states plainly: *"Re-use is authorised, provided that ELA is acknowledged as the source of the material."* | **Attribution to the European Labour Authority (ELA) is mandatory** and is currently not implemented — see §4. Metadata + link only, per §1. |
 | **Job-Room (arbeit.swiss)** | Official Swiss public employment service. Unauthenticated public search and detail API, no key. Owner-assumed permission recorded separately. | Metadata + link only. Keep the per-advertisement detail fetch paced and capped as it is now. |
 | **Employer ATS boards** (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable) | Endpoints the platforms publish specifically so aggregators can consume them. Teamtailor documents a syndication feed on every career site it hosts (jobs page plus `.rss`, same feed as JSON Feed at `.json`): no key, full descriptions, ISO country codes per posting (#57). Workable publishes the same kind of feed for each account it hosts (#58). | Metadata + link only. The employer publishes the board; the text is still theirs. |
+| **FreeHire CH/NL** | Public full-description API (`GET /agent/jobs/search`), no key; documented for programmatic use, with an identifying User-Agent sent. No display, caching or attribution conditions found in the terms or docs. The catalogue mixes direct ATS feeds with re-served aggregators, so only the seven ATS platforms already public here are accepted via an explicit upstream allowlist; everything else is refused at ingest. | Metadata + link only. Advertisement text is employer-owned: screened server-side, never republished. |
 
 ### Why employer boards carry the public tier
 
@@ -219,7 +220,7 @@ Do not enable these until someone has read their terms and recorded the answer h
 
 | Source | Status |
 |---|---|
-| **FreeHire** | Proposed first new integration. Its terms are ambiguous on public redisplay: they prohibit *"scraping beyond our documented API"* — which permits documented API use — but say nothing about redistributing results to end users. Ask them directly before launch. |
+| **FreeHire** | Evaluated 2026-09-24 (#166) and integrated behind an eligible-upstream allowlist (see §2). Its terms permit documented API use but say nothing about redistributing results to end users — ask them directly before launch. |
 | **Jooble** | Advertises publisher use on third-party sites, needs a key. Measure description completeness first: if it returns snippets like Adzuna and Careerjet, it adds `unknown` rows rather than usable jobs. |
 | **UWV / werk.nl** | Permission assumed by the owner; no retrieval interface exists. Assumed permission does not supply an endpoint. |
 | **OpenPostings** | No licence found in the repository. Reference only. |

@@ -75,8 +75,17 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'unresolved',
     collected: 'Public Swiss vacancy records: title, employer, location, description, posting date, and the employer-declared language requirements.',
     theirRules: 'The official Swiss public employment service. Its own front end calls an unauthenticated public JSON search API. robots.txt disallows the /job-search/ page route under a comment reading "Do not crawl Job Adverts"; the API path itself is not listed.',
-    ourPosition: 'The API path is not disallowed, and this is public-sector data published for job seekers, but that comment states an intent this use does not honour. Materially cleaner than scraping a commercial board, and still not an explicit permission.',
+    ourPosition: 'The API path is not disallowed, and this is public-sector data published for job seekers, but that comment states an intent this use does not honour. Materially cleaner than scraping a commercial board, and still not an explicit permission. Validated for public traffic (INT-08, #167): each search reads at most 6 pages of 100 previews per role keyword, stopping at the first short page, then re-reads at most 200 short previews in full at a fixed 400ms interval; searches are rate-limited per account. A 2026-09-24 probe from a non-local network was answered with a block page, so the adapter stops on any block rather than retrying.',
     link: 'https://www.job-room.ch/robots.txt',
+  },
+  {
+    name: 'FreeHire (Switzerland and Netherlands)',
+    group: 'Authorized APIs',
+    stance: 'intended-use',
+    collected: 'Full-description search results for the saved role keywords, restricted to seven reviewed employer-board upstreams (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable): title, company, location, description, posting date, link.',
+    theirRules: 'Checked 2026-09-24. The terms permit documented API use and prohibit scraping beyond it; robots.txt and llms.txt point agents at exactly this full-description endpoint and ask for an identifying User-Agent. No display, caching or attribution conditions are stated; the advertisement text is aggregated from third parties.',
+    ourPosition: 'Used as documented: unauthenticated, paced and capped, with an identifying User-Agent. Only the seven ATS platforms this app already reads directly are accepted; re-served aggregators (EURES, Adzuna, WhatJobs) and unreviewed boards are excluded by an explicit allowlist. Advertisement text is screened server-side and not republished — you get the facts, our verdict, and a link. Direct confirmation of redistribution is still outstanding and will be asked for before launch.',
+    link: 'https://freehire.me/docs/api',
   },
   {
     name: 'jobs.ch',
@@ -168,7 +177,9 @@ export const collectionPrinciples = [
   'Only public job advertisements are read. No account is ever logged into, and no page behind a login or access control is fetched.',
   'No personal data about other people is collected. Employer contact details that appear inside an advertisement are stored only as part of that advertisement text.',
   'Account credentials and saved advertisements are not sent to job sites or third-party models.',
+  'Verification and password-reset emails are sent through the configured email provider; job sites never receive your email address.',
   'No detection evasion of any kind: no randomised or human-imitating timing, no fingerprint spoofing, no stealth browser plugins, no proxy or IP rotation.',
   'Page-fetched sources run only when explicitly triggered, are capped per run, and wait between requests.',
+  'A source that refuses access is left alone for the rest of the run: the refusal is reported, and nothing retries it, routes around it, or disguises the traffic.',
   'Everything collected stays in a local database on this machine and can be exported or deleted at any time.',
 ];

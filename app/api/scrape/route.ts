@@ -3,6 +3,7 @@ import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 import { rateLimit, requireSession } from '@/lib/guard';
+import { CollectionRunBudgets, isAccessRefusal } from '@/lib/collection-budgets';
 import { analyzeLanguage, analyzeStructuredLanguages, type LanguageResult } from '@/lib/analysis';
 import { adminOnlySourceKeys, bulkJobIsRelevant, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
   sourceStatusForAvailability,
@@ -17,23 +18,12 @@ import { criteriaFromRow, upsertJob, type CriteriaRow, type SearchRoleRow } from
 import type { JobCountry, JobRecord, SearchRun, SearchRunSource } from '@/lib/types';
 
 /**
- * Page-fetching sources cost one request per job, so they stay tightly capped.
- *
- * This cap is not a performance setting and is not lifted with the others. It limits automated
- * reading of sites whose terms prohibit it (jobs.ch, jobup.ch, JobScout24), and AGENTS.md is
- * explicit: "Do not raise the caps to hit a volume target."
+ * Collection budgets live in lib/collection-budgets.ts (INT-03, #162): 4 attempted detail
+ * imports per page-fetching source per run, 200 per bulk source per run, 800 across the
+ * whole run, plus stop-on-block — a refusing source is left alone for the rest of the run.
+ * The page-fetching caps also limit automated reading of sites whose terms prohibit it,
+ * and AGENTS.md is explicit: "Do not raise the caps to hit a volume target."
  */
-const MAX_NEW_PER_SOURCE = 4;
-/**
- * Bulk API sources return whole advertisements in the search response, and their postings are
- * filtered to this search before this point (bulkJobIsRelevant), so nothing here is a request.
- *
- * Uncapped, deliberately, for now: the owner's decision on 2026-09-14 is full coverage while the
- * app runs locally, caps later. The previous ceiling of 200 would already have deferred more than
- * half of the 409 role-matching employer postings measured that day. A ceiling on database writes
- * per search belongs back here before any hosted deployment.
- */
-const MAX_NEW_PER_BULK_SOURCE = Number.POSITIVE_INFINITY;
 
 /** Employer-declared requirements are more reliable than prose, so they win when a source publishes them. */
 function languageForParsedJob(parsed: ParsedJob, description: string): LanguageResult {
@@ -274,10 +264,13 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   });
 
   progress(`Contacting ${activeAdapters.length} source${activeAdapters.length === 1 ? '' : 's'}…`);
+  // Fresh per click: budgets bound this run's attempts, and the blocked set stops this run
+  // from re-asking a source that refused it. Nothing here outlives the run.
+  const budgets = new CollectionRunBudgets();
   let indeedBatch: ReturnType<typeof collectIndeed> | undefined;
   const searchResults = await Promise.all(activeAdapters.map(async (adapter) => {
     const empty = { adapter, candidates: [] as string[], bulk: [] as ParsedJob[], error: '', missingCredentials: false,
-      indeed: undefined as IndeedBatchResult | undefined };
+      blocked: false, indeed: undefined as IndeedBatchResult | undefined };
     // Counted whichever way this ends, including skipped and failed sources: a bar that only
     // advances on success stops moving exactly when something has gone wrong.
     const done = <T>(value: T, note: string) => {
@@ -321,8 +314,18 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       const candidates = [...new Set((await adapter.search(searchTerms, criteria.location)).map(canonicalJobUrl))];
       return done({ ...empty, candidates }, `${candidates.length} listing${candidates.length === 1 ? '' : 's'}`);
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Source request failed.';
+      if (isAccessRefusal(error)) {
+        // Stop-on-block, enforced as code rather than comment: the source refused access,
+        // so it is marked unavailable for the rest of this run. Its candidates are dropped
+        // — fetching their details would mean more requests to a source that just said
+        // stop — and the screening loop below gives it zero further allowance. No retry
+        // here, no second attempt later, no proxy rotation, no browser fallback.
+        budgets.markBlocked(adapter.key);
+        return done({ ...empty, blocked: true, error: message }, 'blocked');
+      }
       return done(
-        { ...empty, error: error instanceof Error ? error.message : 'Source request failed.' },
+        { ...empty, error: message },
         'failed',
       );
     }
@@ -332,9 +335,30 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   const sourceReports: SearchRunSource[] = [];
 
   for (const result of searchResults) {
-    const { adapter, candidates, bulk, error, missingCredentials, indeed } = result;
+    const { adapter, candidates, bulk, error, missingCredentials, blocked, indeed } = result;
     screened += 1;
     progress(`Screening ${adapter.name}…`);
+    if (blocked) {
+      // A refusal during search: truthfully reported, with nothing imported and nothing
+      // re-attempted. The blocked set already guarantees zero further allowance below.
+      sourceReports.push({
+        sourceKey: adapter.key,
+        sourceName: adapter.name,
+        country: adapter.country,
+        status: 'blocked',
+        rolesSearched: searchTerms,
+        foundCount: 0,
+        knownCount: 0,
+        newCount: 0,
+        importedCount: 0,
+        matchedCount: null,
+        duplicateCount: 0,
+        skippedCount: 0,
+        message: `${error} The source refused access, so it was left alone for the rest of`
+          + ' this run: no retry, no workaround, no disguised traffic.',
+      });
+      continue;
+    }
     if (missingCredentials) {
       sourceReports.push({
         sourceKey: adapter.key,
@@ -400,7 +424,9 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     const knownCount = candidates.filter(isKnownCandidate).length;
     const rememberedCount = candidates.filter((url) => !isKnownUrl(url, known) && isRejectedUrl(url, rejected, rolesKey)).length;
     const newCandidates = candidates.filter((url) => !isKnownCandidate(url));
-    const attempted = newCandidates.slice(0, isBulk ? MAX_NEW_PER_BULK_SOURCE : MAX_NEW_PER_SOURCE);
+    // Per-source ceiling and whole-run remainder, or zero when this source was blocked or
+    // the run budget is spent. Zero defers; it never retries harder.
+    const attempted = newCandidates.slice(0, budgets.allowance(adapter.key, isBulk));
     let importedCount = 0;
     let matchedCount = 0;
     let duplicateCount = 0;
@@ -412,8 +438,12 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     // page drain run over run, and the deferred count stays visible in the message below.
     const deferredCount = newCandidates.length - attempted.length;
     let failedCount = 0;
+    let startedCount = 0;
+    let stoppedOnRefusal = false;
 
     for (const [index, url] of attempted.entries()) {
+      startedCount += 1;
+      budgets.noteAttempted(1);
       let parsed: ParsedJob | null;
       if (isBulk) {
         parsed = bulkByUrl.get(url) ?? null;
@@ -421,7 +451,16 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         if (index > 0) await delay(REQUEST_DELAY_MS);
         try {
           parsed = await adapter.fetchDetail!(url);
-        } catch {
+        } catch (error) {
+          if (isAccessRefusal(error)) {
+            // The source started refusing mid-run — possibly this run's own requests
+            // tripped it. Stop asking it: the refusing request and every unstarted URL
+            // wait for a later run instead of being retried, rotated, or re-fetched
+            // another way. The break is the enforcement; there is no fallback path.
+            budgets.markBlocked(adapter.key);
+            stoppedOnRefusal = true;
+            break;
+          }
           // Transient: the request never completed, so nothing is known about the listing. It
           // stays retryable and is never remembered; the safe direction is a wasted slot next
           // run, never a silently lost job.
@@ -503,9 +542,16 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       }
     }
 
-    const sourceStatus = indeed
-      ? (failedCount && indeed.status === 'complete' ? 'partial' : indeed.status)
-      : failedCount ? 'partial' : 'complete';
+    // Everything from the refusing request onward waits for a later run: it was not
+    // completed, so it is deferred rather than failed, and stays retryable next run like
+    // any other uncompleted transient — just never retried within this run.
+    const stoppedCount = stoppedOnRefusal ? attempted.length - startedCount + 1 : 0;
+    const deferredTotal = deferredCount + stoppedCount;
+
+    const sourceStatus = stoppedOnRefusal ? 'blocked'
+      : indeed
+        ? (failedCount && indeed.status === 'complete' ? 'partial' : indeed.status)
+        : failedCount ? 'partial' : 'complete';
     sourceReports.push({
       sourceKey: adapter.key,
       sourceName: adapter.name,
@@ -520,11 +566,13 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       // never a false zero. Caps and partial failures keep what was measured.
       matchedCount: sourceStatus === 'complete' || sourceStatus === 'partial' ? matchedCount : null,
       duplicateCount: duplicateCount + (indeed?.duplicates ?? 0),
-      skippedCount: deferredCount + failedCount + (indeed?.rejected ?? 0),
+      skippedCount: deferredTotal + failedCount + (indeed?.rejected ?? 0),
       message: [
         adapter.availabilityMessage,
         indeed?.message ?? '',
-        deferredCount ? `${deferredCount} further new listing${deferredCount === 1 ? '' : 's'} deferred to the next run by the per-run cap.` : '',
+        stoppedOnRefusal ? 'The source refused access partway through, so it was left alone'
+          + ' for the rest of this run: no retry, no workaround, no disguised traffic.' : '',
+        deferredTotal ? `${deferredTotal} further new listing${deferredTotal === 1 ? '' : 's'} deferred to the next run by the per-run cap.` : '',
         rememberedCount ? `${rememberedCount} previously rejected listing${rememberedCount === 1 ? '' : 's'} skipped without re-reading.` : '',
         failedCount ? `${failedCount} listing${failedCount === 1 ? '' : 's'} could not be parsed or did not match the search.` : '',
       ].filter(Boolean).join(' '),

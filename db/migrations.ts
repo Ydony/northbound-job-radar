@@ -6,6 +6,17 @@ export interface RuntimeMigration {
 
 export const CV_REMOVAL_VERSION = 28;
 
+/**
+ * The user-independent grouping key for INT-04 (#163): which `jobs` rows describe the
+ * same public advert and therefore share one `vacancies` catalogue row. Canonical URL
+ * wins; without one the cross-source fingerprint does; without either the source
+ * identity does; rows with none of those stay separate via their own id rather than
+ * merging unrelated adverts. lib/catalogue.ts `catalogueGroupKey` is the TypeScript
+ * twin used on the write path — change both together or the mirror will file rows the
+ * backfill would not have grouped.
+ */
+const catalogueGroupKeySql = `CASE WHEN canonical_url != '' THEN 'url:' || canonical_url WHEN identity_fingerprint != '' THEN 'fp:' || identity_fingerprint WHEN source_key != '' AND source_job_id != '' THEN 'sid:' || source_key || '|' || source_job_id ELSE 'row:' || id END`;
+
 export const runtimeMigrations: RuntimeMigration[] = [
   {
     version: 1,
@@ -573,6 +584,157 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'ALTER TABLE jobs DROP COLUMN missing_keywords',
       'ALTER TABLE search_settings DROP COLUMN role_override_a',
       'ALTER TABLE search_settings DROP COLUMN role_override_b',
+    ],
+  },
+  {
+    // #170: accounts prove their address before they can sign in. Only token hashes are
+    // stored, so reading the database never yields a usable link; each token works once and
+    // expires. Existing accounts signed in before verification existed, which is the proof.
+    version: 29,
+    name: 'email_verification_tokens',
+    statements: [
+      "ALTER TABLE users ADD COLUMN email_verified_at TEXT NOT NULL DEFAULT ''",
+      `CREATE TABLE IF NOT EXISTS email_verifications (
+        token_hash TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT ''
+      )`,
+      'CREATE INDEX IF NOT EXISTS email_verifications_user_idx ON email_verifications(user_id)',
+      'CREATE INDEX IF NOT EXISTS email_verifications_expires_idx ON email_verifications(expires_at)',
+      "UPDATE users SET email_verified_at = created_at WHERE email_verified_at = ''",
+    ],
+  },
+  {
+    // INT-04 (#163): split the shared public catalogue from per-user private records.
+    // Renumbered from 29 to 30 after PR #179 claimed 29 on master; that migration is
+    // now applied history and is never edited. `email_verifications` (v29) holds
+    // per-user token state and is treated as user state throughout: this migration
+    // neither reads nor deletes it, and the delete paths below remove it per user.
+    // Today every account holds its own full copy of each advert in `jobs`, so the same
+    // public text is stored once per account and there is no place a public catalogue
+    // query (INT-05) can read without touching private state. From here on:
+    // - `vacancies` holds one row per distinct advert across ALL accounts (no user_id
+    //   by design: it is the employer's public text plus provenance, not personal data).
+    // - `vacancy_sources` records which source copies built each catalogue row.
+    // - `user_vacancy_state` holds each account's private records 1:1 with its `jobs`
+    //   rows (saved/applied/dismissed, language corrections). Its source of truth for
+    //   corrections stays `language_feedback`; the corrected columns here are a copy so
+    //   INT-05 can serve one user's view without joining three tables.
+    // Nothing is deleted: `jobs`, `language_feedback` and `dismissed_jobs` keep every
+    // row, and all existing read paths keep using them until INT-05 rewires queries.
+    // Personal reset/delete removes that user's `user_vacancy_state` rows (and their
+    // `jobs` rows, as before) but never another account's rows and never a catalogue
+    // row somebody still holds; catalogue rows nobody holds are removed so a deleted
+    // advert does not linger. See lib/catalogue.ts for the write-path mirror.
+    version: 30,
+    name: 'catalogue_user_state_split',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS vacancies (
+        id TEXT PRIMARY KEY NOT NULL,
+        canonical_url TEXT NOT NULL DEFAULT '',
+        identity_fingerprint TEXT NOT NULL DEFAULT '',
+        source_key TEXT NOT NULL DEFAULT '',
+        source_name TEXT NOT NULL DEFAULT '',
+        source_job_id TEXT NOT NULL DEFAULT '',
+        country TEXT NOT NULL DEFAULT 'unknown',
+        title TEXT NOT NULL DEFAULT '',
+        company TEXT NOT NULL DEFAULT '',
+        location TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        search_text TEXT NOT NULL DEFAULT '',
+        language_status TEXT NOT NULL DEFAULT 'unknown',
+        language_summary TEXT NOT NULL DEFAULT '',
+        language_signals TEXT NOT NULL DEFAULT '[]',
+        workplace_type TEXT NOT NULL DEFAULT '',
+        posted_at TEXT NOT NULL DEFAULT '',
+        expires_at TEXT NOT NULL DEFAULT '',
+        content_hash TEXT NOT NULL DEFAULT '',
+        first_seen_at TEXT NOT NULL DEFAULT '',
+        last_seen_at TEXT NOT NULL DEFAULT '',
+        closed INTEGER NOT NULL DEFAULT 0,
+        detector_version INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT ''
+      )`,
+      `CREATE TABLE IF NOT EXISTS vacancy_sources (
+        vacancy_id TEXT NOT NULL,
+        source_key TEXT NOT NULL DEFAULT '',
+        source_name TEXT NOT NULL DEFAULT '',
+        source_job_id TEXT NOT NULL DEFAULT '',
+        canonical_url TEXT NOT NULL DEFAULT '',
+        country TEXT NOT NULL DEFAULT 'unknown',
+        first_seen_at TEXT NOT NULL DEFAULT '',
+        last_seen_at TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY (vacancy_id, source_key, source_job_id, canonical_url)
+      )`,
+      `CREATE TABLE IF NOT EXISTS user_vacancy_state (
+        user_id TEXT NOT NULL,
+        vacancy_id TEXT NOT NULL DEFAULT '',
+        job_id TEXT NOT NULL,
+        is_saved INTEGER NOT NULL DEFAULT 0,
+        application_status TEXT NOT NULL DEFAULT 'not_applied',
+        visibility_status TEXT NOT NULL DEFAULT 'active',
+        corrected_status TEXT NOT NULL DEFAULT '',
+        corrected_reason TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY (user_id, job_id)
+      )`,
+      // One catalogue row per distinct advert across all accounts. The grouping key is
+      // user-independent on purpose: the same advert found by two accounts must land on
+      // one row. Canonical URL wins; without one the cross-source fingerprint does;
+      // without either the source identity does; rows with none of those stay separate
+      // (their own id) rather than merging unrelated adverts. Content comes from the
+      // lexicographically smallest row id in the group — any copy's text is a valid
+      // advert copy — while first/last seen span the whole group. content_hash and
+      // detector_version stay at their defaults here; the write-path mirror fills them
+      // for rows touched after this migration (see lib/catalogue.ts).
+      `INSERT OR IGNORE INTO vacancies (id, canonical_url, identity_fingerprint, source_key,
+          source_name, source_job_id, country, title, company, location, description, search_text,
+          language_status, language_summary, language_signals, workplace_type, posted_at, expires_at,
+          first_seen_at, last_seen_at, created_at, updated_at)
+        SELECT keep.id, keep.canonical_url, keep.identity_fingerprint, keep.source_key,
+          keep.source_name, keep.source_job_id, keep.country, keep.title, keep.company, keep.location,
+          keep.description, keep.search_text, keep.language_status, keep.language_summary,
+          keep.language_signals, keep.workplace_type, keep.posted_at, keep.expires_at,
+          grouped.first_seen_at, grouped.last_seen_at, keep.created_at, keep.updated_at
+        FROM jobs keep JOIN (SELECT ${catalogueGroupKeySql} AS gkey, MIN(id) AS keep_id,
+          MIN(first_seen_at) AS first_seen_at, MAX(last_seen_at) AS last_seen_at
+          FROM jobs GROUP BY gkey) grouped ON grouped.keep_id = keep.id`,
+      // Provenance: every distinct source copy that built each catalogue row, with its
+      // own seen window. Two accounts importing the same board copy collapse to one row;
+      // the same advert from two boards keeps one row per board.
+      `INSERT OR IGNORE INTO vacancy_sources (vacancy_id, source_key, source_name, source_job_id,
+          canonical_url, country, first_seen_at, last_seen_at)
+        SELECT grouped.keep_id, copies.source_key, MAX(copies.source_name), copies.source_job_id,
+          copies.canonical_url, MAX(copies.country), MIN(copies.first_seen_at), MAX(copies.last_seen_at)
+        FROM (SELECT *, ${catalogueGroupKeySql} AS gkey FROM jobs) copies
+        JOIN (SELECT ${catalogueGroupKeySql} AS gkey, MIN(id) AS keep_id FROM jobs GROUP BY gkey) grouped
+          ON grouped.gkey = copies.gkey
+        GROUP BY grouped.keep_id, copies.source_key, copies.source_job_id, copies.canonical_url`,
+      // Private state 1:1 with each account's `jobs` rows: saved/applied/dismissed plus
+      // that row's language correction, if any. Tombstones stay in `dismissed_jobs`
+      // untouched; this table mirrors visibility, it does not replace the tombstone.
+      `INSERT OR IGNORE INTO user_vacancy_state (user_id, vacancy_id, job_id, is_saved,
+          application_status, visibility_status, corrected_status, corrected_reason,
+          created_at, updated_at)
+        SELECT copies.user_id, grouped.keep_id, copies.id, copies.is_saved, copies.application_status,
+          copies.visibility_status, COALESCE(feedback.corrected_status, ''), COALESCE(feedback.reason, ''),
+          copies.created_at, copies.updated_at
+        FROM (SELECT *, ${catalogueGroupKeySql} AS gkey FROM jobs) copies
+        JOIN (SELECT ${catalogueGroupKeySql} AS gkey, MIN(id) AS keep_id FROM jobs GROUP BY gkey) grouped
+          ON grouped.gkey = copies.gkey
+        LEFT JOIN language_feedback feedback ON feedback.job_id = copies.id AND feedback.user_id = copies.user_id`,
+      // A catalogue lookup starts from a URL or an identity, never from an account.
+      `CREATE UNIQUE INDEX IF NOT EXISTS vacancies_canonical_url_idx
+        ON vacancies(canonical_url) WHERE canonical_url != ''`,
+      'CREATE INDEX IF NOT EXISTS vacancies_fingerprint_idx ON vacancies(identity_fingerprint)',
+      'CREATE INDEX IF NOT EXISTS vacancies_source_identity_idx ON vacancies(source_key, source_job_id)',
+      'CREATE INDEX IF NOT EXISTS vacancies_country_seen_idx ON vacancies(country, last_seen_at)',
+      'CREATE INDEX IF NOT EXISTS vacancy_sources_vacancy_idx ON vacancy_sources(vacancy_id)',
+      'CREATE INDEX IF NOT EXISTS user_vacancy_state_user_vacancy_idx ON user_vacancy_state(user_id, vacancy_id)',
+      'CREATE INDEX IF NOT EXISTS user_vacancy_state_vacancy_idx ON user_vacancy_state(vacancy_id)',
     ],
   },
 ];

@@ -147,6 +147,14 @@ export function indeedConfiguration(request: Request, administrator: boolean) {
   };
 }
 
+/** Transactional email sender. Missing values leave verification/reset emails unsent rather than failing signup. */
+export function emailConfiguration() {
+  return {
+    apiKey: env.RESEND_API_KEY ?? '',
+    from: env.RESEND_FROM ?? '',
+  };
+}
+
 /** Auth secrets. Absent values keep the app closed rather than open. */
 export function authSecrets() {
   return {

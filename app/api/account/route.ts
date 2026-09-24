@@ -1,5 +1,9 @@
-import { authSecrets, ensureSchema } from '@/db/runtime';
-import { createSessionValue, hashPassword, sessionCookie, verifyPassword } from '@/lib/auth';
+import { authSecrets, emailConfiguration, ensureSchema } from '@/db/runtime';
+import { createSessionValue, hashPassword, isLocalBootstrapRequest, sessionCookie, verifyPassword } from '@/lib/auth';
+import { accountDeletionStatements } from '@/lib/account-deletion';
+import { removeUserVacancyState } from '@/lib/catalogue';
+import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
+  verificationLinkFor } from '@/lib/email';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { findUserById, findUserByEmail, isValidEmail, normalizeEmail, passwordProblem, revokeSessions } from '@/lib/users';
 
@@ -38,6 +42,7 @@ export async function PATCH(request: Request) {
 
   const updates: string[] = [];
   const bindings: unknown[] = [];
+  let changedEmail = '';
 
   if (body.newEmail !== undefined) {
     const newEmail = normalizeEmail(body.newEmail);
@@ -48,6 +53,11 @@ export async function PATCH(request: Request) {
     }
     updates.push('email = ?');
     bindings.push(newEmail);
+    // A new address is unproven until it is confirmed, so it starts unverified like a signup.
+    if (newEmail !== user.email) {
+      updates.push("email_verified_at = ''");
+      changedEmail = newEmail;
+    }
   }
 
   if (body.newPassword !== undefined) {
@@ -63,12 +73,33 @@ export async function PATCH(request: Request) {
   // Any outstanding reset links become useless once the password changes.
   await db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(user.id).run();
 
+  let verificationEmailSent = false;
+  let verificationToken = '';
+  if (changedEmail) {
+    await db.prepare('DELETE FROM email_verifications WHERE user_id = ?').bind(user.id).run();
+    const verification = await issueEmailVerification(db, user.id);
+    const emailConfig = emailConfiguration();
+    if (emailConfigured(emailConfig)) {
+      const sent = await sendEmailViaResend(emailConfig,
+        verificationEmail(changedEmail, verificationLinkFor(request, verification.token)));
+      verificationEmailSent = sent.sent;
+    } else if (isLocalBootstrapRequest(request)) {
+      verificationToken = verification.token;
+    }
+  }
+
   // Changing the password signs out every other device, then re-issues a cookie for this one.
   await revokeSessions(db, user.id);
   const fresh = await findUserById(db, user.id);
   const { sessionSecret } = authSecrets();
   const refreshed = await createSessionValue(user.id, sessionSecret, fresh?.session_epoch ?? 1);
-  return Response.json({ ok: true }, {
+  return Response.json({
+    ok: true,
+    ...(changedEmail
+      ? { verificationRequired: true, verificationEmailSent,
+        ...(verificationToken ? { verificationToken } : {}) }
+      : {}),
+  }, {
     headers: { 'set-cookie': sessionCookie(refreshed, isSecureRequest(request)) },
   });
 }
@@ -98,21 +129,10 @@ export async function DELETE(request: Request) {
     }
   }
 
-  await db.batch([
-    db.prepare('DELETE FROM language_feedback WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM jobs WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM search_settings WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM search_roles WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM indeed_settings WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM indeed_coverage WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM dismissed_jobs WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM rejected_listings WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM search_run_sources WHERE run_id IN (SELECT id FROM search_runs WHERE user_id = ?)').bind(user.id),
-    db.prepare('DELETE FROM search_runs WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM auth_events WHERE email = ?').bind(user.email),
-    db.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
-  ]);
+  await db.batch(accountDeletionStatements(db, user.id, user.email));
+  // INT-04 (#163): forget this account's catalogue state. The shared catalogue keeps
+  // rows other accounts still hold; only rows nobody holds are removed.
+  await removeUserVacancyState(db, user.id);
   return Response.json({ ok: true }, {
     headers: { 'set-cookie': sessionCookie('', isSecureRequest(request), 0) },
   });

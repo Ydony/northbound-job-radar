@@ -106,6 +106,15 @@ async function register(client, email, password) {
     body: JSON.stringify({ action: 'register', email, password }),
   });
   const data = await expectStatus(result, 200, `register ${email}`);
+  if (data.verificationRequired) {
+    // Local environments configure no email sender, so registration hands the token back on
+    // loopback instead of sending it. Confirming here exercises the verification flow.
+    assert(typeof data.verificationToken === 'string' && data.verificationToken.length > 0,
+      'Local registration without a sender must hand back a verification token.');
+    const confirmed = await client.request(`/api/auth/verify?token=${encodeURIComponent(data.verificationToken)}`);
+    await expectStatus(confirmed, 200, `verify ${email}`);
+    return;
+  }
   assert(data.role === 'user', 'A later account must be a non-admin user.');
 }
 

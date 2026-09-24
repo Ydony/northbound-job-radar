@@ -31,5 +31,13 @@ declare namespace Cloudflare {
     TURNSTILE_SITE_KEY?: string;
     /** Turnstile secret key. Owner-set via `wrangler secret put`, never committed. */
     TURNSTILE_SECRET_KEY?: string;
+    /**
+     * Resend key for verification and password-reset emails. Real secret: the owner sets it
+     * with `wrangler secret put RESEND_API_KEY` — never in chat, code, or a worker prompt.
+     * Unset locally, where tests run against a mocked endpoint instead.
+     */
+    RESEND_API_KEY?: string;
+    /** Sender shown on verification and reset emails, e.g. 'Ik ben een appel <noreply@example.com>'. */
+    RESEND_FROM?: string;
   }
 }

@@ -23,9 +23,9 @@ export const dataWeHold: DataItem[] = [
   },
   {
     what: 'The job advertisements you have collected, and your notes on them',
-    why: 'To keep your shortlist, application status and language corrections between visits. The advertisement text itself is read on the server to decide whether English is enough, and is not sent to your browser or shown here — it belongs to the employer who wrote it. What you see is the job’s facts, our verdict, the requirements we extracted, and a link to the original.',
+    why: 'To keep your shortlist, application status and language corrections between visits. The advertisement text itself is read on the server to decide whether English is enough, and is not sent to your browser or shown here — it belongs to the employer who wrote it. What you see is the job’s facts, our verdict, the requirements we extracted, and a link to the original. Identical advertisements found by more than one account share a single catalogue copy; your saved, applied, dismissed and correction records are private to you and are never shared with another account.',
     legalBasis: 'Performance of a contract.',
-    kept: 'Until you delete them individually, reset the workspace, or delete your account.',
+    kept: 'Your records are removed when you delete them individually, reset the workspace, or delete your account. A shared catalogue copy disappears once nobody holds it anymore.',
   },
   {
     what: 'Your search settings: the roles you are looking for, and required or excluded keywords',
@@ -38,6 +38,12 @@ export const dataWeHold: DataItem[] = [
     why: 'So a repeated search does not re-read the same dead ends: when a page-fetching source returns a listing that cannot be imported — an unreadable page, an unsafe apply link, or an advertisement in the wrong country, too short to screen, or outside your searched roles — its address and the reason are kept, and later runs skip it without fetching it again.',
     legalBasis: 'Performance of a contract.',
     kept: 'Until you reset the workspace or delete your account.',
+  },
+  {
+    what: 'Verification and password-reset emails, delivered through Resend',
+    why: 'To prove you own the address you register with, and to let you recover a lost password. Your address and a single-use link are sent to Resend (resend.com) solely to deliver that email; nothing else about your workspace goes to them.',
+    legalBasis: 'Performance of a contract (providing the account you asked for).',
+    kept: 'Only single-use token hashes are kept here: verification links expire after 24 hours and reset links after 1 hour, and used or expired tokens are deleted. Resend’s own delivery logs are governed by their policy.',
   },
   {
     what: 'Sign-in records: the email tried, the IP address, and whether it succeeded',
@@ -72,14 +78,15 @@ export const whereDataLives = [
   'Administrators of this installation can see that an account exists, its email address, and how many jobs it holds. They cannot read your job list through the admin screen.',
   'Job searches send your role keywords and chosen locations to the job sources listed on the sources page. They never receive your email.',
   'When you register, your browser loads a bot check from Cloudflare (Turnstile) and this server verifies the resulting token with Cloudflare. Cloudflare sees your IP address as part of that check, under their privacy policy; the token itself is verified and not stored.',
+  'Verification and password-reset emails are delivered through Resend; see “What is stored” for exactly what they receive.',
   'There is no automated decision-making that produces legal or similarly significant effects. The language verdict is a suggestion for you to review, and you can correct any of them.',
 ];
 
 export const notCollected = [
   'No advertising, marketing or third-party analytics of any kind.',
   'No tracking cookies, pixels, fingerprinting or cross-site tracking.',
-  'No profiling, no automated decisions with legal effect, and nothing sold or shared with anyone.',
-  'Your account credentials and saved advertisements are not sent to job sites or AI services. Search keywords and locations are sent to the sources you search.',
+  'No profiling, no automated decisions with legal effect, and nothing sold. The only sharing is your address with the email delivery provider (to send verification and password-reset emails), and the registration bot check with Cloudflare (Turnstile).',
+  'Your saved advertisements are not sent to job sites or AI services. Search keywords and locations are sent to the sources you search.',
   'No page-by-page browsing history, no referrer logging, no session recording.',
 ];
 
