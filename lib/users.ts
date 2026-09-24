@@ -104,7 +104,7 @@ export async function createUser(db: D1Database, email: string, password: string
 export async function authenticate(db: D1Database, email: string, password: string) {
   const row = await findUserByEmail(db, email);
   const storedHash = row?.password_hash
-    ?? 'pbkdf2$210000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+    ?? 'pbkdf2$100000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
   const matches = await verifyPassword(password, storedHash);
   if (!row || !matches || row.status !== 'active') return null;
   return userFromRow(row);
