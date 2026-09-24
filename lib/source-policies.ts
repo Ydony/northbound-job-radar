@@ -168,6 +168,7 @@ export const collectionPrinciples = [
   'Only public job advertisements are read. No account is ever logged into, and no page behind a login or access control is fetched.',
   'No personal data about other people is collected. Employer contact details that appear inside an advertisement are stored only as part of that advertisement text.',
   'Account credentials and saved advertisements are not sent to job sites or third-party models.',
+  'Verification and password-reset emails are sent through the configured email provider; job sites never receive your email address.',
   'No detection evasion of any kind: no randomised or human-imitating timing, no fingerprint spoofing, no stealth browser plugins, no proxy or IP rotation.',
   'Page-fetched sources run only when explicitly triggered, are capped per run, and wait between requests.',
   'A source that refuses access is left alone for the rest of the run: the refusal is reported, and nothing retries it, routes around it, or disguises the traffic.',

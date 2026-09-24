@@ -36,6 +36,12 @@ export function ownedDataDeletionStatements(db: D1Database, userId: string): D1P
     // `search_run_sources` carries no `user_id` of its own; its rows belong to runs.
     db.prepare('DELETE FROM search_run_sources WHERE run_id IN (SELECT id FROM search_runs WHERE user_id = ?)').bind(userId),
     db.prepare('DELETE FROM search_runs WHERE user_id = ?').bind(userId),
+    // Outstanding single-use verification links die with the workspace: the emailed link would
+    // otherwise outlive the reset that was meant to start over. The account's verified state
+    // itself is untouched, and a fresh link is one resend away. Unlike password_resets, which
+    // reset deliberately keeps as recovery state, a verification token is provisioning flow
+    // state with no meaning after everything it could confirm is gone.
+    db.prepare('DELETE FROM email_verifications WHERE user_id = ?').bind(userId),
   ];
 }
 

@@ -28,6 +28,16 @@ CAREERJET_REFERER=
 # must also satisfy any IP declaration attached to the publisher account.
 CAREERJET_USER_IP=
 
+# Transactional email for verification and password reset, via Resend over plain
+# HTTPS fetch (no SDK). Free tier covers early volume. Leave both empty locally:
+# signup still works and tests run against a mocked endpoint instead.
+# The production key is a real secret: the owner sets it with
+# `npx wrangler secret put RESEND_API_KEY --name ikbeneenappel-prod`
+# (and RESEND_FROM as a plain variable) — never in chat, code, or prompts.
+#RESEND_API_KEY=
+# Sender shown on verification and reset emails, e.g. 'Ik ben een appel <noreply@example.com>'.
+#RESEND_FROM=
+
 # Each local environment gets a different value from `npm run init-secrets`.
 SESSION_SECRET=
 # 'true' lets additional local accounts register. The first account on a fresh

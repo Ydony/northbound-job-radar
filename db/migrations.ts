@@ -575,4 +575,23 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'ALTER TABLE search_settings DROP COLUMN role_override_b',
     ],
   },
+  {
+    // #170: accounts prove their address before they can sign in. Only token hashes are
+    // stored, so reading the database never yields a usable link; each token works once and
+    // expires. Existing accounts signed in before verification existed, which is the proof.
+    version: 29,
+    name: 'email_verification_tokens',
+    statements: [
+      "ALTER TABLE users ADD COLUMN email_verified_at TEXT NOT NULL DEFAULT ''",
+      `CREATE TABLE IF NOT EXISTS email_verifications (
+        token_hash TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT ''
+      )`,
+      'CREATE INDEX IF NOT EXISTS email_verifications_user_idx ON email_verifications(user_id)',
+      'CREATE INDEX IF NOT EXISTS email_verifications_expires_idx ON email_verifications(expires_at)',
+      "UPDATE users SET email_verified_at = created_at WHERE email_verified_at = ''",
+    ],
+  },
 ];

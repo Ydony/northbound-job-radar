@@ -8,17 +8,20 @@ export interface UserRecord {
   email: string;
   role: UserRole;
   status: UserStatus;
+  /** Empty email_verified_at means the address was never proven; a timestamp means it was. */
+  emailVerified: boolean;
   createdAt: string;
   lastSeenAt: string;
   sessionEpoch: number;
 }
 
-interface UserRow {
+export interface UserRow {
   id: string;
   email: string;
   password_hash: string;
   role: UserRole;
   status: UserStatus;
+  email_verified_at?: string;
   created_at: string;
   last_seen_at: string;
   session_epoch?: number;
@@ -30,6 +33,7 @@ export function userFromRow(row: UserRow): UserRecord {
     email: row.email,
     role: row.role === 'admin' ? 'admin' : 'user',
     status: row.status === 'disabled' ? 'disabled' : 'active',
+    emailVerified: Boolean(row.email_verified_at),
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
     sessionEpoch: row.session_epoch ?? 1,
@@ -74,13 +78,18 @@ export interface CreatedUser {
  * Creates an account. The first account becomes the admin and adopts any pre-existing single-user
  * data, so upgrading an existing installation does not strand the workspace behind a login it can
  * no longer reach. Every later account starts empty.
+ *
+ * New accounts start unverified: they cannot sign in until the address is confirmed through the
+ * emailed token. The first account is verified immediately — it is created by the installer on
+ * this computer (remote first-signup is blocked), so there is no address to prove.
  */
-export async function createUser(db: D1Database, email: string, password: string, now = new Date().toISOString()): Promise<CreatedUser> {
+export async function createUser(db: D1Database, email: string, password: string, now = new Date().toISOString(),
+  verified = false): Promise<CreatedUser> {
   const isFirst = await countUsers(db) === 0;
   const id = crypto.randomUUID();
-  await db.prepare(`INSERT INTO users (id, email, password_hash, role, status, created_at, last_seen_at)
-    VALUES (?, ?, ?, ?, 'active', ?, ?)`)
-    .bind(id, email, await hashPassword(password), isFirst ? 'admin' : 'user', now, now).run();
+  await db.prepare(`INSERT INTO users (id, email, password_hash, role, status, email_verified_at, created_at, last_seen_at)
+    VALUES (?, ?, ?, ?, 'active', ?, ?, ?)`)
+    .bind(id, email, await hashPassword(password), isFirst ? 'admin' : 'user', verified || isFirst ? now : '', now, now).run();
 
   if (isFirst) {
     await db.batch([

@@ -5,7 +5,7 @@
  * The CV upload and matching feature was removed. Keep disclosures aligned with
  * active routes and storage, not with a dormant feature flag.
  */
-export const PRIVACY_UPDATED_ON = '2026-09-23';
+export const PRIVACY_UPDATED_ON = '2026-09-24';
 
 export interface DataItem {
   what: string;
@@ -40,6 +40,12 @@ export const dataWeHold: DataItem[] = [
     kept: 'Until you reset the workspace or delete your account.',
   },
   {
+    what: 'Verification and password-reset emails, delivered through Resend',
+    why: 'To prove you own the address you register with, and to let you recover a lost password. Your address and a single-use link are sent to Resend (resend.com) solely to deliver that email; nothing else about your workspace goes to them.',
+    legalBasis: 'Performance of a contract (providing the account you asked for).',
+    kept: 'Only single-use token hashes are kept here: verification links expire after 24 hours and reset links after 1 hour, and used or expired tokens are deleted. Resend’s own delivery logs are governed by their policy.',
+  },
+  {
     what: 'Sign-in records: the email tried, the IP address, and whether it succeeded',
     why: 'To detect and slow down password guessing. This is the only place an IP address is stored.',
     legalBasis: 'Legitimate interest in keeping accounts secure.',
@@ -71,14 +77,15 @@ export const whereDataLives = [
   'Data is currently held in a local D1-compatible database on this computer. This installation is not publicly hosted.',
   'Administrators of this installation can see that an account exists, its email address, and how many jobs it holds. They cannot read your job list through the admin screen.',
   'Job searches send your role keywords and chosen locations to the job sources listed on the sources page. They never receive your email.',
+  'Verification and password-reset emails are delivered through Resend; see “What is stored” for exactly what they receive.',
   'There is no automated decision-making that produces legal or similarly significant effects. The language verdict is a suggestion for you to review, and you can correct any of them.',
 ];
 
 export const notCollected = [
   'No advertising, marketing or third-party analytics of any kind.',
   'No tracking cookies, pixels, fingerprinting or cross-site tracking.',
-  'No profiling, no automated decisions with legal effect, and nothing sold or shared with anyone.',
-  'Your account credentials and saved advertisements are not sent to job sites or AI services. Search keywords and locations are sent to the sources you search.',
+  'No profiling, no automated decisions with legal effect, and nothing sold. The only sharing is your address with the email delivery provider, and only to send verification and password-reset emails.',
+  'Your saved advertisements are not sent to job sites or AI services. Search keywords and locations are sent to the sources you search.',
   'No page-by-page browsing history, no referrer logging, no session recording.',
 ];
 
