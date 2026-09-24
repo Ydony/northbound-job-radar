@@ -45,7 +45,7 @@ test('the sources an ordinary account may use are the ones we intend', () => {
   // Pinned deliberately. Adding a source is fine; adding one that ordinary accounts can reach
   // should be a decision someone made on purpose, so this test asks them to confirm it here.
   assert.deepEqual(open, [
-    'ats-ch', 'ats-nl', 'eures-ch', 'eures-nl', 'job-room.ch',
+    'ats-ch', 'ats-nl', 'eures-ch', 'eures-nl', 'freehire-ch', 'freehire-nl', 'job-room.ch',
   ]);
 });
 

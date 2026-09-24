@@ -100,6 +100,20 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     basis: 'Unauthenticated public search/detail API of the Swiss public employment service, but no verified grant: permission is an explicit owner assumption. Keep paced and capped. SOURCE_POLICY.md §2; AGENTS.md.',
   },
   {
+    key: 'freehire-ch',
+    audience: 'public',
+    policyStatus: 'permitted',
+    enabled: true,
+    basis: 'Documented public full-description API (GET /agent/jobs/search) used as published: no key, identifying User-Agent sent, paced and capped. Robots.txt and llms.txt invite programmatic use; terms permit documented API use. Measured 2026-09-24: 7,962 open CH adverts, 4,349 English-tagged, 1,137 in the eligible upstream subset. No display/cache/attribution conditions found; advertisement text is employer-owned so screened server-side, never republished (SOURCE_POLICY.md §1). Upstream allowlist is the seven ATS platforms already public in §2; re-served aggregators and unreviewed boards excluded. Direct redistribution confirmation still outstanding — ask before launch.',
+  },
+  {
+    key: 'freehire-nl',
+    audience: 'public',
+    policyStatus: 'permitted',
+    enabled: true,
+    basis: 'Documented public full-description API (GET /agent/jobs/search) used as published: no key, identifying User-Agent sent, paced and capped. Robots.txt and llms.txt invite programmatic use; terms permit documented API use. Measured 2026-09-24: 23,754 open NL adverts, 11,901 English-tagged, 3,482 in the eligible upstream subset. No display/cache/attribution conditions found; advertisement text is employer-owned so screened server-side, never republished (SOURCE_POLICY.md §1). Upstream allowlist is the seven ATS platforms already public in §2; re-served aggregators and unreviewed boards excluded. Direct redistribution confirmation still outstanding — ask before launch.',
+  },
+  {
     key: 'adzuna-ch',
     audience: 'admin-only',
     policyStatus: 'permitted',

@@ -182,6 +182,17 @@ export function sourceInfoForUrl(value: string, location = ''): SourceInfo {
         : country === 'netherlands' ? 'EURES Netherlands' : 'EURES';
       return { key: country === 'unknown' ? 'eures' : `eures-${countryCodes[country]}`, name, country };
     }
+    // FreeHire serves every country from one host, so the country comes from the
+    // advertisement location rather than the domain — the same shape as EURES.
+    // Stored rows always carry a location (the mapper falls back to the country
+    // name), so an unknown here means the text named no supported place.
+    if (normalizedHost(host) === 'freehire.me') {
+      const country: JobCountry = countryFromLocation(location);
+      const name = country === 'switzerland'
+        ? 'FreeHire Switzerland'
+        : country === 'netherlands' ? 'FreeHire Netherlands' : 'FreeHire';
+      return { key: country === 'unknown' ? 'freehire' : `freehire-${countryCodes[country]}`, name, country };
+    }
     const known = sources[host];
     if (known) {
       if (known.country === 'netherlands' && outsideSupportedLocations.test(location)) {
@@ -210,6 +221,9 @@ export function sourceJobIdFromUrl(value: string) {
     if (url.hostname.toLowerCase().includes('indeed.')) return url.searchParams.get('jk') ?? '';
     if (/iamexpat\.nl$/i.test(url.hostname)) return path.split('/').pop() ?? '';
     if (/undutchables\.nl$/i.test(url.hostname)) return path.startsWith('/vacancies/') ? path.split('/').pop() ?? '' : '';
+    // FreeHire addresses postings by a stable public slug; the same slug is the
+    // same advertisement across runs, so it identifies the row like a UUID does.
+    if (/^(www\.)?freehire\.me$/i.test(url.hostname)) return path.match(/^\/jobs\/([^/]+)$/)?.[1] ?? '';
     return '';
   } catch {
     return '';
