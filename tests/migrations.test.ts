@@ -4,7 +4,7 @@ import test from 'node:test';
 import { CV_REMOVAL_VERSION, runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
@@ -131,11 +131,12 @@ test('fresh databases reach every migration: base columns must not duplicate a l
 });
 
 test('catalogue split creates shared and private tables with a lossless backfill', () => {
-  // INT-04 (#163): one catalogue row per distinct advert across accounts, provenance
-  // per source copy, and private state 1:1 with each account's jobs rows. Tombstones
-  // and corrections are read from the existing tables, never moved or deleted.
-  const migration = runtimeMigrations.find((entry) => entry.version === 29);
-  assert.ok(migration, 'migration 29 is missing');
+  // INT-04 (#163, renumbered to 30 after #179 claimed 29): one catalogue row per
+  // distinct advert across accounts, provenance per source copy, and private state
+  // 1:1 with each account's jobs rows. Tombstones and corrections are read from the
+  // existing tables, never moved or deleted.
+  const migration = runtimeMigrations.find((entry) => entry.version === 30);
+  assert.ok(migration, 'migration 30 is missing');
   const sql = migration.statements.join('\n');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS vacancies \(/);
   assert.match(sql, /CREATE TABLE IF NOT EXISTS vacancy_sources \(/);

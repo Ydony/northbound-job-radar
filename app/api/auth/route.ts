@@ -1,5 +1,7 @@
-import { authSecrets, bindings, ensureSchema } from '@/db/runtime';
+import { authSecrets, bindings, emailConfiguration, ensureSchema } from '@/db/runtime';
 import { clearedSessionCookie, createSessionValue, isLocalBootstrapRequest, isSameOrigin, sessionCookie } from '@/lib/auth';
+import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
+  verificationLinkFor } from '@/lib/email';
 import { clientIp, durableRateLimit } from '@/lib/guard';
 import { authenticate, countUsers, createUser, findUserByEmail, isValidEmail, normalizeEmail,
   passwordProblem, touchLastSeen } from '@/lib/users';
@@ -67,9 +69,34 @@ export async function POST(request: Request) {
     }
     const { user, claimedLegacyWorkspace } = await createUser(db, email, password);
     await recordAttempt(db, email, ip, 'register');
-    const value = await createSessionValue(user.id, sessionSecret, user.sessionEpoch);
-    return Response.json({ ok: true, role: user.role, claimedLegacyWorkspace }, {
-      headers: { 'set-cookie': sessionCookie(value, isSecureRequest(request)) },
+    if (user.emailVerified) {
+      // The installer account only: created on this computer, with remote first-signup
+      // blocked, so there is no address to prove. It signs straight in as before.
+      const value = await createSessionValue(user.id, sessionSecret, user.sessionEpoch);
+      return Response.json({ ok: true, role: user.role, claimedLegacyWorkspace }, {
+        headers: { 'set-cookie': sessionCookie(value, isSecureRequest(request)) },
+      });
+    }
+    // Every later account starts unverified and gets no session until the address is
+    // confirmed through the emailed token. Sending is best-effort: without a configured
+    // sender the account still exists and the caller is told the email did not go out.
+    const verification = await issueEmailVerification(db, user.id);
+    const emailConfig = emailConfiguration();
+    let verificationEmailSent = false;
+    if (emailConfigured(emailConfig)) {
+      const sent = await sendEmailViaResend(emailConfig,
+        verificationEmail(email, verificationLinkFor(request, verification.token)));
+      verificationEmailSent = sent.sent;
+    }
+    return Response.json({
+      ok: true,
+      verificationRequired: true,
+      verificationEmailSent,
+      // Local-only convenience: with no sender configured there is no email to click, so the
+      // token is handed back on loopback. Never present on a reachable host.
+      ...(!emailConfigured(emailConfig) && isLocalBootstrapRequest(request)
+        ? { verificationToken: verification.token }
+        : {}),
     });
   }
 
@@ -78,6 +105,15 @@ export async function POST(request: Request) {
     await recordAttempt(db, email, ip, 'failed');
     // Deliberately vague: never reveal whether the address exists or the account is disabled.
     return Response.json({ error: 'Incorrect email or password.' }, { status: 401 });
+  }
+  if (!user.emailVerified) {
+    // The password was right, so this caller owns the credential — telling them the address
+    // is unconfirmed reveals nothing to a stranger. Unverified accounts get no session.
+    await recordAttempt(db, email, ip, 'unverified');
+    return Response.json({
+      error: 'Check your email for a verification link before signing in.',
+      needsVerification: true,
+    }, { status: 403 });
   }
   await Promise.all([touchLastSeen(db, user.id), recordAttempt(db, email, ip, 'login')]);
   const value = await createSessionValue(user.id, sessionSecret, user.sessionEpoch);

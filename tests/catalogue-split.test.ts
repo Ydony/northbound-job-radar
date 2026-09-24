@@ -10,7 +10,7 @@ import { catalogueGroupKey, contentHashForDescription, mirrorCatalogueForJob, re
  *
  * Every test below runs real D1 SQL against disposable synthetic rows — no owner
  * state, no production database. The contract under test:
- * - migration 29 groups one catalogue row per distinct advert across accounts and
+ * - migration 30 groups one catalogue row per distinct advert across accounts and
  *   copies every account's saved/applied/dismissed state plus corrections 1:1;
  * - `jobs`, `language_feedback` and `dismissed_jobs` keep every row;
  * - forgetting one account's state never removes a catalogue row another holds,
@@ -112,9 +112,9 @@ async function addJob(db: D1Database, job: SyntheticJob) {
       job.firstSeenAt ?? T1, job.lastSeenAt ?? T2, T1, T2).run();
 }
 
-async function applyMigration29(db: D1Database) {
-  const migration = runtimeMigrations.find((entry) => entry.version === 29);
-  assert.ok(migration, 'migration 29 is missing');
+async function applyCatalogueMigration(db: D1Database) {
+  const migration = runtimeMigrations.find((entry) => entry.version === 30);
+  assert.ok(migration, 'migration 30 is missing');
   for (const statement of migration.statements) {
     await db.prepare(statement).run();
   }
@@ -171,7 +171,7 @@ test('content hashes are stable and separate different texts', () => {
   assert.notEqual(contentHashForDescription(text), contentHashForDescription(`${text} More.`));
 });
 
-test('migration 29 backfills the split without losing a row', async () => {
+test('migration 30 backfills the split without losing a row', async () => {
   const { db, dispose } = await populatedDb();
   try {
     const before = {
@@ -181,7 +181,7 @@ test('migration 29 backfills the split without losing a row', async () => {
       feedback: await count(db, 'language_feedback'),
       dismissed: await count(db, 'dismissed_jobs'),
     };
-    await applyMigration29(db);
+    await applyCatalogueMigration(db);
     // Source tables are untouched: same rows, same owners.
     assert.equal(await count(db, 'jobs'), before.jobs);
     assert.equal(await count(db, 'jobs', 'user_id = ?', 'alice'), before.aliceJobs);
@@ -237,7 +237,7 @@ test('the mirror shares one catalogue row across accounts and syncs later edits'
   const { db, dispose } = await miniflareDb();
   try {
     await preSplitSchema(db);
-    await applyMigration29(db);
+    await applyCatalogueMigration(db);
     await addJob(db, { id: 'a1', userId: 'alice', canonicalUrl: 'https://example.test/jobs/m',
       fingerprint: 'job-v1-m', firstSeenAt: T1, lastSeenAt: T2 });
     const first = await mirrorCatalogueForJob(db, 'alice', 'a1', 10);
@@ -277,7 +277,7 @@ test('the mirror shares one catalogue row across accounts and syncs later edits'
 test('forgetting one account keeps shared catalogue rows and collects only orphans', async () => {
   const { db, dispose } = await populatedDb();
   try {
-    await applyMigration29(db);
+    await applyCatalogueMigration(db);
     await removeUserVacancyState(db, 'alice');
     // Alice's private state is gone; bob's is untouched.
     assert.equal(await count(db, 'user_vacancy_state', 'user_id = ?', 'alice'), 0);

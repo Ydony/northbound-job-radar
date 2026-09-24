@@ -243,7 +243,7 @@ and catalogue work, not this fix.
 ### Catalogue and user-state split (2026-09-24, INT-04 #163)
 
 `jobs` used to mix the public advert and one account's private records in a single
-per-account row. Migration 29 adds the §3 persistence boundary from
+per-account row. Migration 30 adds the §3 persistence boundary from
 `docs/PUBLIC_ADMIN_INTEGRATION_PLAN.md` without deleting anything:
 
 - `vacancies`: one row per distinct advert across ALL accounts (no `user_id` — it is

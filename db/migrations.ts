@@ -587,7 +587,30 @@ export const runtimeMigrations: RuntimeMigration[] = [
     ],
   },
   {
+    // #170: accounts prove their address before they can sign in. Only token hashes are
+    // stored, so reading the database never yields a usable link; each token works once and
+    // expires. Existing accounts signed in before verification existed, which is the proof.
+    version: 29,
+    name: 'email_verification_tokens',
+    statements: [
+      "ALTER TABLE users ADD COLUMN email_verified_at TEXT NOT NULL DEFAULT ''",
+      `CREATE TABLE IF NOT EXISTS email_verifications (
+        token_hash TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT ''
+      )`,
+      'CREATE INDEX IF NOT EXISTS email_verifications_user_idx ON email_verifications(user_id)',
+      'CREATE INDEX IF NOT EXISTS email_verifications_expires_idx ON email_verifications(expires_at)',
+      "UPDATE users SET email_verified_at = created_at WHERE email_verified_at = ''",
+    ],
+  },
+  {
     // INT-04 (#163): split the shared public catalogue from per-user private records.
+    // Renumbered from 29 to 30 after PR #179 claimed 29 on master; that migration is
+    // now applied history and is never edited. `email_verifications` (v29) holds
+    // per-user token state and is treated as user state throughout: this migration
+    // neither reads nor deletes it, and the delete paths below remove it per user.
     // Today every account holds its own full copy of each advert in `jobs`, so the same
     // public text is stored once per account and there is no place a public catalogue
     // query (INT-05) can read without touching private state. From here on:
@@ -604,7 +627,7 @@ export const runtimeMigrations: RuntimeMigration[] = [
     // `jobs` rows, as before) but never another account's rows and never a catalogue
     // row somebody still holds; catalogue rows nobody holds are removed so a deleted
     // advert does not linger. See lib/catalogue.ts for the write-path mirror.
-    version: 29,
+    version: 30,
     name: 'catalogue_user_state_split',
     statements: [
       `CREATE TABLE IF NOT EXISTS vacancies (

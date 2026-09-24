@@ -113,7 +113,8 @@ try {
     await wrangler(['--persist-to', tempDirectory, '--command', `CREATE TABLE users (
       id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
       role TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL,
-      last_seen_at TEXT NOT NULL, session_epoch INTEGER NOT NULL DEFAULT 1)`]);
+      last_seen_at TEXT NOT NULL, session_epoch INTEGER NOT NULL DEFAULT 1,
+      email_verified_at TEXT NOT NULL DEFAULT '')`]);
   }
   const persistence = dryRun ? ['--persist-to', tempDirectory] : [];
   const initial = rows(await wrangler([...persistence, '--command', 'SELECT COUNT(*) AS total FROM users']));
@@ -122,8 +123,10 @@ try {
   }
   const id = randomUUID();
   const now = new Date().toISOString();
-  const sql = `INSERT INTO users (id, email, password_hash, role, status, created_at, last_seen_at)
-    SELECT ${quote(id)}, ${quote(email)}, ${quote(hash)}, 'admin', 'active', ${quote(now)}, ${quote(now)}
+  // Out-of-band ownership proof: the owner types this address into a local terminal, so the
+  // bootstrapped administrator starts verified and is never blocked by email confirmation.
+  const sql = `INSERT INTO users (id, email, password_hash, role, status, email_verified_at, created_at, last_seen_at)
+    SELECT ${quote(id)}, ${quote(email)}, ${quote(hash)}, 'admin', 'active', ${quote(now)}, ${quote(now)}, ${quote(now)}
     WHERE NOT EXISTS (SELECT 1 FROM users);`;
   sqlFile = join(tempDirectory, 'bootstrap.sql');
   await writeFile(sqlFile, sql, { mode: 0o600, flag: 'wx' });

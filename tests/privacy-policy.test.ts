@@ -59,3 +59,13 @@ test('no privacy copy offers a search filter that was removed', () => {
   // "role keywords and location" outlived the location filter by some months.
   assert.doesNotMatch(whereDataLives.join(' '), /keywords and location/i);
 });
+
+test('verification and reset emails name their delivery provider', () => {
+  // Sending through Resend shares the address with a third party, so the page must say so in
+  // the same commit that introduces it — "shared with anyone" would otherwise be untrue.
+  const everything = JSON.stringify({ dataWeHold, notCollected, whereDataLives });
+  assert.match(everything, /Resend/);
+  const tokens = dataWeHold.find((item) => /verification and password-reset/i.test(item.what));
+  assert.ok(tokens, 'verification/reset tokens are not disclosed at all');
+  assert.match(tokens!.kept, /expir/i);
+});

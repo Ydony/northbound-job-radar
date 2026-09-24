@@ -46,6 +46,9 @@ hosted project identifier.
    through `npx wrangler secret put ... --name ikbeneenappel-prod`. Do not paste
    secret values into chat, Git, shell arguments or assistant tools. Optionally
    set Adzuna credentials; **never** copy Careerjet or Indeed credentials to prod.
+   Verification/reset email needs `RESEND_API_KEY` (also via `wrangler secret put`)
+   and a `RESEND_FROM` sender, but only once registration opens — the closed
+   single-admin installation does not send email.
    `npx wrangler secret list --name ikbeneenappel-prod` exposes names only for review.
 2. Build and verify without deploying: `npm run build:prod`. The generated
    Worker must be `ikbeneenappel-prod` and its D1 id

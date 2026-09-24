@@ -22,5 +22,13 @@ declare namespace Cloudflare {
     INDEED_API_KEY?: string;
     INDEED_USER_AGENT?: string;
     INDEED_APP_INFO?: string;
+    /**
+     * Resend key for verification and password-reset emails. Real secret: the owner sets it
+     * with `wrangler secret put RESEND_API_KEY` — never in chat, code, or a worker prompt.
+     * Unset locally, where tests run against a mocked endpoint instead.
+     */
+    RESEND_API_KEY?: string;
+    /** Sender shown on verification and reset emails, e.g. 'Ik ben een appel <noreply@example.com>'. */
+    RESEND_FROM?: string;
   }
 }

@@ -14,7 +14,7 @@
  * The `jobs` table is still the served read model until INT-05 rewires queries, so
  * every write path mirrors into the catalogue: `upsertJob` and the job PATCH route
  * call `mirrorCatalogueForJob`, every delete path calls `removeUserVacancyState`.
- * Rows imported before migration 29 were backfilled by its SQL; rows touched after
+ * Rows imported before migration 30 were backfilled by its SQL; rows touched after
  * it are mirrored here. Maintenance passes that rewrite advert content without going
  * through `upsertJob` (normalization, Job-Room/requirements backfills) leave the
  * catalogue copy stale until the next import touch — INT-05/INT-06 take over content
@@ -56,7 +56,7 @@ function text(value: unknown): string {
 }
 
 /**
- * TypeScript twin of the migration-29 grouping key. The SQL in db/migrations.ts
+ * TypeScript twin of the migration-30 grouping key. The SQL in db/migrations.ts
  * (`catalogueGroupKeySql`) must produce the same grouping — change both together.
  */
 export function catalogueGroupKey(input: {
@@ -90,7 +90,7 @@ export function contentHashForDescription(description: string): string {
   return `fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}-${description.trim().length}`;
 }
 
-/** The catalogue tables exist only from migration 29 on. Unit fixtures with partial
+/** The catalogue tables exist only from migration 30 on. Unit fixtures with partial
  * schemas predate them; mirroring there is a no-op so those fixtures keep testing
  * what they were written for. Application databases always run all migrations. */
 async function catalogueTablesPresent(db: D1Database): Promise<boolean> {
