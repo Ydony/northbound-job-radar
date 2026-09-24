@@ -170,5 +170,6 @@ export const collectionPrinciples = [
   'Account credentials and saved advertisements are not sent to job sites or third-party models.',
   'No detection evasion of any kind: no randomised or human-imitating timing, no fingerprint spoofing, no stealth browser plugins, no proxy or IP rotation.',
   'Page-fetched sources run only when explicitly triggered, are capped per run, and wait between requests.',
+  'A source that refuses access is left alone for the rest of the run: the refusal is reported, and nothing retries it, routes around it, or disguises the traffic.',
   'Everything collected stays in a local database on this machine and can be exported or deleted at any time.',
 ];
