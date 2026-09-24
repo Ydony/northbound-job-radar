@@ -109,6 +109,7 @@ export async function PATCH(request: Request) {
     await db.batch([
       db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(await hashPassword(newPassword), userId),
       db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(userId),
+      db.prepare('DELETE FROM email_verifications WHERE user_id = ?').bind(userId),
     ]);
     await revokeSessions(db, userId);
     await recordAdminAction(db, actor.email, target.email, 'set-password');
@@ -148,6 +149,7 @@ export async function DELETE(request: Request) {
     db.prepare('DELETE FROM search_run_sources WHERE run_id IN (SELECT id FROM search_runs WHERE user_id = ?)').bind(userId),
     db.prepare('DELETE FROM search_runs WHERE user_id = ?').bind(userId),
     db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM email_verifications WHERE user_id = ?').bind(userId),
     db.prepare('DELETE FROM auth_events WHERE email = ?').bind(target.email),
     db.prepare('DELETE FROM users WHERE id = ?').bind(userId),
   ]);
