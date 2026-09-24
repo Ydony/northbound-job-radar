@@ -179,8 +179,16 @@ test('Indeed never merges/enriches public copies and rescoring never promotes un
     const publicJob = await upsertJob(db, 'alice', input);
     const privateInput = { ...input, sourceUrl: 'https://nl.indeed.com/viewjob?jk=synthetic' };
     const privateJob = await upsertJob(db, 'alice', privateInput);
+    // The rows stay separate — this is the "never merges/enriches" part, and it is unchanged:
+    // an Indeed import must never overwrite a public row's source key or canonical URL.
     assert.notEqual(privateJob.job.id, publicJob.job.id);
-    assert.equal(privateJob.wasDuplicate, false);
+    // What did change (owner decision, 2026-09-24): one advertisement carried by Indeed and by
+    // another source shows as the other source, to everyone. The Indeed copy is now recognised
+    // as a duplicate of the public one and folds behind it, so an administrator sees one card
+    // rather than two. Only the relationship crosses the audience boundary; the rows never do.
+    assert.equal(privateJob.wasDuplicate, true);
+    assert.equal(privateJob.job.duplicateOf, publicJob.job.id,
+      'the public copy must be the card, never the Indeed one');
     await db.prepare("UPDATE jobs SET is_saved = 1, application_status = 'applied', visibility_status = 'dismissed' WHERE id = ?")
       .bind(privateJob.job.id).run();
     await db.prepare('INSERT INTO dismissed_jobs VALUES (?, ?, ?, ?, ?, ?)').bind(privateJob.job.id, 'alice', 'indeed-nl',
@@ -193,7 +201,9 @@ test('Indeed never merges/enriches public copies and rescoring never promotes un
     assert.equal(repeated.wasDismissed, true);
     assert.equal(repeated.job.isSaved, true);
     assert.equal(repeated.job.applicationStatus, 'applied');
-    assert.equal(repeated.job.duplicateOf, '');
+    // Re-importing the Indeed URL finds the stored row, which is still folded behind the
+    // public copy. It was '' while the two could not be linked at all.
+    assert.equal(repeated.job.duplicateOf, publicJob.job.id);
     assert.equal(repeated.job.languageStatus, 'unknown');
     const visible = await db.prepare(`SELECT id FROM jobs WHERE user_id = ? AND NOT ${indeedSql()}`).bind('alice').all<{ id: string }>();
     assert.deepEqual(visible.results.map(row => row.id), [publicJob.job.id]);

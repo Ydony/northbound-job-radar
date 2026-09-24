@@ -74,7 +74,12 @@ try {
   assert.notEqual(otherJob.id, first.id);
   const otherBefore = await other.request('/api/state');
   const state = await owner.request('/api/state');
-  assert.equal(state.totalJobs, 3);
+  // `totalJobs` counts distinct held advertisements after the merge, not owned rows (owner
+  // decision, 2026-09-24; `lib/types.ts`: "Distinct held vacancies in audience, folded copies
+  // excluded"). Three rows were imported and two of them are the same advertisement, so two
+  // is the honest number and the third is disclosed as a folded copy beside it. This asserted
+  // 3 from before server-side counting, which is why it read as a regression.
+  assert.equal(state.totalJobs, 2);
   assert.equal(state.jobs.length, 2);
   assert.equal(state.hiddenDuplicates, 1);
   assert.ok(state.jobs.some((job) => job.id === repost.id));

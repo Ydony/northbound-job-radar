@@ -304,6 +304,8 @@ interface NearDuplicateCandidate {
   posted_at: string;
   duplicate_of: string;
   first_seen_at: string;
+  source_key: string;
+  source_url: string;
 }
 
 interface ExistingJobIdentity {
@@ -332,8 +334,13 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
   const now = new Date().toISOString();
   const canonicalUrl = canonicalJobUrl(input.sourceUrl);
   const source = sourceInfoForUrl(canonicalUrl, input.location);
-  // Never merge a private Indeed copy into an independently supplied public record.
-  const sameAudience = `${isIndeedUrl(canonicalUrl) ? '' : 'NOT '}${indeedSql()}`;
+  // Never MERGE a private Indeed copy into an independently supplied public record: a
+  // fingerprint match refreshes the matched row in place, and refreshing a public row from
+  // an Indeed import would overwrite its source key and canonical URL, turning a row an
+  // ordinary account may see into one it may not (#188, from the other end). The duplicate
+  // RELATIONSHIP does cross the boundary - see the near-match below - but the rows never do.
+  const isIndeedImport = isIndeedUrl(canonicalUrl);
+  const sameAudience = `${isIndeedImport ? '' : 'NOT '}${indeedSql()}`;
   const sourceJobId = sourceJobIdFromUrl(canonicalUrl);
   const globallyStableSourceJobId = isGloballyStableSourceJobId(sourceJobId);
   const postedAt = input.postedAt?.trim() ?? '';
@@ -358,9 +365,15 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
   // Only a genuinely new row needs a near-duplicate search: anything matched above is already the
   // same row being refreshed. The candidate list is bounded by the cluster index, and the range
   // comparison that the fingerprint hash cannot express happens here in TypeScript.
+  // Candidates are no longer restricted to one audience (owner decision, 2026-09-24: one
+  // advertisement carried by Indeed and by another source shows as the other source, to
+  // everyone). Non-Indeed rows are ordered first so a public copy is preferred as the card
+  // whenever one exists, whatever order the copies arrived in.
   const nearMatch = !existing && clusterKey
-    ? (await db.prepare(`SELECT id, location, posted_at, duplicate_of, first_seen_at FROM jobs
-        WHERE user_id = ? AND cluster_key = ? AND ${sameAudience} ORDER BY first_seen_at LIMIT 25`)
+    ? (await db.prepare(`SELECT id, location, posted_at, duplicate_of, first_seen_at,
+          source_key, source_url FROM jobs
+        WHERE user_id = ? AND cluster_key = ?
+        ORDER BY CASE WHEN ${indeedSql()} THEN 1 ELSE 0 END, first_seen_at LIMIT 25`)
         .bind(userId, clusterKey).all<NearDuplicateCandidate>())
       .results.find((candidate) => isNearDuplicate(
         // The row being written has not been stored yet, so its first-seen is now.
@@ -372,8 +385,17 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
         },
       ))
     : undefined;
+  // Which of the two is the card, when the near-match is from the other audience.
+  //
+  // The public copy always is. An Indeed import folds into an existing public row; a public
+  // import arriving after an Indeed one becomes the card instead, and the Indeed row is
+  // re-pointed at it once this row exists (below). Arrival order decides nothing.
+  const matchIsIndeed = nearMatch
+    ? isIndeedRecord(nearMatch.source_key, nearMatch.source_url)
+    : false;
+  const supersedesIndeedCopy = Boolean(nearMatch) && matchIsIndeed && !isIndeedImport;
   // Point at the row actually on screen, never at another copy, so the chain stays one level deep.
-  const duplicateOf = nearMatch ? nearMatch.duplicate_of || nearMatch.id : '';
+  const duplicateOf = nearMatch && !supersedesIndeedCopy ? nearMatch.duplicate_of || nearMatch.id : '';
   const wasDuplicate = Boolean(nearMatch) || Boolean(fingerprintMatch && fingerprintMatch.source_key !== source.key);
 
   const tombstone = await db.prepare(`SELECT id FROM dismissed_jobs
@@ -412,6 +434,13 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
         input.location, input.description, searchText, input.languageStatus, input.languageSummary, JSON.stringify(input.languageSignals),
         workplaceType, identityFingerprint, clusterKey, duplicateOf, 0, 'not_applied', visibilityStatus, postedAt, expiresAt, now, now,
         visibilityStatus === 'dismissed' ? 'ignored' : 'new', now, now).run();
+  }
+  // The public copy arrived second: hand the card over. The Indeed row and anything already
+  // folded into it now point at this one, so the chain stays a single level deep and an
+  // administrator sees one card for the advertisement rather than two.
+  if (supersedesIndeedCopy && nearMatch && !existing) {
+    await db.prepare('UPDATE jobs SET duplicate_of = ?, updated_at = ? WHERE user_id = ? AND (id = ? OR duplicate_of = ?)')
+      .bind(id, now, userId, nearMatch.id, nearMatch.id).run();
   }
   const row = await db.prepare(`SELECT jobs.*, language_feedback.verdict AS feedback_verdict,
     language_feedback.corrected_status AS feedback_corrected_status,
@@ -602,14 +631,21 @@ export async function reclusterJobs(db: D1Database, userId: string) {
     const key = jobClusterKey(row);
     assignment.set(row.id, { clusterKey: key, duplicateOf: '' });
     if (!key) continue;
-    const audienceKey = `${isIndeedRecord(row.source_key, row.source_url) ? 'indeed' : 'other'}:${key}`;
-    const bucket = buckets.get(audienceKey) ?? [];
+    // One bucket per advertisement, not one per advertisement per audience (owner decision,
+     // 2026-09-24). Copies from Indeed and from another source are the same job and now cluster
+     // together, so an account holding both sees one card. Splitting by audience here would
+     // quietly undo the link `upsertJob` makes, and a rule maintenance reverses is not a rule.
+    const bucket = buckets.get(key) ?? [];
     bucket.push(row);
-    buckets.set(audienceKey, bucket);
+    buckets.set(key, bucket);
   }
 
   const rank = (job: ClusterableJob) =>
     (job.is_saved ? 2 : 0) + (job.application_status === 'applied' ? 2 : 0);
+  // The public copy is always the card. This outranks saved/applied and description length
+  // because it decides what a reader may see at all, not merely which copy reads better: an
+  // Indeed primary would leave an ordinary account holding a public copy with no card.
+  const hiddenCopy = (job: ClusterableJob) => (isIndeedRecord(job.source_key, job.source_url) ? 1 : 0);
 
   let clusters = 0;
   let duplicates = 0;
@@ -629,7 +665,8 @@ export async function reclusterJobs(db: D1Database, userId: string) {
     for (const group of groups) {
       if (group.length < 2) continue;
       const primary = [...group].sort((a, b) =>
-        rank(b) - rank(a)
+        hiddenCopy(a) - hiddenCopy(b)
+        || rank(b) - rank(a)
         || b.description.length - a.description.length
         || a.first_seen_at.localeCompare(b.first_seen_at))[0];
       clusters += 1;
