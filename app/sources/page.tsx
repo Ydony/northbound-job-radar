@@ -4,7 +4,7 @@ import { readSessionValue } from '@/lib/auth';
 import { findUserById } from '@/lib/users';
 import { atsCompanies } from '@/lib/ats-feeds';
 import { collectionPrinciples, POLICIES_VERIFIED_ON, sourcePoliciesForRole, stanceLabel } from '@/lib/source-policies';
-import { ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK } from '@/lib/attribution';
+import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, sourcesPageAttributionKeys } from '@/lib/attribution';
 
 export const metadata = {
   title: 'Where the jobs come from — Ik ben een appel',
@@ -45,6 +45,7 @@ export default async function SourcesPage() {
   const isAdmin = await viewerIsAdmin();
   const visiblePolicies = sourcePoliciesForRole(isAdmin);
   const visibleGroups = groups.filter((group) => visiblePolicies.some((policy) => policy.group === group));
+  const attributionKeys = sourcesPageAttributionKeys(isAdmin);
   return (
     <main className="shell">
       <header className="topbar">
@@ -124,6 +125,14 @@ export default async function SourcesPage() {
           {ELA_ATTRIBUTION}{' '}
           <a href={ELA_ATTRIBUTION_LINK} target="_blank" rel="noreferrer">EURES legal notice ↗</a>
         </p>
+        {attributionKeys.includes('adzuna') && (
+          <p className="source-attribution">
+            {ADZUNA_ATTRIBUTION}{' '}
+            <a href={ADZUNA_LOCAL_LINKS['adzuna.ch']} target="_blank" rel="noreferrer">Adzuna Switzerland ↗</a>
+            {' · '}
+            <a href={ADZUNA_LOCAL_LINKS['adzuna.nl']} target="_blank" rel="noreferrer">Adzuna Netherlands ↗</a>
+          </p>
+        )}
       </section>
 
       <footer>
