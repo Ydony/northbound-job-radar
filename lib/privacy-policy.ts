@@ -47,9 +47,9 @@ export const dataWeHold: DataItem[] = [
   },
   {
     what: 'Sign-in records: the email tried, the IP address, and whether it succeeded',
-    why: 'To detect and slow down password guessing. This is the only place an IP address is stored.',
+    why: 'To detect and slow down password guessing. Sign-in rate limiting keeps short-lived per-address attempt counters in the same database; those buckets can contain an IP address and are deleted when their 15-minute window rolls over. These two are the only places an IP address is stored.',
     legalBasis: 'Legitimate interest in keeping accounts secure.',
-    kept: 'Automatically deleted after 30 days.',
+    kept: 'Sign-in records are automatically deleted after 30 days; rate-limit counters when their window ends.',
   },
   {
     what: 'A daily count of visits and distinct visitors',
@@ -77,6 +77,7 @@ export const whereDataLives = [
   'Data is currently held in a local D1-compatible database on this computer. This installation is not publicly hosted.',
   'Administrators of this installation can see that an account exists, its email address, and how many jobs it holds. They cannot read your job list through the admin screen.',
   'Job searches send your role keywords and chosen locations to the job sources listed on the sources page. They never receive your email.',
+  'When you register, your browser loads a bot check from Cloudflare (Turnstile) and this server verifies the resulting token with Cloudflare. Cloudflare sees your IP address as part of that check, under their privacy policy; the token itself is verified and not stored.',
   'Verification and password-reset emails are delivered through Resend; see “What is stored” for exactly what they receive.',
   'There is no automated decision-making that produces legal or similarly significant effects. The language verdict is a suggestion for you to review, and you can correct any of them.',
 ];
@@ -84,7 +85,7 @@ export const whereDataLives = [
 export const notCollected = [
   'No advertising, marketing or third-party analytics of any kind.',
   'No tracking cookies, pixels, fingerprinting or cross-site tracking.',
-  'No profiling, no automated decisions with legal effect, and nothing sold. The only sharing is your address with the email delivery provider, and only to send verification and password-reset emails.',
+  'No profiling, no automated decisions with legal effect, and nothing sold. The only sharing is your address with the email delivery provider (to send verification and password-reset emails), and the registration bot check with Cloudflare (Turnstile).',
   'Your saved advertisements are not sent to job sites or AI services. Search keywords and locations are sent to the sources you search.',
   'No page-by-page browsing history, no referrer logging, no session recording.',
 ];

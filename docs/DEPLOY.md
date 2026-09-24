@@ -96,3 +96,9 @@ satisfy these public-service requirements:
 2. Add durable edge limits, backups, email verification/reset and pagination.
 3. Revisit every source policy and Careerjet's fixed-IP restriction.
 4. Complete a privacy review for account and behavioural data.
+5. Before open registration, set the real Turnstile keys: `npx wrangler secret put
+   TURNSTILE_SECRET_KEY --name ikbeneenappel-prod` for the secret, and the matching public
+   sitekey as `TURNSTILE_SITE_KEY`. Without a real secret the app honors its committed test
+   keys on loopback only and refuses non-local registration, so this step is what actually arms
+   the bot check. The `AUTH_RATE_LIMIT` edge binding (namespace `17101`) ships in the Worker
+   configuration; no dashboard step is needed for it.

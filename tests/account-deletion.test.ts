@@ -350,11 +350,14 @@ test('workspace reset empties the owned workspace but keeps the account', async 
 test('rate-limit buckets that embed identity are short-lived by construction, not by omission', async () => {
   // #129 known gap, decided here: auth buckets are `auth:ip:<ip>` / `auth:email:<email>`
   // (app/api/auth/route.ts), held at most one 15-minute window and swept on rollover
-  // (lib/guard.ts). Account deletion deliberately leaves them: they are brute-force
-  // protection for the address, not account data, and expire on their own.
+  // (lib/rate-limit.ts, re-exported through lib/guard.ts since #171). Account deletion
+  // deliberately leaves them: they are brute-force protection for the address, not account
+  // data, and expire on their own.
   const authRoute = await readFile(new URL('../app/api/auth/route.ts', import.meta.url), 'utf8');
   assert.match(authRoute, /durableRateLimit\(db, `auth:ip:\$\{ip\}`.*15 \* 60_000/);
   assert.match(authRoute, /durableRateLimit\(db, `auth:email:\$\{email\}`.*15 \* 60_000/);
+  const limiter = await readFile(new URL('../lib/rate-limit.ts', import.meta.url), 'utf8');
+  assert.match(limiter, /DELETE FROM rate_limits WHERE reset_at <= \?/);
   const guard = await readFile(new URL('../lib/guard.ts', import.meta.url), 'utf8');
-  assert.match(guard, /DELETE FROM rate_limits WHERE reset_at <= \?/);
+  assert.match(guard, /export \{ durableRateLimit.*\} from '\.\/rate-limit'/);
 });

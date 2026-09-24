@@ -22,14 +22,20 @@
 export function contentSecurityPolicy(nonce: string) {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // challenges.cloudflare.com loads the Turnstile bot-check widget on the registration form
+    // (#171). Under 'strict-dynamic' the host entry only helps browsers without strict-dynamic
+    // support; modern browsers authorize that script through its per-request nonce, emitted in
+    // app/login/layout.tsx.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com`,
     // Kept for real: the run progress bar sets its width as an inline style attribute.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
     "connect-src 'self'",
     "frame-ancestors 'none'",
-    "frame-src 'none'",
+    // The Turnstile widget runs its challenge inside its own frame from this host and nowhere
+    // else. Everything else stays unframed.
+    "frame-src https://challenges.cloudflare.com",
     "worker-src 'self'",
     "manifest-src 'self'",
     "media-src 'none'",

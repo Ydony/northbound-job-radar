@@ -84,12 +84,24 @@ test('the directives with no legitimate use here are closed, not merely absent',
   // default-src covers an omitted directive, but only for the fetch directives. Naming them makes
   // the intent readable and survives a future default-src being loosened.
   const directives = cspDirectives();
-  assert.equal(directives.get('frame-src'), "'none'");
+  // frame-src admits exactly the Turnstile challenge host (#171) and nothing else; see the
+  // Turnstile test below for why that allowance exists.
+  assert.equal(directives.get('frame-src'), 'https://challenges.cloudflare.com');
   assert.equal(directives.get('media-src'), "'none'");
   assert.equal(directives.get('object-src'), "'none'");
   assert.equal(directives.get('worker-src'), "'self'");
   assert.equal(directives.get('font-src'), "'self'");
   assert.equal(directives.get('connect-src'), "'self'");
+});
+
+test('the Turnstile allowance is exactly the challenge host, nowhere else', async () => {
+  // The registration bot check loads its widget script from Cloudflare and runs its challenge in
+  // that host's frame. Both allowances name the host outright — no scheme wildcards, no
+  // additional hosts — and framing of this app by anyone stays denied (frame-ancestors).
+  const directives = cspDirectives();
+  assert.equal(directives.get('frame-src'), 'https://challenges.cloudflare.com');
+  assert.match(cspFor(), /script-src [^;]*https:\/\/challenges\.cloudflare\.com/);
+  assert.match(cspFor(), /frame-ancestors 'none'/);
 });
 
 test('the origin is isolated from anything that opens or embeds it', async () => {

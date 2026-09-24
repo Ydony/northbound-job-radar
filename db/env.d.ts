@@ -23,6 +23,15 @@ declare namespace Cloudflare {
     INDEED_USER_AGENT?: string;
     INDEED_APP_INFO?: string;
     /**
+     * Native edge rate limiter for auth endpoints (#171). Optional: without the `ratelimits`
+     * configuration the app relies on the database limiter alone.
+     */
+    AUTH_RATE_LIMIT?: RateLimit;
+    /** Public Turnstile sitekey served to the registration form; safe to configure as plain text. */
+    TURNSTILE_SITE_KEY?: string;
+    /** Turnstile secret key. Owner-set via `wrangler secret put`, never committed. */
+    TURNSTILE_SECRET_KEY?: string;
+    /**
      * Resend key for verification and password-reset emails. Real secret: the owner sets it
      * with `wrangler secret put RESEND_API_KEY` — never in chat, code, or a worker prompt.
      * Unset locally, where tests run against a mocked endpoint instead.
