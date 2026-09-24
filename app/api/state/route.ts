@@ -17,7 +17,7 @@ import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
 import { decodeJobsCursor, parsePageLimit } from '@/lib/paging';
 import { adminOnlySourcePolicyKeys } from '@/lib/source-policy';
-import { criteriaFromRow, ensureCurrentJobClusters, ensureSearchText, jobFromRow, normalizeStoredJobs, queryCollectionTotals, queryJobsPage, searchRunsFromRows, type CriteriaRow,
+import { criteriaFromRow, ensureCurrentJobClusters, ensureSearchText, jobFromRow, normalizeStoredJobs, queryCollectionTotals, queryJobsPage, searchRunsFromRows, visibleSearchRuns, type CriteriaRow,
   type SearchRoleRow, type SearchRunRow, type SearchRunSourceRow } from '@/lib/server-data';
 import type { SearchCriteria } from '@/lib/types';
 
@@ -117,15 +117,14 @@ export async function GET(request: Request) {
   // everyone else rather than only hidden in the interface. The user preview
   // applies the same ordinary-audience rule: audience filtering happens
   // before aggregation, never as a client-side subtraction of admin rows.
-  const searchRuns = searchRunsFromRows(runs.results, !previewAsUser && user.role === 'admin'
-    ? runSources.results
-    // Same rule as the jobs above, from the same derived list: an ordinary account is not told
-    // that these sources were searched, let alone what they returned.
-    : runSources.results.filter((row) => !hiddenSourceKeys.includes(row.source_key)))
-    .filter(run => (!previewAsUser && user.role === 'admin') || run.sources.length > 0)
-    .map(run => (!previewAsUser && user.role === 'admin') ? run : { ...run,
-      status: run.sources.every(source => source.status === 'complete') ? 'complete'
-        : run.sources.every(source => source.status === 'failed') ? 'failed' : 'partial' });
+  // INT-02 (#161): shaped by visibleSearchRuns so this stored-run read path and the
+  // fresh-search response in /api/scrape cannot drift apart about what "visible" means.
+  // An ordinary account is not told these sources were searched, let alone what they
+  // returned: a run left with no visible source disappears rather than arriving as an
+  // empty shell that still discloses its timing, and the status is recomputed from the
+  // rows that remain so an admin-only failure never flips an ordinary run to failed.
+  const searchRuns = visibleSearchRuns(runs.results, runSources.results,
+    !previewAsUser && user.role === 'admin', new Set(hiddenSourceKeys));
 
   const shared = {
     account: { email: user.email, role: user.role },

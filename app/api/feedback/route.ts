@@ -1,7 +1,7 @@
 import { ensureSchema } from '@/db/runtime';
 import { requireSession } from '@/lib/guard';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
-import { indeedSql } from '@/lib/indeed/access';
+import { audienceExclusionClause } from '@/lib/server-data';
 
 interface FeedbackRow {
   job_id: string;
@@ -37,18 +37,18 @@ export async function GET(request: Request) {
   // Without them an account demoted from administrator kept a way to read back the names, titles
   // and stored evidence of page-fetching sources through its own old corrections — which ordinary
   // accounts must never learn exist. Excluded in SQL and before the LIMIT, like /api/state, so the
-  // rows are never fetched rather than dropped afterwards.
+  // rows are never fetched rather than dropped afterwards. The predicate is the shared
+  // audienceExclusionClause, derived from the registry-driven adminOnlySourceKeys, so this
+  // export cannot drift away from what the jobs and runs paths hide.
   const hiddenSourceKeys = user.role === 'admin' ? [] : [...adminOnlySourceKeys()];
-  const hiddenClause = hiddenSourceKeys.length
-    ? ` AND j.source_key NOT IN (${hiddenSourceKeys.map(() => '?').join(',')}) AND NOT ${indeedSql('j')}`
-    : '';
+  const audience = audienceExclusionClause('j', hiddenSourceKeys);
 
   const rows = await db.prepare(`SELECT f.job_id, f.verdict, f.corrected_status, f.reason, f.updated_at,
       f.detected_status, f.detected_summary, f.detected_signals, f.evidence,
       j.title, j.company, j.location, j.source_name
     FROM language_feedback f JOIN jobs j ON j.id = f.job_id AND j.user_id = f.user_id
-    WHERE f.user_id = ?${hiddenClause} ORDER BY f.updated_at DESC LIMIT 500`)
-    .bind(user.id, ...hiddenSourceKeys).all<FeedbackRow>();
+    WHERE f.user_id = ?${audience.clause} ORDER BY f.updated_at DESC LIMIT 500`)
+    .bind(user.id, ...audience.params).all<FeedbackRow>();
 
   const entries = rows.results.map((row) => ({
     jobId: row.job_id,

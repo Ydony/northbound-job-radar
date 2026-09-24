@@ -68,6 +68,24 @@ test('every entry carries a valid policy status and its evidence', () => {
   }
 });
 
+test('adapter audience flags agree with the registry split', () => {
+  // INT-02 drives the enforced gate from this registry, so the adapter flags are now the
+  // redundant description and the registry is the authority. If they disagree, the gate hides
+  // something the adapter claims is public (or exposes something it claims is private), and
+  // this test names the row instead of letting the split drift silently.
+  for (const adapter of jobSourceAdapters) {
+    const entry = sourcePolicyFor(adapter.key);
+    assert.ok(entry, `${adapter.key} has no registry entry`);
+    const flaggedAdminOnly = adapter.adminOnly === true || adapter.access !== 'authorized-api';
+    assert.equal(
+      entry.audience === 'admin-only',
+      flaggedAdminOnly,
+      `${adapter.key} is flagged ${flaggedAdminOnly ? 'admin-only' : 'public'} by its adapter flags`
+      + ` but registered ${entry.audience}: change the registry deliberately, not by accident`,
+    );
+  }
+});
+
 test('registry helpers agree with the registry rows', () => {
   assert.deepEqual(
     publicSourceKeys().sort(),
