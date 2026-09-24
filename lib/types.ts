@@ -151,6 +151,61 @@ export interface CollectionTotals {
   bySource: CollectionSourceTotal[];
 }
 
+export interface CatalogueFacet {
+  /** Count under every other filter (the number selecting this option returns). */
+  all: number;
+  values: { key: string; name?: string; count: number }[];
+}
+
+export interface CataloguePlaceFacet {
+  all: number;
+  groups: { country: string; label: string; cities: [string, number][] }[];
+}
+
+/**
+ * INT-05 (#164/#140): server-computed catalogue aggregates. Every number is
+ * computed in SQL over the whole audience-filtered holding set — never over
+ * the loaded page — so a small page cannot shrink a count. `searchRuns`
+ * (the user's search events) stays separate from `freshness` (catalogue
+ * ingest recency): a search report and an ingest report, never one number
+ * doing both jobs.
+ */
+export interface CatalogueReport {
+  /** Normalized filters the server applied (echo, so controls reflect them). */
+  filters: {
+    roles: string[];
+    country: string;
+    place: string;
+    source: string;
+    application: string;
+    workType: string;
+    language: string;
+    view: string;
+    sort: string;
+  };
+  /** Distinct held vacancies in audience (folded copies excluded). */
+  total: number;
+  /** Distinct held vacancies under the full filters (the list's full size). */
+  matching: number;
+  /** Under view+language+keywords+roles, before facet narrowing. */
+  inView: number;
+  /** Held rows folded into a visible primary under the full filters. */
+  folded: number;
+  viewCounts: Record<string, number>;
+  languageCounts: Record<string, number>;
+  facets: {
+    country: CatalogueFacet;
+    source: CatalogueFacet;
+    application: CatalogueFacet;
+    workType: CatalogueFacet;
+  };
+  places: CataloguePlaceFacet;
+  freshness: {
+    refreshedAt: string;
+    bySource: { sourceKey: string; sourceName: string; country: JobCountry; lastSeenAt: string }[];
+  };
+}
+
 export interface SearchRun {
   id: string;
   status: 'complete' | 'partial' | 'failed';
@@ -165,9 +220,9 @@ export interface AccountSummary {
 }
 
 export interface AppState {
-  /** Total jobs owned, which may exceed the number returned; see jobLimit. */
+  /** Distinct held vacancies in audience (folded copies excluded), which may exceed the number returned; see jobLimit. */
   totalJobs?: number;
-  /** Jobs the saved keywords keep, across every page. Counts converge to this as pages load. */
+  /** Distinct held vacancies under the current filters, across every page. Counts converge to this as pages load. */
   matchingJobs?: number;
   /**
    * Account-scoped retained collection for the #124 totals, from the server —
@@ -175,7 +230,14 @@ export interface AppState {
    * fall back to totalJobs rather than to a page length.
    */
   collectionTotals?: CollectionTotals;
-  /** Copies folded into the jobs on screen, on the loaded pages. Accumulate across pages. */
+  /**
+   * INT-05 catalogue serving: the page-independent aggregates (counts, facets,
+   * freshness) for the current filters. Callers render these instead of
+   * deriving counts from loaded rows. Missing on older responses and on
+   * databases that predate the catalogue tables.
+   */
+  catalogue?: CatalogueReport;
+  /** Copies folded into a visible primary under the current filters. Page-independent since INT-05. */
   hiddenDuplicates?: number;
   jobLimit?: number;
   /** Keyset cursor for the next page of /api/state, or null/undefined when this page is the end. */

@@ -204,6 +204,26 @@ export async function mirrorCatalogueForJob(
 }
 
 /**
+ * Mirror several of one account's `jobs` rows after a maintenance pass that
+ * rewrote advert content without going through `upsertJob` (normalization,
+ * search-text backfills). Without this the shared catalogue keeps the
+ * pre-maintenance verdicts while `jobs` moves on, and INT-05 would serve stale
+ * language results. Bounded by the callers' batch sizes; a no-op where the
+ * catalogue tables are absent.
+ */
+export async function mirrorCatalogueForJobs(
+  db: D1Database,
+  userId: string,
+  jobIds: string[],
+  detectorVersion: number,
+): Promise<void> {
+  if (!jobIds.length || !await catalogueTablesPresent(db)) return;
+  for (const jobId of jobIds) {
+    await mirrorCatalogueForJob(db, userId, jobId, detectorVersion);
+  }
+}
+
+/**
  * Forget one account's private catalogue state after its `jobs` rows are deleted.
  * Pass explicit job ids for single/bulk deletes, or nothing to forget the whole
  * account (workspace reset, account deletion). An explicitly empty list is a no-op.
