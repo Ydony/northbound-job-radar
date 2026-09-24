@@ -105,7 +105,7 @@ export const yourRights = [
   },
   {
     right: 'Restriction and objection',
-    how: 'Stop using the search at any time; nothing runs on a schedule. Searches start only when you press a button or explicitly invoke the local command-line client.',
+    how: 'Stop using the search at any time. Manual searches start only when you press a button or explicitly invoke the local command-line client; in addition, the shared public catalogue may re-read eligible public sources on a bounded schedule (at most once per refresh window, with refusals cooled down or paused). That scheduled refresh holds no personal data — only per-source locks, resume positions and timestamps — and never touches administrator-only sources.',
   },
   {
     right: 'Complaint',

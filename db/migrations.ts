@@ -737,4 +737,38 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE INDEX IF NOT EXISTS user_vacancy_state_vacancy_idx ON user_vacancy_state(vacancy_id)',
     ],
   },
+  {
+    // INT-06 (#165): durable state for the bounded public refresh. The per-run
+    // budgets in INT-03 live and die with one click; a scheduled refresh shared by
+    // every visitor must survive restarts instead: a 429 cooldown, a 401/403 pause
+    // and a run lease mean nothing if a worker recycle clears them. One row per
+    // public-eligible source holds its lease, resume cursor, cooldown/pause and
+    // freshness timestamps. The single-row queue coalesces expired-cache demand
+    // into one shared refresh instead of one per visitor. No user_id anywhere:
+    // this is operational state about upstream sources, never personal data.
+    // Admin-only sources never get a row here: runPublicRefresh only ever writes
+    // keys from publicRefreshEligibleKeys(), and the scheduler refuses the rest.
+    version: 31,
+    name: 'public_refresh_locks_cursors',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS public_refresh_state (
+        source_key TEXT PRIMARY KEY NOT NULL,
+        paused INTEGER NOT NULL DEFAULT 0,
+        cooldown_until INTEGER NOT NULL DEFAULT 0,
+        lease_token TEXT NOT NULL DEFAULT '',
+        lease_until INTEGER NOT NULL DEFAULT 0,
+        cursor TEXT NOT NULL DEFAULT '',
+        last_success TEXT NOT NULL DEFAULT '',
+        last_attempt TEXT NOT NULL DEFAULT '',
+        consecutive_failures INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL DEFAULT ''
+      )`,
+      `CREATE TABLE IF NOT EXISTS public_refresh_queue (
+        id TEXT PRIMARY KEY NOT NULL,
+        status TEXT NOT NULL DEFAULT '',
+        requested_at TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT ''
+      )`,
+    ],
+  },
 ];

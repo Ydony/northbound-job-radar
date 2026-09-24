@@ -158,6 +158,12 @@ const NON_USER_TABLE_DISPOSITION: Record<string, string> = {
   // rows survive while any account holds them and are collected once nobody does.
   vacancies: 'shared catalogue, no owner; collected only when unheld',
   vacancy_sources: 'provenance for the shared catalogue, no owner',
+  // INT-06 (#165): installation-wide refresh machinery — per-source locks,
+  // resume cursors, cooldowns/pauses and freshness timestamps, never personal
+  // data. No user_id by design; nothing here belongs to an account, so account
+  // deletion leaves it alone.
+  public_refresh_state: 'installation-wide source locks/cursors/cooldowns, not user data',
+  public_refresh_queue: 'single-row coalesced-refresh flag, not user data',
 };
 
 async function fullSchemaFixture() {

@@ -34,7 +34,7 @@ const localBindingConfig = {
     workers_dev: true,
     routes: [{ pattern: 'ikbeneenappel.nl', custom_domain: true }],
   } : {}),
-  main: 'vinext/server/app-router-entry',
+  main: 'worker/entry.ts',
   compatibility_flags: ['nodejs_compat'],
   d1_databases: d1
     ? [
@@ -57,6 +57,14 @@ const localBindingConfig = {
       simple: { limit: 30, period: 60 as const },
     },
   ],
+  // INT-06 (#165) bounded public refresh: Cloudflare Cron Triggers (native Workers
+  // feature). Prod only — dev/test stay synthetic with no schedule — and fail-closed
+  // behind PUBLIC_REFRESH_ENABLED plus owner-configured PUBLIC_REFRESH_TERMS (see
+  // lib/public-refresh-scheduler.ts). The schedule itself is provisional until
+  // collection costs are measured (plan §4). Deploying is owner-supervised.
+  ...(isProd
+    ? { triggers: { crons: ['0 */6 * * *'] } }
+    : {}),
 };
 
 export default defineConfig(async () => {
