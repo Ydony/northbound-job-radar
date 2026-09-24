@@ -7,6 +7,7 @@ import type { NextConfig } from 'next';
  * ships inline style attributes; scripts do not get that exemption.
  */
 const securityHeaders = [
+  { key: 'X-Robots-Tag', value: 'noindex, nofollow, nosnippet, noimageindex' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'same-origin' },

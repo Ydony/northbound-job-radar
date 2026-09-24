@@ -1,0 +1,5 @@
+/*
+  X-Robots-Tag: noindex, nofollow, nosnippet, noimageindex
+
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable

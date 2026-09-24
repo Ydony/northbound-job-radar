@@ -4,8 +4,10 @@ The owner approved a private, single-admin Cloudflare Worker on 2026-09-23.
 The independent `ikbeneenappel-prod` D1 and first Worker version exist at
 `https://ikbeneenappel-prod.anddonatas.workers.dev`. The owner-only Worker
 secrets and sole administrator are configured; an actual production sign-in
-returned HTTP 200 with an admin session on 2026-09-24. Public DNS for
-`ikbeneenappel.nl` still returns NXDOMAIN, so the custom domain remains pending.
+returned HTTP 200 with an admin session on 2026-09-24. Cloudflare accepted
+`ikbeneenappel.nl` as a custom domain after the owner removed the conflicting
+apex A record. The .nl registry still delegates to OVH; public HTTPS verification
+remains pending the nameserver update and certificate readiness.
 This is not approval for open registration
 or a public job-search service. Do not deploy to OpenAI Sites or `chatgpt.site`.
 
@@ -62,6 +64,18 @@ Before approving it, the owner must also add repository Actions secrets
 names-only check found both configured, but did not verify their values or
 permissions. Do not put their values in chat or source files.
 The custom `.nl` domain is a separate step after registry delegation is live.
+
+## Keep the private site out of search results
+
+All pages carry robots metadata and all page/API responses carry `X-Robots-Tag:
+noindex, nofollow, nosnippet, noimageindex` through `next.config.ts`. Static assets
+receive the same header through `public/_headers`. `public/robots.txt` allows
+fetching so compliant crawlers can read the noindex directives; a blanket
+Disallow would prevent that and can leave bare URLs indexed. No sitemap is
+advertised. This applies to both the Worker URL and any attached custom domain.
+Login and closed registration protect account data; crawler instructions are
+not access control or a guarantee against discovery by noncompliant crawlers.
+Remove the directives only after an explicit owner decision to allow indexing.
 
 ## Before public/open-registration hosting
 

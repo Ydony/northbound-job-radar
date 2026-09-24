@@ -30,6 +30,7 @@ const display = Fraunces({
 });
 
 export const metadata: Metadata = {
+  robots: { index: false, follow: false, nosnippet: true, noimageindex: true },
   title: 'Ik ben een appel — English job filter',
   description: 'An English job-search filter for people who do not speak Dutch. Screens Netherlands and Switzerland vacancies and hides the ones that need a local language.',
 };

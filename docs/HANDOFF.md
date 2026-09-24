@@ -1,5 +1,20 @@
 # Handover
 
+## 2026-09-24 search-engine exclusion
+
+Owner requested no indexing while the site is private. Deployed and verified
+`X-Robots-Tag: noindex, nofollow, nosnippet, noimageindex` on the Worker root,
+login, privacy, sources, unauthenticated API (401), robots.txt and favicon.
+HTML pages additionally render robots metadata. The robots file allows fetching
+so compliant search engines can see noindex; this does not give access to account
+data. Static asset cache headers remain intact. After the owner removed the
+conflicting apex A record, deployment successfully attached `ikbeneenappel.nl`
+to the production Worker. The prod-only route is recorded in `vite.config.ts`.
+Authoritative .nl registry checks still return ns111.ovh.net/dns111.ovh.net;
+NS records inside the OVH zone previously gave a misleading Cloudflare answer.
+Public HTTPS verification is still pending delegation/certificate readiness.
+Keep #148 open until the actual custom-domain login page and headers verify.
+
 ## 2026-09-24 production sign-in repair
 
 The private production Worker at `https://ikbeneenappel-prod.anddonatas.workers.dev`

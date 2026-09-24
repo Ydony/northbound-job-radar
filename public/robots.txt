@@ -1,5 +1,5 @@
-# Ik Engels is a private job workspace. Nothing here is intended for indexing,
-# and every route except the sign-in and transparency pages requires an account.
+# Private workspace: every page sends noindex through metadata and X-Robots-Tag.
+# Permit fetching so search engines can see those directives. Disallow alone
+# can leave a URL indexed without its content. Account data requires a session.
 User-agent: *
-Disallow: /
-Allow: /sources
+Disallow:
