@@ -134,6 +134,9 @@ export async function POST(request: Request) {
       const sent = await sendEmailViaResend(emailConfig,
         verificationEmail(email, verificationLinkFor(request, verification.token)));
       verificationEmailSent = sent.sent;
+      // Recorded, not returned: `GET /api/admin/email` is where a silent delivery
+      // failure becomes visible, and the response here must not vary by address.
+      await recordAttempt(db, email, ip, sent.sent ? 'email-sent' : 'email-failed');
     }
     return Response.json({
       ok: true,

@@ -74,8 +74,11 @@ export async function POST(request: Request) {
     if (row && row.status === 'active' && !row.email_verified_at) {
       const verification = await issueEmailVerification(db, row.id);
       if (emailConfigured(emailConfig)) {
-        await sendEmailViaResend(emailConfig,
+        const resent = await sendEmailViaResend(emailConfig,
           verificationEmail(email, verificationLinkFor(request, verification.token)));
+        // Same rule as the reset route: the answer must not vary by address, so a delivery
+        // failure is recorded for `GET /api/admin/email` rather than reported to the caller.
+        await recordAttempt(db, email, ip, resent.sent ? 'email-sent' : 'email-failed');
       } else if (isLocalBootstrapRequest(request)) {
         // Local-only convenience, mirroring registration: with no sender configured there is
         // no email to click, so the token is handed back on loopback.

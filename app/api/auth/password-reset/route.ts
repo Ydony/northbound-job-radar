@@ -40,8 +40,11 @@ export async function POST(request: Request) {
       const reset = await issuePasswordReset(db, row.id);
       await recordAttempt(db, email, ip, 'reset-request');
       if (emailConfigured(emailConfig)) {
-        await sendEmailViaResend(emailConfig,
+        const sent = await sendEmailViaResend(emailConfig,
           passwordResetEmail(email, passwordResetLinkFor(request, reset.token)));
+        // The response stays identical either way - it must, or it becomes an
+        // account-existence oracle - so the outcome is recorded rather than returned.
+        await recordAttempt(db, email, ip, sent.sent ? 'email-sent' : 'email-failed');
       } else if (isLocalBootstrapRequest(request)) {
         // Local-only convenience, mirroring registration: with no sender configured there is
         // no email to click, so the token is handed back on loopback.

@@ -241,3 +241,44 @@ test('deleting an account removes its verification tokens with everything else',
   const bootstrap = await readFile(new URL('../scripts/bootstrap-prod-admin.mjs', import.meta.url), 'utf8');
   assert.match(bootstrap, /email_verified_at/, 'the bootstrapped owner must start verified');
 });
+
+test('the delivery diagnostics route is administrator-only and never echoes the key', async () => {
+  const source = await readFile(new URL('../app/api/admin/email/route.ts', import.meta.url), 'utf8');
+  // Both methods sit behind the administrator guard. This route deliberately returns the
+  // provider's refusal text, which the public routes must never disclose — that is only safe
+  // while the sole reader already runs the installation.
+  const guards = source.match(/requireSession\(request, \{ adminOnly: true \}\)/g) ?? [];
+  assert.equal(guards.length, 2, 'both GET and POST must be administrator-only');
+
+  // Presence, never the value. `apiKey` must not be serialized: an administrator reading their
+  // own key back out of an API is how it ends up in a screenshot, a paste, or a bug report.
+  assert.match(source, /apiKeyPresent: config\.apiKey !== ''/);
+  assert.doesNotMatch(source, /apiKey:\s*config\.apiKey/);
+  assert.doesNotMatch(source, /key: config\.apiKey/);
+
+  // The sender is not a secret — it is the From line of every message that goes out — so it is
+  // reported, because "which address is it sending as" is half of diagnosing a refusal.
+  assert.match(source, /from: config\.from/);
+});
+
+test('delivery outcomes are recorded without ever recording the reason', async () => {
+  const [auth, reset, verify] = await Promise.all([
+    readFile(new URL('../app/api/auth/route.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../app/api/auth/password-reset/route.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../app/api/auth/verify/route.ts', import.meta.url), 'utf8'),
+  ]);
+  // A silent delivery failure is indistinguishable from a working installation nobody has
+  // used, so each sending path records whether the message went out.
+  for (const [name, source] of [['register', auth], ['reset', reset], ['resend', verify]] as const) {
+    assert.match(source, /'email-sent' : 'email-failed'/, `${name} must record the delivery outcome`);
+  }
+  // Never the reason. Resend's refusal text can quote the address it refused, and auth_events
+  // is not scoped to one account; the reason belongs in an answer to an administrator asking
+  // now, which is POST /api/admin/email.
+  for (const [name, source] of [['reset', reset], ['resend', verify]] as const) {
+    assert.doesNotMatch(source, /recordAttempt\([^)]*\.error/, `${name} must not log the refusal text`);
+  }
+  // The reset response must stay identical whichever way delivery went, or it becomes an
+  // account-existence oracle by timing or shape.
+  assert.match(reset, /return Response\.json\(\{ ok: true \}\);/);
+});
