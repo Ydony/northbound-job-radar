@@ -1,13 +1,13 @@
 # Local environments
 
 Dev and test use Cloudflare's local Miniflare/Workers runtime. A separate private
-Cloudflare production environment is being prepared; it never shares their data.
+Cloudflare production environment now exists; it never shares their data.
 
 | Environment | URL | Purpose | Storage |
 |---|---|---|---|
 | **dev** | `http://localhost:3000` | Hot-reload coding and disposable experiments | `.wrangler/dev/state` |
 | **test** | `http://localhost:3001` | Stable built release used as a real user | `.wrangler/test/state` |
-| **prod** | `https://ikbeneenappel-prod.anddonatas.workers.dev`; custom `.nl` domain pending | Hosted Worker deployed; sign-in pending owner-only secrets and admin bootstrap | Remote `ikbeneenappel-prod` D1, never local TEST |
+| **prod** | `https://ikbeneenappel-prod.anddonatas.workers.dev` and `https://ikbeneenappel.nl` (verified 2026-09-24; `www` not yet redirecting) | Hosted Worker, single admin, registration closed permanently | Remote `ikbeneenappel-prod` D1, never local TEST |
 
 The paths are intentionally different. A dev reset cannot delete test jobs.
 

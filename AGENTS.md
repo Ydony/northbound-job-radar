@@ -51,9 +51,12 @@ product or integration changes. Local environments and the no-hosting decision:
 
 - `dev` (`http://localhost:3000`) and `test` (`http://localhost:3001`) remain local
   and isolated. The owner approved a separate, private Cloudflare production environment
-  on 2026-09-23. Its first Worker version and independent D1 now exist, but
-  the owner-only Worker secrets and administrator bootstrap are still pending.
-  Do not describe sign-in or the private service as ready until #149 is verified.
+  on 2026-09-23. Its Worker, independent D1, owner-only secrets, and the sole
+  administrator account all exist; an authenticated sign-in returned HTTP 200
+  on 2026-09-24, and the custom `.nl` domain is attached and serving over HTTPS
+  (`www` still needs its own redirect — see docs/DEPLOY.md). #149 tracks what's
+  still open: the owner rotating the temporary admin password, and verifying
+  production searches actually return results.
 - Dev and test must keep separate D1 state under `.wrangler/dev/state` and
   `.wrangler/test/state`. Production has its own remote D1; never copy local state or
   credentials into it.

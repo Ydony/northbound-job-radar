@@ -1,13 +1,18 @@
 # Public-deployment readiness — not a deployment plan
 
-Assessment from the code on 2026-09-23. The owner approved a separate, private,
-single-admin Cloudflare production plan (milestone 12; initial D1 configuration
-in commit `35cfa9e`). The first Worker version has been deployed, but it is
-not configured for sign-in and has no administrator yet. DEV (`:3000`) and TEST (`:3001`)
-remain local; do **not** publish either one or copy their D1 state or credentials
-to the host. The blockers below govern a future *public/open-registration*
-service; they are not claims that the private installation is already safe or
-deployed. “Administrator-only” is a code boundary, not permission from a job source.
+Assessment from the code on 2026-09-23, updated 2026-09-24. The owner approved a
+separate, private, single-admin Cloudflare production plan (milestone 12; initial
+D1 configuration in commit `35cfa9e`). It is now live: the Worker, its remote D1,
+owner-only secrets, and the sole administrator account are configured, an
+authenticated sign-in returned HTTP 200 on 2026-09-24, and `https://ikbeneenappel.nl`
+serves the app over HTTPS with the correct security headers (verified
+independently the same day; `www` does not redirect yet). DEV (`:3000`) and TEST
+(`:3001`) remain local; do **not** publish either one or copy their D1 state or
+credentials to the host. The blockers below govern a future *public/open-registration*
+service — they were never satisfied by the private, closed-registration deployment,
+and still are not; a single-admin installation with registration permanently
+closed does not need them. “Administrator-only” is a code boundary, not permission
+from a job source.
 
 ## Current position
 
@@ -22,7 +27,7 @@ The local app has signed sessions, user-scoped queries, a nonce-based script CSP
 | Blocker | One user click fans out to upstream sources and bulk ingestion has `MAX_NEW_PER_BULK_SOURCE = Infinity` in `app/api/scrape/route.ts`. In-memory search limits are per worker instance. | Build the shared public catalogue/coalesced refresh described in the integration plan, plus durable per-user/global budgets, bounded database writes, backpressure and source-specific kill switches. Do not use local administrator sources in that collector. |
 | Blocker | Source permission, display, attribution and retention rules are not uniformly approved for a public catalogue; the current local portfolio includes deliberately private sources. | Revalidate every public feed and its current terms, obtain any required publisher access, and test that admin-only data cannot leak through results, counts, search history, corrections, exports, or errors. EURES attribution and third-party advertisement-text reuse require specific handling; see `docs/SOURCE_POLICY.md`. |
 | Blocker | The dashboard has **no Export control**; `lib/export.ts` is not imported by the app. The privacy page now says this is unavailable. | Implement account-scoped portability, define data retention/deletion, complete a privacy review, and test erasure including recovery snapshots. |
-| Blocker | A separate remote D1 and first Worker version now exist for the planned private installation, but owner-only secrets/bootstrap are outstanding. Those steps do not make a public service ready. | Before public traffic, verify isolated production credentials, deployment permissions, migrations, rollback and abuse controls. Rotate administrator credentials exposed in chat; never use local TEST data as production seed. |
+| Blocker | The private installation's remote D1, Worker, owner-only secrets and sole administrator are now configured and verified working (2026-09-24). That satisfies a single-admin, closed-registration deployment; it does not make a public service ready. | Before public traffic, verify isolated production credentials, deployment permissions, migrations, rollback and abuse controls at public scale. Never use local TEST data as production seed. |
 | High | Auth and search limits rely on D1 or per-process maps; the durable limiter currently fails open on DB errors and its read/update steps are not atomic under concurrent requests. | Set a documented failure policy, make critical limits atomic/durable, add edge abuse protection and concurrency tests; verify behavior under a multi-instance runtime. |
 | High | Authenticated GET responses such as `/api/state`, `/api/account`, and `/api/feedback` do not consistently set `Cache-Control: no-store`. | Add and test a consistent private-response cache policy at the API boundary before placing a CDN or reverse proxy in front. |
 | High | There is no production-grade event/audit trail, alerting, or incident process; `auth_events` is limited to sign-ins. | Record minimal security events without job content, define retention/access, alerts, abuse response, key rotation and incident handling. |

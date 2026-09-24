@@ -6,8 +6,15 @@ The independent `ikbeneenappel-prod` D1 and first Worker version exist at
 secrets and sole administrator are configured; an actual production sign-in
 returned HTTP 200 with an admin session on 2026-09-24. Cloudflare accepted
 `ikbeneenappel.nl` as a custom domain after the owner removed the conflicting
-apex A record. The .nl registry still delegates to OVH; public HTTPS verification
-remains pending the nameserver update and certificate readiness.
+apex A record. Verified independently on 2026-09-24: the .nl registry now
+delegates to Cloudflare (`samara.ns.cloudflare.com`/`leonard.ns.cloudflare.com`),
+and `https://ikbeneenappel.nl` and `/login` both return HTTP 200 with a valid
+certificate and the full security-header set including `X-Robots-Tag: noindex,
+nofollow, nosnippet, noimageindex`. `https://www.ikbeneenappel.nl` is not yet
+working — Cloudflare proxies it (a DNS record exists) but returns 522, because
+no redirect or Worker route is configured for that hostname. A CNAME alone
+does not create a redirect; this needs either a Cloudflare Redirect Rule or a
+host-aware redirect in the Worker, done as a separate follow-up.
 This is not approval for open registration
 or a public job-search service. Do not deploy to OpenAI Sites or `chatgpt.site`.
 
@@ -63,7 +70,8 @@ Before approving it, the owner must also add repository Actions secrets
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. A later 2026-09-24
 names-only check found both configured, but did not verify their values or
 permissions. Do not put their values in chat or source files.
-The custom `.nl` domain is a separate step after registry delegation is live.
+The custom `.nl` domain is attached and verified working (see above);
+`www.ikbeneenappel.nl` still needs its own redirect, tracked separately.
 
 ## Keep the private site out of search results
 
