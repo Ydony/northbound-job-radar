@@ -2,10 +2,21 @@
 
 The owner approved a private, single-admin Cloudflare Worker on 2026-09-23.
 The independent `ikbeneenappel-prod` D1 and first Worker version exist at
-`https://ikbeneenappel-prod.anddonatas.workers.dev`. Authentication is **not ready**:
-owner-only Worker secrets, the first administrator and the custom domain are
-still pending. This is not approval for open registration
+`https://ikbeneenappel-prod.anddonatas.workers.dev`. The owner-only Worker
+secrets and sole administrator are configured; an actual production sign-in
+returned HTTP 200 with an admin session on 2026-09-24. Public DNS for
+`ikbeneenappel.nl` still returns NXDOMAIN, so the custom domain remains pending.
+This is not approval for open registration
 or a public job-search service. Do not deploy to OpenAI Sites or `chatgpt.site`.
+
+Production password recovery is `npm run reset:prod-admin-password` after
+`npm run build:prod`. It refuses anything other than exactly one active admin,
+generates a temporary password, revokes existing sessions, and prints it only
+after verifying the remote D1 hash. The owner must change it in Settings.
+Workers caps PBKDF2 at 100,000 iterations, so all newly created hashes use that
+limit. Older 210,000-iteration local hashes cannot authenticate on the hosted
+Worker; do not copy local users to production. Before opening public sign-ups,
+replace this compatibility compromise with a reviewed password-hashing scheme.
 
 The supported environments are documented in `docs/ENVIRONMENTS.md`:
 

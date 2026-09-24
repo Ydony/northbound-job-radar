@@ -1,5 +1,23 @@
 # Handover
 
+## 2026-09-24 production sign-in repair
+
+The private production Worker at `https://ikbeneenappel-prod.anddonatas.workers.dev`
+has one active admin, `ALLOW_SIGNUPS=false`, and an independent D1. The first
+production sign-in failed because `lib/auth.ts` generated 210,000-iteration
+PBKDF2 hashes, but the hosted Workers runtime rejects PBKDF2 above 100,000
+iterations with `NotSupportedError`. The error was caught and shown as an
+incorrect password. This was reproduced against the live API and confirmed in
+temporary Worker diagnostics, which were then removed. Newly generated hashes,
+including the missing-account timing-equivalence hash, now use 100,000. A new
+temporary password was set and **the live `/api/auth` returned HTTP 200, admin
+role, and a session cookie**. Repeated diagnostic requests briefly exhausted the
+15-minute email rate-limit window; let that window expire rather than weakening
+the limiter. Do not write the temporary password in source, logs, or docs. The
+owner still needs to sign in and change it in Settings. `ikbeneenappel.nl`
+remains unconnected: public DNS currently reports NXDOMAIN despite DNS records
+being visible in the Cloudflare zone.
+
 ## 2026-09-24 first private Worker deployment (incomplete setup)
 
 `npm run deploy:prod` succeeded from an isolated worktree at
