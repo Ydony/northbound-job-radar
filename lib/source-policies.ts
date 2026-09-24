@@ -79,6 +79,15 @@ export const sourcePolicies: SourcePolicy[] = [
     link: 'https://www.job-room.ch/robots.txt',
   },
   {
+    name: 'FreeHire (Switzerland and Netherlands)',
+    group: 'Authorized APIs',
+    stance: 'intended-use',
+    collected: 'Full-description search results for the saved role keywords, restricted to seven reviewed employer-board upstreams (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable): title, company, location, description, posting date, link.',
+    theirRules: 'Checked 2026-09-24. The terms permit documented API use and prohibit scraping beyond it; robots.txt and llms.txt point agents at exactly this full-description endpoint and ask for an identifying User-Agent. No display, caching or attribution conditions are stated; the advertisement text is aggregated from third parties.',
+    ourPosition: 'Used as documented: unauthenticated, paced and capped, with an identifying User-Agent. Only the seven ATS platforms this app already reads directly are accepted; re-served aggregators (EURES, Adzuna, WhatJobs) and unreviewed boards are excluded by an explicit allowlist. Advertisement text is screened server-side and not republished — you get the facts, our verdict, and a link. Direct confirmation of redistribution is still outstanding and will be asked for before launch.',
+    link: 'https://freehire.me/docs/api',
+  },
+  {
     name: 'jobs.ch',
     group: 'Restricted sites',
     stance: 'against-terms',

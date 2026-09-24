@@ -2,6 +2,7 @@ import { searchAtsBoards } from './ats-feeds';
 import { INDEED_SOURCE_KEYS } from './indeed/access';
 import { searchAdzuna, searchCareerjet, type AggregatorCredentials } from './job-aggregators';
 import { searchEures } from './eures';
+import { searchFreehire } from './freehire';
 import { searchJobRoom } from './job-room';
 import { sourceInfoForUrl } from './job-identity';
 import { delay, extractJobPosting, interleaveUnique, stripHtml, type ParsedJob } from './jobsch';
@@ -273,6 +274,18 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
     access: 'authorized-api', availability: 'enabled',
     availabilityMessage: 'Official Swiss public employment service; unauthenticated public search API. Search returns previews, so each advertisement is then fetched in full from the same API - without that step almost every listing is too short to screen.',
     searchDetailed: (terms) => searchJobRoom(terms),
+  },
+  {
+    key: 'freehire-ch', name: 'FreeHire Switzerland', country: 'switzerland',
+    access: 'authorized-api', availability: 'enabled',
+    availabilityMessage: 'Public aggregator API used as documented: full-description search, no key. Only the seven reviewed employer-board upstreams are read; the rest of the catalogue is excluded.',
+    searchDetailed: (terms) => searchFreehire(terms, 'switzerland'),
+  },
+  {
+    key: 'freehire-nl', name: 'FreeHire Netherlands', country: 'netherlands',
+    access: 'authorized-api', availability: 'enabled',
+    availabilityMessage: 'Public aggregator API used as documented: full-description search, no key. Only the seven reviewed employer-board upstreams are read; the rest of the catalogue is excluded.',
+    searchDetailed: (terms) => searchFreehire(terms, 'netherlands'),
   },
   {
     key: 'adzuna-ch', name: 'Adzuna Switzerland', country: 'switzerland',
