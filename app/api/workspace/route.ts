@@ -1,5 +1,6 @@
 import { ensureSchema } from '@/db/runtime';
 import { ownedDataDeletionStatements } from '@/lib/account-deletion';
+import { removeUserVacancyState } from '@/lib/catalogue';
 import { requireSession } from '@/lib/guard';
 
 export async function DELETE(request: Request) {
@@ -13,5 +14,8 @@ export async function DELETE(request: Request) {
   }
 
   await db.batch(ownedDataDeletionStatements(db, user.id));
+  // INT-04 (#163): forget this account's catalogue state. Catalogue rows another
+  // account still holds survive; rows nobody holds are removed.
+  await removeUserVacancyState(db, user.id);
   return Response.json({ ok: true });
 }

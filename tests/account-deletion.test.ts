@@ -152,6 +152,12 @@ const NON_USER_TABLE_DISPOSITION: Record<string, string> = {
   rate_limits: '15-minute abuse-prevention counters, self-expiring',
   indeed_control: 'installation-wide Indeed operational state, not user data',
   schema_migrations: 'migration bookkeeping, no user data',
+  // INT-04 (#163): the shared public catalogue is ownerless by design — the
+  // employer's public text plus provenance, not personal data. Per-account records
+  // live in user_vacancy_state (owner-scoped, deleted with the account); catalogue
+  // rows survive while any account holds them and are collected once nobody does.
+  vacancies: 'shared catalogue, no owner; collected only when unheld',
+  vacancy_sources: 'provenance for the shared catalogue, no owner',
 };
 
 async function fullSchemaFixture() {

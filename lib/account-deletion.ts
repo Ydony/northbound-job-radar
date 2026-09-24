@@ -42,6 +42,10 @@ export function ownedDataDeletionStatements(db: D1Database, userId: string): D1P
     // reset deliberately keeps as recovery state, a verification token is provisioning flow
     // state with no meaning after everything it could confirm is gone.
     db.prepare('DELETE FROM email_verifications WHERE user_id = ?').bind(userId),
+    // INT-04 (#163): this account's private catalogue records. The shared catalogue rows
+    // themselves are ownerless and survive here; lib/catalogue.ts removes them only once
+    // no account holds them, which the routes trigger after this batch.
+    db.prepare('DELETE FROM user_vacancy_state WHERE user_id = ?').bind(userId),
   ];
 }
 

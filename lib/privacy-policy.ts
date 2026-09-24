@@ -23,9 +23,9 @@ export const dataWeHold: DataItem[] = [
   },
   {
     what: 'The job advertisements you have collected, and your notes on them',
-    why: 'To keep your shortlist, application status and language corrections between visits. The advertisement text itself is read on the server to decide whether English is enough, and is not sent to your browser or shown here — it belongs to the employer who wrote it. What you see is the job’s facts, our verdict, the requirements we extracted, and a link to the original.',
+    why: 'To keep your shortlist, application status and language corrections between visits. The advertisement text itself is read on the server to decide whether English is enough, and is not sent to your browser or shown here — it belongs to the employer who wrote it. What you see is the job’s facts, our verdict, the requirements we extracted, and a link to the original. Identical advertisements found by more than one account share a single catalogue copy; your saved, applied, dismissed and correction records are private to you and are never shared with another account.',
     legalBasis: 'Performance of a contract.',
-    kept: 'Until you delete them individually, reset the workspace, or delete your account.',
+    kept: 'Your records are removed when you delete them individually, reset the workspace, or delete your account. A shared catalogue copy disappears once nobody holds it anymore.',
   },
   {
     what: 'Your search settings: the roles you are looking for, and required or excluded keywords',

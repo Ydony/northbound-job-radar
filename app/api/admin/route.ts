@@ -1,4 +1,5 @@
 import { authSecrets, ensureSchema } from '@/db/runtime';
+import { removeUserVacancyState } from '@/lib/catalogue';
 import { hashPassword } from '@/lib/auth';
 import { accountDeletionStatements } from '@/lib/account-deletion';
 import { readDailyVisits } from '@/lib/analytics';
@@ -139,6 +140,9 @@ export async function DELETE(request: Request) {
   }
 
   await db.batch(accountDeletionStatements(db, userId, target.email));
+  // INT-04 (#163): forget the deleted account's catalogue state. The shared catalogue
+  // keeps rows other accounts still hold; only rows nobody holds are removed.
+  await removeUserVacancyState(db, userId);
   await recordAdminAction(db, actor.email, target.email, 'delete-account');
   return Response.json({ ok: true });
 }

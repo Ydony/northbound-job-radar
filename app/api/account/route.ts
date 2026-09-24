@@ -1,6 +1,7 @@
 import { authSecrets, emailConfiguration, ensureSchema } from '@/db/runtime';
 import { createSessionValue, hashPassword, isLocalBootstrapRequest, sessionCookie, verifyPassword } from '@/lib/auth';
 import { accountDeletionStatements } from '@/lib/account-deletion';
+import { removeUserVacancyState } from '@/lib/catalogue';
 import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
   verificationLinkFor } from '@/lib/email';
 import { rateLimit, requireSession } from '@/lib/guard';
@@ -129,6 +130,9 @@ export async function DELETE(request: Request) {
   }
 
   await db.batch(accountDeletionStatements(db, user.id, user.email));
+  // INT-04 (#163): forget this account's catalogue state. The shared catalogue keeps
+  // rows other accounts still hold; only rows nobody holds are removed.
+  await removeUserVacancyState(db, user.id);
   return Response.json({ ok: true }, {
     headers: { 'set-cookie': sessionCookie('', isSecureRequest(request), 0) },
   });

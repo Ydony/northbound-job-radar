@@ -1,4 +1,5 @@
 import { analyzeLanguage, type LanguageStatus } from './analysis';
+import { mirrorCatalogueForJob } from './catalogue';
 import { indeedSql, isIndeedRecord } from './indeed/access';
 import { isIndeedUrl, languageForIndeed } from './indeed/normalize';
 import { canonicalJobUrl, isGloballyStableSourceJobId, isNearDuplicate, jobClusterKey, jobIdentityFingerprint,
@@ -359,6 +360,10 @@ export async function upsertJob(db: D1Database, userId: string, rawInput: Upsert
     WHERE jobs.id = ? AND jobs.user_id = ?`)
     .bind(id, userId).first<JobRow>();
   const job = jobFromRow(row!);
+  // INT-04 (#163): keep the shared catalogue and this account's private state in step
+  // with the row just written. The feedback JOIN above deliberately omits user_id so
+  // this long-standing read is unchanged; the mirror re-reads with its own scoping.
+  await mirrorCatalogueForJob(db, userId, id, NORMALIZATION_VERSION);
   return { job, wasKnown: Boolean(existing), wasDuplicate, wasDismissed: job.visibilityStatus === 'dismissed' };
 }
 
