@@ -38,6 +38,15 @@ async function register(connection, name) {
     action: 'register', email: `${name}-${run}@example.test`, password,
   });
   registered.push(connection);
+  // INT-14a (#170): a new account is unverified and every call it makes answers 401 until the
+  // emailed link is followed. No sender is configured locally, so the token comes back on
+  // loopback. The role is read from /api/state afterwards because the register response no
+  // longer carries one — better to ask than to assert a role this never saw.
+  if (result.verificationRequired) {
+    assert.ok(result.verificationToken, 'Local registration must hand back a verification token.');
+    await connection.request(`/api/auth/verify?token=${encodeURIComponent(result.verificationToken)}`);
+    return (await connection.request('/api/state')).account.role;
+  }
   return result.role;
 }
 const ad = (suffix, postedAt) => ({
@@ -77,7 +86,13 @@ try {
   assert.deepEqual(state.criteria.roleKeywords, ['Data Analyst', 'Supply Chain']);
   assert.deepEqual((await other.request('/api/state')).jobs, otherBefore.jobs);
   await other.request(`/api/jobs/${first.id}`, 'PATCH', { isSaved: false }, 404);
-  await other.request(`/api/jobs/${first.id}`, 'DELETE');
+  // Job deletion was removed on 2026-09-24 — a delete left no tombstone, so the advert
+  // returned on the next search. The boundary this line watched is the refusal above, and
+  // the route staying gone: if it is ever reinstated, it must refuse another account first.
+  const removedRoute = await fetch(new URL(`/api/jobs/${first.id}`, base), {
+    method: 'DELETE', headers: { Origin: base.origin },
+  });
+  assert.notEqual(removedRoute.status, 200, 'DELETE /api/jobs/:id was removed and must not answer 200.');
   assert.ok((await owner.request('/api/state')).jobs.find((job) => job.id === first.id)?.isSaved);
   await owner.request(`/api/jobs/${first.id}`, 'PATCH', { visibilityStatus: 'dismissed' });
   const repeated = await owner.request('/api/jobs', 'POST', ad('first', '2026-09-01'));

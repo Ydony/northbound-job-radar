@@ -398,13 +398,19 @@ test('routes enforce the audience through the shared helpers, not local splits',
   assert.match(scrape, /visibleSources\.reduce\(\(sum, source\) => sum \+ source\.foundCount, 0\)/);
   assert.match(scrape, /visibleSources\.reduce\(\(sum, source\) => sum \+ source\.knownCount, 0\)/);
   assert.doesNotMatch(scrape, /sourceReports\.reduce\(\(sum, source\) => sum \+ source\.foundCount/);
-  // Corrections, single-record and bulk deletes share one SQL predicate from the registry gate.
+  // Corrections share one SQL predicate derived from the registry gate.
   assert.match(feedback, /audienceExclusionClause\('j', hiddenSourceKeys\)/);
   assert.match(feedback, /adminOnlySourceKeys/);
   assert.match(singleJob, /isHiddenSourceForRole\(job\.source_key, job\.source_url, user\.role === 'admin'\)/);
-  assert.match(singleJob, /audienceExclusionClause/);
   assert.match(jobs, /isHiddenSourceForRole\(sourceInfoForUrl\(sourceUrl\)\.key, sourceUrl, user\.role === 'admin'\)/);
-  assert.match(jobs, /audienceExclusionClause/);
+  // Job deletion does not exist, so there is no delete path for the audience gate to cover.
+  // A delete wrote no tombstone, which meant the next search re-imported the same advert:
+  // the control came off the screen on 2026-09-22 and the routes followed on 2026-09-24.
+  // Dismissal is the durable way to put a job away. Asserted here rather than left to
+  // memory, because the route is easy to reinstate for a "quick cleanup" and the reason
+  // it is absent is not visible from the file it is absent from.
+  assert.doesNotMatch(singleJob, /export async function DELETE/);
+  assert.doesNotMatch(jobs, /export async function DELETE/);
   // The transparency page gates on the signed-in administrator, never on client state.
   assert.match(sources, /sourcePoliciesForRole\(isAdmin\)/);
   assert.match(sources, /viewerIsAdmin/);

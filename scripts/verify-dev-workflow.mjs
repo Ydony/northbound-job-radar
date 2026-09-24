@@ -245,18 +245,40 @@ async function main() {
     assert(sameUrlIsolatedPerOwner(primaryJobId, sameUrlForSecondary.data.job?.id),
       'The same source URL was not isolated per owner.');
     await patchJob(secondary, primaryJobId, { isSaved: false }, 'cross-account patch', 404);
-    await expectStatus(await secondary.request(`/api/jobs/${primaryJobId}`, { method: 'DELETE' }), 200,
-      'cross-account delete response');
-    const primaryStateAfterAttack = await expectStatus(await primary.request('/api/state'), 200,
+    // Job deletion was removed on 2026-09-24: a delete wrote no tombstone, so the advert
+    // returned on the next search. Dismissal is the durable way to put a job away. The
+    // boundary is still worth watching from here — if the route is ever reinstated for a
+    // "quick cleanup", this is where the harness notices it is reachable across accounts.
+    const goneRoute = await secondary.request(`/api/jobs/${primaryJobId}`, { method: 'DELETE' });
+    assert(goneRoute.response.status !== 200,
+      `DELETE /api/jobs/:id answered ${goneRoute.response.status}. The route was removed; `
+      + 'if it is back, it must refuse another account before anything else.');
+    // Ask for the whole collection, not the default page. INT-05 (#164) moved /api/state to
+    // server-side paging at 40, and by this point the owner has also run a real authorized
+    // search — so the one job this assertion is about had dropped off the first page and the
+    // harness reported a cross-account deletion that had not happened. The question here is
+    // "does the owner still hold this row", which no default page can answer; 2000 is the
+    // route's own JOB_PAGE_MAX, and a dev search stays far below it.
+    const primaryStateAfterAttack = await expectStatus(await primary.request('/api/state?limit=2000'), 200,
       'owner state after cross-account delete');
     assert(primaryStateAfterAttack.jobs.some((job) => job.id === primaryJobId),
       'A cross-account delete removed the owner job.');
 
-    console.log('6/10 Exercising job deletion and confirming safe state export shape...');
-    const disposableJob = await importJob(primary, runId, 'delete', 'Master Data Analyst');
-    await expectStatus(await primary.request(`/api/jobs/${disposableJob.job.id}`, { method: 'DELETE' }), 200,
-      'delete own job');
-    const exportState = await expectStatus(await primary.request('/api/state'), 200, 'read export state');
+    console.log('6/10 Exercising dismissal and confirming safe state export shape...');
+    const disposableJob = await importJob(primary, runId, 'dismiss', 'Master Data Analyst');
+    await patchJob(primary, disposableJob.job.id, { visibilityStatus: 'dismissed' }, 'dismiss own job');
+    // The part deletion never did: re-importing the same advertisement must not bring it
+    // back. `dismissed_jobs` holds the identity tombstone, so the import reports it as
+    // dismissed rather than creating a fresh active card.
+    const reimported = await primary.request('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(manualJobPayload(runId, 'dismiss', 'Master Data Analyst')),
+    });
+    await expectStatus(reimported, 200, 're-import a dismissed job');
+    assert(reimported.data.dismissed === true,
+      'A dismissed advertisement came back as active on re-import — the tombstone did not hold.');
+    const exportState = await expectStatus(await primary.request('/api/state?limit=2000'), 200, 'read export state');
     assert(!exportStateLeaksPrivateFields(JSON.stringify(exportState)),
       'State exposed legacy CV text or its object key.');
     JSON.stringify(exportState);
@@ -309,7 +331,8 @@ async function main() {
       authorizedSourcesReported: authorizedData.run.sources.length,
       checks: [
         'new accounts', 'criteria', 'authorized search', 'restricted refusal',
-        'pipeline states', 'language correction', 'tenant isolation', 'safe export state',
+        'pipeline states', 'language correction', 'tenant isolation', 'dismissal survives re-import',
+        'safe export state',
         'credential change', 'session revocation', 'page rendering', 'workspace reset', 'account deletion',
       ],
     }, null, 2));

@@ -210,8 +210,8 @@ try {
   const registered = await evaluate(`fetch('/api/auth', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ action: 'register', email: ${JSON.stringify(account)}, password: ${JSON.stringify(secret)} }),
-  }).then((r) => r.status)`);
-  if (registered === 429) {
+  }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) }))`).then((r) => r ?? { status: 0, body: null });
+  if (registered.status === 429) {
     // Registration is limited to 5 per 15 minutes per IP, durably, in the database. Running this
     // check a few times in a row exhausts it. That is the app defending itself working correctly,
     // and it says nothing at all about the design - so it must not look like a design failure, or
@@ -223,10 +223,24 @@ try {
     child.kill();
     process.exit(2);
   }
-  if (registered !== 200) {
+  if (registered.status !== 200) {
     // Registration is open on dev and closed on test; say which it is rather than failing blind.
-    throw new Error(`could not register a throwaway account (HTTP ${registered}). `
+    throw new Error(`could not register a throwaway account (HTTP ${registered.status}). `
       + 'This check needs an environment with registration open, which is dev.');
+  }
+  // INT-14a (#170): a new account is unverified, and every API call it makes answers 401 until
+  // the emailed link is followed. Locally there is no sender, so registration hands the token
+  // back on loopback. Confirming it here is not optional politeness: without it the seeding
+  // below fails 401, the page renders no job cards, and a check whose whole purpose is to
+  // measure job cards reports on an empty page.
+  if (registered.body?.verificationRequired) {
+    const confirmed = await evaluate(
+      `fetch('/api/auth/verify?token=' + encodeURIComponent(${JSON.stringify(registered.body.verificationToken ?? '')}))
+        .then((r) => r.status)`);
+    if (confirmed !== 200) {
+      throw new Error(`could not confirm the throwaway account (HTTP ${confirmed}). `
+        + 'Registration succeeded but the account stayed unverified, so nothing can be seeded.');
+    }
   }
   notes.push(`signed in as a throwaway account (${account})`);
 

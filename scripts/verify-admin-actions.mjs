@@ -82,8 +82,16 @@ assert(!JSON.stringify(overview).includes('sourceUrl'), 'the overview must not e
 checks.push('admin overview is counts-only');
 
 console.log('2/9 Creating a disposable target account...');
-await expect(await target.request('/api/auth', json({ action: 'register', email: targetEmail, password: targetPassword })),
+const targetRegistration = await expect(
+  await target.request('/api/auth', json({ action: 'register', email: targetEmail, password: targetPassword })),
   200, 'target registration');
+// INT-14a (#170): the account is unverified until the emailed link is followed, and every call
+// it makes answers 401 until then. No sender is configured locally, so the token comes back on
+// loopback — without this the next line fails 401 on a working app.
+if (targetRegistration?.verificationRequired) {
+  await expect(await target.request(`/api/auth/verify?token=${encodeURIComponent(targetRegistration.verificationToken)}`),
+    200, 'target verification');
+}
 await expect(await target.request('/api/state'), 200, 'target can use its own workspace');
 checks.push('target account created');
 

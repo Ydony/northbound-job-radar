@@ -30,6 +30,15 @@ async function register(connection, name) {
   const result = await connection.request('/api/auth', 'POST', {
     action: 'register', email: name === 'bootstrap' ? 'indeed-bootstrap@example.test' : `${name}-${run}@example.test`, password });
   registered.push(connection);
+  // INT-14a (#170): a new account is unverified and every call it makes answers 401 until the
+  // emailed link is followed. No sender is configured locally, so the token comes back on
+  // loopback. The role is read from /api/state afterwards because the register response no
+  // longer carries one — better to ask than to assert a role this never saw.
+  if (result.verificationRequired) {
+    assert.ok(result.verificationToken, 'Local registration must hand back a verification token.');
+    await connection.request(`/api/auth/verify?token=${encodeURIComponent(result.verificationToken)}`);
+    return (await connection.request('/api/state')).account.role;
+  }
   return result.role;
 }
 try {
@@ -66,7 +75,6 @@ try {
   assert.equal(repeat.dismissed, true);
   assert.equal((await owner.request('/api/feedback')).total, 1);
   await other.request(`/api/jobs/${first.id}`, 'PATCH', { isSaved: false }, 404);
-  await other.request(`/api/jobs/${first.id}`, 'DELETE');
   assert.equal((await other.request('/api/state')).totalJobs, 0);
   const otherJob = (await other.request('/api/jobs', 'POST', publicAd)).job;
   assert.notEqual(otherJob.id, publicJob.id);
@@ -77,13 +85,13 @@ try {
   assert.equal(JSON.stringify(publicState).toLowerCase().includes('indeed'), false, 'State/export/history leaks Indeed metadata');
   assert.equal((await owner.request('/api/feedback')).total, 0);
   await owner.request('/api/admin/indeed', 'GET', undefined, 403);
+  // A demoted owner is refused every write to the hidden record. The two delete calls that
+  // stood here went with the routes on 2026-09-24; the refusal above is what they proved.
   await owner.request(`/api/jobs/${first.id}`, 'PATCH', { isSaved: false }, 404);
-  await owner.request(`/api/jobs/${first.id}`, 'DELETE');
-  await owner.request('/api/jobs', 'DELETE', { ids: [first.id] });
   await bootstrap.request('/api/admin', 'PATCH', { userId: ownerId, action: 'promote' });
   const state = await owner.request('/api/state');
   const kept = state.jobs.find(job => job.id === first.id);
-  assert.ok(kept, 'Denied writes/deletes must preserve hidden record');
+  assert.ok(kept, 'Denied writes must preserve the hidden record');
   assert.equal(kept.isSaved, true);
   assert.equal(kept.applicationStatus, 'applied');
   assert.equal(kept.visibilityStatus, 'dismissed');

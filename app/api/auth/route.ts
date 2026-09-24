@@ -3,7 +3,7 @@ import { clearedSessionCookie, createSessionValue, isLocalBootstrapRequest, isSa
 import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
   verificationLinkFor } from '@/lib/email';
 import { clientIp, durableRateLimit, nativeRateLimit } from '@/lib/guard';
-import { TURNSTILE_TEST_SECRET_ALWAYS_PASS, verifyTurnstileToken } from '@/lib/turnstile';
+import { verifyTurnstileToken } from '@/lib/turnstile';
 import { authenticate, countUsers, createUser, findUserByEmail, isValidEmail, normalizeEmail,
   passwordProblem, touchLastSeen } from '@/lib/users';
 
@@ -35,10 +35,17 @@ async function verifyRegistrationBot(
   if (!secretKey && !isLocalBootstrapRequest(request)) {
     return Response.json({ error: 'Registration is not available on this installation.' }, { status: 503 });
   }
-  const verification = await verifyTurnstileToken(token, {
-    secretKey: secretKey || TURNSTILE_TEST_SECRET_ALWAYS_PASS,
-    remoteIp: ip,
-  });
+  // No key configured, and we got past the refusal above, so this is a local installation.
+  // There is no bot check to run here, and pretending to run one costs more than it says:
+  // verifying against Cloudflare's always-pass test secret accepts any token by definition,
+  // so it adds a network round trip and no security — while still demanding a token, which
+  // no headless caller has. That broke every harness that registers an account (verify:dev,
+  // verify-admin-actions, verify-cluster-workflow, verify-indeed-workflow, check-visual);
+  // none of them runs a browser widget, and none of them is in the merge gate, so it broke
+  // silently. A hosted installation never reaches this line: without a real key it refused
+  // above, and with one it verifies for real below.
+  if (!secretKey) return null;
+  const verification = await verifyTurnstileToken(token, { secretKey, remoteIp: ip });
   if (!verification.ok) {
     await recordAttempt(db, email, ip, 'bot-rejected');
     return Response.json({ error: 'The bot check did not pass. Reload and try again.' }, { status: 400 });

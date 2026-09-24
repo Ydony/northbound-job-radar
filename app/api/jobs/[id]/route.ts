@@ -1,8 +1,7 @@
 import { ensureSchema } from '@/db/runtime';
-import { mirrorCatalogueForJob, removeUserVacancyState } from '@/lib/catalogue';
+import { mirrorCatalogueForJob } from '@/lib/catalogue';
 import { requireSession } from '@/lib/guard';
-import { adminOnlySourceKeys, isHiddenSourceForRole } from '@/lib/job-adapters';
-import { audienceExclusionClause } from '@/lib/server-data';
+import { isHiddenSourceForRole } from '@/lib/job-adapters';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { normalizeLanguageFeedback } from '@/lib/language-feedback';
 import { NORMALIZATION_VERSION } from '@/lib/server-data';
@@ -126,30 +125,4 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   // state — mirror it so the catalogue side agrees with the `jobs` row.
   await mirrorCatalogueForJob(db, user.id, id, NORMALIZATION_VERSION);
   return Response.json({ ok: true, feedback, isSaved: body.isSaved, applicationStatus, visibilityStatus });
-}
-
-export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
-  await ensureSchema();
-  const { session, response } = await requireSession(request);
-  if (response) return response;
-  const { db, user } = session;
-  const { id } = await context.params;
-  // Deletion obeys the same audience rule as reads: an ordinary account's delete targets only
-  // rows it may see, so a historical admin-only row can neither be confirmed nor removed through
-  // this account. Same two guards as /api/feedback: hidden keys plus the Indeed URL patterns for
-  // legacy rows whose key is missing or wrong.
-  const hiddenKeys = user.role === 'admin' ? [] : [...adminOnlySourceKeys()];
-  const audience = audienceExclusionClause('', hiddenKeys);
-  const audienceClause = audience.clause;
-  const audienceParams = audience.params;
-  await db.batch([
-    db.prepare(`DELETE FROM language_feedback WHERE job_id = ? AND user_id = ? AND job_id IN
-      (SELECT id FROM jobs WHERE user_id = ?${audienceClause})`).bind(id, user.id, user.id, ...audienceParams),
-    db.prepare(`DELETE FROM jobs WHERE id = ? AND user_id = ?${audienceClause}`).bind(id, user.id, ...audienceParams),
-  ]);
-  // INT-04 (#163): forget this account's catalogue state for the deleted row. Rows the
-  // audience guard spared keep their state (the helper checks the row is really gone);
-  // catalogue rows another account still holds survive.
-  await removeUserVacancyState(db, user.id, [id]);
-  return Response.json({ ok: true });
 }

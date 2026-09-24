@@ -190,14 +190,18 @@ a match percentage, or a per-CV breakdown.
 - `POST /api/admin/job-room-backfill` — administrator-only, bounded repair of that administrator's
   preview-length legacy Job-Room rows, with detector-transition reporting
 - `PATCH /api/jobs/:id` — independently update saved/application/visibility state and language feedback; dismissal writes a tombstone
-- `DELETE /api/jobs/:id` — delete one analyzed job and its language feedback
-- `DELETE /api/jobs` — delete selected job IDs or all jobs and their associated language feedback
 - `DELETE /api/workspace` — confirmation-gated deletion of jobs, feedback, and criteria
 
-The per-job delete and the JSON/CSV export were removed from the screen on 2026-09-22: a
-delete that leaves no tombstone returns the same advertisement on the next search, which
-reads as a bug. `DELETE /api/jobs`, `DELETE /api/jobs/:id` and `lib/export.ts` still exist
-behind the API and are unreferenced by the client.
+**There is no way to delete a job, and that is deliberate.** Deleting wrote no tombstone,
+so the next search found the same advertisement and imported it again — the control looked
+broken because it was. It came off the screen on 2026-09-22 along with JSON/CSV export, and
+`DELETE /api/jobs` and `DELETE /api/jobs/:id` were removed outright on 2026-09-24; both now
+answer 405, unauthenticated, disclosing nothing. `lib/export.ts` went the same day (#142).
+
+Dismissal is how a job is put away: `PATCH /api/jobs/:id` with `visibilityStatus: 'dismissed'`
+writes an identity tombstone to `dismissed_jobs`, which survives re-import — `verify:dev`
+checks exactly that, and `tests/public-admin-isolation.test.ts` asserts the routes stay absent.
+Emptying the whole workspace on purpose is a different act and keeps its control.
 
 Changing role criteria recalculates every stored job's language result in D1 batches. The
 client reloads state afterward so classifications and labels are current.
