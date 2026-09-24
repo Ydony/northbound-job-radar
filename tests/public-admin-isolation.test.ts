@@ -383,14 +383,24 @@ test('the enforced gate hides exactly the registry admin audience plus declared 
 test('routes enforce the audience through the shared helpers, not local splits', async () => {
   const root = new URL('..', import.meta.url);
   const read = (path: string) => readFile(new URL(path, root), 'utf8');
-  const [state, scrape, feedback, singleJob, jobs, sources] = await Promise.all([
+  const [state, scrape, feedback, singleJob, jobs, sources, catalogueQuery] = await Promise.all([
     read('app/api/state/route.ts'),
     read('app/api/scrape/route.ts'),
     read('app/api/feedback/route.ts'),
     read('app/api/jobs/[id]/route.ts'),
     read('app/api/jobs/route.ts'),
     read('app/sources/page.tsx'),
+    read('lib/catalogue-query.ts'),
   ]);
+  // #188: the served card takes its canonical URL from the account's OWN jobs row, never
+  // from the shared `vacancies` row. One advertisement posted to a public source and to an
+  // administrator-only one folds into a single catalogue row, and that row keeps whichever
+  // copy wrote it - so `v.canonical_url` handed an ordinary account an `nl.indeed.com` link
+  // for a record whose own source was `example.com`. The audience gate held on the record
+  // and leaked through its content. Pinned here because the two columns differ by one
+  // character and the wrong one looks entirely reasonable.
+  assert.match(catalogueQuery, /const PAGE_COLUMNS = `v\.id AS vacancy_id, j\.canonical_url,/);
+  assert.doesNotMatch(catalogueQuery, /PAGE_COLUMNS = `v\.id AS vacancy_id, v\.canonical_url/);
   // Stored runs and fresh searches shape through the same functions tested above.
   assert.match(state, /visibleSearchRuns\(runs\.results, runSources\.results/);
   assert.match(scrape, /visibleSourceReports\(sourceReports, user\.role === 'admin', hiddenForAccount\)/);

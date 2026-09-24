@@ -266,9 +266,15 @@ async function fixture() {
     d1Databases: ['DB'],
   });
   const db = await runtime.getD1Database('DB') as unknown as D1Database;
+  // `canonical_url` is on the real `jobs` table (db/runtime.ts) and is what the served card
+  // takes its link from since #188 — the shared `vacancies` row keeps whichever copy wrote it,
+  // so reading the link from there leaked an administrator-only source to an ordinary account.
+  // This fixture is a hand-written subset of the schema; a column missing here is a query this
+  // suite cannot exercise, which is how that leak stayed invisible to it.
   await db.prepare(`CREATE TABLE jobs (
     id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL DEFAULT '',
-    source_url TEXT NOT NULL DEFAULT '', source_key TEXT NOT NULL DEFAULT '',
+    source_url TEXT NOT NULL DEFAULT '', canonical_url TEXT NOT NULL DEFAULT '',
+    source_key TEXT NOT NULL DEFAULT '',
     source_name TEXT NOT NULL DEFAULT '', source_job_id TEXT NOT NULL DEFAULT '',
     duplicate_of TEXT NOT NULL DEFAULT '')`).run();
   await db.prepare(`CREATE TABLE vacancies (
@@ -299,9 +305,10 @@ async function fixture() {
   const insert = async (rows: Seed[], start: number, end: number) => {
     const slice = rows.slice(start, end);
     await db.batch(slice.map((seed) => db.prepare(`INSERT INTO jobs
-      (id, user_id, source_url, source_key, source_name, source_job_id, duplicate_of)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .bind(seed.jobId, seed.userId, seed.sourceUrl, seed.sourceKey, seed.sourceName, seed.jobId, seed.duplicateOf)));
+      (id, user_id, source_url, canonical_url, source_key, source_name, source_job_id, duplicate_of)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(seed.jobId, seed.userId, seed.sourceUrl, seed.sourceUrl, seed.sourceKey, seed.sourceName,
+        seed.jobId, seed.duplicateOf)));
     await db.batch(slice.map((seed) => db.prepare(`INSERT OR IGNORE INTO vacancies
       (id, canonical_url, country, title, company, location, description, search_text,
        language_status, language_summary, workplace_type, posted_at, identity_fingerprint,

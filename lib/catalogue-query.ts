@@ -375,7 +375,16 @@ interface CataloguePageRow {
   state_updated_at: string;
 }
 
-const PAGE_COLUMNS = `v.id AS vacancy_id, v.canonical_url, v.country, v.title, v.company, v.location,
+// The canonical URL comes from the account's OWN jobs row, never from the shared catalogue
+// row (#188). One advertisement posted to a public source and to an administrator-only one
+// has the same identity fingerprint, so both copies legitimately fold into a single
+// `vacancies` row — and that row keeps whichever copy wrote it. Serving `v.canonical_url`
+// therefore handed an ordinary account a `nl.indeed.com` link for a record whose own source
+// was `example.com`: the audience gate holds on the record and leaked through its content.
+// `j.canonical_url` belongs to the row the account actually holds, and the gate has already
+// removed rows it may not see. `jobFromRow` falls back to deriving it from `j.source_url`
+// when the column is empty, which is equally the account's own copy.
+const PAGE_COLUMNS = `v.id AS vacancy_id, j.canonical_url, v.country, v.title, v.company, v.location,
   v.description, v.language_status, v.language_summary, v.language_signals, v.workplace_type,
   v.posted_at, v.expires_at, v.identity_fingerprint,
   s.job_id, s.is_saved, s.application_status, s.visibility_status,
