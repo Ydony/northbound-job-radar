@@ -10,11 +10,10 @@ apex A record. Verified independently on 2026-09-24: the .nl registry now
 delegates to Cloudflare (`samara.ns.cloudflare.com`/`leonard.ns.cloudflare.com`),
 and `https://ikbeneenappel.nl` and `/login` both return HTTP 200 with a valid
 certificate and the full security-header set including `X-Robots-Tag: noindex,
-nofollow, nosnippet, noimageindex`. `https://www.ikbeneenappel.nl` is not yet
-working — Cloudflare proxies it (a DNS record exists) but returns 522, because
-no redirect or Worker route is configured for that hostname. A CNAME alone
-does not create a redirect; this needs either a Cloudflare Redirect Rule or a
-host-aware redirect in the Worker, done as a separate follow-up.
+nofollow, nosnippet, noimageindex`. `https://www.ikbeneenappel.nl` redirects
+(301, path and query preserved) to the apex via a Cloudflare Redirect Rule —
+configured in the Cloudflare dashboard (Rules → Redirect Rules, "Redirect
+from WWW to root" template), not in this repo. Verified 2026-09-24.
 This is not approval for open registration
 or a public job-search service. Do not deploy to OpenAI Sites or `chatgpt.site`.
 
