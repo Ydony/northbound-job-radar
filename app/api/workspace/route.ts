@@ -1,4 +1,5 @@
 import { ensureSchema } from '@/db/runtime';
+import { ownedDataDeletionStatements } from '@/lib/account-deletion';
 import { requireSession } from '@/lib/guard';
 
 export async function DELETE(request: Request) {
@@ -11,17 +12,6 @@ export async function DELETE(request: Request) {
     return Response.json({ error: 'Workspace reset was not confirmed.' }, { status: 400 });
   }
 
-  await db.batch([
-    db.prepare('DELETE FROM language_feedback WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM jobs WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM search_settings WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM search_roles WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM indeed_settings WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM indeed_coverage WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM dismissed_jobs WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM rejected_listings WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM search_run_sources WHERE run_id IN (SELECT id FROM search_runs WHERE user_id = ?)').bind(user.id),
-    db.prepare('DELETE FROM search_runs WHERE user_id = ?').bind(user.id),
-  ]);
+  await db.batch(ownedDataDeletionStatements(db, user.id));
   return Response.json({ ok: true });
 }

@@ -230,10 +230,14 @@ test('verification and reset endpoints are rate-limited, single-use, and enumera
 });
 
 test('deleting an account removes its verification tokens with everything else', async () => {
+  // Deletion is delegated to the shared helper (#176): the token cleanup lives there, once,
+  // covering self-deletion, admin deletion and workspace reset — not as inline SQL per route.
+  const helper = await readFile(new URL('../lib/account-deletion.ts', import.meta.url), 'utf8');
+  assert.match(helper, /DELETE FROM email_verifications WHERE user_id = \?/);
   const account = await readFile(new URL('../app/api/account/route.ts', import.meta.url), 'utf8');
-  assert.match(account, /DELETE FROM email_verifications WHERE user_id = \?/);
+  assert.match(account, /accountDeletionStatements\(db, user\.id, user\.email\)/);
   const admin = await readFile(new URL('../app/api/admin/route.ts', import.meta.url), 'utf8');
-  assert.match(admin, /DELETE FROM email_verifications WHERE user_id = \?/);
+  assert.match(admin, /accountDeletionStatements\(db, userId, target\.email\)/);
   const bootstrap = await readFile(new URL('../scripts/bootstrap-prod-admin.mjs', import.meta.url), 'utf8');
   assert.match(bootstrap, /email_verified_at/, 'the bootstrapped owner must start verified');
 });

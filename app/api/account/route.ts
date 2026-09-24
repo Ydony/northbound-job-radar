@@ -1,5 +1,6 @@
 import { authSecrets, emailConfiguration, ensureSchema } from '@/db/runtime';
 import { createSessionValue, hashPassword, isLocalBootstrapRequest, sessionCookie, verifyPassword } from '@/lib/auth';
+import { accountDeletionStatements } from '@/lib/account-deletion';
 import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
   verificationLinkFor } from '@/lib/email';
 import { rateLimit, requireSession } from '@/lib/guard';
@@ -127,22 +128,7 @@ export async function DELETE(request: Request) {
     }
   }
 
-  await db.batch([
-    db.prepare('DELETE FROM language_feedback WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM jobs WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM search_settings WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM search_roles WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM indeed_settings WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM indeed_coverage WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM dismissed_jobs WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM rejected_listings WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM search_run_sources WHERE run_id IN (SELECT id FROM search_runs WHERE user_id = ?)').bind(user.id),
-    db.prepare('DELETE FROM search_runs WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM email_verifications WHERE user_id = ?').bind(user.id),
-    db.prepare('DELETE FROM auth_events WHERE email = ?').bind(user.email),
-    db.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
-  ]);
+  await db.batch(accountDeletionStatements(db, user.id, user.email));
   return Response.json({ ok: true }, {
     headers: { 'set-cookie': sessionCookie('', isSecureRequest(request), 0) },
   });

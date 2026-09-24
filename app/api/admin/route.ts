@@ -1,5 +1,6 @@
 import { authSecrets, ensureSchema } from '@/db/runtime';
 import { hashPassword } from '@/lib/auth';
+import { accountDeletionStatements } from '@/lib/account-deletion';
 import { readDailyVisits } from '@/lib/analytics';
 import { requireSession } from '@/lib/guard';
 import { listUsers, revokeSessions, type UserRecord } from '@/lib/users';
@@ -137,22 +138,7 @@ export async function DELETE(request: Request) {
     return Response.json({ error: 'That is the only active administrator.' }, { status: 409 });
   }
 
-  await db.batch([
-    db.prepare('DELETE FROM language_feedback WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM jobs WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM search_settings WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM search_roles WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM indeed_settings WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM indeed_coverage WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM dismissed_jobs WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM rejected_listings WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM search_run_sources WHERE run_id IN (SELECT id FROM search_runs WHERE user_id = ?)').bind(userId),
-    db.prepare('DELETE FROM search_runs WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM email_verifications WHERE user_id = ?').bind(userId),
-    db.prepare('DELETE FROM auth_events WHERE email = ?').bind(target.email),
-    db.prepare('DELETE FROM users WHERE id = ?').bind(userId),
-  ]);
+  await db.batch(accountDeletionStatements(db, userId, target.email));
   await recordAdminAction(db, actor.email, target.email, 'delete-account');
   return Response.json({ ok: true });
 }

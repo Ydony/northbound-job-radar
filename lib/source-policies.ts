@@ -75,7 +75,7 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'unresolved',
     collected: 'Public Swiss vacancy records: title, employer, location, description, posting date, and the employer-declared language requirements.',
     theirRules: 'The official Swiss public employment service. Its own front end calls an unauthenticated public JSON search API. robots.txt disallows the /job-search/ page route under a comment reading "Do not crawl Job Adverts"; the API path itself is not listed.',
-    ourPosition: 'The API path is not disallowed, and this is public-sector data published for job seekers, but that comment states an intent this use does not honour. Materially cleaner than scraping a commercial board, and still not an explicit permission.',
+    ourPosition: 'The API path is not disallowed, and this is public-sector data published for job seekers, but that comment states an intent this use does not honour. Materially cleaner than scraping a commercial board, and still not an explicit permission. Validated for public traffic (INT-08, #167): each search reads at most 6 pages of 100 previews per role keyword, stopping at the first short page, then re-reads at most 200 short previews in full at a fixed 400ms interval; searches are rate-limited per account. A 2026-09-24 probe from a non-local network was answered with a block page, so the adapter stops on any block rather than retrying.',
     link: 'https://www.job-room.ch/robots.txt',
   },
   {
@@ -171,5 +171,6 @@ export const collectionPrinciples = [
   'Verification and password-reset emails are sent through the configured email provider; job sites never receive your email address.',
   'No detection evasion of any kind: no randomised or human-imitating timing, no fingerprint spoofing, no stealth browser plugins, no proxy or IP rotation.',
   'Page-fetched sources run only when explicitly triggered, are capped per run, and wait between requests.',
+  'A source that refuses access is left alone for the rest of the run: the refusal is reported, and nothing retries it, routes around it, or disguises the traffic.',
   'Everything collected stays in a local database on this machine and can be exported or deleted at any time.',
 ];

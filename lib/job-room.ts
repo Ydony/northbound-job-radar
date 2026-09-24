@@ -4,7 +4,9 @@ import { delay, type ParsedJob } from './jobsch';
 const SEARCH_ENDPOINT = 'https://www.job-room.ch/jobadservice/api/jobAdvertisements/_search';
 const DETAIL_ENDPOINT = 'https://www.job-room.ch/jobadservice/api/jobAdvertisements';
 const PUBLIC_JOB_URL = 'https://www.job-room.ch/job-search';
-const PAGE_SIZE = 100;
+/** Advertisements per search page. Exported so the public-volume bound is pinned, not repeated. */
+export const JOB_ROOM_PAGE_SIZE = 100;
+const PAGE_SIZE = JOB_ROOM_PAGE_SIZE;
 const ONLINE_SINCE_DAYS = 30;
 
 /**

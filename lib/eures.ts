@@ -37,8 +37,10 @@ import type { JobCountry } from './types';
  * plus a link to the original; the full text stays server-side, where it is only ever used to
  * decide whether English is enough.
  *
- * Attribution to the ELA is a condition of the permission and is **not implemented yet** —
- * `SOURCE_POLICY.md` §4 tracks it as a blocker for going public.
+ * Attribution to the ELA is a condition of the permission and is implemented in
+ * `lib/attribution.ts`: the credit renders under the job list whenever EURES jobs are on
+ * screen (`needsElaAttribution` in `app/job-radar.tsx`) and `/sources` carries a
+ * "Required attribution" section. `docs/SOURCE_POLICY.md` §4 records it as done.
  */
 const SEARCH_ENDPOINT = 'https://europa.eu/eures/api/jv-searchengine/public/jv-search/search?lang=en';
 const DETAIL_URL = 'https://europa.eu/eures/portal/jv-se/jv-details';
