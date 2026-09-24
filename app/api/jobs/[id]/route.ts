@@ -1,8 +1,10 @@
 import { ensureSchema } from '@/db/runtime';
+import { mirrorCatalogueForJob, removeUserVacancyState } from '@/lib/catalogue';
 import { requireSession } from '@/lib/guard';
 import { indeedSql, isIndeedRecord } from '@/lib/indeed/access';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { normalizeLanguageFeedback } from '@/lib/language-feedback';
+import { NORMALIZATION_VERSION } from '@/lib/server-data';
 import type { ApplicationStatus, VisibilityStatus } from '@/lib/types';
 
 const applicationStatuses = new Set<ApplicationStatus>(['not_applied', 'applied']);
@@ -114,6 +116,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ELSE 'new' END WHERE id = ? AND user_id = ?`).bind(id, user.id));
   }
   await db.batch(statements);
+  // INT-04 (#163): the saved/applied/dismissed/correction change above is private
+  // state — mirror it so the catalogue side agrees with the `jobs` row.
+  await mirrorCatalogueForJob(db, user.id, id, NORMALIZATION_VERSION);
   return Response.json({ ok: true, feedback, isSaved: body.isSaved, applicationStatus, visibilityStatus });
 }
 
@@ -128,5 +133,9 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       (SELECT id FROM jobs WHERE user_id = ?${user.role === 'admin' ? '' : ` AND NOT ${indeedSql()}`})`).bind(id, user.id, user.id),
     db.prepare(`DELETE FROM jobs WHERE id = ? AND user_id = ?${user.role === 'admin' ? '' : ` AND NOT ${indeedSql()}`}`).bind(id, user.id),
   ]);
+  // INT-04 (#163): forget this account's catalogue state for the deleted row. Rows the
+  // audience guard spared keep their state (the helper checks the row is really gone);
+  // catalogue rows another account still holds survive.
+  await removeUserVacancyState(db, user.id, [id]);
   return Response.json({ ok: true });
 }

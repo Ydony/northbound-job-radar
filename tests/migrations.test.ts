@@ -4,7 +4,7 @@ import test from 'node:test';
 import { CV_REMOVAL_VERSION, runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
@@ -128,4 +128,32 @@ test('fresh databases reach every migration: base columns must not duplicate a l
         `base table ${table} already defines ${column}, which a migration re-adds`);
     }
   }
+});
+
+test('catalogue split creates shared and private tables with a lossless backfill', () => {
+  // INT-04 (#163): one catalogue row per distinct advert across accounts, provenance
+  // per source copy, and private state 1:1 with each account's jobs rows. Tombstones
+  // and corrections are read from the existing tables, never moved or deleted.
+  const migration = runtimeMigrations.find((entry) => entry.version === 29);
+  assert.ok(migration, 'migration 29 is missing');
+  const sql = migration.statements.join('\n');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS vacancies \(/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS vacancy_sources \(/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS user_vacancy_state \(/);
+  // The catalogue carries no owner; the private state is keyed by one.
+  assert.doesNotMatch(migration.statements[0], /user_id/);
+  assert.doesNotMatch(migration.statements[1], /user_id/);
+  assert.match(migration.statements[2], /user_id TEXT NOT NULL/);
+  assert.match(sql, /PRIMARY KEY \(user_id, job_id\)/);
+  assert.match(sql, /INSERT OR IGNORE INTO vacancies [\s\S]*?FROM jobs/);
+  assert.match(sql, /INSERT OR IGNORE INTO vacancy_sources [\s\S]*?FROM \(SELECT \*,/);
+  assert.match(sql, /INSERT OR IGNORE INTO user_vacancy_state [\s\S]*?LEFT JOIN language_feedback/);
+  // Corrections and tombstone sources survive: feedback is read, dismissed_jobs untouched.
+  assert.match(sql, /feedback\.corrected_status/);
+  assert.doesNotMatch(sql, /DELETE FROM|DROP TABLE/);
+  // Recurring catalogue lookups are indexed, including the URL identity.
+  assert.match(sql, /vacancies_canonical_url_idx[\s\S]*?ON vacancies\(canonical_url\) WHERE canonical_url != ''/);
+  assert.match(sql, /vacancies_fingerprint_idx ON vacancies\(identity_fingerprint\)/);
+  assert.match(sql, /user_vacancy_state_user_vacancy_idx ON user_vacancy_state\(user_id, vacancy_id\)/);
+  assert.match(sql, /user_vacancy_state_vacancy_idx ON user_vacancy_state\(vacancy_id\)/);
 });

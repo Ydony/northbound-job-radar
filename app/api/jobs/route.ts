@@ -1,4 +1,5 @@
 import { ensureSchema } from '@/db/runtime';
+import { removeUserVacancyState } from '@/lib/catalogue';
 import { requireSession } from '@/lib/guard';
 import { analyzeLanguage } from '@/lib/analysis';
 import { isSafeManualJobUrl } from '@/lib/job-sources';
@@ -52,10 +53,16 @@ export async function DELETE(request: Request) {
   if (!all && !ids.length) return Response.json({ error: 'Choose at least one job to delete.' }, { status: 400 });
 
   if (all) {
+    // Collected first so catalogue state is forgotten exactly for the rows this
+    // delete actually removes — the audience guard below may spare some rows.
+    const doomed = await db.prepare(`SELECT id FROM jobs WHERE user_id = ?${visible}`)
+      .bind(user.id).all<{ id: string }>();
     const results = await db.batch([
       db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (SELECT id FROM jobs WHERE user_id = ?${visible})`).bind(user.id, user.id),
       db.prepare(`DELETE FROM jobs WHERE user_id = ?${visible}`).bind(user.id),
     ]);
+    // INT-04 (#163): forget this account's catalogue state for the deleted rows.
+    await removeUserVacancyState(db, user.id, doomed.results.map((row) => row.id));
     return Response.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
   }
 
@@ -64,5 +71,6 @@ export async function DELETE(request: Request) {
     db.prepare(`DELETE FROM language_feedback WHERE user_id = ? AND job_id IN (SELECT id FROM jobs WHERE user_id = ? AND id IN (${placeholders})${visible})`).bind(user.id, user.id, ...ids),
     db.prepare(`DELETE FROM jobs WHERE user_id = ? AND id IN (${placeholders})${visible}`).bind(user.id, ...ids),
   ]);
+  await removeUserVacancyState(db, user.id, ids);
   return Response.json({ ok: true, deletedJobs: results[1].meta.changes ?? 0 });
 }

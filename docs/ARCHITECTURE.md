@@ -240,6 +240,29 @@ that promotion remains pending review. This remains an account-wide recomputatio
 read after a rule change; large-catalogue background processing belongs to the separate pagination
 and catalogue work, not this fix.
 
+### Catalogue and user-state split (2026-09-24, INT-04 #163)
+
+`jobs` used to mix the public advert and one account's private records in a single
+per-account row. Migration 29 adds the §3 persistence boundary from
+`docs/PUBLIC_ADMIN_INTEGRATION_PLAN.md` without deleting anything:
+
+- `vacancies`: one row per distinct advert across ALL accounts (no `user_id` — it is
+  the employer's public text plus provenance, not personal data). Grouping prefers
+  canonical URL, then cross-source fingerprint, then source identity; rows with none
+  stay separate rather than merging strangers.
+- `vacancy_sources`: which source copies built each catalogue row, with seen windows.
+- `user_vacancy_state`: each account's private records 1:1 with its `jobs` rows
+  (saved/applied/dismissed, language corrections). Tombstones stay in
+  `dismissed_jobs`; corrections stay sourced from `language_feedback`.
+
+Write-path mirror (`lib/catalogue.ts`): `upsertJob` and the job PATCH route mirror
+into the catalogue; every delete path (single, bulk, workspace reset, account and
+admin deletion) forgets that account's state. A catalogue row survives while any
+account holds it; only rows nobody holds are collected. Existing reads still use
+`jobs` — INT-05 rewires queries onto the catalogue. Content freshness for rows
+rewritten by maintenance passes (normalization, Job-Room/requirements backfills)
+arrives on the next import touch, not from those passes.
+
 ## 7b. Authorized high-volume sources (2026-08-28)
 
 Page-fetching adapters cost one request per job and are capped at four new jobs per source per

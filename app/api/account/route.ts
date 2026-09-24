@@ -1,4 +1,5 @@
 import { authSecrets, ensureSchema } from '@/db/runtime';
+import { removeUserVacancyState } from '@/lib/catalogue';
 import { createSessionValue, hashPassword, sessionCookie, verifyPassword } from '@/lib/auth';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { findUserById, findUserByEmail, isValidEmail, normalizeEmail, passwordProblem, revokeSessions } from '@/lib/users';
@@ -113,6 +114,9 @@ export async function DELETE(request: Request) {
     db.prepare('DELETE FROM auth_events WHERE email = ?').bind(user.email),
     db.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
   ]);
+  // INT-04 (#163): forget this account's catalogue state. The shared catalogue keeps
+  // rows other accounts still hold; only rows nobody holds are removed.
+  await removeUserVacancyState(db, user.id);
   return Response.json({ ok: true }, {
     headers: { 'set-cookie': sessionCookie('', isSecureRequest(request), 0) },
   });
