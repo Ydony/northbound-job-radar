@@ -1,5 +1,12 @@
 # Private production deployment
 
+> **A self-hosted alternative is proposed, not decided (2026-09-27, #193).** Everything
+> below describes the Cloudflare Worker deployment, which is what production runs. The VPS
+> path — Node 22, SQLite behind a `D1Database` adapter, systemd, nginx, Cloudflare Tunnel —
+> is specified in `docs/VPS_MIGRATION_PLAN.md`, tracked by #193 with #194–#201, and gated on
+> an owner scope decision. When #201 cuts over, the restore procedure from #200 belongs in
+> this file and the Worker steps below become the rollback path, not the primary one.
+
 The owner approved a private, single-admin Cloudflare Worker on 2026-09-23.
 The independent `ikbeneenappel-prod` D1 and first Worker version exist at
 `https://ikbeneenappel-prod.anddonatas.workers.dev`. The owner-only Worker

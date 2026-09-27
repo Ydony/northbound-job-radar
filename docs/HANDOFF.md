@@ -1,5 +1,116 @@
 # Handover
 
+## 2026-09-27 hosting: what a search actually costs, and the VPS direction (#193)
+
+**Nothing is implemented and no scope decision has been made.** This section exists
+so the next agent does not re-derive the measurements or start VPS-01 thinking the
+decision is settled.
+
+Two analysis documents were added, `docs/HOSTING_COST_ANALYSIS.md` (9fad4de) and
+`docs/VPS_MIGRATION_PLAN.md` (29f1d62), plus nine issues: **#193** tracking, with
+**#194–#201** as VPS-01…VPS-08. Owner is Spark; it is carried in each issue body
+because `spark` is not a GitHub account and the API rejects it as an assignee.
+The board's `Owner` field was not set — no Projects v2 access from a cloud
+session, and `pm.py` lives on the owner's Windows machine. It still needs setting
+by hand.
+
+### Why the free plan cannot run a search, in one paragraph
+
+Not volume — per-invocation ceilings. One `/api/scrape` click issues roughly 700
+outbound requests: 282 employer boards (`atsCompanies`, shared by `ats-ch` and
+`ats-nl` through `detailedInFlight`), up to 200 Job-Room detail fetches, plus
+EURES, FreeHire and the admin page-fetch sources. Workers Free allows **50
+external subrequests and 10 ms CPU per invocation**; Paid allows 10,000 and five
+minutes. A free-tier search therefore dies around the fiftieth board, and parsing
+282 payloads was never going to fit in 10 ms. This is the same wall as **#192**,
+which is open and hitting production now.
+
+Moving collection onto the existing INT-06 cron does **not** rescue the free plan:
+scheduled invocations carry the same two ceilings, so a full sweep would need ~47
+ticks — over a month at `0 */6 * * *`.
+
+### Numbers worth not re-deriving
+
+- One user, two sessions a day: **~1,260 Worker requests a month**. Volume is a
+  non-issue and always was.
+- `GET /api/state` makes **13–16 full passes** over the holding set per load — ten
+  aggregates in `queryCatalogueAggregates`, plus places, freshness, collection
+  totals, the page and copies queries, and the three maintenance passes. At a
+  5,000-job catalogue that is ~70,000 rows read per load.
+- **D1 free limits are now enforced with errors**, not degradation, since
+  1 September 2026. Exceeding the daily read limit breaks the app until midnight UTC.
+- Cloudflare Paid costs **$5/month at 100 users** and about **$25 at 1,000**.
+
+### The premise correction, recorded deliberately
+
+The migration was requested on the grounds that Cloudflare "does not scale past
+100 users". It does; the measurements above are in the plan. A single VPS scales
+*less* far than autoscaled edge compute, not further. More importantly, the thing
+that would eventually make Cloudflare expensive is `/api/state`'s read
+amplification, which a VPS **relocates onto our own CPU rather than fixing** —
+at 1,000 users and a 20,000-advert catalogue, roughly 65,000 row-scans a second.
+
+The reasons to migrate that **do** hold: fixed predictable cost, and the absence
+of the per-invocation ceilings that this app's fan-out fights even on the paid
+plan. If the scope decision is "fix the aggregates first", #194–#201 stay in
+Backlog and #192 is the work.
+
+### Why the port is an adapter, not a rewrite
+
+Three findings, all from the code:
+
+- **vinext self-hosts.** `output: 'standalone'` in `next.config.ts` makes
+  `vinext build` emit `dist/standalone/`. The framework layer moves in one line.
+- **D1 *is* SQLite.** `wrangler d1 export` produces a dump the `sqlite3` CLI
+  imports. Nothing to convert.
+- **The Cloudflare coupling is one file.** Only `db/runtime.ts` imports
+  `cloudflare:workers`, and the D1 surface actually used is six methods —
+  `prepare`, `bind`, `first`, `all`, `run`, `batch`, `.meta.changes`. No `exec()`,
+  no `dump()`, no Sessions API anywhere.
+
+So **do not rewrite the ~197 `prepare()` call sites.** A ~150-line `D1Database`
+adapter over better-sqlite3 keeps every one of them, and the 538-test suite, as
+they are. That is #195, and it is the load-bearing task. Miniflare already
+implements D1 over better-sqlite3 and is the reference.
+
+**SQLite, not Postgres** — deliberate. SQLite keeps this an adapter; Postgres makes
+it a dialect rewrite across those ~197 queries plus a second daemon to run and
+back up, for a one-writer workload.
+
+### Owner's stated direction: VPS first, then hardware at home
+
+Develop on an OVH VPS-2 (4 vCore / 8 GB / 75 GB NVMe, €8.72/month incl. VAT —
+matches the recommended tier), then move to a mini PC at home. The migration work
+is identical for both targets: once off Workers, a VPS and a box in a hallway are
+the same Node 22 + SQLite + systemd + nginx deployment.
+
+One architectural consequence, and it should be settled before #199 is built:
+**use `cloudflared` (Cloudflare Tunnel) rather than pointing DNS at the origin
+IP.** It is free, needs no port forwarding or static IP, works behind CGNAT,
+does not expose a home IP, and turns the eventual move home into starting the
+connector on the new machine and stopping it on the old one. Going direct-to-IP
+on the VPS means re-solving all of it later under time pressure.
+
+Home hosting also makes **#200 more important, not less**: there is no OVH
+snapshot behind it, and consumer NVMe fails without warning. Litestream to R2 or
+B2 stays inside a free tier. Full-disk encryption applies — the box holds EU
+users' personal data and the owner is its controller wherever it sits.
+
+The money, honestly: hardware and UPS around €320 against ~€5.70 saved a month,
+so **breakeven is four to five years**. Home hosting is worth doing for control
+or for reusing the hardware; it is not a saving at this scale.
+
+### Not done
+
+- No scope decision. #193 carries the gate.
+- Board `Owner` field not set on any of #193–#201.
+- Nothing measured live: catalogue size, CPU per invocation, and whether vinext
+  emits an `assets` binding are all modelled, not read. §7 of
+  `HOSTING_COST_ANALYSIS.md` lists exactly which numbers those are. Real figures
+  are in the Cloudflare dashboard.
+- **#192 and #193 overlap and neither absorbs the other yet.** Decide whether the
+  subrequest wall is fixed on Cloudflare or by the migration.
+
 ## 2026-09-27 first full production release, and the email path
 
 **Production is live and current at `ikbeneenappel.nl`, version `9604afe9`**, deployed
