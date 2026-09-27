@@ -5,6 +5,13 @@ Last updated: 2026-09-09.
 > Historical decision record, not a current implementation map. CV upload, matching, R2
 > storage and related API paths described below were removed on 2026-09-23. See
 > `docs/FUNCTIONALITY_MAP.md` and `docs/PUBLIC_DEPLOYMENT_READINESS.md` for current state.
+>
+> **Runtime target under review (2026-09-27, #193).** §3 below describes the Cloudflare
+> Workers + D1 runtime, which is what production runs today. A migration to a self-hosted
+> Node 22 + SQLite VPS, and later to hardware at home, is proposed in
+> `docs/VPS_MIGRATION_PLAN.md` with costs measured in `docs/HOSTING_COST_ANALYSIS.md`.
+> No scope decision has been made; #193 carries the gate. The §7b caps, the §2 source
+> policy and the §5 language gate are unaffected by it either way.
 
 The accepted Swiss + Netherlands multi-source architecture in
 `docs/MULTI_SOURCE_PLAN.md` is implemented. The supported runtime is now local-only with isolated

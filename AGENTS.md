@@ -1,5 +1,17 @@
 # Ik ben een appel: instructions for coding agents
 
+**2026-09-27 hosting direction (#193):** before any hosting, runtime or database-layer
+change, read `docs/VPS_MIGRATION_PLAN.md` and `docs/HOSTING_COST_ANALYSIS.md`. The owner's
+direction is to develop on a VPS and later self-host at home; #193 tracks it with #194-#201
+as VPS-01..VPS-08, owner Spark. **No scope decision has been made and #193 carries the
+gate** - this is not approval to start VPS-01, and it does not change the environment
+boundary below. Two findings that stop work being repeated: the Cloudflare free plan fails
+on per-invocation ceilings (50 external subrequests, 10 ms CPU) rather than on volume, which
+is the same wall as #192; and the port is an adapter, not a rewrite - only `db/runtime.ts`
+imports `cloudflare:workers`, the D1 surface used is six methods, so the ~197 `prepare()`
+call sites stay unchanged behind a `D1Database` adapter over SQLite (#195). Do not migrate
+to Postgres: that turns an adapter into a dialect rewrite across those queries.
+
 **2026-09-22 dedicated Spark DEV:** before verification, read
 `C:/Projects/AI team and PM Tools/WORKER-DEV.md`. DEV at localhost:3000 runs
 this worktree with synthetic-only storage and dedicated admin/user accounts.
