@@ -21,6 +21,7 @@
     "refresh": "node --import tsx scripts/run-refresh.mjs",
     "verify:sqlite-import": "node --import tsx scripts/verify-sqlite-import.mjs",
     "verify:sqlite-restore": "node --import tsx scripts/verify-sqlite-restore.mjs",
+    "selfhosted": "node scripts/run-selfhosted.mjs",
     "verify:selfhosted": "node scripts/verify-selfhosted.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next && stylelint \"app/**/*.css\"",
     "lint:css": "stylelint \"app/**/*.css\"",

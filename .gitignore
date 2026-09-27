@@ -49,3 +49,6 @@ next-env.d.ts
 /UX Audit.pdf
 /UX Audit.dc.html
 /UX and UI improvements.zip
+
+# Self-hosted local environment: an empty SQLite database and its session secret.
+/.local
