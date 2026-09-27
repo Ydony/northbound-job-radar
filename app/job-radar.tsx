@@ -849,7 +849,7 @@ export default function JobRadar() {
     }
     setScrapeMessage(sourceGroup === 'indeed' ? 'Searching Indeed in the selected countries…' : mode === 'all'
       ? 'Searching every source, including the page-fetching ones. Keep the VPN connected…'
-      : 'Searching every source available without the VPN…');
+      : 'Searching available sources…');
     try {
       const response = await fetch('/api/scrape', {
         method: 'POST',
@@ -1173,18 +1173,6 @@ export default function JobRadar() {
           <button className="nav-signout" type="button" onClick={signOut}>Sign out</button>
         </nav>
         <span className="source-pill"><i /> Switzerland + Netherlands</span>
-        {/* The run bar lives in the sticky header on purpose. It used to render down in the
-            workflow section, so pressing Search and scrolling to the list made the run invisible
-            — which is when people press Search a second time. */}
-        {scrapeProgress && <div className="scrape-progress" role="status" aria-live="polite">
-          <div className="scrape-bar"><i style={{ width: `${scrapeProgress.percent}%` }} /></div>
-          <p>
-            <span>{scrapeProgress.label}</span>
-            <b>{scrapeProgress.steps
-              ? `${scrapeProgress.step} of ${scrapeProgress.steps} sources · ${scrapeProgress.percent}%`
-              : `${scrapeProgress.percent}%`}</b>
-          </p>
-        </div>}
       </header>
 
       {/* UX-7f: the introduction band. Dark because it is read once, not used —
@@ -1209,9 +1197,9 @@ export default function JobRadar() {
         </div>
       </section>
 
-      {/* What is left after UX-7c took Find new jobs to the criteria it runs: the
-          administrator run control, the warnings that stop a search, and the progress
-          line. The heading and the second Find new jobs button went with the design. */}
+      {/* Run controls only: progress and completion live beside Search statistics (#190),
+          so one place states what the last run did. The buttons stay disabled while a
+          run is in flight (duplicate-click protection) and admin diagnostics stay here. */}
       <section className="workflow run-strip">
         {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
@@ -1219,7 +1207,6 @@ export default function JobRadar() {
         {noCountrySearched && <p className="form-message" role="status">Both countries are switched off in
           {' '}<a href="#criteria" onClick={() => setSettingsOpen(true)}>Search settings</a>, so there is
           nowhere to search. Turn the Netherlands or Switzerland back on.</p>}
-        <p className="form-message" aria-live="polite">{scrapeMessage}</p>
         {isAdmin && <IndeedStatusPanel busy={loading || Boolean(loadError) || Boolean(scrapeBusy)} searchDisabled={noRolesToSearch} search={() => { void findJobs('authorized', 'indeed'); }}
           roles={indeedActiveRoles(state.criteria.roleKeywords)}
           netherlands={state.criteria.searchNetherlands} switzerland={state.criteria.searchSwitzerland}
@@ -1231,7 +1218,7 @@ export default function JobRadar() {
             <b>Source health</b>
             <button type="button" onClick={checkHealth} disabled={healthBusy}>{healthBusy ? 'Checking…' : 'Check now'}</button>
           </div>
-          {!health && <p>{healthBusy ? 'Contacting each keyed source…' : 'Run a check to confirm your IP still matches what Careerjet expects.'}</p>}
+          {!health && <p>{healthBusy ? 'Contacting each keyed source…' : 'Run a check to see the status of each keyed source.'}</p>}
           {health && <>
             {/* The probe result decides the tone, not the IP comparison. CAREERJET_USER_IP is only
                 the value configured here, so a mismatch while Careerjet is answering means the
@@ -1381,6 +1368,14 @@ export default function JobRadar() {
           <button type="button" onClick={() => setStatsOpen(true)}>
             <span aria-hidden="true">▼</span> Show Search statistics
           </button>
+          {/* #190 moved the run line into a section that Hide removes, which would recreate the
+              defect the old header bar existed to prevent: a search with no visible progress is
+              a search people start twice. Collapsing statistics is the reader's choice and is
+              respected - so the run reports itself here as well, for as long as it is running. */}
+          {(scrapeBusy || scrapeProgress) && <p className="stats-collapsed-run" role="status" aria-live="polite">
+            {scrapeProgress?.label || 'Searching…'}
+            {scrapeProgress?.steps ? ` · ${scrapeProgress.step} of ${scrapeProgress.steps} sources` : ''}
+          </p>}
         </div>}
         <section className="source-dashboard" id="sources" hidden={!statsOpen} aria-label="Search statistics">
             <div className="settings-head">
@@ -1390,6 +1385,19 @@ export default function JobRadar() {
                 <span aria-hidden="true">{statsOpen ? '▲' : '▼'}</span> {statsOpen ? 'Hide' : 'Show'}
               </button>
             </div>
+            {/* #190: the live run and its completion line live here beside the
+                statistics, not in a standalone row or the sticky header, so the
+                numbers and the words describing them stay together. */}
+            {(scrapeBusy || scrapeProgress) && <div className="scrape-progress" role="status" aria-live="polite">
+              <div className="scrape-bar"><i style={{ width: `${scrapeProgress?.percent ?? 0}%` }} /></div>
+              <p>
+                <span>{scrapeProgress?.label || (scrapeBusy ? 'Searching…' : '')}</span>
+                <b>{scrapeProgress?.steps
+                  ? `${scrapeProgress.step} of ${scrapeProgress.steps} sources · ${scrapeProgress.percent}%`
+                  : `${scrapeProgress?.percent ?? 0}%`}</b>
+              </p>
+            </div>}
+            {scrapeMessage && <p className="source-dashboard-explainer" role="status" aria-live="polite">{scrapeMessage}</p>}
             {latestRun && <div className="stats-layout">
               <div className="source-overall" role="status" aria-label="Overall search totals">
               <div><b>{latestRunTotals.newJobs}</b><span>New this search</span><small>advertisements this run had not seen before</small></div>
