@@ -118,6 +118,35 @@ async function register(client, email, password) {
   assert(data.role === 'user', 'A later account must be a non-admin user.');
 }
 
+/**
+ * Take the first-account slot when the database is empty, so the accounts that follow are
+ * ordinary users.
+ *
+ * On loopback the first registration is created verified and signs straight in as the
+ * administrator - there is no address to prove and no emailer to prove it with. Anything else
+ * means the environment was already bootstrapped, which is equally fine.
+ */
+async function bootstrapIfEmpty(client, email, password) {
+  const result = await client.request('/api/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'register', email, password }),
+  });
+  if (result.response.status !== 200) {
+    // Registration closed, or the address is taken. Either way there are already accounts, which
+    // is all this function needed to establish.
+    console.log('      (environment already has accounts)');
+    return;
+  }
+  if (result.data?.role === 'admin') {
+    console.log('      (empty database: claimed the administrator slot)');
+    return;
+  }
+  if (result.data?.verificationRequired && typeof result.data.verificationToken === 'string') {
+    await client.request(`/api/auth/verify?token=${encodeURIComponent(result.data.verificationToken)}`);
+  }
+}
+
 async function saveCriteria(client) {
   const result = await client.request('/api/criteria', {
     method: 'PUT',
@@ -195,12 +224,19 @@ async function main() {
 
   const primary = session(baseUrl, origin);
   const secondary = session(baseUrl, origin);
+  const bootstrap = session(baseUrl, origin);
   let primaryPassword = password;
   let primaryDeleted = false;
   let secondaryDeleted = false;
 
   try {
     console.log('1/10 Registering two disposable non-admin accounts...');
+    // Local environments now start with an empty database (owner decision 2026-09-27: data only
+    // matters in production), and on an empty one the first registration is the administrator - so
+    // this used to fail on its own first step with "A later account must be a non-admin user".
+    // Claim that slot deliberately, then the accounts below are ordinary users as the rest of the
+    // harness assumes. On an already-populated environment this is just another disposable user.
+    await bootstrapIfEmpty(bootstrap, `bootstrap-${runId}@example.test`, password);
     await register(primary, primaryEmail, password);
     await register(secondary, secondaryEmail, password);
 
