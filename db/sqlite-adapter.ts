@@ -32,9 +32,21 @@ type Row = Record<string, unknown>;
  * change count, `run()` yields a change count but no rows — while D1 has one statement that
  * does both. `batch()` therefore has to pick, and `.meta.changes` is read in 25 places, so
  * picking wrong is not cosmetic.
+ *
+ * A leading keyword is not enough, and the first version of this got it wrong: a write with a
+ * `RETURNING` clause reads rows back. `durableRateLimit` in `lib/rate-limit.ts` counts attempts
+ * with one atomic `INSERT ... ON CONFLICT ... RETURNING count, reset_at` — precisely so that
+ * concurrent sign-ins cannot race — and it **fails closed**, so routing that to `run()` returned
+ * no row and every registration and sign-in answered 503 "The sign-in service is temporarily
+ * unavailable." The whole app was unusable on the self-hosted target while all 547 unit tests
+ * passed, because they run against D1 where one method does both. `verify:selfhosted` is what
+ * caught it, and is why that harness exists.
+ *
+ * Matched as a word, not a substring: a column or value containing the letters "returning" must
+ * not turn a write into a read.
  */
 function returnsRows(sql: string): boolean {
-  return /^\s*(?:SELECT|WITH|PRAGMA|EXPLAIN)\b/i.test(sql);
+  return /^\s*(?:SELECT|WITH|PRAGMA|EXPLAIN)\b/i.test(sql) || /\bRETURNING\b/i.test(sql);
 }
 
 /** SQLite hands back BigInt for large integers; D1 hands back numbers, and callers expect numbers. */
@@ -97,7 +109,10 @@ class SqlitePreparedStatement {
     });
     if (returnsRows(this.sql)) {
       const rows = statement.all(...bound) as Row[];
-      return { results: rows.map((row) => plainRow(row) as Row), changes: 0, lastRowId: 0 };
+      // A `RETURNING` write yields one row per affected row, which is the change count D1 would
+      // report. `all()` gives no count of its own, so a read keeps 0 and a write gets the rows.
+      const changes = /\bRETURNING\b/i.test(this.sql) ? rows.length : 0;
+      return { results: rows.map((row) => plainRow(row) as Row), changes, lastRowId: 0 };
     }
     const result = statement.run(...bound);
     return { results: [], changes: Number(result.changes ?? 0), lastRowId: Number(result.lastInsertRowid ?? 0) };

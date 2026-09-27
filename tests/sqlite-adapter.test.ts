@@ -83,6 +83,37 @@ test('undefined bindings fail loudly instead of writing NULL', async () => {
   await assert.rejects(db.prepare('INSERT INTO t (id) VALUES (?)').bind(undefined).run(), TypeError);
 });
 
+test('a write with RETURNING hands back its rows, not an empty result', async () => {
+  // This is the bug that made the whole app unusable on the self-hosted target while every unit
+  // test passed. `returnsRows()` looked only at the leading keyword, so `durableRateLimit`'s
+  // atomic `INSERT ... ON CONFLICT ... RETURNING count, reset_at` was routed to `run()`, which
+  // yields no rows. That limiter fails closed, so every registration and sign-in answered 503.
+  // D1 has one statement that both writes and reads, so nothing running against D1 could see it.
+  const db = openSqliteDatabase(join(dir, 'returning.sqlite')) as unknown as D1Database;
+  await db.prepare('CREATE TABLE buckets (bucket TEXT PRIMARY KEY NOT NULL, count INTEGER NOT NULL)').run();
+
+  const inserted = await db.prepare(`INSERT INTO buckets (bucket, count) VALUES (?, 1)
+    ON CONFLICT(bucket) DO UPDATE SET count = buckets.count + 1
+    RETURNING count`).bind('auth:ip:local').first<{ count: number }>();
+  assert.equal(inserted?.count, 1, 'the inserted row must come back');
+
+  const bumped = await db.prepare(`INSERT INTO buckets (bucket, count) VALUES (?, 1)
+    ON CONFLICT(bucket) DO UPDATE SET count = buckets.count + 1
+    RETURNING count`).bind('auth:ip:local').first<{ count: number }>();
+  assert.equal(bumped?.count, 2, 'the conflicting upsert must come back with the new count');
+
+  // `.meta.changes` is read in 25 places, and `all()` reports no count of its own. One row per
+  // affected row is what D1 would report.
+  const many = await db.prepare('UPDATE buckets SET count = count + 1 RETURNING bucket').all();
+  assert.equal(many.results.length, 1);
+  assert.equal(many.meta.changes, 1, 'a RETURNING write still reports its change count');
+
+  // A value containing the letters is not a RETURNING clause.
+  const plain = await db.prepare('INSERT INTO buckets (bucket, count) VALUES (?, 0)').bind('returning-soon').run();
+  assert.equal(plain.meta.changes, 1);
+  assert.deepEqual(plain.results, []);
+});
+
 test('the adapter opens in WAL mode with foreign keys on', async () => {
   openSqliteDatabase(join(dir, 'pragmas.sqlite'));
   const raw = new DatabaseSync(join(dir, 'pragmas.sqlite'));

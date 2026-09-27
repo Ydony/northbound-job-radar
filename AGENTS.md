@@ -12,7 +12,8 @@ imports `cloudflare:workers`, the D1 surface used is six methods, so the ~197 `p
 call sites stay unchanged behind a `D1Database` adapter over SQLite (#195). Do not migrate
 to Postgres: that turns an adapter into a dialect rewrite across those queries.
 
-**2026-09-22 dedicated Spark DEV:** before verification, read
+**2026-09-22 dedicated Spark DEV:** before verification, read `WORKER-DEV.md` - in your own
+worktree if you are a dispatched worker, otherwise
 `C:/Projects/AI team and PM Tools/WORKER-DEV.md`. DEV at localhost:3000 runs
 this worktree with synthetic-only storage and dedicated admin/user accounts.
 Use its documented existing launcher and local sign-in helper; do not restart
@@ -43,6 +44,12 @@ history of what was found/decided; don't let it re-become a second open/closed l
 
 **Cross-agent delivery rules:** read `C:/Projects/AI team and PM Tools/AGENTS.md` before
 estimating, delegating, or reviewing work. A user scope decision is required before dispatch.
+
+**If you are a dispatched worker, read the copy in your own worktree instead** - `WORKER-RULES.md`
+and `WORKER-DEV.md`, written there by `pm.py`. Do not open either absolute path, and do not run
+`pm.py`: you cannot reach outside your worktree, the permission request is auto-rejected because
+your stdin is closed, and the run ends there with no output. Three did on 2026-09-27, on this
+line. Board and project-management work is never part of a worker assignment.
 
 Use `python "C:/Projects/AI team and PM Tools/pm-tools/pm.py"` (project key `ajh`) to
 create/group epics, tasks and relations rather than writing raw GitHub/GraphQL calls.
