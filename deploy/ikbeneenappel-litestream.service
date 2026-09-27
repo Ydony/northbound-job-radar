@@ -1,0 +1,33 @@
+# VPS-07 (#200): Litestream sidecar for the self-hosted target.
+#
+# Install: copy to /etc/systemd/system/ikbeneenappel-litestream.service, then
+#   systemctl daemon-reload && systemctl enable --now ikbeneenappel-litestream.service
+#
+# Runs `litestream replicate` in the foreground: it tails the WAL of the same
+# SQLite file the web unit serves and streams it to the off-box replica in
+# deploy/litestream.yml. Same EnvironmentFile as the web unit, so SQLITE_PATH
+# and the replica credentials resolve identically — the backup can never drift
+# onto a different file than the one being served.
+#
+# This unit is ordered BEFORE the web unit's first start on a fresh machine
+# only in the restore case: a restore happens with BOTH units stopped (see
+# the restore procedure in docs/DEPLOY.md), then litestream starts first to
+# re-establish replication from the restored file.
+
+[Unit]
+Description=Ik ben een appel (SQLite replication)
+After=network.target
+
+[Service]
+Type=simple
+User=ikbeneenappel
+EnvironmentFile=/etc/ikbeneenappel/env
+ExecStart=/usr/local/bin/litestream replicate -config /etc/ikbeneenappel/litestream.yml
+Restart=on-failure
+RestartSec=5
+# Replication must never starve serving or collection.
+CPUWeight=50
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

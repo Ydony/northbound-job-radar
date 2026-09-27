@@ -82,6 +82,87 @@ permissions. Do not put their values in chat or source files.
 The custom `.nl` domain is attached and verified working (see above);
 `www.ikbeneenappel.nl` still needs its own redirect, tracked separately.
 
+## Self-hosted target: continuous backup and restore (VPS-07, #200)
+
+D1 was managed — backups were Cloudflare's problem. On the VPS they are
+ours, and this is the single largest new operational risk in #193.
+
+**Setup.** Litestream tails the SQLite WAL and replicates every
+checkpointed page off-box within seconds (config
+`deploy/litestream.yml`, sidecar unit
+`deploy/ikbeneenappel-litestream.service`). Off-box is the requirement: a
+replica on the same disk as the database is not a backup. Credentials live
+in the same root-owned `0600` EnvironmentFile as the web unit and never in
+the repo. Retention is 30 days — long enough to survive a defect that is
+not noticed the same day, short enough to stay inside the object-storage
+free tier at this database size. Verify replication by inspecting the
+remote bucket, not by assuming the unit is green:
+
+```bash
+systemctl status ikbeneenappel-litestream.service
+# then list the remote prefix — snapshots and WAL segments must be minutes old
+```
+
+A nightly `cp` is explicitly not the backup: WAL mode keeps recent writes
+outside the main file, and a copy taken mid-write is a truncated database.
+That is why the restore drill below exists.
+
+**Restore procedure (rehearse before cutover, #201).** The restored copy
+holds real account data: it is a throwaway instance for proving the
+backup, never a second live one, and nothing from it goes into the repo,
+an issue, or a transcript.
+
+```bash
+# 1. Stop both units so nothing writes during the restore.
+sudo systemctl stop ikbeneenappel-web.service ikbeneenappel-refresh.service \
+  ikbeneenappel-litestream.service
+
+# 2. Restore into a SCRATCH path — never over the live file.
+sudo -u ikbeneenappel litestream restore \
+  -config /etc/ikbeneenappel/litestream.yml \
+  -o /var/lib/ikbeneenappel/restore-drill.sqlite
+
+# 3. Confirm the schema version matches production (currently 31; compare
+#    against the live file, not from memory).
+sudo -u ikbeneenappel sqlite3 /var/lib/ikbeneenappel/restore-drill.sqlite \
+  "SELECT MAX(version) FROM schema_migrations;"
+sudo -u ikbeneenappel sqlite3 /var/lib/ikbeneenappel/restore-drill.sqlite \
+  "PRAGMA integrity_check;"
+# expected: the same version number, then a single line reading `ok`
+
+# 4. Confirm row counts match the live file, per table.
+for t in users vacancies vacancy_sources user_vacancy_state jobs; do
+  echo -n "$t live/restored: "
+  echo "$(sudo -u ikbeneenappel sqlite3 "$SQLITE_PATH" "SELECT COUNT(*) FROM $t;") / \
+$(sudo -u ikbeneenappel sqlite3 /var/lib/ikbeneenappel/restore-drill.sqlite "SELECT COUNT(*) FROM $t;")"
+done
+
+# 5. Serve the app from the scratch copy and load one real account's
+#    dashboard over it (SQLITE_PATH pointed at the scratch file on a
+#    throwaway port — never the live unit). Record the version, the counts
+#    and the dashboard load as restore evidence on #200.
+
+# 6. Delete the scratch copy, restart replication, then the web unit.
+rm /var/lib/ikbeneenappel/restore-drill.sqlite*
+sudo systemctl start ikbeneenappel-litestream.service ikbeneenappel-web.service
+```
+
+**Good vs truncated restore.** A good restore prints the expected
+`schema_migrations` version, `integrity_check` returns one line reading
+`ok`, every per-table count matches the live file, and the scratch
+instance serves the account's dashboard. A truncated restore fails loudly
+instead: SQLite refuses to open the file (`file is not a database`) or
+`integrity_check` reports `database disk image is malformed`, or counts
+come back short. Any of those means the backup path is broken — do not
+cut over (#201) until a restore passes end to end.
+
+**Synthetic rehearsal.** `node --import tsx
+scripts/verify-sqlite-restore.mjs` runs the shape of this drill on
+throwaway synthetic data (checkpoint, copy standing in for the replica,
+restore into scratch, version/counts/`integrity_check`/catalogue join).
+It proves the procedure's logic, not the VPS's replication — the real
+drill above still has to run on the server before cutover.
+
 ## Keep the private site out of search results
 
 All pages carry robots metadata and all page/API responses carry `X-Robots-Tag:

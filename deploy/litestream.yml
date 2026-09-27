@@ -1,0 +1,34 @@
+# VPS-07 (#200): continuous SQLite backup for the self-hosted target.
+#
+# Install: copy to /etc/ikbeneenappel/litestream.yml (root-owned, 0600 — it
+# carries the replica credentials via the environment, never committed), then
+# enable deploy/ikbeneenappel-litestream.service.
+#
+# WHAT THIS IS: Litestream tails the SQLite WAL and replicates every
+# checkpointed page to off-box object storage within seconds. It is the
+# replacement for "D1 is managed" — a nightly `cp` is NOT a backup for this
+# database, because WAL mode keeps recent writes outside the main file and a
+# copy taken mid-write is a truncated database that SQLite may not even open.
+#
+# OFF-BOX IS THE REQUIREMENT. A replica on the same disk as the database
+# protects against nothing a disk failure does not already take. Point `url`
+# at R2, B2, or any S3-compatible bucket on a different provider than the VPS.
+#
+# CREDENTIALS: all secrets come from the environment (the same root-owned
+# 0600 EnvironmentFile the web unit uses), never from this file. Set:
+#   SQLITE_PATH               same SQLite file the web unit serves
+#   LITESTREAM_REPLICA_URL    e.g. s3://ikbeneenappel-backup/db  (R2/B2 S3 endpoint)
+#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY  (or the R2/B2 equivalents)
+#   LITESTREAM_S3_ENDPOINT    required for R2/B2 (their S3-compatible URL)
+#   LITESTREAM_S3_REGION      e.g. auto (R2) / eu-central (B2)
+#
+# RETENTION: 30 days of snapshots plus WAL. Long enough to survive a defect
+# that is not noticed the same day (a bad migration, a slow corruption);
+# short enough to stay inside the free tier at this database size.
+
+dbs:
+  - path: ${SQLITE_PATH}
+    replicas:
+      - url: ${LITESTREAM_REPLICA_URL}
+        retention: 720h # 30 days
+        sync-interval: 10s

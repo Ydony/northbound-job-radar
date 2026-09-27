@@ -19,6 +19,8 @@
     "bootstrap:prod-admin": "node --import tsx scripts/bootstrap-prod-admin.mjs",
     "reset:prod-admin-password": "node --import tsx scripts/reset-prod-admin-password.mjs",
     "refresh": "node --import tsx scripts/run-refresh.mjs",
+    "verify:sqlite-import": "node --import tsx scripts/verify-sqlite-import.mjs",
+    "verify:sqlite-restore": "node --import tsx scripts/verify-sqlite-restore.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next && stylelint \"app/**/*.css\"",
     "lint:css": "stylelint \"app/**/*.css\"",
     "lint:css:rebaseline": "stylelint \"app/**/*.css\" --suppress=scale-unlimited/declaration-strict-value",
