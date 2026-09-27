@@ -203,8 +203,24 @@ try {
 
   // Register from inside the page, so the browser keeps the cookie and no password is ever
   // written down, passed on a command line, or read from the environment.
+  // Observe every DOM addition, including nodes removed before the redirect.
+  // Session storage preserves the result when the signed-out root reaches /login.
+  const observer = await send('Page.addScriptToEvaluateOnNewDocument', { source: `
+    new MutationObserver(records => {
+      for (const record of records) for (const node of record.addedNodes) {
+        if (node.nodeType === 1 && (node.matches('.intro-band, #jobs') || node.querySelector('.intro-band, #jobs'))) {
+          sessionStorage.setItem('dashboard-before-login', 'yes');
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
+  ` });
   await send('Page.navigate', { url: BASE });
-  await waitFor(() => evaluate('document.readyState === "complete"'), 'the first page load');
+  await waitFor(() => evaluate('location.pathname === "/login" && document.readyState === "complete"'), 'the signed-out redirect');
+  if (await evaluate('sessionStorage.getItem("dashboard-before-login")')) {
+    throw new Error('Dashboard rendered before sign-in');
+  }
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: observer.identifier });
+  console.log('PASS signed-out navigation never paints the dashboard');
   const account = `visual-${Date.now()}-${randomBytes(3).toString('hex')}@local.test`;
   const secret = `Local-only-${randomBytes(18).toString('base64url')}!`;
   const registered = await evaluate(`fetch('/api/auth', {

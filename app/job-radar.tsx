@@ -215,7 +215,14 @@ export default function JobRadar() {
     setLoading(true);
     setLoadError('');
     return fetch(stateQuery(false, cursor))
-      .then((response) => responseJson<AppState>(response))
+      .then((response) => {
+        if (response.status === 401) {
+          // Hide even a previously loaded account while an expired session redirects.
+          setState((current) => ({ ...current, account: null }));
+          throw new Error('Please sign in.');
+        }
+        return responseJson<AppState>(response);
+      })
       .then((next) => {
         const criteria = next.criteria ?? defaultSearchCriteria;
         setState({ ...next, criteria, searchRuns: next.searchRuns ?? [] });
@@ -229,7 +236,7 @@ export default function JobRadar() {
         if (!criteria.roleKeywords.some((keyword) => keyword.trim())) setSettingsOpen(true);
       })
       .catch((error: Error) => {
-        if (/sign in/i.test(error.message)) window.location.href = '/login';
+        if (/sign in/i.test(error.message)) window.location.replace('/login');
         else setLoadError('Could not load your saved keywords, jobs and statistics. Check the local server is running, then try again.');
       })
       .finally(() => setLoading(false));
@@ -1127,6 +1134,19 @@ export default function JobRadar() {
     } finally {
       setDataBusy(false);
     }
+  }
+
+  // All hooks must run before this boundary. The initial server render and the
+  // first client render have no account; neither may paint dashboard controls.
+  // Check the account, not `loading`: finally clears loading before navigation.
+  if (!state.account) {
+    return <main className="shell">
+      {loadError ? <div role="alert">
+        <p>{loadError}</p>
+        <button type="button" onClick={() => void loadWorkspace()}>Retry loading</button>
+        <a href="/login">Sign in</a>
+      </div> : <p role="status" aria-busy="true">Checking your session…</p>}
+    </main>;
   }
 
   return (

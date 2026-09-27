@@ -1081,3 +1081,20 @@ now would violate the task's own precondition); closing any issue (lead review
 required); built-test/verify-harness flows (would disturb owner servers);
 live Settings PUT beyond restore-to-defaults; loosening the admin/indeed
 readiness gate (Codex access-control territory). Epic #112 stays open until #126.
+# 2026-09-27 — Signed-out dashboard flash (#141 follow-up)
+
+The owner reported the dashboard painting briefly before redirecting to login.
+`app/job-radar.tsx` now returns only a neutral session placeholder until
+`state.account` exists (after all hooks). A failed initial load instead offers retry
+and sign-in, without dashboard controls. HTTP 401 clears any previously loaded
+account before redirecting with `location.replace`; the boundary stays closed even
+after the loading flag clears. API authentication and stored data are unchanged.
+
+`tests/login-flash.test.ts` renders the initial component HTML and asserts no
+workspace controls. `scripts/check-visual.mjs` now observes DOM additions across
+the signed-out root-to-login redirect, then registers its synthetic account from
+the settled login page, avoiding its old navigation race. Built local Worker on
+3118: signed-out no-flash assertion and authenticated desktop/wide/phone checks
+passed; the missing-card canary correctly failed its assertions. Lint, typecheck
+and build passed. No owner DEV/TEST state was touched and no providers were called.
+Production promotion is separate; do not assume this entry alone means deployed.
