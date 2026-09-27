@@ -35,6 +35,20 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  /**
+   * VPS-01 (#194): emit a self-hosting bundle at `dist/standalone/` alongside the Cloudflare
+   * build, so the app can run under plain Node on a VPS (#193).
+   *
+   * This ADDS a target; it does not replace one. `scripts/build-prod.mjs` still asserts the
+   * Cloudflare Worker and D1 bindings and still refuses to deploy if they do not match, and
+   * `npm run deploy:prod` is unchanged. Both outputs come from the same `vinext build`.
+   *
+   * The security headers below are untouched, and the CSP deliberately still is not here: it
+   * carries a per-request nonce built in `middleware.ts`, which a static config cannot produce.
+   * Standalone runs the same middleware, so the nonce reaches responses on both targets — a
+   * static fallback would send a second policy and the browser enforces the intersection.
+   */
+  output: 'standalone',
   async headers() {
     // '/:path*' did not match the bare '/' in this runtime, which left the dashboard - the page
     // holding every job and both CVs - with no security headers at all while every other route had

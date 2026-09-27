@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:workers';
+import { openSqliteDatabase } from './sqlite-adapter';
 import { isLoopbackRequest } from '../lib/indeed/access';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
 import type { NativeRateLimiter } from '../lib/rate-limit';
@@ -117,13 +117,59 @@ async function backfillWorkplaceTypes(db: D1Database) {
   }
 }
 
+/**
+ * The environment, resolved per runtime (VPS-02, #195).
+ *
+ * This file used to open with `import { env } from 'cloudflare:workers'`. That single line was
+ * the whole of the Cloudflare coupling, and it is why the standalone bundle could not start
+ * under plain Node at all: the loader has no `cloudflare:` URL scheme and refuses the module
+ * before any of our code runs.
+ *
+ * So the Worker installs its own environment instead of this file reaching for it. Only
+ * `worker/entry.ts` imports `cloudflare:workers` now, and that module is never part of the
+ * self-hosted bundle. Under Node the fallback is `process.env`, which carries the same string
+ * configuration from a systemd `EnvironmentFile`; the `DB` binding is constructed below,
+ * because a SQLite handle is not something an env file can hold.
+ */
+type RuntimeEnv = Record<string, unknown>;
+let installedEnv: RuntimeEnv | null = null;
+
+/** Called by the Worker entry with Cloudflare's `env`. Node never calls it. */
+export function installRuntimeEnv(value: RuntimeEnv) {
+  installedEnv = value;
+}
+
+function runtimeEnv(): RuntimeEnv {
+  return installedEnv ?? (globalThis as { process?: { env?: RuntimeEnv } }).process?.env ?? {};
+}
+
+/**
+ * Proxy so the ~15 `env.FOO` reads below keep their shape while resolving late. They run inside
+ * request handlers, never at module scope, so the Worker has always installed its environment
+ * by the time any of them is read.
+ */
+const env = new Proxy({} as Record<string, string | undefined> & { DB?: D1Database; AUTH_RATE_LIMIT?: unknown }, {
+  get: (_target, key: string) => runtimeEnv()[key],
+});
+
+/**
+ * The SQLite path for the self-hosted target. Absent on Cloudflare, where `DB` is a real binding.
+ * Set it and the app runs on SQLite; leave it unset on Workers and nothing here changes.
+ */
+function selfHostedDatabase(): D1Database | undefined {
+  const path = runtimeEnv().SQLITE_PATH;
+  if (typeof path !== 'string' || path === '') return undefined;
+  return openSqliteDatabase(path) as unknown as D1Database;
+}
+
 export function bindings() {
-  if (!env.DB) throw new Error('D1 binding DB is unavailable.');
+  const db = (env.DB as D1Database | undefined) ?? selfHostedDatabase();
+  if (!db) throw new Error('D1 binding DB is unavailable.');
   // The native edge rate limiter is optional: local development without the `ratelimits`
   // configuration simply skips that layer and relies on the database limiter. Never throw here —
   // a missing edge brake must not take the whole app down.
   const authRateLimiter = (env.AUTH_RATE_LIMIT ?? undefined) as NativeRateLimiter | undefined;
-  return { db: env.DB, authRateLimiter };
+  return { db, authRateLimiter };
 }
 
 /** Optional free aggregator keys. Missing values leave the matching sources reported as unavailable rather than failing a run. */

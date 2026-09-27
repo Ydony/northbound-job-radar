@@ -14,12 +14,36 @@
  * this entry (it pulls `db/runtime.ts`, which needs the worker runtime).
  */
 import vinextEntry from 'vinext/server/app-router-entry';
-import { ensureSchema } from '../db/runtime';
+import { ensureSchema, installRuntimeEnv } from '../db/runtime';
 import { handlePublicRefreshCron, parseRefreshTerms } from '../lib/public-refresh-scheduler';
 
+/**
+ * VPS-02 (#195): this module is the ONLY place that imports `cloudflare:workers`, and it is
+ * never part of the self-hosted bundle. `db/runtime.ts` used to import it directly, which meant
+ * the standalone build could not even be loaded by Node — the ESM loader rejects the
+ * `cloudflare:` scheme before any application code runs.
+ *
+ * Installing it at module scope, before the first request is served, keeps every `env.FOO` read
+ * in `db/runtime.ts` working exactly as it did.
+ */
 export default {
-  fetch: vinextEntry.fetch,
+  /**
+   * Cloudflare hands `env` to the handler, so nothing here needs to import it — and that
+   * matters more than it sounds. `vinext build` emits this same module as the server entry
+   * for BOTH targets, so a static `import { env } from 'cloudflare:workers'` anywhere in this
+   * file lands in the self-hosted bundle too, where Node's loader rejects the `cloudflare:`
+   * scheme before a line of application code runs. Taking it from the argument keeps the
+   * bundle loadable under plain Node, where `db/runtime.ts` falls back to `process.env`.
+   */
+  fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext) {
+    installRuntimeEnv(env as unknown as Record<string, unknown>);
+    // vinext types its own entry against the asset-serving env it cares about; this passes the
+    // real Cloudflare env straight through, unchanged, exactly as `fetch: vinextEntry.fetch` did.
+    return vinextEntry.fetch(request, env as unknown as Parameters<typeof vinextEntry.fetch>[1], ctx);
+  },
   scheduled(_event: ScheduledEvent, env: Cloudflare.Env, ctx: ExecutionContext) {
+    // A Cron tick can reach a fresh isolate before any fetch has run, so install here too.
+    installRuntimeEnv(env as unknown as Record<string, unknown>);
     ctx.waitUntil((async () => {
       await ensureSchema();
       return handlePublicRefreshCron({
