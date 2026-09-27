@@ -1217,8 +1217,10 @@ export default function JobRadar() {
                 the value configured here, so a mismatch while Careerjet is answering means the
                 local note has gone stale on a dynamic home connection - worth correcting, but not
                 a failure, and showing it in red next to "Working" simply contradicted itself. */}
-            <p className={health.ipMatches || health.careerjetWorking ? 'health-ok' : 'health-warn'}>
-              {health.ipMatches
+            <p className={!health.careerjetConfigured || health.ipMatches || health.careerjetWorking ? 'health-ok' : 'health-warn'}>
+              {!health.careerjetConfigured
+                ? 'Careerjet has no credentials on this installation, so it is not searched. Nothing is wrong and there is nothing to fix; set CAREERJET_API_KEY and CAREERJET_USER_IP if you want it.'
+                : health.ipMatches
                 ? `Your IP ${health.publicIp} matches the one declared to Careerjet.`
                 : health.careerjetWorking
                   ? `Careerjet is answering normally. Your IP is now ${health.publicIp || 'unknown'} while CAREERJET_USER_IP still says ${health.declaredIp || 'none declared'} — update the local value when convenient so this check stays meaningful.`

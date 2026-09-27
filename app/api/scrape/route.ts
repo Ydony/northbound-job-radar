@@ -3,7 +3,7 @@ import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 import { rateLimit, requireSession } from '@/lib/guard';
-import { CollectionRunBudgets, isAccessRefusal } from '@/lib/collection-budgets';
+import { CollectionRunBudgets, isAccessRefusal, isRuntimeBudgetExhausted } from '@/lib/collection-budgets';
 import { analyzeLanguage, analyzeStructuredLanguages, type LanguageResult } from '@/lib/analysis';
 import { adminOnlySourceKeys, bulkJobIsRelevant, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
   sourceStatusForAvailability,
@@ -323,6 +323,16 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         // here, no second attempt later, no proxy rotation, no browser fallback.
         budgets.markBlocked(adapter.key);
         return done({ ...empty, blocked: true, error: message }, 'blocked');
+      }
+      if (isRuntimeBudgetExhausted(error)) {
+        // #192: this installation ran out of per-invocation request budget before the
+        // source was finished. Not a refusal, so the source is never marked blocked and
+        // is free to be tried again. The platform's own words are kept on the end because
+        // they are the diagnostic, but they no longer stand alone reading as an outage.
+        return done(
+          { ...empty, error: `This search ran out of the request budget for a single run before ${adapter.name} finished, so its results are incomplete. The source did not refuse anything. (${message})` },
+          'failed',
+        );
       }
       return done(
         { ...empty, error: message },

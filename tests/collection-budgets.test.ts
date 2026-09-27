@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   CollectionRunBudgets,
   isAccessRefusal,
+  isRuntimeBudgetExhausted,
   MAX_NEW_PER_BULK_SOURCE,
   MAX_NEW_PER_PAGE_SOURCE,
   MAX_NEW_PER_RUN,
@@ -172,4 +173,33 @@ test('the scrape route enforces budgets and stop-on-block as code', async () => 
   // tokens (clients, agents, flags) are pinned here.
   assert.doesNotMatch(source, /puppeteer|playwright|ProxyAgent|proxy-agent|headless|stealth/i,
     'no evasion mechanisms: no proxy rotation, no browser fallback');
+});
+
+test('a runtime budget failure is not mistaken for a source refusing us (#192)', () => {
+  // Cloudflare caps subrequests per invocation. This app fans out to ~700 requests, 282 of
+  // them ATS boards, so on the free plan's 50 the cap is hit long before collection ends and
+  // every unfinished adapter reports the same platform error at once. Read as refusals, that
+  // looks like five simultaneous source outages and invites someone to go and fix five
+  // integrations that are working perfectly.
+  for (const text of [
+    'Too many subrequests by single Worker invocation',
+    'Worker exceeded CPU limit',
+    'The script will never generate a response',
+  ]) {
+    assert.equal(isRuntimeBudgetExhausted(new Error(text)), true, text);
+    // Must stay out of isAccessRefusal: a refusal latches the source as blocked for the rest
+    // of the run, and running out of our own budget says nothing whatever about the source.
+    assert.equal(isAccessRefusal(new Error(text)), false, `${text} must not read as a refusal`);
+  }
+});
+
+test('a genuine refusal is still a refusal, and not blamed on our budget (#192)', () => {
+  for (const text of ['403 Forbidden', 'Too many requests', 'access denied', 'captcha required']) {
+    assert.equal(isAccessRefusal(new Error(text)), true, text);
+    assert.equal(isRuntimeBudgetExhausted(new Error(text)), false, `${text} must not read as our budget`);
+  }
+  // "Too many requests" (theirs) and "Too many subrequests" (ours) differ by three letters and
+  // mean opposite things — one says back off, the other says we ran out of room.
+  assert.equal(isAccessRefusal(new Error('Too many requests')), true);
+  assert.equal(isRuntimeBudgetExhausted(new Error('Too many requests')), false);
 });

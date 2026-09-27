@@ -53,6 +53,25 @@ export const MAX_NEW_PER_RUN = 800;
  * Everything else — 5xx, timeouts, network failures, unparseable bodies — stays transient and
  * retryable, matching `isBoardRetryable` in lib/ats-feeds.ts, which retries only those.
  */
+/**
+ * Did the RUNTIME run out of budget, rather than the source refusing us? (#192)
+ *
+ * Cloudflare caps subrequests per invocation - 50 on the free plan - and this app's
+ * fan-out is roughly 700 requests, 282 of them ATS boards. When the cap is hit, every
+ * adapter that had not finished reports the same platform error, and the screen then
+ * showed five upstreams apparently refusing access at once. That reading is wrong and
+ * it is expensive: it looks like five source outages and invites someone to go and
+ * "fix" five integrations that are working perfectly.
+ *
+ * It is deliberately NOT folded into `isAccessRefusal`. A refusal means stop touching
+ * that source; this means the invocation ran out of room, which says nothing about the
+ * source and must not latch it as blocked.
+ */
+export function isRuntimeBudgetExhausted(error: unknown): boolean {
+  const text = error instanceof Error ? error.message : String(error ?? '');
+  return /too many subrequests|exceeded (the )?(cpu|time) limit|script will never generate a response/i.test(text);
+}
+
 export function isAccessRefusal(error: unknown): boolean {
   const holder = error as { status?: unknown; statusCode?: unknown } | null | undefined;
   const status = holder?.status ?? holder?.statusCode;

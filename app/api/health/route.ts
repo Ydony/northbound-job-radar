@@ -19,6 +19,14 @@ export interface HealthReport {
    * stale, which is worth fixing but is not an outage.
    */
   careerjetWorking: boolean;
+  /**
+   * Whether Careerjet has credentials at all (#191). Without this the interface cannot tell
+   * "configured and refusing" from "never set up", and it reported the second as the first:
+   * an unconfigured install was told Careerjet was not answering AND that its IP had changed,
+   * while the list two lines below correctly said "Not configured". Missing credentials are a
+   * neutral state, not an outage, and never evidence about an IP address.
+   */
+  careerjetConfigured: boolean;
   checkedAt: string;
   sources: SourceHealth[];
 }
@@ -70,6 +78,7 @@ export async function GET(request: Request) {
     declaredIp,
     ipMatches: Boolean(publicIp && declaredIp && publicIp === declaredIp),
     careerjetWorking: sources.some((source) => source.key === 'careerjet' && source.status === 'ok'),
+    careerjetConfigured: sources.some((source) => source.key === 'careerjet' && source.status !== 'not_configured'),
     checkedAt: new Date().toISOString(),
     sources,
   };
