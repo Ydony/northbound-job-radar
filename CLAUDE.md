@@ -31,10 +31,10 @@ confirm the session root is this folder. If it is not, move the session with
 | | Here | `vehicle-transfer-mvp` |
 |---|---|---|
 | Package manager | **npm** | pnpm |
-| Runtime | Cloudflare Workers (workerd), D1, R2 | Supabase, Postgres |
+| Runtime | **Node + SQLite locally**; Cloudflare Workers (workerd), D1, R2 in production until cutover | Supabase, Postgres |
 | Browser tests | **none at all** | Playwright + axe |
 | Merge gate | `npm run lint`, `typecheck`, `test`, `build` | `pnpm check` |
-| Dev / test | :3000 / :3001 (`npm run dev`, `npm run test:local`) | :5173 |
+| Dev / test | :3000 / :3001 (`npm run dev`, `npm run test:local`), both Node + SQLite | :5173 |
 | Board | [Job Hunt #4](https://github.com/users/Ydony/projects/4) | Vehicle Transfer #3 |
 
 **Nothing tests `app/job-radar.tsx`.** The 122-test suite covers `lib/` and the API
@@ -45,15 +45,25 @@ changes need a signed-in look at a running server before they are called done.
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Dev environment, :3000, registration open |
-| `npm run test:local` | Test environment, :3001 |
+| `npm run dev` | Dev, :3000, registration open. **Node + SQLite**, own empty database |
+| `npm run test:local` | Test, :3001. **Node + SQLite**, own empty database |
+| `npm run dev:cloudflare` / `test:cloudflare` | The archived workerd/D1 environments, same ports. What production still runs, and the only ones with hot reload |
+| `npm run verify:selfhosted` | Boots the standalone bundle on a throwaway empty database and drives it over HTTP. Credential-free |
 | `npm run lint` / `npm run typecheck` / `npm test` / `npm run build` | The merge gate |
 | `npm run lint:css` | Colour tokens, enforced. Part of `lint`, so the gate already runs it |
 | `npm run check:visual:canary` | Proves `check:visual` can fail. Run it whenever that file changes |
 | `npm run verify:dev` | Local-only harness: creates a throwaway account and exercises the app |
 
-`EPERM ... dist` on build means a previous `workerd` still holds the folder. Stop it,
-delete `dist`, rebuild. **A running server is not proof of a current build.**
+**Dev and test are Node + SQLite** (owner decision, 2026-09-27), each with its own empty database
+under `.local/`. No hot reload: rerun the command after a change. The Cloudflare pair is archived,
+not deleted - production runs it until cutover (#201).
+
+Each environment serves its own copy of the build from `.local/<env>-server/`. Do not share
+`dist/standalone`: chunk names are content-hashed, so building for dev deletes the chunk test is
+importing, and test answers 500 while still serving pages.
+
+`EPERM ... dist` means a `workerd` from the Cloudflare pair still holds the folder. Stop it, delete
+`dist`, rebuild. **A running server is not proof of a current build.**
 
 Stale CSS in the browser is almost never the stylesheet cache: `/app/globals.css`
 is served with `Cache-Control: no-cache` plus a content ETag, and a token edit

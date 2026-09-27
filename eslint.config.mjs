@@ -7,7 +7,8 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 const eslintConfig = defineConfig([
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
+  // `.local/` holds each local environment's own copy of the built bundle, node_modules and all.
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', '.local/**']),
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
