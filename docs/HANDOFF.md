@@ -1,5 +1,120 @@
 # Handover
 
+## 2026-09-27 first full production release, and the email path
+
+**Production is live and current at `ikbeneenappel.nl`, version `9604afe9`**, deployed
+from `c6967ea` with the gate green (538/538, lint, typecheck, build). Before this it had
+been running code from 24 September, so this release carries the whole INT batch, the
+INT-02 isolation merge, job deletion removal, both catalogue fixes and the email work.
+
+Verified unauthenticated against the live site after deploying: `/api/admin/email` 401,
+`/api/turnstile` 200, `/auth/reset` 200, `/auth/verify` 200, `DELETE /api/jobs` and
+`/api/jobs/:id` both 405, `/api/profile` 404, `/api/state` 401.
+
+**If a deploy appears to succeed but production keeps serving old code, look for a local
+dev/test server holding `dist`.** `npm run deploy:prod` builds first, the build fails
+EPERM on Windows while `workerd` holds the folder, and the deploy never happens. That is
+what caused the first attempt on 27 September to silently do nothing.
+
+### Email delivery now works end to end
+
+Resend, sending as `Ik ben een appel <noreply@mail.ikbeneenappel.nl>` from the Ireland
+region. `RESEND_API_KEY` and `RESEND_FROM` are production Worker secrets, owner-set.
+`GET /api/admin/email` reports `configured: true`, `apiKeyPresent: true`, `missing: []`,
+and a live send recorded `sent: 1, failed: 0`.
+
+The sending domain is the **subdomain** `mail.ikbeneenappel.nl`, deliberately: the root
+keeps its own reputation, and when OVH mailboxes are eventually pointed at the root the
+two stay independent. Click and open tracking are **off** - they would contradict the
+project's own no-tracking rule and would rewrite password-reset links through a third
+party. Dev and test stay unconfigured on purpose: the harnesses register `@example.test`
+addresses, which would become hard bounces against a new domain. Locally the token comes
+back in the JSON response instead. See `docs/EMAIL_SETUP.md`.
+
+`GET`/`POST /api/admin/email` (administrator only) is the diagnostic: GET reports
+configuration without ever returning the key, POST sends one real message and returns
+Resend's own refusal text. Every sending path now records `email-sent` / `email-failed`
+as an `auth_events` kind - never the reason, because a refusal can quote the address and
+that table is not scoped to one account.
+
+### Two defects found and fixed, both from the catalogue work
+
+**#188, an audience leak.** One advertisement carried by a public source and by an
+administrator-only one shares a single `vacancies` row by identity fingerprint - correct
+deduplication - and the serving path then read `canonical_url` from it. An ordinary
+account holding the public copy was served `https://nl.indeed.com/viewjob?jk=...` while
+every field keyed on `source_key` correctly said `example.com`. The gate held on the
+record and leaked through its content. Fixed in `ee7bd05` by taking the column from the
+account's own `jobs` row.
+
+It reached master because `tests/catalogue-query.test.ts` builds its `jobs` table by hand
+and that table had no `canonical_url` column, so the suite could not express the bug -
+despite containing a test named for exactly this rule. The column is in the fixture now.
+
+**#189, a decision lost on fold.** Following the owner's rule that an advert carried by
+Indeed and another source shows as the other source to everyone (`7347e7c`), the card can
+be a different row from the one the reader acted on. Marking the Indeed copy saved and
+applied then left a card reading not-saved, not-applied. `688336e` carries the strongest
+engagement across folded copies, applied over saved over neither, one-way so a duplicate
+can never take a decision away. Applied in all three places that can make a row primary:
+`upsertJob`, `reclusterJobs`, and the PATCH route.
+
+Dismissal needs none of this - `dismissed_jobs` matches on identity fingerprint, which
+both copies share. Language corrections are deliberately not merged: a correction is a
+verdict about one copy's text.
+
+### All five local harnesses run again
+
+They had been dead since INT-14 and none is in the merge gate, which is why nobody
+noticed - and why #188 shipped. INT-14b demanded a Turnstile token no headless caller
+sends; local registration now has no bot check rather than verifying against an
+always-pass test secret that accepts any token anyway. INT-14a then left new accounts
+unverified, so every following call answered 401; all five now confirm the loopback
+token.
+
+Green on 27 September: `verify:dev` 10/10, `verify:admin` 9/9, `check:visual` with its
+canary correctly red, and `verify-indeed-workflow` and `verify-cluster-workflow` on fresh
+disposable databases.
+
+Running the last two needs a disposable server: `wrangler dev --config
+dist/server/wrangler.json --port 3110 --persist-to <throwaway> --env-file
+<absolute path>`. **The env-file path must be absolute** - a relative one resolves against
+the config's directory and silently loads nothing, which presents as "SESSION_SECRET is
+not set". `verify-indeed-workflow` also refuses to run unless Indeed is disabled, and
+needs a genuinely fresh database because its bootstrap email is fixed.
+
+Note for anyone running them twice: the durable limiter buckets all loopback traffic
+under `auth:ip:local`, five registrations per fifteen minutes machine-wide.
+
+### Board
+
+All fourteen merged pull requests (#174-#187) moved from **In Test** to **Done** after
+confirming each was genuinely merged. The board is 173 Done, 13 Backlog, 1 In Progress,
+nothing In Test. The eleven merged INT issues were closed with their individual caveats
+recorded rather than a blanket "done" - #166 FreeHire redistribution confirmation is
+still unasked, #167 Job-Room rests on code shapes because the live probe hit a WAF block,
+#160 is not fully consolidated because `lib/source-policies.ts` still drives `/sources`
+from its own flag.
+
+### Outstanding, with the commands
+
+1. **#1, rotate `SESSION_SECRET`.** The production administrator password was reset on
+   27 September. The email is already `anddonatas@gmail.com` and verified, so no email
+   change is needed and there is no lockout risk. What remains:
+   `$b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b) | npx wrangler secret put SESSION_SECRET --name ikbeneenappel-prod`
+   It signs everyone out. **Never rotate it while the administrator is unverified**: sign-in
+   refuses unverified accounts outright, `reset:prod-admin-password` does not restore the
+   verified flag, and only `bootstrap:prod-admin` does.
+2. **Local administrator credentials** are still the ones exposed in transcripts
+   (`admin-test@ikengels.test`). Local-only, so not urgent, but #1 asks for them too.
+3. **#141** cannot be closed from the code. Nothing tests `app/job-radar.tsx`; it needs a
+   signed-in look at the first second after a load - no red "Enter at least one role", no
+   empty role fields, no "No search run yet" on an account that has run searches.
+4. **#168 (INT-12)** has no code and is unblocked now that #182 is merged.
+5. **#173** is the owner's go-live flag.
+6. Optional: `lib/email.ts` sets no `Reply-To`, so a reply to a verification message goes
+   nowhere. One line, once an address is chosen.
+
 ## 2026-09-24 public-launch backlog implementation (INT-01–INT-14, #35)
 
 Twelve PRs merged to master (#174–#181, #183–#186), one per issue, all green on the
