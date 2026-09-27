@@ -25,6 +25,11 @@ declare namespace Cloudflare {
     /**
      * Native edge rate limiter for auth endpoints (#171). Optional: without the `ratelimits`
      * configuration the app relies on the database limiter alone.
+     *
+     * VPS-05 (#198): Cloudflare-only by design and kept until cutover (#201). The self-hosted
+     * path never sets this — `bindings()` in db/runtime.ts returns no authRateLimiter there,
+     * `nativeRateLimit` no-ops on the missing binding, and the database limiter plus nginx
+     * `limit_req` (deploy/nginx-ikbeneenappel.conf) carry the whole job.
      */
     AUTH_RATE_LIMIT?: RateLimit;
     /** Public Turnstile sitekey served to the registration form; safe to configure as plain text. */

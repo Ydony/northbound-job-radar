@@ -12,6 +12,12 @@
  *
  * This module runs in the worker only. Unit tests import the scheduler, never
  * this entry (it pulls `db/runtime.ts`, which needs the worker runtime).
+ *
+ * VPS-04 (#197): the self-hosted counterpart of this tick is
+ * `scripts/run-refresh.mjs`, fired by `deploy/ikbeneenappel-refresh.timer` at
+ * the same 6-hour cadence. This export stays for the Cloudflare path until
+ * cutover (#201) — only one of the two mechanisms must ever be live against
+ * the same database.
  */
 import vinextEntry from 'vinext/server/app-router-entry';
 import { ensureSchema, installRuntimeEnv } from '../db/runtime';

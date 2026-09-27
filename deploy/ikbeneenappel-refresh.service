@@ -1,0 +1,37 @@
+# VPS-04 (#197): collector service for the self-hosted target.
+#
+# Never started by hand on a schedule — ikbeneenappel-refresh.timer fires it
+# at the same cadence as today's Cloudflare Cron Trigger (`0 */6 * * *`).
+# `Type=oneshot` so a firing while the previous run is still active does not
+# start a second copy; and even a manually overlapping run cannot duplicate
+# upstream work, because the 5-minute PUBLIC_REFRESH_LEASE_MS database lease
+# makes the second claimant report `busy` instead of fetching.
+#
+# Same EnvironmentFile as the web unit (/etc/ikbeneenappel/env, root-owned
+# 0600): SQLITE_PATH must point at the same SQLite file the web server uses,
+# so the durable 6-hour window and per-source cooldowns carry over and a
+# migrated database does not perform a full refresh on its first tick.
+# PUBLIC_REFRESH_ENABLED must be exactly 'true' or the tick no-ops;
+# PUBLIC_REFRESH_TERMS empty wires no fetchers (locks and freshness stay
+# truthful, no upstream source is contacted).
+#
+# The script needs `--import tsx` for its `.ts` imports — the same pattern as
+# `npm run bootstrap:prod-admin`. tsx ships in devDependencies, so the deploy
+# must install it (`npm ci` including dev dependencies, or `npm i -g tsx` and
+# adjust the path below).
+#
+# Lower CPUWeight than the web unit: collection is the bursty background job,
+# serving is the foreground one.
+
+[Unit]
+Description=Ik ben een appel (public refresh tick)
+After=network.target
+
+[Service]
+Type=oneshot
+User=ikbeneenappel
+WorkingDirectory=/opt/ikbeneenappel
+EnvironmentFile=/etc/ikbeneenappel/env
+ExecStart=/usr/bin/node --import tsx /opt/ikbeneenappel/scripts/run-refresh.mjs
+CPUWeight=50
+NoNewPrivileges=true

@@ -1,0 +1,24 @@
+# VPS-04 (#197): fires the collector at the same cadence as today's
+# Cloudflare Cron Trigger (`0 */6 * * *` in vite.config.ts, prod only).
+#
+# Install: copy to /etc/systemd/system/ikbeneenappel-refresh.timer, then
+#   systemctl daemon-reload && systemctl enable --now ikbeneenappel-refresh.timer
+#
+# The Cloudflare trigger stays until cutover (#201); only one of the two
+# mechanisms must ever be live against the same database, or both will claim
+# ticks (harmless — the lease serialises them — but noisy).
+#
+# Persistent=true replays at most one missed tick after downtime rather than
+# a backlog, and the durable window means even that single catch-up tick only
+# refreshes stale sources instead of performing a full sweep.
+
+[Unit]
+Description=Ik ben een appel public refresh (every 6 hours)
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:00
+Persistent=true
+Unit=ikbeneenappel-refresh.service
+
+[Install]
+WantedBy=timers.target

@@ -50,6 +50,12 @@ const localBindingConfig = {
   // sign-in budgets stay in D1; this binding only absorbs floods. Absent locally, the app falls
   // back to the database limiter alone — see lib/guard.ts. The namespace id must stay unique
   // within the Cloudflare account; bindings sharing one share their counters.
+  //
+  // VPS-05 (#198): this block is the Cloudflare path and stays until cutover (#201). The
+  // self-hosted path has no equivalent binding by design — `bindings()` in db/runtime.ts
+  // returns no authRateLimiter there, `nativeRateLimit` no-ops on the missing binding, and the
+  // database limiter plus nginx `limit_req` (deploy/nginx-ikbeneenappel.conf, set above the
+  // database budgets) carry the whole job. Nothing below is conditional on the target.
   ratelimits: [
     {
       name: 'AUTH_RATE_LIMIT',

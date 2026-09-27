@@ -1,0 +1,36 @@
+# VPS-04 (#197): web service for the self-hosted target.
+#
+# Install: copy to /etc/systemd/system/ikbeneenappel-web.service, then
+#   systemctl daemon-reload && systemctl enable --now ikbeneenappel-web.service
+#
+# The app runs from the vinext standalone bundle (`output: 'standalone'` in
+# next.config.ts, VPS-01 #194): `npm run build` emits it at
+# dist/standalone/, started with `node dist/standalone/server.js`.
+# Deploy is build -> rsync -> `systemctl restart ikbeneenappel-web.service`.
+#
+# Environment lives in /etc/ikbeneenappel/env (root-owned, 0600, loaded via
+# EnvironmentFile): SESSION_SECRET, SQLITE_PATH, PUBLIC_REFRESH_* and the
+# rest. Never commit that file. PORT defaults to 3000; nginx in front
+# terminates TLS and serves as the burst brake (see nginx-ikbeneenappel.conf).
+#
+# This unit is the serving half of the two-unit split: a heavy collection run
+# in ikbeneenappel-refresh.service must never take down serving, so the
+# collector carries the lower CPUWeight (see that unit).
+
+[Unit]
+Description=Ik ben een appel (web)
+After=network.target
+
+[Service]
+Type=simple
+User=ikbeneenappel
+WorkingDirectory=/opt/ikbeneenappel
+EnvironmentFile=/etc/ikbeneenappel/env
+ExecStart=/usr/bin/node /opt/ikbeneenappel/dist/standalone/server.js
+Restart=on-failure
+RestartSec=5
+CPUWeight=200
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
