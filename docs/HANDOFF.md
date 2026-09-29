@@ -1201,3 +1201,27 @@ the settled login page, avoiding its old navigation race. Built local Worker on
 passed; the missing-card canary correctly failed its assertions. Lint, typecheck
 and build passed. No owner DEV/TEST state was touched and no providers were called.
 Production promotion is separate; do not assume this entry alone means deployed.
+
+# 2026-09-29 — T13 hosted assessment: Adzuna/Careerjet credentials, site/IP rules, Indeed local boundary (F4 gate input)
+
+New: `lib/hosted-sources.ts` (one hosted decision per administrator-side adapter:
+`supported`, `configuration-needed`, or `blocked` with the exact reason; variable names
+only, never values), `tests/hosted-source-assessment.test.ts` (pins the matrix and the
+Indeed local boundary with synthetic fixtures, plus a tripwire against secret values), and
+`docs/HOSTED_SOURCE_ASSESSMENT.md` (owner-review artifact for the T12/T13→T14 scope gate).
+
+Net position: nothing is `supported` on the host today. Adzuna CH/NL is `configuration-needed`
+(key-only, no site/IP binding; missing keys report `unavailable`, never silent success).
+Careerjet CH/NL is `blocked` (publisher-site binding plus per-request real-user IP, user
+agent, and Referer with an unresolved registration; all three `CAREERJET_*` stay unset
+hosted). jobs.ch/jobup.ch/JobScout24, IamExpat, Undutchables, Indeed CH/NL,
+Nationale Vacaturebank, and I amsterdam are `blocked` with per-source reasons. Indeed stays a
+loopback-plus-admin-plus-approved-identity local experiment; the test re-exercises
+`indeedReadiness` denying every hosted-shaped caller synthetically.
+
+Not executed: this worktree has no JS runtime (`node`/`npm` absent), so the new test file,
+lint, typecheck, and build were NOT run here — done statically against the cited sources
+only. Reviewer: run `npm test`, `npm run lint`, `npm run typecheck`, `npm run build` at the
+reviewed commit before accepting. No upstream requests made, no credentials read, no owner
+DEV/TEST state touched. Do not push, open a PR, or start T14: the scope gate needs the
+owner's review of the §1 matrix first.
