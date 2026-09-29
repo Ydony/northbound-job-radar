@@ -76,9 +76,12 @@ product or integration changes. Local environments and the no-hosting decision:
   (`www` still needs its own redirect — see docs/DEPLOY.md). #149 tracks what's
   still open: the owner rotating the temporary admin password, and verifying
   production searches actually return results.
-- Dev and test must keep separate D1 state under `.wrangler/dev/state` and
-  `.wrangler/test/state`. Production has its own remote D1; never copy local state or
-  credentials into it.
+- Dev and test run the self-hosted stack - the standalone Node bundle on SQLite - each with its
+  own empty database under `.local/`, and each serving its own copy of the build from
+  `.local/<env>-server/` (owner decision, 2026-09-27). Local data does not matter and is not
+  carried over: starting empty is the point, because search has to run to fill it. The workerd
+  pair is archived as `dev:cloudflare` / `test:cloudflare` with its own `.wrangler` state.
+  Production has its own remote D1; never copy local state or credentials into it.
 - Production is single-admin with closed registration. Do not open public signups,
   deploy to OpenAI Sites/`chatgpt.site`, or broaden hosting without a new owner decision.
   `.openai/hosting.json` supplies logical binding names, not a hosting target.
@@ -159,7 +162,9 @@ Build a private job-search companion for a user seeking roles where English alon
 ## Technical shape
 
 - Next-compatible React app built with Vinext/Vite and the OpenAI Sites scaffold.
-- Cloudflare D1 binding `DB` stores account-scoped analyzed jobs and search state.
+- Account-scoped analyzed jobs and search state live in D1 on Cloudflare and in SQLite when
+  self-hosted, behind one `D1Database` interface (`db/sqlite-adapter.ts`, #195). `bindings()`
+  picks by `SQLITE_PATH`. Production is still Cloudflare until cutover (#201).
 - CV upload, file storage, role derivation and personal-fit scoring were removed on 2026-09-23.
   Historical migration versions 1–27 still mention the old schema; migration 28 removes it.
 - API routes live under `app/api`; deterministic language analysis lives in `lib/analysis.ts`.
@@ -171,8 +176,11 @@ Build a private job-search companion for a user seeking roles where English alon
 
 ```text
 npm install
-npm run dev
-npm run test:local
+npm run dev                  # :3000, Node + SQLite, own empty database
+npm run test:local           # :3001, Node + SQLite, own empty database
+npm run dev:cloudflare       # the archived workerd/D1 pair, same ports, has hot reload
+npm run test:cloudflare
+npm run verify:selfhosted    # boots the bundle on a throwaway empty database, credential-free
 npm run lint
 npm test
 npm run typecheck

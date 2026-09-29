@@ -1,5 +1,108 @@
 # Handover
 
+## 2026-09-27 the VPS work, and dev/test moved onto the new stack
+
+**This supersedes the hosting entry below it, which says "nothing is implemented and no scope
+decision has been made". Both halves of that are now out of date**: the owner decided to proceed,
+and VPS-01 through VPS-05 and VPS-07 are merged.
+
+Master is `2e0397b`. Gate green: 555 tests, lint, typecheck, build.
+
+### Dev and test are the new stack
+
+Owner decision: `npm run dev` (:3000) and `npm run test:local` (:3001) serve the standalone Node
+bundle on SQLite. Each keeps its own empty database and session secret under `.local/`. The old
+`.wrangler` D1 state was deleted - 84MB, and **the owner's instruction is that local data does not
+matter**: "data is only important in Prod, not dev or test", and starting empty is better because
+search has to run to fill it.
+
+The workerd pair is archived as `dev:cloudflare` / `test:cloudflare`. Not deleted: production runs
+it until cutover (#201), and it is the only one with hot reload, because HMR runs the app inside
+workerd where `node:sqlite` does not exist. On the new stack a change means rerunning the command.
+
+**Each environment serves its own copy of the build, from `.local/<env>-server/`.** This is not
+tidiness. Sharing `dist/standalone` looked fine and was not: chunk names are content-hashed, so
+building for dev deleted the chunk test was lazily importing, and test began answering 500 on
+`/api/state` (`Cannot find module ... app-route-handler-dispatch-<hash>.js`) while still serving
+pages, because those were already loaded. Found only by starting both at once.
+
+Configuration for both comes from the same `.dev.vars.<env>` files. The standalone bundle reads
+plain `process.env` - `.dev.vars.*` is a wrangler feature - so `scripts/run-local.mjs` parses the
+file itself. Without that the new stack would run unconfigured while the old one was configured,
+and comparing them would compare two installations rather than two runtimes.
+
+### The bug that justified the harness
+
+`npm run verify:selfhosted` boots the real standalone bundle on a throwaway empty database and
+drives it over HTTP. **It failed on its first run and the failure was real.** `returnsRows()` in
+`db/sqlite-adapter.ts` looked only at the leading keyword, so `durableRateLimit`'s atomic
+`INSERT ... ON CONFLICT ... RETURNING count, reset_at` was routed to `run()`, which yields no
+rows. That limiter fails closed, so **every registration and sign-in on the self-hosted target
+answered 503** "The sign-in service is temporarily unavailable." The app was unusable while all
+547 unit tests passed, because they run against D1, where one statement both writes and reads.
+
+A RETURNING write now reads its rows back and reports one change per returned row, matched as a
+word so a value containing the letters cannot turn a write into a read. Pinned by a test.
+
+The lesson worth keeping: `verify:sqlite-import` compares databases, and the database was never
+the part at risk. Anything that only the runtime swap touches needs a harness that runs the
+runtime.
+
+### What merged
+
+| Commit | |
+|---|---|
+| `61af2f3` | #141 the load flash. Gate is `state.account`, not `loading` - `finally` clears loading before the redirect navigates. First test of `app/job-radar.tsx`, plus a `check:visual` MutationObserver that catches a dashboard painted and then torn down |
+| `b298c62` | #197 `scripts/run-refresh.mjs` + systemd timer; #198 nginx `limit_req` on the auth routes. **The `AUTH_RATE_LIMIT` binding is NOT retired** - removing it now would leave production on the database limiter alone. That belongs to #205 |
+| `5ddd6e0` | #196/#200 `verify:sqlite-import`, `verify:sqlite-restore`, `tests/sqlite-adapter.test.ts`. Both rehearse the owner-run procedure on synthetic rows; a file copy stands in for `litestream restore` |
+| `fe0a47d` | `verify:selfhosted` and the RETURNING fix above |
+| `786401f` | #190 run progress and completion moved beside Search statistics |
+| `c5a8694` | #168 the public collector provably cannot reach an admin-only source |
+| `f93cf1a`, `2e0397b` | the stack switch, and `verify:dev` made to work on an empty database |
+
+#196 was re-scoped by owner decision: no production export. It proves the stack from empty; the
+real export moves to cutover (#201), where it happens once.
+
+### Two traps found the hard way
+
+**`git worktree remove` destroyed `node_modules/.bin` in the primary checkout** during the sweep
+of 75 stale worktrees - the junction hazard `pm.py` warns about, which is why worker worktrees are
+installed rather than linked. Symptom: `'vinext' is not recognized`. Repair is `npm install`.
+
+**`verify:dev` failed on its own first step** against an empty database - "A later account must be
+a non-admin user" - because on an empty database the first registration is the administrator. It
+now claims that slot deliberately.
+
+### Worker dispatch, and what Spark actually did
+
+Three dispatches died silently on 27 September: 2 steps, 9 steps, exit 0, no output. OpenCode 1.18
+asks permission to read outside `--dir`, the worker's stdin is closed so it is auto-rejected, and
+the run ends there. `AGENTS.md` told every agent to read `C:/Projects/AI team and PM Tools/
+AGENTS.md`; they obeyed and died. `pm.py` now copies the rules into each worktree as
+`WORKER-RULES.md` and `WORKER-DEV.md` beside `ASSIGNMENT.md`, and the packet says to read nothing
+outside the worktree. After that: 27, 48 and 30 steps, all producing work.
+
+**Worker worktrees are now per project**, at `C:/Projects/Auto Job hunt-worktrees/` (owner
+decision). The shared folder under `AI team and PM Tools` is deleted.
+
+Spark wrote #197, #198, #196, #200 and #190. It has never once committed its own work - every run
+so far has left it uncommitted in the worktree, and one run (#141) sat unnoticed for a day that
+way. Check the worktree before resolving a run as empty.
+
+### Still open
+
+- **#204, the owner's:** rent the VPS and an object-storage bucket. #199, #201 and #205 cannot
+  start without it, and neither can the real Litestream replication.
+- **#1 / #203:** rotate `SESSION_SECRET` and every secret touched. Never rotate while the
+  administrator is unverified - sign-in refuses unverified accounts, and only
+  `bootstrap:prod-admin` restores the flag.
+- **#173:** open public registration. Owner's go-live flag.
+- **#192:** stays open on purpose. 282 ATS boards against a 50-subrequest ceiling is not fixable
+  on Workers; the VPS is the fix.
+- `/api/state` read amplification (13-16 passes per load) survives the move and is the real
+  scaling driver.
+- `pm.py digest` crashes on a card with a null `issue` field.
+
 ## 2026-09-27 hosting: what a search actually costs, and the VPS direction (#193)
 
 **Nothing is implemented and no scope decision has been made.** This section exists

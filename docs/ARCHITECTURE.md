@@ -404,8 +404,9 @@ CRMs. The same ATS endpoints are rich for direct employers.
   owner state. Before merge, exercise in isolated dev and built test at 1400px and 375px:
   latest-run New/Matched/Total with per-source unknown (—), admin "view as user" preview
   hiding admin counts, requirements expand plus original-ad links, and a correction moving
-  its card. Nothing tests `app/job-radar.tsx`, so the green gate is not evidence the panel
-  renders correctly.
+  its card. Only the signed-out state of `app/job-radar.tsx` is tested
+  (`tests/login-flash.test.ts`, #141), so the green gate is not evidence the panel renders
+  correctly.
 - Source URLs, rules, and availability can change; revalidate them before releases and
   keep the adapter feature states truthful. LinkedIn remains excluded.
 

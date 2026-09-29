@@ -37,9 +37,11 @@ confirm the session root is this folder. If it is not, move the session with
 | Dev / test | :3000 / :3001 (`npm run dev`, `npm run test:local`), both Node + SQLite | :5173 |
 | Board | [Job Hunt #4](https://github.com/users/Ydony/projects/4) | Vehicle Transfer #3 |
 
-**Nothing tests `app/job-radar.tsx`.** The 122-test suite covers `lib/` and the API
-surface only. Lint, typecheck and build all pass on a page that renders wrongly, so UI
-changes need a signed-in look at a running server before they are called done.
+**`app/job-radar.tsx` is almost untested.** The 555-test suite covers `lib/` and the API
+surface; the one exception is `tests/login-flash.test.ts`, which renders the page and asserts
+the signed-out state (#141). Everything else about how it looks is uncovered, so lint, typecheck
+and build all pass on a page that renders wrongly, and UI changes still need a signed-in look at
+a running server before they are called done.
 
 ## Commands
 
