@@ -131,6 +131,31 @@ Administrator-only source names, counts, run records and links must not appear i
 response — including for jobs stored before a source was reclassified. This is already enforced and
 verified end to end with a real second account; keep it that way.
 
+### Hosted eligibility (F4, T14) — owner review list
+
+An administrator triggering collection on the hosted server (e.g. by phone) gets the
+supported rows below with unchanged fixed caps, delays and refusal/cooldown handling.
+Every other administrator source reports itself **blocked** there with the reason given,
+and ordinary accounts never see any of them. Implemented in `lib/source-policy.ts`
+(`hosted` / `hostedBasis`) and enforced per source in `app/api/scrape/route.ts`;
+`tests/hosted-admin-eligibility.test.ts` pins this table.
+
+| Source | Hosted decision | Reason |
+|---|---|---|
+| **IamExpat** | Supported | Grey-area public career paths, no VPN required; same caps/delay/stop-on-block as locally. |
+| **Adzuna CH/NL** | Configuration needed | Runs only with `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` configured; reports unavailable without them. Teasers never confirm English. |
+| **Careerjet CH/NL** | Blocked | Registration binds key, site, Referer and real IP; credentials stay unset on the host (#31). |
+| **jobs.ch, jobup.ch, JobScout24** | Blocked | JobCloud terms prohibit automation; the VPN boundary cannot be met on the host. No hosted exception approved. |
+| **Undutchables** | Blocked | Precautionary VPN gate after prior HTTP 403 to automation. No hosted exception approved. |
+| **Indeed CH/NL** | Blocked | Owner-reported authorisation covers local loopback assessment only (#63). A source-specific decision is required before any hosted implementation. |
+| **Nationale Vacaturebank** | Blocked | HTTP 403, no authorized feed. |
+| **I amsterdam** | Blocked | A city guide, not a vacancy feed. |
+
+No evasion, proxy rotation, challenge bypass, login automation or higher collection volume
+is introduced by any row above. If a blocked source cannot work remotely within these
+boundaries, the owner decides which explicit exceptions — if any — release scope; the
+code must not quietly substitute a smaller source set or claim full parity.
+
 ### Careerjet retention decision (#31)
 
 Careerjet is retained, not promoted to a public source and not treated as a production dependency.

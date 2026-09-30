@@ -37,6 +37,20 @@ export type SourceAudience = 'public' | 'admin-only';
  */
 export type SourcePolicyStatus = 'permitted' | 'owner-assumed' | 'unresolved' | 'against-terms';
 
+/**
+ * What an administrator may run on the hosted server, without a local computer or VPN step (F4).
+ *
+ * - `supported`: runs on the host with the same fixed caps, delays and refusal/cooldown
+ *   handling as locally. No extra configuration.
+ * - `configuration-needed`: runs on the host once the stated credentials are configured;
+ *   without them it reports itself unavailable, never silently successful.
+ * - `blocked`: must not run on the host. The `hostedBasis` names the exact reason, and the
+ *   search reports the source as blocked with that reason rather than omitting it or
+ *   claiming success. Lifting a `blocked` row needs an explicit, source-specific owner
+ *   decision — never a quiet substitution of a smaller source set.
+ */
+export type HostedEligibility = 'supported' | 'configuration-needed' | 'blocked';
+
 /** One registry row per adapter key in `jobSourceAdapters`. */
 export interface SourcePolicyEntry {
   /** Adapter `key` in `lib/job-adapters.ts`. Unique across the registry. */
@@ -49,6 +63,10 @@ export interface SourcePolicyEntry {
   enabled: boolean;
   /** Evidence pointer: decisions, doc sections and dates behind `policyStatus`. Never empty. */
   basis: string;
+  /** Whether an administrator may run this source on the hosted server (F4). */
+  hosted: HostedEligibility;
+  /** Exact reason behind `hosted`: what runs, what is needed, or why it is blocked. Never empty. */
+  hostedBasis: string;
 }
 
 export const SOURCE_AUDIENCES: readonly SourceAudience[] = ['public', 'admin-only'] as const;
@@ -57,6 +75,11 @@ export const SOURCE_POLICY_STATUSES: readonly SourcePolicyStatus[] = [
   'owner-assumed',
   'unresolved',
   'against-terms',
+] as const;
+export const HOSTED_ELIGIBILITIES: readonly HostedEligibility[] = [
+  'supported',
+  'configuration-needed',
+  'blocked',
 ] as const;
 
 /**
@@ -70,6 +93,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'permitted',
     enabled: true,
     basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. Advertisement text is employer-owned: screened server-side, never republished (metadata + link only per SOURCE_POLICY.md §1). SOURCE_POLICY.md §2.',
+    hosted: 'supported',
+    hostedBasis: 'Public bulk API already used without keys or a VPN; runs on the host with the same caps.',
   },
   {
     key: 'ats-nl',
@@ -77,6 +102,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'permitted',
     enabled: true,
     basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. Advertisement text is employer-owned: screened server-side, never republished (metadata + link only per SOURCE_POLICY.md §1). SOURCE_POLICY.md §2.',
+    hosted: 'supported',
+    hostedBasis: 'Public bulk API already used without keys or a VPN; runs on the host with the same caps.',
   },
   {
     key: 'eures-ch',
@@ -84,6 +111,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'permitted',
     enabled: true,
     basis: 'Public endpoint with ELA attribution as the stated reuse condition (implemented). Advertisement text is employer-owned: screened, not republished. SOURCE_POLICY.md §2, superseding the older plan §2 row.',
+    hosted: 'supported',
+    hostedBasis: 'Public endpoint, no key, no VPN; runs on the host with the same caps.',
   },
   {
     key: 'eures-nl',
@@ -91,6 +120,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'permitted',
     enabled: true,
     basis: 'Public endpoint with ELA attribution as the stated reuse condition (implemented). Advertisement text is employer-owned: screened, not republished. SOURCE_POLICY.md §2, superseding the older plan §2 row.',
+    hosted: 'supported',
+    hostedBasis: 'Public endpoint, no key, no VPN; runs on the host with the same caps.',
   },
   {
     key: 'job-room.ch',
@@ -98,6 +129,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'owner-assumed',
     enabled: true,
     basis: 'Unauthenticated public search/detail API of the Swiss public employment service, but no verified grant: permission is an explicit owner assumption (INT-08, #167). Measured as public-sustainable: search reads at most 6 pages of 100 previews per role keyword and stops at the first short page; at most 200 short previews are re-read in full at a fixed 400ms interval (~80s worst case); searches are rate-limited per account (6 per 10min). Metadata + link only per SOURCE_POLICY.md §1. 2026-09-24 probe: an unauthenticated request from a non-local network answered HTTP 400 with a WAF block page, so volume assumes the runtime network the adapter has historically run from; stop on block, never retry. SOURCE_POLICY.md §2; AGENTS.md.',
+    hosted: 'supported',
+    hostedBasis: 'Unauthenticated public API; runs on the host with the same pacing and stop-on-block handling. A hosted block page would surface as a failed source, never as silent success.',
   },
   {
     key: 'freehire-ch',
@@ -105,6 +138,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'permitted',
     enabled: true,
     basis: 'Documented public full-description API (GET /agent/jobs/search) used as published: no key, identifying User-Agent sent, paced and capped. Robots.txt and llms.txt invite programmatic use; terms permit documented API use. Measured 2026-09-24: 7,962 open CH adverts, 4,349 English-tagged, 1,137 in the eligible upstream subset. No display/cache/attribution conditions found; advertisement text is employer-owned so screened server-side, never republished (SOURCE_POLICY.md §1). Upstream allowlist is the seven ATS platforms reviewed in §2 (five with verified boards configured, plus Teamtailor and Workable supported with none configured); re-served aggregators and unreviewed boards excluded. Direct redistribution confirmation still outstanding — ask before launch.',
+    hosted: 'supported',
+    hostedBasis: 'Documented public API used as published with an identifying User-Agent; runs on the host with the same upstream allowlist and caps.',
   },
   {
     key: 'freehire-nl',
@@ -112,6 +147,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'permitted',
     enabled: true,
     basis: 'Documented public full-description API (GET /agent/jobs/search) used as published: no key, identifying User-Agent sent, paced and capped. Robots.txt and llms.txt invite programmatic use; terms permit documented API use. Measured 2026-09-24: 23,754 open NL adverts, 11,901 English-tagged, 3,482 in the eligible upstream subset. No display/cache/attribution conditions found; advertisement text is employer-owned so screened server-side, never republished (SOURCE_POLICY.md §1). Upstream allowlist is the seven ATS platforms reviewed in §2 (five with verified boards configured, plus Teamtailor and Workable supported with none configured); re-served aggregators and unreviewed boards excluded. Direct redistribution confirmation still outstanding — ask before launch.',
+    hosted: 'supported',
+    hostedBasis: 'Documented public API used as published with an identifying User-Agent; runs on the host with the same upstream allowlist and caps.',
   },
   {
     key: 'adzuna-ch',
@@ -119,6 +156,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'permitted',
     enabled: true,
     basis: 'Publisher terms permit listing/research use with a key, but the standard API returns teasers too short to confirm English, so retained as administrator measurement only. Decision 2026-09-09 (#30); SOURCE_POLICY.md §3.',
+    hosted: 'configuration-needed',
+    hostedBasis: 'Runs on the host only with ADZUNA_APP_ID and ADZUNA_APP_KEY configured; without them it reports unavailable. Teasers remain discovery-only and never confirm English.',
   },
   {
     key: 'adzuna-nl',
@@ -126,6 +165,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'permitted',
     enabled: true,
     basis: 'Publisher terms permit listing/research use with a key, but the standard API returns teasers too short to confirm English, so retained as administrator measurement only. Decision 2026-09-09 (#30); SOURCE_POLICY.md §3.',
+    hosted: 'configuration-needed',
+    hostedBasis: 'Runs on the host only with ADZUNA_APP_ID and ADZUNA_APP_KEY configured; without them it reports unavailable. Teasers remain discovery-only and never confirm English.',
   },
   {
     key: 'careerjet-ch',
@@ -133,6 +174,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'unresolved',
     enabled: true,
     basis: 'Publisher key plus declared site, Referer and real user details required; current registration unresolved, so local administrator discovery only with credentials unset in hosted environments. Decision 2026-09-09 (#31); SOURCE_POLICY.md §3.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: the publisher registration binds key, declared site, Referer and the real administrator IP. Leave CAREERJET_API_KEY, CAREERJET_REFERER and CAREERJET_USER_IP unset in hosted environments (#31).',
   },
   {
     key: 'careerjet-nl',
@@ -140,6 +183,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'unresolved',
     enabled: true,
     basis: 'Publisher key plus declared site, Referer and real user details required; current registration unresolved, so local administrator discovery only with credentials unset in hosted environments. Decision 2026-09-09 (#31); SOURCE_POLICY.md §3.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: the publisher registration binds key, declared site, Referer and the real administrator IP. Leave CAREERJET_API_KEY, CAREERJET_REFERER and CAREERJET_USER_IP unset in hosted environments (#31).',
   },
   {
     key: 'jobs.ch',
@@ -147,6 +192,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'against-terms',
     enabled: true,
     basis: 'JobCloud terms prohibit automation and robots.txt disallows the detail pages read. Knowingly against both at the owner\'s explicit instruction; local administrator + VPN only, manual, capped, fixed delay. AGENTS.md; SOURCE_POLICY.md §3.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: JobCloud terms prohibit automation and the VPN boundary cannot be met there. Local administrator + VPN only; no hosted exception has been approved — lifting this needs an explicit owner decision, not a quieter source set.',
   },
   {
     key: 'jobup.ch',
@@ -154,6 +201,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'against-terms',
     enabled: true,
     basis: 'JobCloud property: same terms prohibition (its robots.txt does not disallow the detail pages). Administrator + VPN only. Portfolio retained 2026-09-09 (#32); AGENTS.md.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: JobCloud terms prohibit automation and the VPN boundary cannot be met there. Local administrator + VPN only; no hosted exception has been approved.',
   },
   {
     key: 'jobscout24.ch',
@@ -161,6 +210,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'against-terms',
     enabled: true,
     basis: 'JobCloud property: same terms prohibition (its robots.txt does not disallow the detail pages). Kept on probation sharing the JobCloud adapter and VPN boundary. Decision 2026-09-09 (#32); AGENTS.md.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: same JobCloud terms prohibition and VPN boundary as jobup.ch; probationary source with no hosted exception approved.',
   },
   {
     key: 'iamexpat.nl',
@@ -168,6 +219,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'unresolved',
     enabled: true,
     basis: 'Career paths read are outside the robots.txt disallow list and the published crawl delay is honoured, but there is no explicit permission. Administrator only; no VPN required. Decision 2026-09-09 (#32); AGENTS.md.',
+    hosted: 'supported',
+    hostedBasis: 'Runs on the host for an administrator with the same fixed caps, 1.2s delay and stop-on-block handling as locally; no VPN is required for the paths read.',
   },
   {
     key: 'undutchables.nl',
@@ -175,6 +228,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'unresolved',
     enabled: true,
     basis: 'Plain listing/detail paths permitted by robots.txt; query-string searches disallowed and unused. Previously returned HTTP 403 to automation, so precautionary VPN gate stays. Administrator only. Decision 2026-09-09 (#32); AGENTS.md.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: precautionary VPN gate stays after the site previously returned HTTP 403 to automation. Local administrator + VPN only; no hosted exception has been approved.',
   },
   {
     key: 'indeed-ch',
@@ -182,6 +237,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'owner-assumed',
     enabled: false,
     basis: 'Terms prohibit automated access without written permission; the owner reports holding authorisation for their own local assessment, which is unverified here. Disabled by default; loopback administrator experiment only. #63; SOURCE_POLICY.md §3; AGENTS.md.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: the owner-reported authorisation covers one administrator reading Indeed locally over loopback only. A source-specific decision is required before any hosted implementation; the local experiment is never silently generalized.',
   },
   {
     key: 'indeed-nl',
@@ -189,6 +246,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'owner-assumed',
     enabled: false,
     basis: 'Terms prohibit automated access without written permission; the owner reports holding authorisation for their own local assessment, which is unverified here. Disabled by default; loopback administrator experiment only. #63; SOURCE_POLICY.md §3; AGENTS.md.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: the owner-reported authorisation covers one administrator reading Indeed locally over loopback only. A source-specific decision is required before any hosted implementation; the local experiment is never silently generalized.',
   },
   {
     key: 'nationalevacaturebank.nl',
@@ -196,6 +255,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'unresolved',
     enabled: false,
     basis: 'Automated access returned HTTP 403 and no authorized feed is configured. Not searched; kept out of ordinary responses by the restricted gate. AGENTS.md.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: automated access returned HTTP 403 and no authorized feed is configured.',
   },
   {
     key: 'iamsterdam.com',
@@ -203,6 +264,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'unresolved',
     enabled: false,
     basis: 'A city guide, not a vacancy feed. Never searched; kept out of ordinary responses by the restricted gate. AGENTS.md.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host: a city guide, not a vacancy feed — never searched anywhere.',
   },
 ];
 
@@ -219,4 +282,22 @@ export function publicSourceKeys(): string[] {
 /** Adapter keys withheld from ordinary accounts (names, jobs, counts, run history). */
 export function adminOnlySourcePolicyKeys(): string[] {
   return SOURCE_POLICY_REGISTRY.filter((entry) => entry.audience === 'admin-only').map((entry) => entry.key);
+}
+
+/** The hosted decision for an adapter key, or `undefined` when the key has none. */
+export function hostedEligibilityFor(adapterKey: string): SourcePolicyEntry | undefined {
+  return sourcePolicyFor(adapterKey);
+}
+
+/**
+ * Adapter keys an administrator may run on the hosted server: `supported` outright,
+ * `configuration-needed` once the stated credentials exist. `blocked` keys are excluded.
+ */
+export function hostedRunnableKeys(): string[] {
+  return SOURCE_POLICY_REGISTRY.filter((entry) => entry.hosted !== 'blocked').map((entry) => entry.key);
+}
+
+/** Adapter keys that must report themselves blocked on the host, with their exact reason. */
+export function hostedBlockedKeys(): string[] {
+  return SOURCE_POLICY_REGISTRY.filter((entry) => entry.hosted === 'blocked').map((entry) => entry.key);
 }

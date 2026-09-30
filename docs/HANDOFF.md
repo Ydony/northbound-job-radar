@@ -1258,3 +1258,17 @@ only. Reviewer: run `npm test`, `npm run lint`, `npm run typecheck`, `npm run bu
 reviewed commit before accepting. No upstream requests made, no credentials read, no owner
 DEV/TEST state touched. Do not push, open a PR, or start T14: the scope gate needs the
 owner's review of the §1 matrix first.
+
+# 2026-10-01 — Explicit hosted admin eligibility (F4 T14, reworked per review)
+
+Implements the hosted-eligibility gate matching the T12/T13 assessments: `hosted` /
+`hostedBasis` on every row of `lib/source-policy.ts` (Adzuna configuration-needed;
+Careerjet, JobCloud x3, IamExpat, Undutchables, Indeed x2, NVB, I amsterdam blocked
+with exact reasons — no admin source is `supported` on the host pending an explicit
+owner decision with the terms review behind it), per-source enforcement in
+`app/api/scrape/route.ts` replacing the wholesale 409 refusal of `mode=all` without
+VPN (locally the VPN message is preserved per source; on non-loopback hosts every
+`hosted === 'blocked'` row reports its registry reason with zero imports), the local
+exception never generalizes, and caps/delays/refusal handling untouched. `/sources`,
+`lib/source-policies.ts` positions and `docs/SOURCE_POLICY.md` §3 carry the same
+matrix; `tests/hosted-admin-eligibility.test.ts` pins it and re-pins ordinary denial.
