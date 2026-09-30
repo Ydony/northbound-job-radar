@@ -56,10 +56,10 @@ one click away on a page the employer chose to publish it on.
 
 | Source | Basis | Conditions that must be implemented |
 |---|---|---|
-| **EURES CH/NL** | Public endpoint (`/public/` in the path), `robots.txt` does not disallow `/eures/`, and the EURES legal notice states plainly: *"Re-use is authorised, provided that ELA is acknowledged as the source of the material."* | **Attribution to the European Labour Authority (ELA) is mandatory** and is currently not implemented — see §4. Metadata + link only, per §1. |
-| **Job-Room (arbeit.swiss)** | Official Swiss public employment service. Unauthenticated public search and detail API, no key. Owner-assumed permission recorded separately. | Metadata + link only. Keep the per-advertisement detail fetch paced and capped as it is now. |
-| **Employer ATS boards** (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable) | Endpoints the platforms publish specifically so aggregators can consume them. Teamtailor documents a syndication feed on every career site it hosts (jobs page plus `.rss`, same feed as JSON Feed at `.json`): no key, full descriptions, ISO country codes per posting (#57). Workable publishes the same kind of feed for each account it hosts (#58). | Metadata + link only. The employer publishes the board; the text is still theirs. |
-| **FreeHire CH/NL** | Public full-description API (`GET /agent/jobs/search`), no key; documented for programmatic use, with an identifying User-Agent sent. No display, caching or attribution conditions found in the terms or docs. The catalogue mixes direct ATS feeds with re-served aggregators, so only the seven ATS platforms already public here are accepted via an explicit upstream allowlist; everything else is refused at ingest. | Metadata + link only. Advertisement text is employer-owned: screened server-side, never republished. |
+| **EURES CH/NL** | **Permission evidence:** public endpoint (`/public/` in the path), `robots.txt` does not disallow `/eures/`, and the EURES legal notice states plainly: *"Re-use is authorised, provided that ELA is acknowledged as the source of the material."* | **Required attribution:** the European Labour Authority (ELA) credit, implemented in the job list and on `/sources` (§4). **Redistribution:** advertisement text is employer-owned third-party work, so metadata + link only, per §1. |
+| **Job-Room (arbeit.swiss)** | **Owner assumption, not verified permission (INT-08, #167):** official Swiss public employment service with an unauthenticated public search and detail API, no key. A 2026-09-24 probe from a non-local network was answered with a block page, so sustainable volume assumes the runtime network the adapter has historically run from. | Metadata + link only. Keep the per-advertisement detail fetch paced and capped as it is now (at most 6 preview pages per role keyword, at most 200 full re-reads at a fixed 400ms interval). Stop on any block; never retry or reroute. |
+| **Employer ATS boards** (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable) | **Permission evidence:** endpoints the platforms publish specifically so aggregators can consume them. Teamtailor documents a syndication feed on every career site it hosts (jobs page plus `.rss`, same feed as JSON Feed at `.json`): no key, full descriptions, ISO country codes per posting (#57). Workable publishes the same kind of feed for each account it hosts (#58). 282 employer boards verified live before listing (each answered, held a CH/NL posting of 900+ characters). Workday is excluded: its endpoint is the careers page's own data call, not a published aggregator feed. | Metadata + link only. The employer publishes the board; the text is still theirs. |
+| **FreeHire CH/NL** | **Permission evidence for reading; unresolved redistribution question (#166, T08):** public full-description API (`GET /agent/jobs/search`), no key; documented for programmatic use, with an identifying User-Agent sent. No display, caching or attribution conditions found in the terms or docs. The catalogue mixes direct ATS feeds with re-served aggregators, so only the seven ATS platforms already public here are accepted via an explicit upstream allowlist; everything else is refused at ingest. **The terms say nothing about redistributing results to end users — ask the operator directly before launch.** | Metadata + link only. Advertisement text is employer-owned: screened server-side, never republished. **Gate:** until redistribution is confirmed, FreeHire is not counted as launched public coverage. |
 
 ### Why employer boards carry the public tier
 
@@ -218,9 +218,13 @@ Official material rechecked 2026-09-09: [JobCloud terms](https://www.jobs.ch/en/
 
 Do not enable these until someone has read their terms and recorded the answer here.
 
+FreeHire is no longer in this table: evaluated 2026-09-24 (#166) and integrated behind an
+eligible-upstream allowlist, it now carries its verdict in §2 (T08) — assessed for reading,
+with redistribution to end users as the one explicitly gated open question. The rows below
+have no verdict at all.
+
 | Source | Status |
 |---|---|
-| **FreeHire** | Evaluated 2026-09-24 (#166) and integrated behind an eligible-upstream allowlist (see §2). Its terms permit documented API use but say nothing about redistributing results to end users — ask them directly before launch. |
 | **Jooble** | Advertises publisher use on third-party sites, needs a key. Measure description completeness first: if it returns snippets like Adzuna and Careerjet, it adds `unknown` rows rather than usable jobs. |
 | **UWV / werk.nl** | Permission assumed by the owner; no retrieval interface exists. Assumed permission does not supply an endpoint. |
 | **OpenPostings** | No licence found in the repository. Reference only. |

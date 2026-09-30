@@ -32,12 +32,12 @@ export const stanceLabel: Record<PolicyStance, string> = {
 
 export const sourcePolicies: SourcePolicy[] = [
   {
-    name: 'Company career boards (Greenhouse, Lever, Recruitee, Ashby, Personio)',
+    name: 'Company career boards (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable)',
     group: 'Authorized APIs',
     stance: 'intended-use',
-    collected: 'Public job postings from 61 named employers: title, company, location, description, posting date.',
-    theirRules: 'These platforms publish an open, unauthenticated job-board endpoint for each customer precisely so job boards and aggregators can read their vacancies.',
-    ourPosition: 'This is the endpoint doing the job it exists for. No key, no login, no rate-limit conflict.',
+    collected: 'Public job postings from 282 verified employer boards: title, company, location, description, posting date. Each board was checked live before listing: it answered, held at least one Netherlands/Switzerland posting, and that posting was long enough (900+ characters) for the language gate to judge.',
+    theirRules: 'These platforms publish an open, unauthenticated job-board endpoint for each customer precisely so job boards and aggregators can read their vacancies. Teamtailor documents a syndication feed on every career site it hosts; Workable publishes the same kind of feed for each account it hosts.',
+    ourPosition: 'This is the endpoint doing the job it exists for. No key, no login, no rate-limit conflict. Reading and republishing stay separate questions: the advertisement text is the employer’s, so it is screened server-side and never republished — you get the facts, our verdict, and a link. Workday is excluded: its endpoint is the careers page’s own data call, not a feed published for aggregators.',
     link: 'https://developers.greenhouse.io/job-board.html',
   },
   {
@@ -75,7 +75,7 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'unresolved',
     collected: 'Public Swiss vacancy records: title, employer, location, description, posting date, and the employer-declared language requirements.',
     theirRules: 'The official Swiss public employment service. Its own front end calls an unauthenticated public JSON search API. robots.txt disallows the /job-search/ page route under a comment reading "Do not crawl Job Adverts"; the API path itself is not listed.',
-    ourPosition: 'The API path is not disallowed, and this is public-sector data published for job seekers, but that comment states an intent this use does not honour. Materially cleaner than scraping a commercial board, and still not an explicit permission. Validated for public traffic (INT-08, #167): each search reads at most 6 pages of 100 previews per role keyword, stopping at the first short page, then re-reads at most 200 short previews in full at a fixed 400ms interval; searches are rate-limited per account. A 2026-09-24 probe from a non-local network was answered with a block page, so the adapter stops on any block rather than retrying.',
+    ourPosition: 'The API path is not disallowed, and this is public-sector data published for job seekers, but that comment states an intent this use does not honour. Materially cleaner than scraping a commercial board, and still not an explicit permission: permission is an explicit owner assumption (INT-08, #167), recorded separately from evidence — an assumption is not a permission. Validated for public traffic (INT-08, #167): each search reads at most 6 pages of 100 previews per role keyword, stopping at the first short page, then re-reads at most 200 short previews in full at a fixed 400ms interval; searches are rate-limited per account. A 2026-09-24 probe from a non-local network was answered with a block page, so the adapter stops on any block rather than retrying.',
     link: 'https://www.job-room.ch/robots.txt',
   },
   {
@@ -83,8 +83,8 @@ export const sourcePolicies: SourcePolicy[] = [
     group: 'Authorized APIs',
     stance: 'intended-use',
     collected: 'Full-description search results for the saved role keywords, restricted to seven reviewed employer-board upstreams (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable): title, company, location, description, posting date, link.',
-    theirRules: 'Checked 2026-09-24. The terms permit documented API use and prohibit scraping beyond it; robots.txt and llms.txt point agents at exactly this full-description endpoint and ask for an identifying User-Agent. No display, caching or attribution conditions are stated; the advertisement text is aggregated from third parties.',
-    ourPosition: 'Used as documented: unauthenticated, paced and capped, with an identifying User-Agent. Only the seven ATS platforms this app already reads directly are accepted; re-served aggregators (EURES, Adzuna, WhatJobs) and unreviewed boards are excluded by an explicit allowlist. Advertisement text is screened server-side and not republished — you get the facts, our verdict, and a link. Direct confirmation of redistribution is still outstanding and will be asked for before launch.',
+    theirRules: 'Checked 2026-09-24. The terms permit documented API use and prohibit scraping beyond it; robots.txt and llms.txt point agents at exactly this full-description endpoint and ask for an identifying User-Agent. No display, caching or attribution conditions are stated; the advertisement text is aggregated from third parties. The terms say nothing about redistributing results to end users — that question is unresolved (#166).',
+    ourPosition: 'Used as documented: unauthenticated, paced and capped, with an identifying User-Agent. Only the seven ATS platforms this app already reads directly are accepted; re-served aggregators (EURES, Adzuna, WhatJobs) and unreviewed boards are excluded by an explicit allowlist. Advertisement text is screened server-side and not republished — you get the facts, our verdict, and a link. Redistribution gate: direct confirmation of redistribution is still outstanding and must be asked for before launch (#166); until then this source is not counted as launched public coverage.',
     link: 'https://freehire.me/docs/api',
   },
   {
@@ -164,6 +164,40 @@ export const sourcePolicies: SourcePolicy[] = [
     collected: 'Nothing.',
     theirRules: 'magnet.me and youngcapital.nl carry a blanket robots.txt disallow. werkzoeken.nl sits behind a bot challenge. jobbird.com renders results client-side.',
     ourPosition: 'Not used. Defeating a bot challenge would be detection evasion, which this project does not do under any circumstances.',
+  },
+  {
+    name: 'Jooble (Switzerland and Netherlands)',
+    group: 'Not used',
+    stance: 'unresolved',
+    collected: 'Nothing.',
+    theirRules: 'Jooble advertises a REST API for website publishers; a key is required and the returned description quality is unmeasured here.',
+    ourPosition: 'Gated: obtain a publisher key and confirm full-text quality, paging, coverage and terms before adding (INT-10). If it returns snippets like Adzuna and Careerjet it adds unknown rows rather than usable jobs. Not enabled.',
+    link: 'https://jooble.org/api/about',
+  },
+  {
+    name: 'UWV / werk.nl',
+    group: 'Not used',
+    stance: 'unresolved',
+    collected: 'Nothing.',
+    theirRules: 'The Dutch public employment service publishes only aggregated open data; its vacancy search sits behind a single sign-on gateway. Permission is owner-assumed, which does not supply an endpoint.',
+    ourPosition: 'Gated: technically unavailable until the owner or provider supplies usable retrieval documentation, schema and any credentials (INT-09). Do not invent an API or count this as enabled. Getting past the sign-on gateway would mean circumventing an access control, which this project does not do.',
+  },
+  {
+    name: 'OpenPostings',
+    group: 'Not used',
+    stance: 'unresolved',
+    collected: 'Nothing.',
+    theirRules: 'A public repository advertising 110,000+ companies globally, not that many NL/CH adverts; no explicit repository licence was found in the review.',
+    ourPosition: 'Gated: reference only. Obtain code/dataset reuse permission before copying either; do not integrate the whole local Node/SQLite app. No dependable NL/CH yield estimate.',
+    link: 'https://github.com/Masterjx9/OpenPostings',
+  },
+  {
+    name: 'eurojobs.com',
+    group: 'Not used',
+    stance: 'not-used',
+    collected: 'Nothing.',
+    theirRules: 'Refuses automated use by name: robots.txt carries a dedicated disallow alongside GPTBot and CCBot, plus an AI-training opt-out and an express Article 4 reservation under EU Directive 2019/790.',
+    ourPosition: 'Not used. Not to be revisited without written permission from the operator.',
   },
 ];
 

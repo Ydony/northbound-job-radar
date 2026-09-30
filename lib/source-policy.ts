@@ -16,7 +16,7 @@
  * `basis` is mandatory on every entry: a status label without its evidence is how sources
  * silently drift back into the wrong tier.
  *
- * Planned-but-absent sources (UWV/werk.nl, FreeHire, Jooble) deliberately have no entry:
+ * Planned-but-absent sources (UWV/werk.nl, Jooble) deliberately have no entry:
  * there is no adapter for them yet, and `tests/source-policy.test.ts` fails on entries
  * without an adapter as well as adapters without an entry.
  */
@@ -69,14 +69,14 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     audience: 'public',
     policyStatus: 'permitted',
     enabled: true,
-    basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. SOURCE_POLICY.md §2.',
+    basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. Advertisement text is employer-owned: screened server-side, never republished (metadata + link only per SOURCE_POLICY.md §1). SOURCE_POLICY.md §2.',
   },
   {
     key: 'ats-nl',
     audience: 'public',
     policyStatus: 'permitted',
     enabled: true,
-    basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. SOURCE_POLICY.md §2.',
+    basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. Advertisement text is employer-owned: screened server-side, never republished (metadata + link only per SOURCE_POLICY.md §1). SOURCE_POLICY.md §2.',
   },
   {
     key: 'eures-ch',
