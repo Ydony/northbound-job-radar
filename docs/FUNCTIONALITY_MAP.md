@@ -15,7 +15,7 @@ Manual search: criteria → source registry → source adapters → language gat
                → identity/deduplication → account's jobs + run report → dashboard
 ```
 
-`db/runtime.ts` creates the legacy base schema and applies the numbered upgrades in `db/migrations.ts`. It runs on the first request; there is no Drizzle layer or `db:generate` command. Migration 28 removes CV storage and fit columns from the final schema. Earlier migrations retain CV references only so older databases can upgrade. `vite.config.ts` binds separate local D1 state for DEV and TEST. `scripts/run-local.mjs` builds and starts TEST; source edits do not hot-reload there.
+`db/runtime.ts` creates the legacy base schema and applies the numbered upgrades in `db/migrations.ts`. It runs on the first request; there is no Drizzle layer or `db:generate` command. Migration 28 removes CV storage and fit columns from the final schema. Earlier migrations retain CV references only so older databases can upgrade. Local dev and test run the standalone Node bundle on SQLite via `scripts/run-local.mjs`, each with its own database and build copy under `.local/`; `vite.config.ts` keeps the archived Cloudflare pair's local D1 state. Source edits do not hot-reload into a running local release.
 
 ## User-facing features
 

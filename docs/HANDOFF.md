@@ -1,5 +1,38 @@
 # Handover
 
+## 2026-09-30 T01: self-hosted setup verified, deploy templates reconcile, stale local-runtime docs fixed
+
+T01 (F1 child) re-ran the existing harnesses on the pinned master instead of
+rebuilding them — everything they cover already existed. `npm run lint`,
+`npm run typecheck`, `npm test` (555/555), `npm run build`
+(`dist/standalone/server.js`), and `npm run verify:selfhosted` (PASS: empty
+SQLite boots the administrator, criteria persist, provider-less search
+completes honestly, schema version 31 with 31 migrations, `integrity_check`
+ok, no server errors) all pass. The four named suites — `sqlite-adapter`,
+`public-refresh`, `keyword-pagination`, `collection-totals` — pass (41/41).
+No behavior changed, so no new tests were added.
+
+`deploy/` needed no changes — each template already matches the code: the web
+unit's `ExecStart` is the bundle `npm run build` emits; both units share one
+`EnvironmentFile` and therefore one `SQLITE_PATH`; web is
+`Restart=on-failure` with the higher `CPUWeight`, refresh is `Type=oneshot`
+behind the 5-minute lease, the timer repeats the prod `0 */6 * * *` cadence,
+and nginx sets `X-Forwarded-Proto`/`Host` on every block, which is what
+`isSecureRequest` needs for `Secure` cookies. Changed files are docs-only:
+`docs/ENVIRONMENTS.md`, `docs/GETTING_STARTED.md`, `README.md`,
+`docs/FUNCTIONALITY_MAP.md` and `docs/DEPLOY.md` still described the old
+Miniflare/`.wrangler` dev/test runtime; they now describe the Node + SQLite
+stack under `.local/`.
+
+Explicitly unverified here, still required before any hosting acceptance:
+systemd restart behavior, the nginx proxy against a live server (including
+whether `isSameOrigin` sees the public scheme behind it and whether the
+default proxy timeouts survive a full-length admin search), Windows DEV/TEST,
+and production. Follow-ups split out, not done: `scripts/backup-local.mjs`
+and `scripts/verify-local-backup.mjs` still back up `.wrangler/<env>/state`,
+which no longer exists on the new stack (backup/restore belongs to the #200
+track, not T01).
+
 ## 2026-09-27 the VPS work, and dev/test moved onto the new stack
 
 **This supersedes the hosting entry below it, which says "nothing is implemented and no scope

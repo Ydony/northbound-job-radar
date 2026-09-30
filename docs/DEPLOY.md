@@ -38,8 +38,9 @@ The supported environments are documented in `docs/ENVIRONMENTS.md`:
 - `dev` at `http://localhost:3000`
 - `test` at `http://localhost:3001`
 
-Both local environments use separate D1 emulation. Their jobs, accounts and search
-history remain on this computer under ignored `.wrangler/` state. The remote D1
+Both local environments run the standalone Node bundle on SQLite, each with its
+own empty database and build copy under the ignored `.local/` directory. Their jobs, accounts and search
+history remain on this computer there. The remote D1
 starts empty and must never be seeded from TEST. In-project recovery snapshots
 were scrubbed of CV data on 2026-09-23; external copies were not inventoried.
 
