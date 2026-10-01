@@ -24,7 +24,7 @@ function jobBlock(workflow: string, name: string): string {
 
 test('the VPS release is owner-triggered only', () => {
   assert.match(releaseWorkflow, /^ {2}workflow_dispatch:/m, 'no manual trigger');
-  for (const trigger: string of ['push', 'pull_request', 'schedule']) {
+  for (const trigger of ['push', 'pull_request', 'schedule']) {
     assert.doesNotMatch(releaseWorkflow, new RegExp(`^ {2}${trigger}:`, 'm'), `automatic ${trigger} trigger present`);
   }
 });
