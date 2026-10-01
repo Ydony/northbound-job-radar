@@ -114,8 +114,10 @@ credentials. Restricted page-fetch adapters remain unavailable without this veri
 4. Exercise the change at `http://localhost:3001` as a real user.
 
 Migrations apply on first request and are recorded in `schema_migrations`. Before a schema change,
-copy `.local/test.sqlite` to a dated local backup. Never reset test state merely to make a
-migration pass.
+take a dated local backup with `npm run backup:test` (stop the server first; it checkpoints the
+WAL, copies `.local/test.sqlite`, and refuses a copy whose schema version or row counts do not
+match the live file). `npm run backup:verify <path>` re-checks one. Never reset test state merely
+to make a migration pass.
 
 ## Disposable duplicate-workflow verification
 
