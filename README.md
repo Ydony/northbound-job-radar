@@ -20,7 +20,7 @@ DEV opens at `http://localhost:3000`. For the separate, fixed-build TEST environ
 npm run test:local
 ```
 
-TEST opens at `http://localhost:3001`. The environments have separate D1 storage and session secrets. Do not copy, reset, migrate, or rebuild TEST casually; it contains the owner's saved workspace. See [the setup guide](docs/GETTING_STARTED.md) and [environment rules](docs/ENVIRONMENTS.md). Optional VPN-enforced launchers for local administrator sources are explained in [VPN guidance](docs/VPN.md).
+TEST opens at `http://localhost:3001`. The environments keep separate SQLite files and session secrets under `.local/`, each starting empty; local data is not carried over. Do not copy, reset, migrate, or rebuild TEST casually; it holds the stable workspace. See [the setup guide](docs/GETTING_STARTED.md) and [environment rules](docs/ENVIRONMENTS.md). Optional VPN-enforced launchers for local administrator sources are explained in [VPN guidance](docs/VPN.md).
 
 ## Current behavior
 
@@ -43,7 +43,10 @@ npm test
 npm run check:design
 ```
 
-`npm run build` builds the Worker. Do not run a competing build while the fixed TEST server is using `dist`; follow [the promotion workflow](docs/ENVIRONMENTS.md) instead. A green unit suite is not a browser or deployment security check.
+`npm run build` emits the self-hosted standalone bundle at `dist/standalone/`. Each
+local environment serves its own copy from `.local/<env>-server/`, so rebuilding
+for one cannot break the other's running server; follow [the promotion
+workflow](docs/ENVIRONMENTS.md) anyway. A green unit suite is not a browser or deployment security check.
 
 The [GitHub project board](https://github.com/users/Ydony/projects/4) tracks active work. [AGENTS.md](AGENTS.md) sets the coding and data-safety rules for another LLM. [docs/HANDOFF.md](docs/HANDOFF.md) contains recent checkpoints; many older sections are historical.
 

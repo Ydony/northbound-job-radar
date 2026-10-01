@@ -154,12 +154,15 @@ or application is automated.
 
 ## Local data and troubleshooting
 
-- Dev data lives under `.wrangler/dev/state`; stable test data lives under
-  `.wrangler/test/state`. Never copy one over the other while either server is running.
-- Use `npm run dev` for hot-reload development on port 3000. Use `npm run test:local` to build and
-  run the stable local test Worker on port 3001.
-- Never share or commit `.wrangler/`, `.env`, `tmp/`, `work/`, or VPN configurations. Copies made outside this project before CV removal may still contain CV data.
-- Only one `vinext dev` server can run on a computer. Stop the existing server before
-  starting another checkout.
+- Dev data lives in `.local/dev.sqlite`, served from its own build copy under
+  `.local/dev-server/`; stable test data lives in `.local/test.sqlite`, served
+  from `.local/test-server/`. Never copy one database over the other while
+  either server is running. Both start empty; local data is not carried over.
+- Use `npm run dev` on port 3000. It rebuilds on every start and has no hot
+  reload: rerun the command after a change. Use `npm run test:local` to build
+  and run the stable test release on port 3001.
+- Never share or commit `.local/`, `.dev.vars.*`, `.wrangler/`, `.env`, `tmp/`, `work/`, or VPN configurations. Copies made outside this project before CV removal may still contain CV data.
+- Only one server can bind a port. Stop the existing server before
+  starting another checkout on the same port.
 - Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` after changes.
 - See `docs/VPN.md` for provider alternatives and detailed VPN boundaries.
