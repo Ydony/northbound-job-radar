@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { dirname, join, relative, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { backup, DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 const environment = process.argv[2];
@@ -82,6 +82,12 @@ function describe(databasePath) {
   }
 }
 
+/**
+ * Early warning only. The server's port can be overridden (`PORT` in scripts/run-local.mjs), so
+ * a closed probe does NOT prove nothing is writing; the backup below is therefore taken with
+ * SQLite's online backup API, which snapshots consistently while a writer is active, instead of
+ * relying on this check for correctness.
+ */
 if (await portIsOpen(port)) {
   throw new Error(`Stop the ${environment} server on port ${port} before taking a backup.`);
 }
@@ -92,20 +98,6 @@ await stat(source).catch(() => {
   );
 });
 
-/**
- * Checkpoint the WAL into the database file before copying it. A plain copy of a live WAL
- * database is the truncated-restore failure that scripts/verify-sqlite-restore.mjs exists to
- * catch; in production this is `litestream replicate` running continuously. The port guard above
- * has already established that no server holds the file.
- */
-{
-  const checkpoint = new DatabaseSync(source);
-  try {
-    checkpoint.exec('PRAGMA wal_checkpoint(TRUNCATE)');
-  } finally {
-    checkpoint.close();
-  }
-}
 const live = describe(source);
 if (live.integrity !== 'ok') {
   throw new Error(`The ${environment} database fails integrity_check (${live.integrity}); not backing up a corrupt file.`);
@@ -114,57 +106,79 @@ if (live.integrity !== 'ok') {
 const timestamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
 const backupRoot = join(projectRoot, 'local-backups', environment, timestamp);
 const stateDestination = join(backupRoot, 'state');
-await mkdir(stateDestination, { recursive: true });
-await cp(source, join(stateDestination, BACKUP_DB_NAME), { errorOnExist: true });
+const backupDatabase = join(stateDestination, BACKUP_DB_NAME);
 
-/**
- * Detect a failed backup now, not at restore time. The checkpoint above means the single file is
- * self-contained, so the copy must open, pass integrity_check, and report the same schema version
- * and row counts as the live file. Catching it here is the whole point: a backup is only worth
- * taking if a bad one is loud.
- */
-const copied = describe(join(stateDestination, BACKUP_DB_NAME));
-if (copied.integrity !== 'ok') {
-  throw new Error(`The backup copy fails integrity_check (${copied.integrity}).`);
-}
-if (copied.schemaVersion !== live.schemaVersion) {
-  throw new Error(`The backup copy reports schema version ${copied.schemaVersion}, the live database ${live.schemaVersion}.`);
-}
-for (const [table, total] of Object.entries(live.rowCounts)) {
-  if (copied.rowCounts[table] !== total) {
-    throw new Error(`The backup copy has ${copied.rowCounts[table]} ${table} rows, the live database ${total}.`);
+let files;
+let manifest;
+try {
+  await mkdir(stateDestination, { recursive: true });
+
+  /**
+   * SQLite's online backup copies a transactionally consistent snapshot, including anything still
+   * in the WAL, and stays correct if a writer is active. A plain file copy would not: it can
+   * miss the WAL (the truncated-restore failure scripts/verify-sqlite-restore.mjs exists to catch)
+   * or tear across a write. In production this role is played by `litestream replicate`.
+   */
+  const sourceDatabase = new DatabaseSync(source);
+  try {
+    await backup(sourceDatabase, backupDatabase);
+  } finally {
+    sourceDatabase.close();
   }
-}
 
-const files = await fileInventory(stateDestination);
-const manifest = {
-  format: 2,
-  environment,
-  createdAt: new Date().toISOString(),
-  source: relative(projectRoot, source).replaceAll('\\', '/'),
-  database: BACKUP_DB_NAME,
-  schemaVersion: copied.schemaVersion,
-  migrations: copied.migrations,
-  integrity: copied.integrity,
-  rowCounts: copied.rowCounts,
-  files,
-  totalBytes: files.reduce((sum, file) => sum + file.bytes, 0),
-};
-await writeFile(join(backupRoot, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  /**
+   * Detect a failed backup now, not at restore time: the copy must open, pass integrity_check and
+   * carry the live schema version. Row counts are recorded from the copy rather than compared to
+   * the live file, because a snapshot taken while a writer is active legitimately differs from a
+   * count sampled a moment earlier; the copy's own counts are what a restore must reproduce, and
+   * `npm run backup:verify` checks exactly those.
+   */
+  const copied = describe(backupDatabase);
+  if (copied.integrity !== 'ok') {
+    throw new Error(`The backup copy fails integrity_check (${copied.integrity}).`);
+  }
+  if (copied.schemaVersion !== live.schemaVersion) {
+    throw new Error(`The backup copy reports schema version ${copied.schemaVersion}, the live database ${live.schemaVersion}.`);
+  }
+
+  files = await fileInventory(stateDestination);
+  manifest = {
+    format: 2,
+    environment,
+    createdAt: new Date().toISOString(),
+    source: relative(projectRoot, source).replaceAll('\\', '/'),
+    database: BACKUP_DB_NAME,
+    schemaVersion: copied.schemaVersion,
+    migrations: copied.migrations,
+    integrity: copied.integrity,
+    rowCounts: copied.rowCounts,
+    files,
+    totalBytes: files.reduce((sum, file) => sum + file.bytes, 0),
+  };
+  await writeFile(join(backupRoot, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+} catch (error) {
+  // A half-written backup directory must not survive: retention would otherwise count it as a
+  // real backup and, after enough failures, prune valid older ones in its favour.
+  await rm(backupRoot, { recursive: true, force: true });
+  throw error;
+}
 
 /**
  * Retention. A backup is only useful if taking one is cheap enough to do routinely, which means old
  * copies have to be cleared or they grow without bound - the test state is about 4 MB each time.
  * Keeps the newest few and removes the rest. Only ever prunes this environment's own folder, and
- * never the backup just written.
+ * never the backup just written. Only directories with a manifest count as backups; anything
+ * else is left alone rather than silently deleted, and never displaces a valid backup.
  */
 const KEEP = 10;
 const environmentRoot = join(projectRoot, 'local-backups', environment);
-const existing = (await readdir(environmentRoot, { withFileTypes: true }))
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name)
-  .sort()
-  .reverse();
+const existing = [];
+for (const entry of await readdir(environmentRoot, { withFileTypes: true })) {
+  if (!entry.isDirectory()) continue;
+  const hasManifest = await stat(join(environmentRoot, entry.name, 'manifest.json')).then(() => true, () => false);
+  if (hasManifest) existing.push(entry.name);
+}
+existing.sort().reverse();
 const pruned = [];
 for (const name of existing.slice(KEEP)) {
   if (name === timestamp) continue;
