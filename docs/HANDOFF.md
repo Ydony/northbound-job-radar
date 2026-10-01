@@ -1235,7 +1235,7 @@ passed; the missing-card canary correctly failed its assertions. Lint, typecheck
 and build passed. No owner DEV/TEST state was touched and no providers were called.
 Production promotion is separate; do not assume this entry alone means deployed.
 
-<# 2026-09-29 — T13 hosted assessment: Adzuna/Careerjet credentials, site/IP rules, Indeed local boundary (F4 gate input)
+# 2026-09-29 — T13 hosted assessment: Adzuna/Careerjet credentials, site/IP rules, Indeed local boundary (F4 gate input)
 
 New: `lib/hosted-sources.ts` (one hosted decision per administrator-side adapter:
 `supported`, `configuration-needed`, or `blocked` with the exact reason; variable names
