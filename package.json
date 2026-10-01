@@ -42,7 +42,8 @@
     "vpn:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-vpn.ps1 -ShowPublicIp",
     "vpn:check:mac": "bash scripts/check-vpn-macos.sh --show-public-ip",
     "init-secrets": "node scripts/init-secrets.mjs dev && node scripts/init-secrets.mjs test",
-    "verify:admin": "node scripts/verify-admin-actions.mjs"
+    "verify:admin": "node scripts/verify-admin-actions.mjs",
+    "check:ops": "node --import tsx scripts/check-ops-status.mjs"
   },
   "dependencies": {
     "react": "19.2.6",

@@ -163,6 +163,40 @@ restore into scratch, version/counts/`integrity_check`/catalogue join).
 It proves the procedure's logic, not the VPS's replication — the real
 drill above still has to run on the server before cutover.
 
+## Operational review across the observation period (F8, T24)
+
+The old Cloudflare deployment stays as a rollback until the VPS has shown
+stable operation over an owner-selected observation period. The review
+instrument is `npm run check:ops`, and it is host-free on purpose: it
+never shells out, never reads EnvironmentFiles, and rejects any evidence
+file containing a secret-like key — so a pasted secret can never become a
+"passing check" or a transcript leak. The owner collects four numbers on
+the VPS and evaluates them anywhere:
+
+```bash
+npm run check:ops -- --print-collection   # the exact VPS collection commands
+npm run check:ops -- --evidence /tmp/ops-evidence.json
+```
+
+The evidence file holds timestamps, restart counts and byte counts only
+(services active/restarts, refresh tick outcomes as printed by
+`scripts/run-refresh.mjs`, newest replica timestamp from the bucket
+listing, database size and free disk). Exit codes are 0 pass, 2 warnings
+only, 1 any failure. The same run also checks the deploy artifacts
+themselves — refresh timer on the 6-hour cadence, Litestream 30-day
+retention, oneshot collector, restart-on-failure web unit, the nginx auth
+brake — so configuration drift fails loudly too.
+
+What the alerts mean: a replica older than 1h means Litestream has
+stalled (it syncs every 10s); older than 24h blocks cutover and
+retirement until a real restore passes. No successful refresh within
+two cadences (12h) means scheduled collection is broken, not late; any
+restart or failed tick in the period is a warning the retirement review
+must explain. Database growth past 500 MB or free disk under 5 GB is a
+warning; past 2 GB or under 1 GB fails. The off-box restore drill above
+and the retirement/deletion decision itself stay owner-run and are
+recorded on the F8 record, not in this output.
+
 ## Keep the private site out of search results
 
 All pages carry robots metadata and all page/API responses carry `X-Robots-Tag:
