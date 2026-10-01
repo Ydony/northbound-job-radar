@@ -128,11 +128,9 @@ async function main() {
     accountRole = roleData?.account?.role ?? '';
     assert(accountRole, 'role check returned no account role');
     if (accountRole === 'admin') {
-      throw new Error(
-        `Refusing to seed: ${email} became the installer administrator (first registrant on an empty database, `
-        + 'which cannot self-delete). Register your real administrator first, or aim IKBENEENAPPEL_VERIFY_URL '
-        + `at a throwaway database. Leaving ${email} in place; nothing was seeded.`,
-      );
+      throw new Error(`Refusing to seed: ${email} became the installer administrator `
+        + `(first registrant on an empty database, which cannot self-delete). Register your real administrator `
+        + `first, or aim IKBENEENAPPEL_VERIFY_URL at a throwaway database. Leaving ${email} in place; nothing was seeded.`);
     }
 
     console.log(`2/6 Importing ${VOLUME} synthetic advertisements (one request per row)...`);
