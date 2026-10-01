@@ -133,6 +133,10 @@ nothing and costs the whole migration budget.
 
 ## 4. VPS specs
 
+The provisional sizes below require an owner-witnessed capacity check before
+launch. Use [the bounded verification procedure and evidence form](VPS_CAPACITY_VERIFICATION.md)
+on a separate scratch instance; this plan's estimates are not measured results.
+
 Sized from what the code actually does: a collection run holds 282 board
 payloads at `BOARD_CONCURRENCY` 6 plus hundreds of parsed adverts, and
 `/api/state` runs 13–16 scans over the holding set per load.
