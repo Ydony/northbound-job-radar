@@ -848,7 +848,7 @@ export default function JobRadar() {
       return;
     }
     setScrapeMessage(sourceGroup === 'indeed' ? 'Searching Indeed in the selected countries…' : mode === 'all'
-      ? 'Searching every source, including the page-fetching ones. Keep the VPN connected…'
+      ? 'Searching every source, including the local-only page-fetching ones (VPN launcher on this computer, not on hosted)…'
       : 'Searching available sources…');
     try {
       const response = await fetch('/api/scrape', {
@@ -1201,7 +1201,7 @@ export default function JobRadar() {
           so one place states what the last run did. The buttons stay disabled while a
           run is in flight (duplicate-click protection) and admin diagnostics stay here. */}
       <section className="workflow run-strip">
-        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
+        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('all')} title="Administrator only, local computer only. Adds the page-fetching sources via the VPN-checked launcher. Unavailable on hosted/phone — use Find new jobs there.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
         {noCountrySearched && <p className="form-message" role="status">Both countries are switched off in

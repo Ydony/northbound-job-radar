@@ -1,5 +1,33 @@
 # Handover
 
+## 2026-10-01 T15 hosted-mode collection messages with the VPN shelved there
+
+`mode=all` without `VPN_ENFORCED` was refused everywhere with "Start the app with
+`npm run dev:private` first" — on a hosted/phone request that instruction cannot be
+followed, so the refusal was misleading exactly where F4 wants phone-triggered
+collection to work. The refusal now branches on `isLoopbackRequest` (the same signal
+the Indeed gate already uses): loopback keeps the `dev:private` instruction, a hosted
+request is still refused (409, never silently narrowed) but is told the page-fetching
+sources are local-only, the VPN launcher runs on the local computer, and "Find new
+jobs" keeps running on the host with the same caps/delays/stop-on-refusal. Dashboard
+button title, progress line and the `/sources` restricted-sites blurb say the same.
+No source was enabled on hosted, Indeed/Careerjet stay loopback-gated, no evasion.
+
+Verified: `tests/hosted-collection-messages.test.ts` (9 tests: hosted/local message
+pins, no-evasion pin, Indeed pause/cooldown/lease persistence across re-reads on a
+synthetic D1 table, per-run budgets memory-only by design, refresh durability pin,
+loopback predicate on both URL shapes). Full gate green: 564 tests, lint, typecheck,
+build. Live on the built bundle against a throwaway SQLite file: local `mode=all`
+still 409 with the launcher instruction, credential-free `mode=authorized` completes
+with a per-source report.
+
+Not exercised live, stated plainly: the hosted 409 branch from a genuinely
+non-loopback host. A spoofed `Host` header cannot produce one — the server derives
+`request.url` from the listener and the guard refuses the mismatch as cross-origin —
+so that branch is covered by the predicate plus source pins, not by HTTP. F4 itself
+is still Proposed: the owner has not reviewed a per-source hosted matrix, and this
+change deliberately does not create one.
+
 ## 2026-09-27 the VPS work, and dev/test moved onto the new stack
 
 **This supersedes the hosting entry below it, which says "nothing is implemented and no scope

@@ -1,6 +1,7 @@
 import { aggregatorCredentials, authSecrets, ensureSchema, indeedConfiguration } from '@/db/runtime';
 import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
+import { isLoopbackRequest } from '@/lib/indeed/access';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 import { rateLimit, requireSession } from '@/lib/guard';
 import { CollectionRunBudgets, isAccessRefusal, isRuntimeBudgetExhausted } from '@/lib/collection-budgets';
@@ -156,9 +157,20 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   }
   // Restricted sources need the VPN, and the button label is not evidence of one. Only the
   // launcher that verifies a full tunnel route sets this, so without it the mode is refused.
+  // The VPN workflow runs on the local computer only and is shelved on hosted installations,
+  // so a phone-triggered hosted request gets a hosted-true message instead of an instruction
+  // it cannot follow. Either way the mode is refused, never silently narrowed: nothing runs
+  // while claiming more ran.
   if (requestedAll && !authSecrets().vpnEnforced) {
+    const hosted = !isLoopbackRequest(request);
     return { kind: 'refused', response: Response.json({
-      error: 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.',
+      error: hosted
+        ? 'Page-fetching sources are local-only and are not searched on hosted installations.'
+          + ' The VPN-checked launcher runs on the local computer, not on the host, so there is'
+          + ' nothing to connect to from here. Use "Find new jobs" instead: supported sources keep'
+          + ' running on the host with the same caps, delays and stop-on-refusal, and results can be'
+          + ' inspected later.'
+        : 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.',
     }, { status: 409 }) };
   }
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';
