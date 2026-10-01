@@ -1,4 +1,5 @@
-import { openSqliteDatabase } from './sqlite-adapter';
+import { DRIVER_SUPPORTS_ENCRYPTION, openSqliteDatabase } from './sqlite-adapter';
+import { decideDatabaseOpen, isEncryptionRequired, resolveDatabaseKey } from './encryption';
 import { isLoopbackRequest } from '../lib/indeed/access';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
 import type { NativeRateLimiter } from '../lib/rate-limit';
@@ -155,11 +156,24 @@ const env = new Proxy({} as Record<string, string | undefined> & { DB?: D1Databa
 /**
  * The SQLite path for the self-hosted target. Absent on Cloudflare, where `DB` is a real binding.
  * Set it and the app runs on SQLite; leave it unset on Workers and nothing here changes.
+ *
+ * Key injection (F11, T30): `SQLITE_KEY_FILE` (preferred) or `SQLITE_KEY` supplies the database
+ * key, `DB_ENCRYPTION_REQUIRED=true` refuses to boot without one. Both checks fail closed in
+ * `decideDatabaseOpen`, before any file is opened, and key material is never logged. Until the
+ * owner-selected cipher driver lands, any keyed open is refused rather than silently downgraded
+ * to plaintext — see `db/encryption.ts`.
  */
 function selfHostedDatabase(): D1Database | undefined {
-  const path = runtimeEnv().SQLITE_PATH;
+  const envValues = runtimeEnv() as Record<string, unknown>;
+  const path = envValues.SQLITE_PATH;
   if (typeof path !== 'string' || path === '') return undefined;
-  return openSqliteDatabase(path) as unknown as D1Database;
+  const decided = decideDatabaseOpen({
+    path,
+    key: resolveDatabaseKey(envValues),
+    encryptionRequired: isEncryptionRequired(envValues),
+    driverSupportsEncryption: DRIVER_SUPPORTS_ENCRYPTION,
+  });
+  return openSqliteDatabase(decided.path, decided.key === undefined ? undefined : { key: decided.key }) as unknown as D1Database;
 }
 
 export function bindings() {

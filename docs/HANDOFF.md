@@ -1248,7 +1248,7 @@ passed; the missing-card canary correctly failed its assertions. Lint, typecheck
 and build passed. No owner DEV/TEST state was touched and no providers were called.
 Production promotion is separate; do not assume this entry alone means deployed.
 
-# 2026-09-29 — T13 hosted assessment: Adzuna/Careerjet credentials, site/IP rules, Indeed local boundary (F4 gate input)
+<# 2026-09-29 — T13 hosted assessment: Adzuna/Careerjet credentials, site/IP rules, Indeed local boundary (F4 gate input)
 
 New: `lib/hosted-sources.ts` (one hosted decision per administrator-side adapter:
 `supported`, `configuration-needed`, or `blocked` with the exact reason; variable names
@@ -1318,3 +1318,50 @@ wrong-password/disabled/missing never rehash, Miniflare D1), updated
 `tests/auth-worker.test.ts` (explicit 100k for the Workers runtime),
 `npm run benchmark:password-hash` table above; full suite 561/561, `tsc` and
 `eslint` clean.
+
+# 2026-10-01 — F11/T30 key-injection seam, fail-closed, behind the SQLite adapter (Spark, unreviewed)
+
+T30 asked to integrate the selected encrypted-database opening behind the current adapter.
+What already existed: plain `node:sqlite` opens via `db/sqlite-adapter.ts` (WAL, no key
+support), `SQLITE_PATH` wiring in `db/runtime.ts`, fail-closed 503s on missing
+`SESSION_SECRET` — and no encryption, key-injection, or T29-selection output anywhere
+(grep for encrypt/SQLCipher/key-injection: zero hits; no `db/encryption.*`,
+`tests/sqlite-encryption.*`, or `verify-sqlite-encryption` before this change).
+
+What this change does (synthetic fixtures only, no real secrets):
+- New `db/encryption.ts`: key resolution (`SQLITE_KEY_FILE` preferred over `SQLITE_KEY`,
+  file wins so a stale inline value cannot shadow it), exact-match
+  `DB_ENCRYPTION_REQUIRED` flag, and `decideDatabaseOpen()` which throws before any file
+  opens when required-but-keyless or keyed-but-driver-has-no-cipher. Refusals never echo
+  key material; `databaseEncryptionStatus()` reports presence/source only.
+- `db/sqlite-adapter.ts`: `openSqliteDatabase(path, { key })` accepts the injection point
+  and refuses any keyed open fail-closed — `node:sqlite` ships no cipher, so accepting a key
+  would read as encrypted while staying plaintext. Unkeyed dev/test behavior is unchanged.
+- `db/runtime.ts`: `selfHostedDatabase()` resolves the key and enforces the policy inside
+  `bindings()`, before schema/migrations run. `db/env.d.ts` types the four variables.
+- `tests/sqlite-encryption.test.ts` (9 tests) + `scripts/verify-sqlite-encryption.mjs`
+  (13 checks): fail-closed matrix, key-file precedence, redaction of every refusal, and the
+  honest current-posture assertion that an unkeyed copy still reads clean.
+
+Evidence at this commit: 565/565 tests pass, lint clean, typecheck clean,
+`node --import tsx scripts/verify-sqlite-encryption.mjs` PASS (13/13).
+
+Blocker this work does NOT clear: at-rest encryption itself. A copied database, its WAL/SHM
+sidecars, and Litestream/file backups remain plaintext until the owner-selected cipher driver
+from T29 lands (e.g. SQLCipher-capable driver) behind the same `openSqliteDatabase` seam —
+owner review of that approach precedes T30/T32 per F11, and no such selection is recorded in
+the repo. `DB_ENCRYPTION_REQUIRED=true` therefore keeps the app down by design until the
+cipher exists; do not unset the flag to work around it. Backup-tooling compatibility with an
+encrypted database is unproven — do not assume Litestream works unchanged. Needs reviewer
+(Claude) pass before any scope continues.
+
+# 2026-10-02 — F11/T30 rebase onto origin/master (Spark, merge-ready)
+
+Rebased the T30 key-injection seam onto `origin/master` (22 commits since the
+`a4a0997` base). The only overlapping file was `docs/HANDOFF.md` (both sides
+appended new tail sections); kept both sides with no other change: origin's
+T13/T28/T34 sections first, then the T30 section above. `db/encryption.ts`,
+`db/runtime.ts`, `db/sqlite-adapter.ts`, `db/env.d.ts`,
+`tests/sqlite-encryption.test.ts`, and `scripts/verify-sqlite-encryption.mjs`
+replayed cleanly with no content conflict. Re-ran the T30 evidence at the
+rebased commit (see rebase verification below).

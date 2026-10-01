@@ -56,5 +56,23 @@ declare namespace Cloudflare {
      * freshness truthful but contacts no upstream source.
      */
     PUBLIC_REFRESH_TERMS?: string;
+    /**
+     * Self-hosted SQLite file (VPS-02, #195). Absent on Cloudflare, where DB is a real binding.
+     */
+    SQLITE_PATH?: string;
+    /**
+     * Database encryption key injection (F11, T30). Inline key material: prefer
+     * SQLITE_KEY_FILE. Fail-closed via `DB_ENCRYPTION_REQUIRED`; refused
+     * outright until the owner-selected cipher driver lands (see
+     * `db/encryption.ts`). Never commit a real value.
+     */
+    SQLITE_KEY?: string;
+    /** Path to a root-owned 0600 file holding the database key. Preferred over SQLITE_KEY. */
+    SQLITE_KEY_FILE?: string;
+    /**
+     * Exactly 'true' refuses to boot the self-hosted database without a key.
+     * Anything else (including unset) keeps the plaintext dev/test posture.
+     */
+    DB_ENCRYPTION_REQUIRED?: string;
   }
 }
