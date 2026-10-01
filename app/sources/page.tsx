@@ -3,7 +3,7 @@ import { authSecrets, bindings, ensureSchema } from '@/db/runtime';
 import { readSessionValue } from '@/lib/auth';
 import { findUserById } from '@/lib/users';
 import { atsCompanies } from '@/lib/ats-feeds';
-import { collectionPrinciples, POLICIES_VERIFIED_ON, sourcePoliciesForRole, stanceLabel } from '@/lib/source-policies';
+import { collectionPrinciples, POLICIES_VERIFIED_ON, sourceGroupBlurb, sourcePoliciesForRole, stanceLabel } from '@/lib/source-policies';
 import { ADZUNA_ATTRIBUTION, ADZUNA_LOCAL_LINKS, ELA_ATTRIBUTION, ELA_ATTRIBUTION_LINK, sourcesPageAttributionKeys } from '@/lib/attribution';
 
 export const metadata = {
@@ -33,13 +33,6 @@ async function viewerIsAdmin() {
     return false;
   }
 }
-
-const groupBlurb: Record<(typeof groups)[number], string> = {
-  'Authorized APIs': 'Official or keyed interfaces, used the way they are published. Public entries run in the default search and need no VPN; entries marked administrator-only are withheld from ordinary accounts.',
-  'Open public pages': 'Public pages whose robots.txt does not disallow what is read here, and whose terms say nothing about automated access. Not an explicit permission, but nothing forbids it, and any stated crawl-delay is honoured. Administrator-only entries in this group are not searched for ordinary accounts.',
-  'Restricted sites': 'Administrator-only sources with access restrictions or unresolved permission. Page-fetching sites require the VPN-checked launcher. The separately approved local Indeed experiment has optional VPN routing; see its entry.',
-  'Not used': 'Sources deliberately left alone, and why. They appear in the app marked blocked or unavailable so an empty result is never mistaken for "no jobs found".',
-};
 
 export default async function SourcesPage() {
   const isAdmin = await viewerIsAdmin();
@@ -80,7 +73,7 @@ export default async function SourcesPage() {
         <section className="policy-group" key={group}>
           <div className="policy-group-head">
             <h2>{group}</h2>
-            <p>{groupBlurb[group]}</p>
+            <p>{sourceGroupBlurb(group, isAdmin)}</p>
           </div>
           <div className="policy-list">
             {visiblePolicies.filter((policy) => policy.group === group).map((policy) => (
