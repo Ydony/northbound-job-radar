@@ -16,7 +16,7 @@
  * `basis` is mandatory on every entry: a status label without its evidence is how sources
  * silently drift back into the wrong tier.
  *
- * Planned-but-absent sources (UWV/werk.nl, FreeHire, Jooble) deliberately have no entry:
+ * Planned-but-absent sources (UWV/werk.nl, Jooble) deliberately have no entry:
  * there is no adapter for them yet, and `tests/source-policy.test.ts` fails on entries
  * without an adapter as well as adapters without an entry.
  */
@@ -69,14 +69,14 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     audience: 'public',
     policyStatus: 'permitted',
     enabled: true,
-    basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. SOURCE_POLICY.md §2.',
+    basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. Advertisement text is employer-owned: screened server-side, never republished (metadata + link only per SOURCE_POLICY.md §1). SOURCE_POLICY.md §2.',
   },
   {
     key: 'ats-nl',
     audience: 'public',
     policyStatus: 'permitted',
     enabled: true,
-    basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. SOURCE_POLICY.md §2.',
+    basis: 'Platforms publish these board endpoints specifically for aggregators; no key or login. Advertisement text is employer-owned: screened server-side, never republished (metadata + link only per SOURCE_POLICY.md §1). SOURCE_POLICY.md §2.',
   },
   {
     key: 'eures-ch',
@@ -104,14 +104,14 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     audience: 'public',
     policyStatus: 'permitted',
     enabled: true,
-    basis: 'Documented public full-description API (GET /agent/jobs/search) used as published: no key, identifying User-Agent sent, paced and capped. Robots.txt and llms.txt invite programmatic use; terms permit documented API use. Measured 2026-09-24: 7,962 open CH adverts, 4,349 English-tagged, 1,137 in the eligible upstream subset. No display/cache/attribution conditions found; advertisement text is employer-owned so screened server-side, never republished (SOURCE_POLICY.md §1). Upstream allowlist is the seven ATS platforms already public in §2; re-served aggregators and unreviewed boards excluded. Direct redistribution confirmation still outstanding — ask before launch.',
+    basis: 'Documented public full-description API (GET /agent/jobs/search) used as published: no key, identifying User-Agent sent, paced and capped. Robots.txt and llms.txt invite programmatic use; terms permit documented API use. Measured 2026-09-24: 7,962 open CH adverts, 4,349 English-tagged, 1,137 in the eligible upstream subset. No display/cache/attribution conditions found; advertisement text is employer-owned so screened server-side, never republished (SOURCE_POLICY.md §1). Upstream allowlist is the seven ATS platforms reviewed in §2 (five with verified boards configured, plus Teamtailor and Workable supported with none configured); re-served aggregators and unreviewed boards excluded. Direct redistribution confirmation still outstanding — ask before launch.',
   },
   {
     key: 'freehire-nl',
     audience: 'public',
     policyStatus: 'permitted',
     enabled: true,
-    basis: 'Documented public full-description API (GET /agent/jobs/search) used as published: no key, identifying User-Agent sent, paced and capped. Robots.txt and llms.txt invite programmatic use; terms permit documented API use. Measured 2026-09-24: 23,754 open NL adverts, 11,901 English-tagged, 3,482 in the eligible upstream subset. No display/cache/attribution conditions found; advertisement text is employer-owned so screened server-side, never republished (SOURCE_POLICY.md §1). Upstream allowlist is the seven ATS platforms already public in §2; re-served aggregators and unreviewed boards excluded. Direct redistribution confirmation still outstanding — ask before launch.',
+    basis: 'Documented public full-description API (GET /agent/jobs/search) used as published: no key, identifying User-Agent sent, paced and capped. Robots.txt and llms.txt invite programmatic use; terms permit documented API use. Measured 2026-09-24: 23,754 open NL adverts, 11,901 English-tagged, 3,482 in the eligible upstream subset. No display/cache/attribution conditions found; advertisement text is employer-owned so screened server-side, never republished (SOURCE_POLICY.md §1). Upstream allowlist is the seven ATS platforms reviewed in §2 (five with verified boards configured, plus Teamtailor and Workable supported with none configured); re-served aggregators and unreviewed boards excluded. Direct redistribution confirmation still outstanding — ask before launch.',
   },
   {
     key: 'adzuna-ch',

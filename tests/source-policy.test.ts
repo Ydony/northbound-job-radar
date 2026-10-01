@@ -99,3 +99,24 @@ test('registry helpers agree with the registry rows', () => {
   assert.equal(sourcePolicyFor('jobs.ch')?.policyStatus, 'against-terms');
   assert.equal(sourcePolicyFor('no-such-source'), undefined);
 });
+
+test('T08: every public entry carries its evidence class in words, not just a label', () => {
+  // The F3 owner checkpoint: permission evidence, owner assumptions, required
+  // attribution and unresolved redistribution questions must be distinguishable
+  // per source. A bare `permitted` label without its evidence is how sources
+  // silently drift back into the wrong tier.
+  const basisOf = (key: string) => sourcePolicyFor(key)?.basis ?? '';
+  for (const key of ['ats-ch', 'ats-nl']) {
+    assert.match(basisOf(key), /aggregators/, `${key} does not state its aggregator-endpoint evidence`);
+    assert.match(basisOf(key), /never republished/, `${key} does not state the employer-text redisplay rule`);
+  }
+  for (const key of ['eures-ch', 'eures-nl']) {
+    assert.match(basisOf(key), /ELA attribution/, `${key} does not state its required attribution`);
+    assert.match(basisOf(key), /not republished/, `${key} does not state the employer-text redisplay rule`);
+  }
+  assert.match(basisOf('job-room.ch'), /owner assumption/, 'job-room.ch does not own its assumption as an assumption');
+  for (const key of ['freehire-ch', 'freehire-nl']) {
+    assert.match(basisOf(key), /redistribution/, `${key} does not name its unresolved redistribution question`);
+    assert.match(basisOf(key), /before launch/, `${key} states no launch gate for the open question`);
+  }
+});
