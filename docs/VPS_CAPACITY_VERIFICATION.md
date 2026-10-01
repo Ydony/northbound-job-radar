@@ -45,7 +45,7 @@ This is the **procedure and blank evidence form**, not a claim that the selected
 
 ## Bounded run
 
-`scripts/measure-vps-capacity.mjs` issues **GET `/api/state` only**. It does not trigger `/api/scrape`, refresh or any provider, and it refuses redirects instead of following them. It rejects more than 50 requests or five in flight, times each request out after 15 seconds, stops scheduling after the first failure (cancelling in-flight requests), and exits nonzero if any request fails. Its JSON reports both requested and actually attempted requests. A remote HTTPS origin requires `--owner-host` as an explicit acknowledgment; use only the owner-approved scratch hostname.
+`scripts/measure-vps-capacity.mjs` issues **GET `/api/state` only**. It does not trigger `/api/scrape`, refresh or any provider, and it refuses redirects instead of following them. It rejects more than 50 requests or five in flight, times each request out after 15 seconds, stops scheduling after the first failure (cancelling in-flight requests), and exits nonzero if any request fails. Its JSON separates requested, attempted, successful, failed and **cancelled sibling** requests; cancellations caused by the first failure are not counted as additional failures or latency samples. A remote HTTPS origin requires `--owner-host` as an explicit acknowledgment; use only the owner-approved scratch hostname.
 
 ```sh
 # On the isolated host; cookie file contains only the scratch-session cookie.
@@ -82,8 +82,8 @@ Stop immediately for any non-200 response, timeout, SQLite busy/locked error, OO
 | Scratch database provenance, size, catalogue/holding row counts | |
 | Provider credentials absent; refresh disabled/controlled; cookie file removed | |
 | Four focused test files + probe tests: pass/fail; `verify:selfhosted` only if egress-blocked | |
-| Baseline `/api/state`: requests, parallelism, p50/p95/max, failures | |
-| Five-way `/api/state`: requests, parallelism, p50/p95/max, failures | |
+| Baseline `/api/state`: requested/attempted/aborted, parallelism, p50/p95/max, real failures | |
+| Five-way `/api/state`: requested/attempted/aborted, parallelism, p50/p95/max, real failures | |
 | Web CPU peak/sustained, RSS peak, host free RAM/swap, I/O wait | |
 | Search-results page/next page/filter observations and count consistency | |
 | Writer overlap? SQLite busy/locked count, lock waits, journal observations | |

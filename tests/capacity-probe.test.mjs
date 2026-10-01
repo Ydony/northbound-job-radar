@@ -101,6 +101,37 @@ test('parallel probe stops on failed headers even when the error body is slow', 
   }
 });
 
+test('cancelled siblings are reported separately from the one real failure', async () => {
+  let requests = 0;
+  const server = createServer((_request, response) => {
+    requests++;
+    if (requests === 1) {
+      setTimeout(() => {
+        response.statusCode = 429;
+        response.end('rate limited');
+      }, 30);
+    } else {
+      response.setHeader('Content-Type', 'application/json');
+      response.flushHeaders();
+      setTimeout(() => response.end('{"account":{"id":"synthetic"},"jobs":[]}'), 250);
+    }
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const result = await runCapacityProbe({
+      base: `http://127.0.0.1:${server.address().port}`, cookie: 'session=synthetic', requests: 20, parallel: 5,
+    });
+    assert.equal(result.failures, 1);
+    assert.equal(result.statuses['429'], 1);
+    assert.equal(result.statuses.network ?? 0, 0);
+    assert.ok(result.aborted >= 1);
+    assert.equal(result.attempted, result.aborted + result.failures);
+    assert.equal(result.ok, 0);
+  } finally {
+    server.close();
+  }
+});
+
 test('capacity probe refuses redirects rather than following them to another endpoint', async () => {
   const paths = [];
   const server = createServer((request, response) => {

@@ -50,6 +50,7 @@ export async function runCapacityProbe({ base, cookie, requests, parallel }) {
   let next = 0;
   let attempted = 0;
   let failures = 0;
+  let aborted = 0;
   let stopped = false;
   const stop = new AbortController();
   const started = performance.now();
@@ -58,10 +59,12 @@ export async function runCapacityProbe({ base, cookie, requests, parallel }) {
       next++;
       attempted++;
       const requestStarted = performance.now();
+      const requestSignal = AbortSignal.any([stop.signal, AbortSignal.timeout(15_000)]);
+      let cancelled = false;
       try {
         const response = await fetch(url, {
           method: 'GET', headers: { Cookie: cookie }, redirect: 'manual',
-          signal: AbortSignal.any([stop.signal, AbortSignal.timeout(15_000)]),
+          signal: requestSignal,
         });
         const jsonResponse = response.headers.get('content-type')?.includes('application/json');
         if (response.status !== 200 || !jsonResponse) {
@@ -89,16 +92,22 @@ export async function runCapacityProbe({ base, cookie, requests, parallel }) {
           }
         }
       } catch {
-        statuses.network = (statuses.network ?? 0) + 1;
-        failures++;
-        stopped = true;
-        stop.abort();
+        if (stop.signal.aborted && requestSignal.reason === stop.signal.reason) {
+          aborted++;
+          cancelled = true;
+        } else {
+          statuses.network = (statuses.network ?? 0) + 1;
+          failures++;
+          stopped = true;
+          stop.abort();
+        }
       }
-      latencies.push(Math.round(performance.now() - requestStarted));
+      if (!cancelled) latencies.push(Math.round(performance.now() - requestStarted));
     }
   }));
   return {
-    endpoint: '/api/state', requests, attempted, parallel, ok: attempted - failures, failures,
+    endpoint: '/api/state', requests, attempted, parallel,
+    ok: attempted - failures - aborted, failures, aborted,
     statuses, elapsedMs: Math.round(performance.now() - started),
     latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95), max: Math.max(...latencies) },
   };
