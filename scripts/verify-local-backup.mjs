@@ -16,8 +16,8 @@ if (!backupRoot.startsWith(`${allowedRoot}${sep}`)) {
 const manifest = JSON.parse(await readFile(join(backupRoot, 'manifest.json'), 'utf8'));
 /**
  * Format 1 is a `.wrangler/<env>/state` directory from the archived Cloudflare pair; those
- * backups still exist on disk and stay verifiable by hash. Format 2 is a single checkpointed
- * SQLite file, and gets the stronger check below.
+ * backups still exist on disk and stay verifiable by hash. Format 2 is a single SQLite file taken
+ * with SQLite's online backup, and gets the stronger check below.
  */
 if (manifest.format !== 1 && manifest.format !== 2) {
   throw new Error(`Unsupported backup manifest format ${manifest.format}.`);
@@ -53,7 +53,8 @@ try {
    * Hashes prove the bytes survived the round trip; they say nothing about whether the result is
    * a usable database. For a format-2 backup, open the restored copy and require the schema
    * version and row counts the manifest recorded at creation time. This is the check that would
-   * catch a copy taken without a WAL checkpoint, which hashes cannot see.
+   * catch a truncated or incomplete database file, which hashes cannot see because the hashes
+   * were computed over the same bad bytes.
    */
   let restored = null;
   if (manifest.format === 2) {
