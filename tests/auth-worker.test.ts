@@ -6,7 +6,9 @@ import { hashPassword } from '../lib/auth';
 
 test('a hash generated during local admin setup verifies in the Workers runtime', async () => {
   const password = 'synthetic password for worker runtime';
-  const hash = await hashPassword(password);
+  // The hosted Worker caps PBKDF2 at 100,000 iterations, so production hashes use that
+  // policy explicitly; Node defaults higher (see tests/password-hash-policy.test.ts).
+  const hash = await hashPassword(password, 100_000);
   assert.match(hash, /^pbkdf2\$100000\$/);
   const bundled = await build({
     stdin: {

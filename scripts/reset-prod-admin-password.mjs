@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
-import { hashPassword, verifyPassword } from '../lib/auth.ts';
+import { WORKERS_PBKDF2_CAP, hashPassword, verifyPassword } from '../lib/auth.ts';
 
 const dryRun = process.argv.includes('--dry-run');
 if (process.argv.includes('--help')) {
@@ -81,7 +81,10 @@ try {
   }
   const user = before[0];
   const temporaryPassword = randomBytes(24).toString('base64url');
-  const hash = await hashPassword(temporaryPassword);
+  // Pinned to the Workers cap, not the Node default: this hash is verified by the
+  // hosted Worker, which rejects PBKDF2 above 100,000 iterations (2026-09-24 sign-in
+  // outage). Revisit after the self-hosted cutover (#201) verifies passwords on Node.
+  const hash = await hashPassword(temporaryPassword, WORKERS_PBKDF2_CAP);
   if (!await verifyPassword(temporaryPassword, hash)) throw new Error('Generated password failed self-check.');
   const nextEpoch = Number(user.session_epoch) + 1;
   sqlFile = join(temporaryDirectory, 'reset.sql');

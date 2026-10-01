@@ -46,7 +46,8 @@
     "vpn:check:mac": "bash scripts/check-vpn-macos.sh --show-public-ip",
     "init-secrets": "node scripts/init-secrets.mjs dev && node scripts/init-secrets.mjs test",
     "verify:admin": "node scripts/verify-admin-actions.mjs",
-    "check:ops": "node --import tsx scripts/check-ops-status.mjs"
+    "check:ops": "node --import tsx scripts/check-ops-status.mjs",
+    "benchmark:password-hash": "node --import tsx scripts/benchmark-password-hash.mjs"
   },
   "dependencies": {
     "react": "19.2.6",
