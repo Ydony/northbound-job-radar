@@ -112,7 +112,8 @@ export const sourcePolicies: SourcePolicy[] = [
     adminOnly: true,
     collected: 'The public Netherlands job listing index and the linked job pages.',
     theirRules: 'robots.txt disallows /job/, /jobProvider/ and /jobs-iframe/, and sets Crawl-delay: 1. The /career/jobs-netherlands/ paths this reads are not disallowed.',
-    ourPosition: 'Retained for local administrators after producing one English-confirmed job. No VPN is required: the paths read are outside the disallow list and the 1.2s delay respects the stated crawl-delay. Their general site terms have not been reviewed, so this is not a clean permission or a public feature. An administrator may also run it on the hosted server with the same caps, delay and stop-on-block handling.',
+    ourPosition: 'Retained for local administrators after producing one English-confirmed job. No VPN is required: the paths read are outside the disallow list and the 1.2s delay respects the stated crawl-delay. Their general site terms have not been reviewed, so this is not a clean permission or a public feature. Blocked on the hosted server pending a terms review: local no-VPN is not hosted clearance.',
+
     link: 'https://www.iamexpat.nl/robots.txt',
   },
   {

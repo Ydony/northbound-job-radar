@@ -219,8 +219,8 @@ export const SOURCE_POLICY_REGISTRY: readonly SourcePolicyEntry[] = [
     policyStatus: 'unresolved',
     enabled: true,
     basis: 'Career paths read are outside the robots.txt disallow list and the published crawl delay is honoured, but there is no explicit permission. Administrator only; no VPN required. Decision 2026-09-09 (#32); AGENTS.md.',
-    hosted: 'supported',
-    hostedBasis: 'Runs on the host for an administrator with the same fixed caps, 1.2s delay and stop-on-block handling as locally; no VPN is required for the paths read.',
+    hosted: 'blocked',
+    hostedBasis: 'Blocked on the host pending a terms review: the career paths read sit outside the robots.txt disallow list and the published crawl delay is honoured, but there is no explicit permission and the general site terms are unreviewed. Retained for local administrators only; no VPN is required locally, which is not the same as hosted clearance. Lifting this needs an explicit owner decision with the terms review behind it, not a quieter source set.',
   },
   {
     key: 'undutchables.nl',

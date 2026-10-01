@@ -133,19 +133,20 @@ verified end to end with a real second account; keep it that way.
 
 ### Hosted eligibility (F4, T14) — owner review list
 
-An administrator triggering collection on the hosted server (e.g. by phone) gets the
-supported rows below with unchanged fixed caps, delays and refusal/cooldown handling.
-Every other administrator source reports itself **blocked** there with the reason given,
-and ordinary accounts never see any of them. Implemented in `lib/source-policy.ts`
-(`hosted` / `hostedBasis`) and enforced per source in `app/api/scrape/route.ts`;
-`tests/hosted-admin-eligibility.test.ts` pins this table.
+No administrator source is `supported` on the hosted server today (T12/T13 assessments).
+An administrator triggering collection there (e.g. by phone) gets the public sources plus
+Adzuna only when `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` are configured — everything else reports
+itself **blocked** with the exact reason given, and ordinary accounts never see any of
+them. Implemented in `lib/source-policy.ts` (`hosted` / `hostedBasis`) and enforced per
+source in `app/api/scrape/route.ts`; `tests/hosted-admin-eligibility.test.ts` pins this
+table.
 
 | Source | Hosted decision | Reason |
 |---|---|---|
-| **IamExpat** | Supported | Grey-area public career paths, no VPN required; same caps/delay/stop-on-block as locally. |
 | **Adzuna CH/NL** | Configuration needed | Runs only with `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` configured; reports unavailable without them. Teasers never confirm English. |
 | **Careerjet CH/NL** | Blocked | Registration binds key, site, Referer and real IP; credentials stay unset on the host (#31). |
 | **jobs.ch, jobup.ch, JobScout24** | Blocked | JobCloud terms prohibit automation; the VPN boundary cannot be met on the host. No hosted exception approved. |
+| **IamExpat** | Blocked | Pending a terms review: paths read sit outside the robots.txt disallow list and the crawl delay is honoured, but there is no explicit permission and the general site terms are unreviewed. Local no-VPN is not hosted clearance. |
 | **Undutchables** | Blocked | Precautionary VPN gate after prior HTTP 403 to automation. No hosted exception approved. |
 | **Indeed CH/NL** | Blocked | Owner-reported authorisation covers local loopback assessment only (#63). A source-specific decision is required before any hosted implementation. |
 | **Nationale Vacaturebank** | Blocked | HTTP 403, no authorized feed. |

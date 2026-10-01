@@ -172,9 +172,13 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
    *
    * - `restricted` + no VPN: blocked everywhere. Locally the message names the launcher;
    *   on the host it names the registry reason (no hosted exception approved).
-   * - Careerjet / Indeed on a non-loopback host: blocked with the registry reason. The
-   *   local experimental exception (IP-bound Careerjet registration, loopback-only Indeed
-   *   authorisation) is never silently generalized to hosted production.
+   * - `hosted === 'blocked'` on a non-loopback host: blocked with the exact registry
+   *   reason, on its own merit. This covers every hosted-ineligible source — including
+   *   grey-area admin-only rows like IamExpat that are neither `restricted` nor keyed —
+   *   so a future hosted-blocked source can never slip through because it was not named
+   *   here. The local experimental exceptions (IP-bound Careerjet registration,
+   *   loopback-only Indeed authorisation) are never silently generalized to hosted
+   *   production.
    * - Everything else: runnable under the existing caps, delays and refusal handling,
    *   which are unchanged. A missing key still reports unavailable, never success.
    */
@@ -185,8 +189,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       }
       return hostedEligibilityFor(adapter.key)?.hostedBasis ?? adapter.availabilityMessage;
     }
-    if (!loopback && hostedEligibilityFor(adapter.key)?.hosted === 'blocked'
-      && (adapter.experimentalIndeed || adapter.key.startsWith('careerjet-'))) {
+    if (!loopback && hostedEligibilityFor(adapter.key)?.hosted === 'blocked') {
       return hostedEligibilityFor(adapter.key)!.hostedBasis;
     }
     return null;

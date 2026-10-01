@@ -46,10 +46,13 @@ test('public sources all run on the host without further decisions', () => {
 test('the hosted matrix is the one the owner reviews: supported, configuration-needed, blocked', () => {
   // Pinned deliberately. Moving a source between these rows changes what an administrator
   // can trigger by phone on the host, so it must be a decision recorded here, not drift.
+  // No admin source is supported on the host today (T12/T13 assessments): IamExpat stays
+  // blocked pending a terms review — "no VPN required locally" is not hosted clearance.
+  // Lifting any blocked row needs an explicit, source-specific owner decision.
   assert.deepEqual(
     SOURCE_POLICY_REGISTRY.filter((row) => row.audience === 'admin-only' && row.hosted === 'supported')
       .map((row) => row.key).sort(),
-    ['iamexpat.nl'],
+    [],
   );
   assert.deepEqual(
     SOURCE_POLICY_REGISTRY.filter((row) => row.audience === 'admin-only' && row.hosted === 'configuration-needed')
@@ -62,6 +65,7 @@ test('the hosted matrix is the one the owner reviews: supported, configuration-n
     [
       'careerjet-ch', 'careerjet-nl',
       'iamsterdam.com',
+      'iamexpat.nl',
       'indeed-ch', 'indeed-nl',
       'jobs.ch', 'jobscout24.ch', 'jobup.ch',
       'nationalevacaturebank.nl',
@@ -79,7 +83,7 @@ test('hosted helpers partition the registry without drift', () => {
     [...hostedBlockedKeys()].sort(),
     SOURCE_POLICY_REGISTRY.filter((row) => row.hosted === 'blocked').map((row) => row.key).sort(),
   );
-  assert.equal(sourcePolicyFor('iamexpat.nl')?.hosted, 'supported');
+  assert.equal(sourcePolicyFor('iamexpat.nl')?.hosted, 'blocked');
   assert.equal(sourcePolicyFor('adzuna-ch')?.hosted, 'configuration-needed');
   assert.equal(sourcePolicyFor('jobs.ch')?.hosted, 'blocked');
 });
@@ -88,6 +92,10 @@ test('blocked hosted rows name the exact reason an administrator will see', () =
   assert.match(hostedEligibilityFor('jobs.ch')!.hostedBasis, /no hosted exception has been approved/i);
   assert.match(hostedEligibilityFor('undutchables.nl')!.hostedBasis, /HTTP 403/i);
   assert.match(hostedEligibilityFor('careerjet-ch')!.hostedBasis, /leave .* unset in hosted environments/i);
+  // IamExpat stays blocked pending a terms review: local no-VPN is not hosted clearance,
+  // and lifting it needs an explicit owner decision — not a quiet flag flip (T12).
+  assert.match(hostedEligibilityFor('iamexpat.nl')!.hostedBasis, /pending a terms review/i);
+  assert.match(hostedEligibilityFor('iamexpat.nl')!.hostedBasis, /not the same as hosted clearance/i);
   // Indeed's local experimental exception is never silently generalized: a
   // source-specific decision is required before any hosted implementation of it.
   for (const key of ['indeed-ch', 'indeed-nl']) {
@@ -105,8 +113,8 @@ test('ordinary-account denial is unchanged by the hosted matrix', () => {
   assert.deepEqual(open, [
     'ats-ch', 'ats-nl', 'eures-ch', 'eures-nl', 'freehire-ch', 'freehire-nl', 'job-room.ch',
   ]);
-  // The hosted-supported admin source stays hidden from ordinary accounts.
-  assert.ok(keys.has('iamexpat.nl'), 'hosted-supported IamExpat must stay administrator-only');
+  // The hosted-blocked admin source stays hidden from ordinary accounts.
+  assert.ok(keys.has('iamexpat.nl'), 'hosted-blocked IamExpat must stay administrator-only');
 });
 
 test('the scrape route gates per source instead of refusing the hosted run', async () => {
@@ -125,10 +133,14 @@ test('the scrape route gates per source instead of refusing the hosted run', asy
   assert.match(scrape, /hostedBlockReason/);
   assert.match(scrape, /hostedEligibilityFor\(adapter\.key\)/);
   assert.match(scrape, /blocked: true, error: hostedBlock/);
-  // The local-only exception stays local: Careerjet and Indeed are blocked off-loopback
-  // rather than attempted, while restricted sources still need the VPN launcher locally.
+  // The local-only exception stays local: every hosted-blocked source is blocked
+  // off-loopback on its own merit — including grey-area admin-only rows like IamExpat
+  // that are neither restricted nor keyed — while restricted sources still need the
+  // VPN launcher locally. Naming Indeed/Careerjet explicitly here would let the next
+  // hosted-blocked source slip through, so the narrow form must not return.
   assert.match(scrape, /isLoopbackRequest\(request\)/);
-  assert.match(scrape, /adapter\.experimentalIndeed \|\| adapter\.key\.startsWith\('careerjet-'\)/);
+  assert.match(scrape, /hostedEligibilityFor\(adapter\.key\)\?\.hosted === 'blocked'/);
+  assert.doesNotMatch(scrape, /adapter\.experimentalIndeed \|\| adapter\.key\.startsWith\('careerjet-'\)/);
   assert.match(scrape, /adapter\.access === 'restricted' && !vpnEnforced/);
   // Aggregates still sum the visible rows only, so an ordinary account's totals disclose
   // nothing about admin-only volume on any runtime.
