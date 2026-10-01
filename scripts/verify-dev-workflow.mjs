@@ -320,20 +320,48 @@ async function main() {
     JSON.stringify(exportState);
 
     console.log('7/10 Exercising email/password change and session revocation...');
+    // Two synthetic sessions for the SAME account: sign in a second time so two cookies
+    // share the pre-change epoch. A wrong current password must be refused (403) without
+    // revoking anything; the real change must then kill BOTH old cookies while only the
+    // refreshed one keeps working.
+    const primarySecond = session(baseUrl, origin);
+    await expectStatus(await primarySecond.request('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: primaryEmail, password: primaryPassword }),
+    }), 200, 'second login for the same account');
     const staleCookie = primary.cookie;
+    const secondStaleCookie = primarySecond.cookie;
+    assert(staleCookie && secondStaleCookie && staleCookie !== secondStaleCookie,
+      'The two synthetic sessions must hold distinct cookies.');
+    await expectStatus(await primary.request('/api/account', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: 'wrong-current-password', newEmail: changedEmail }),
+    }), 403, 'account change with the wrong current password');
+    await expectStatus(await primary.request('/api/account'), 200, 'first session survives a refused change');
+    await expectStatus(await primarySecond.request('/api/account'), 200, 'second session survives a refused change');
     const changedPassword = `Changed-${randomBytes(16).toString('base64url')}!`;
     const accountChange = await primary.request('/api/account', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentPassword: primaryPassword, newEmail: changedEmail, newPassword: changedPassword }),
     });
-    await expectStatus(accountChange, 200, 'change account credentials');
+    const changed = await expectStatus(accountChange, 200, 'change account credentials');
+    assert(changed.verificationRequired === true,
+      'Changing the email must require verification of the new address.');
     primaryPassword = changedPassword;
-    const staleResponse = await fetch(`${baseUrl}/api/account`, {
-      headers: { Origin: origin, Cookie: staleCookie },
-    });
-    assert(isStaleSessionRevoked(staleResponse.status),
-      `Stale session remained valid after password change (${staleResponse.status}).`);
+    for (const [label, cookie] of [['first', staleCookie], ['second', secondStaleCookie]]) {
+      const staleResponse = await fetch(`${baseUrl}/api/account`, {
+        headers: { Origin: origin, Cookie: cookie },
+      });
+      assert(isStaleSessionRevoked(staleResponse.status),
+        `Stale ${label} session remained valid after password change (${staleResponse.status}).`);
+    }
+    const freshAccount = await expectStatus(await primary.request('/api/account'), 200,
+      'refreshed session after credential change');
+    assert(freshAccount.account?.email === changedEmail,
+      'The refreshed session must see the changed email address.');
 
     console.log('8/10 Rendering application pages and checking access boundaries...');
     for (const path of ['/', '/settings', '/admin', '/sources', '/privacy']) {
@@ -369,7 +397,8 @@ async function main() {
         'new accounts', 'criteria', 'authorized search', 'restricted refusal',
         'pipeline states', 'language correction', 'tenant isolation', 'dismissal survives re-import',
         'safe export state',
-        'credential change', 'session revocation', 'page rendering', 'workspace reset', 'account deletion',
+        'credential change', 'current-password refusal', 'second-session revocation',
+        'page rendering', 'workspace reset', 'account deletion',
       ],
     }, null, 2));
   } finally {
