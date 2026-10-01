@@ -22,6 +22,7 @@
     "reset:prod-admin-password": "node --import tsx scripts/reset-prod-admin-password.mjs",
     "refresh": "node --import tsx scripts/run-refresh.mjs",
     "verify:sqlite-import": "node --import tsx scripts/verify-sqlite-import.mjs",
+    "verify:admin-transfer": "node --import tsx scripts/verify-admin-transfer.mjs",
     "verify:sqlite-restore": "node --import tsx scripts/verify-sqlite-restore.mjs",
     "verify:selfhosted": "node scripts/verify-selfhosted.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next && stylelint \"app/**/*.css\"",
