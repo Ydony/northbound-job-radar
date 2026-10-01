@@ -7,14 +7,24 @@ name: Owner-triggered VPS release with SHA evidence
 # likewise manual-only: the two must never race for one production.
 #
 # Rollback is this same workflow dispatched again with `sha` set to the last
-# known-good value (read it from the `production-vps` environment deployment
-# history), plus the instant host-side revert in docs/VPS_RELEASE.md for when
-# no new deploy should happen at all.
+# known-good value (the ref of the latest `success` production-vps deployment
+# whose description starts "Verified VPS release"), plus the instant host-side
+# revert in docs/VPS_RELEASE.md for when no new deploy should happen at all.
 #
 # SHA evidence: only the `record` job carries `environment: production-vps`,
-# and it `needs` the `verify` job. GitHub therefore writes a `production-vps`
-# deployment for a SHA only after the exact artifact built from that SHA
-# passed verification. An unverified or failed SHA can never appear there.
+# and it `needs` the `verify` job. After verification passes, `record` creates
+# a production-vps deployment whose ref IS the released input SHA (via the
+# deployments API) and marks it success. A SHA appears as a production-vps
+# deployment ref if and only if that SHA's exact artifact verified. The run's
+# own automatic environment entry records the dispatch head instead, so it is
+# the approval log, not the evidence: always read the deployment whose ref
+# matches the released SHA.
+#
+# Shell safety: workflow inputs never appear inside `run:` scripts. Every step
+# that needs one receives it through `env:` and reads "$SHA" / "$PREVIOUS_SHA"
+# quoted, so a hostile value cannot execute before (or after) validation.
+# `ref:` / artifact `name:` / `env:` assignments are action inputs, not shell,
+# and every one of them runs only after the format gate has passed.
 
 on:
   workflow_dispatch:
@@ -34,19 +44,33 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Refuse a malformed SHA before checking anything out
+      - name: Validate the requested SHAs before checking anything out
+        env:
+          SHA: ${{ inputs.sha }}
+          PREVIOUS_SHA: ${{ inputs.previous_sha }}
         run: |
-          if ! printf '%s' '${{ inputs.sha }}' | grep -Eq '^[0-9a-f]{40}$'; then
+          if ! printf '%s' "$SHA" | grep -Eq '^[0-9a-f]{40}$'; then
             echo 'sha must be a full 40-character lowercase commit SHA.'
+            exit 1
+          fi
+          if [ -n "$PREVIOUS_SHA" ] && ! printf '%s' "$PREVIOUS_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo 'previous_sha must be empty or a full 40-character lowercase commit SHA.'
             exit 1
           fi
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.sha }}
-      - name: Refuse a SHA that is not the checked-out commit
+      - name: Confirm the checkout is the requested SHA on master
+        env:
+          SHA: ${{ inputs.sha }}
         run: |
-          if [ "$(git rev-parse HEAD)" != '${{ inputs.sha }}' ]; then
+          if [ "$(git rev-parse HEAD)" != "$SHA" ]; then
             echo 'Checkout does not match the requested SHA; refusing to build.'
+            exit 1
+          fi
+          git fetch origin master --quiet
+          if ! git merge-base --is-ancestor HEAD origin/master; then
+            echo 'The requested SHA is not on master; refusing to build it.'
             exit 1
           fi
       - uses: actions/setup-node@v4
@@ -91,25 +115,59 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     environment: production-vps
+    # Narrow grant for the SHA evidence below: creating the explicit
+    # production-vps deployment (and its success status) for the verified SHA.
+    # `contents: read` is repeated because a job-level `permissions` block
+    # replaces the workflow-level one instead of adding to it.
+    permissions:
+      contents: read
+      deployments: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: master
-      - name: Refuse a SHA that is not on master
+      - name: Record the verified SHA as the production-vps deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ inputs.sha }}
+          PREVIOUS_SHA: ${{ inputs.previous_sha }}
         run: |
-          git fetch origin master --quiet
-          if ! git merge-base --is-ancestor '${{ inputs.sha }}' origin/master; then
-            echo 'The released SHA is not on master; refusing to record it.'
+          set -euo pipefail
+          if ! printf '%s' "$SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo 'sha must be a full 40-character lowercase commit SHA.'
             exit 1
           fi
-      - name: Record the verified production-vps SHA
-        run: |
+          case "${PREVIOUS_SHA:-}" in
+            '')
+              ROLLBACK_REF='none supplied'
+              ;;
+            *)
+              if ! printf '%s' "$PREVIOUS_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+                echo 'previous_sha must be empty or a full 40-character lowercase commit SHA.'
+                exit 1
+              fi
+              ROLLBACK_REF="$PREVIOUS_SHA"
+              ;;
+          esac
+          # The deployment history is the SHA evidence, so the deployment must
+          # point at the released SHA itself — not at the dispatch head, which
+          # is what the run's automatic environment entry records. No required
+          # contexts: verification already happened in this workflow (build +
+          # verify:selfhosted on this exact SHA). `jq` and `gh` ship on the
+          # runner.
+          payload="$(jq -n --arg ref "$SHA" --arg desc "Verified VPS release $SHA (rollback reference: $ROLLBACK_REF)" \
+            '{ref: $ref, environment: "production-vps", required_contexts: [], auto_merge: false, description: $desc}')"
+          id="$(printf '%s' "$payload" | gh api "repos/$REPO/deployments" --input - --jq '.id')"
+          gh api "repos/$REPO/deployments/$id/statuses" \
+            -f state='success' \
+            -f environment='production-vps' \
+            -f description="Artifact vps-release-$SHA built and verified (verify:selfhosted)" \
+            --jq '.id' > /dev/null
           {
             echo '## production-vps release record'
             echo ''
-            echo "- verified SHA: \`${{ inputs.sha }}\`"
-            echo "- artifact: \`vps-release-${{ inputs.sha }}\`"
-            echo "- rollback reference: \`${{ inputs.previous_sha }}\`"
+            echo "- verified SHA: \`$SHA\`"
+            echo "- deployment id: \`$id\`"
+            echo "- artifact: \`vps-release-$SHA\`"
+            echo "- rollback reference: \`$ROLLBACK_REF\`"
             echo "- verification: build + lint + typecheck + tests + verify:selfhosted, all on this SHA"
             echo ''
             echo 'Next: the owner follows docs/VPS_RELEASE.md on the host with this exact SHA,'

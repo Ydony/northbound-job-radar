@@ -1234,7 +1234,6 @@ the settled login page, avoiding its old navigation race. Built local Worker on
 passed; the missing-card canary correctly failed its assertions. Lint, typecheck
 and build passed. No owner DEV/TEST state was touched and no providers were called.
 Production promotion is separate; do not assume this entry alone means deployed.
-
 # 2026-09-29 — T13 hosted assessment: Adzuna/Careerjet credentials, site/IP rules, Indeed local boundary (F4 gate input)
 
 New: `lib/hosted-sources.ts` (one hosted decision per administrator-side adapter:
@@ -1258,3 +1257,31 @@ only. Reviewer: run `npm test`, `npm run lint`, `npm run typecheck`, `npm run bu
 reviewed commit before accepting. No upstream requests made, no credentials read, no owner
 DEV/TEST state touched. Do not push, open a PR, or start T14: the scope gate needs the
 owner's review of the §1 matrix first.
+
+# 2026-10-01 — T03 rework: VPS release/rollback review fixes (F1)
+
+Reworked `.github/workflows/release-vps.yml`, `docs/VPS_RELEASE.md`,
+`scripts/verify-vps-release.mjs` and `tests/vps-release.test.ts` against the
+six review findings on PR #215: (1) `{2}`/`{4}` regex quantifiers plus typed
+`jobBlock`/callback params; (2) inputs reach shell only through quoted
+`env:` (`$SHA`/`$PREVIOUS_SHA`), with `previous_sha` validated as empty or
+40-hex; (3) the `record` job now creates the `production-vps` deployment
+itself via the deployments API with `ref` = the verified input SHA
+(`deployments: write` on that job only) instead of treating the run's
+automatic dispatch-head entry as evidence; (4) the self-passing revert drill
+is deleted — the runbook states plainly the host-side revert is unverified
+until the owner runs it on a host; (5) release/rollback move the refresh unit
+with the web unit on the same SHA; (6) a `db/migrations.ts` diff pre-flight
+sends migrated releases to the backup restore instead of the pointer swing.
+`deploy-prod.yml` stays manual-only (no `push` trigger) so it cannot race the
+VPS release; `ci.yml` still gates pushes on master.
+
+NOT exercised here: this environment has no Node runtime, so `npm run lint`,
+`npm run typecheck`, `npm test`, `npm run build` and `npm run
+verify:vps-release` could not run. The gate predicates were instead evaluated
+with a Python port against the same files (all pass), every regex literal was
+tokenizer-extracted and checked for the reported lint defect (0 violations in
+24 literals), every test-file param was scanned for a type annotation, and the
+workflow YAML was parsed with its job graph asserted. A real dispatch (owner)
+is still needed to confirm the explicit deployment lands in
+`production-vps` with the input SHA.
