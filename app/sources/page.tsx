@@ -35,8 +35,8 @@ async function viewerIsAdmin() {
 }
 
 const groupBlurb: Record<(typeof groups)[number], string> = {
-  'Authorized APIs': 'Official or keyed interfaces, used the way they are published. These run in the default search and need no VPN.',
-  'Open public pages': 'Public pages whose robots.txt does not disallow what is read here, and whose terms say nothing about automated access. Not an explicit permission, but nothing forbids it, and any stated crawl-delay is honoured. These run for everyone.',
+  'Authorized APIs': 'Official or keyed interfaces, used the way they are published. Public entries run in the default search and need no VPN; entries marked administrator-only are withheld from ordinary accounts.',
+  'Open public pages': 'Public pages whose robots.txt does not disallow what is read here, and whose terms say nothing about automated access. Not an explicit permission, but nothing forbids it, and any stated crawl-delay is honoured. Administrator-only entries in this group are not searched for ordinary accounts.',
   'Restricted sites': 'Administrator-only sources with access restrictions or unresolved permission. Page-fetching sites require the VPN-checked launcher. The separately approved local Indeed experiment has optional VPN routing; see its entry.',
   'Not used': 'Sources deliberately left alone, and why. They appear in the app marked blocked or unavailable so an empty result is never mistaken for "no jobs found".',
 };
