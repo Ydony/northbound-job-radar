@@ -1,5 +1,28 @@
 # Handover
 
+## 2026-10-01 T18 tenancy/deletion verification (static only, no runtime)
+
+What already exists: `tests/tenant-route-bindings.test.ts` (per-owner `user_id`
+bindings on every job-card mutation; feedback export hides admin-only sources in
+SQL before LIMIT), `tests/account-deletion.test.ts` (schema-derived owned-table
+list, shared-helper coverage, victim/bystander deletion isolation, workspace
+reset keeps the account), `tests/public-admin-isolation.test.ts` (ordinary
+accounts never see admin-only sources in results, totals, history, corrections
+or search responses), `scripts/verify-dev-workflow.mjs` (steps 1/5/10 register
+two fresh disposable accounts, assert cross-account PATCH 404, cross-account
+DELETE never 200, owner rows survive, then delete both accounts).
+`docs/FUNCTIONALITY_MAP.md` maps these to the same files.
+
+Static check: `lib/account-deletion.ts` deletes every `user_id`-scoped table via
+the shared helper (both delete routes and workspace reset delegate to it, no
+hand-maintained lists beside it); no failing check found, so no code changed.
+
+Not executed: this container has no `node`/`npm`, so `tsx --test` and
+`verify:dev` could not run here. Per the definition of done this is recorded,
+not implied: live fresh-account exercise still needs a runner with the toolchain
+(`npx tsx --test tests/tenant-route-bindings.test.ts
+tests/account-deletion.test.ts`, then `npm run verify:dev` on an empty database).
+
 ## 2026-09-27 the VPS work, and dev/test moved onto the new stack
 
 **This supersedes the hosting entry below it, which says "nothing is implemented and no scope
