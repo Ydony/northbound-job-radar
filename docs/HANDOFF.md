@@ -1258,3 +1258,26 @@ only. Reviewer: run `npm test`, `npm run lint`, `npm run typecheck`, `npm run bu
 reviewed commit before accepting. No upstream requests made, no credentials read, no owner
 DEV/TEST state touched. Do not push, open a PR, or start T14: the scope gate needs the
 owner's review of the §1 matrix first.
+
+# 2026-09-30 — T28 private-data / trust-boundary / secret-lifecycle map (F11 baseline, Spark)
+
+New: `docs/PRIVATE_DATA_MAP.md` (per-category storage/encryption/key-access/retention for
+P1–P10, seven trust boundaries B1–B7, full secret lifecycle table, synthetic `example.invalid`
+fixtures, and the admitted plaintext-at-rest gaps handed to T29/T30), `tests/private-data-map.test.ts`
+(map-vs-schema/secret drift guards, fail-closed shape, hash-only tokens, redaction), and
+`scripts/verify-private-data-map.mjs` (throwaway synthetic fixtures: baseline string scan of
+file+WAL bytes, WAL sidecar presence, live 503 fail-closed, hash-only and owner-scoping checks,
+secret-declaration and tracked-file value scan; redacted JSON evidence, temp dir removed).
+
+Nothing pre-existing was rebuilt: tenancy, `/privacy`–`/sources` accuracy, backup copy/restore
+shape, and hashing/session/token behavior were already covered (`tests/tenant-route-bindings`,
+`privacy-policy`, `source-policies`, `auth`, `email`; `scripts/verify-local-backup`,
+`verify-sqlite-import/restore`). The map references them as already-true rather than re-proving them.
+
+NOT exercised here: this worker environment has no Node runtime (`node` absent; only python3),
+so `npm test`, `lint`, `typecheck`, and the new verify script were NOT executed — only
+Python-based consistency checks (every mapped table/secret exists in `db/`+`deploy`, SQL columns
+match the schema, redaction patterns from the test hold against the map, guard.ts ordering holds).
+Reviewer (Claude): run `npx tsx --test tests/private-data-map.test.ts` and
+`node --import tsx scripts/verify-private-data-map.mjs` at the reviewed commit before accepting.
+No real secrets, production data, or host access were involved; no push/PR/merge.
