@@ -24,6 +24,7 @@
     "verify:sqlite-import": "node --import tsx scripts/verify-sqlite-import.mjs",
     "verify:sqlite-restore": "node --import tsx scripts/verify-sqlite-restore.mjs",
     "verify:selfhosted": "node scripts/verify-selfhosted.mjs",
+    "verify:vps-release": "node scripts/verify-vps-release.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next && stylelint \"app/**/*.css\"",
     "lint:css": "stylelint \"app/**/*.css\"",
     "lint:css:rebaseline": "stylelint \"app/**/*.css\" --suppress=scale-unlimited/declaration-strict-value",
