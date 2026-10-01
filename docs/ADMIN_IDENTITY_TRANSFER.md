@@ -40,5 +40,7 @@ and refusal cases. Neither command uses DEV, TEST, Cloudflare or production.
 
 This proof does **not** establish that the owner's real password verifies on
 the new host, that host secrets are independent, or that rollback and DNS
-cutover are safe. Those require the separate, private owner-witnessed steps in
-F2/T07 and the host acceptance task. No real identity transfer has been run.
+cutover are safe. The documented procedure and synthetic checks for those are
+in `docs/ADMIN_TRANSFER_ROLLBACK.md` (T07, no real values); the private
+execution itself remains an owner checkpoint with the host acceptance task.
+No real identity transfer has been run.
