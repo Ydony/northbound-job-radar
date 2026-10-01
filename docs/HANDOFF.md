@@ -1,5 +1,18 @@
 # Handover
 
+## 2026-10-01 T05: synthetic administrator identity-only transfer
+
+The T05 branch adds `scripts/admin-identity-transfer.mjs`, a deliberately
+non-CLI helper that copies only a verified administrator `users` row into an
+empty, same-schema SQLite database. It bumps `session_epoch`, resets
+`last_seen_at`, and refuses any other destination data except migration 19's
+untouched `indeed_control` seed. `npm run verify:admin-transfer` rehearses the
+flow on throwaway synthetic databases; `tests/admin-transfer.test.ts` covers
+field-level exclusion and refusal. See `docs/ADMIN_IDENTITY_TRANSFER.md` for
+the allowlist. No real account, credential, secret or host was touched.
+The actual transfer, independent-secret check, sign-in and rollback remain
+unverified owner checkpoints under F2/T07; this task does not close them.
+
 ## 2026-09-30 T01: self-hosted setup verified, deploy templates reconcile, stale local-runtime docs fixed
 
 T01 (F1 child) re-ran the existing harnesses on the pinned master instead of
