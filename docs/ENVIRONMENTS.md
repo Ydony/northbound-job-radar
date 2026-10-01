@@ -44,7 +44,7 @@ In another terminal:
 npm run test:local
 ```
 
-`dev` uses Vinext/Vite hot reload. `test:local` first builds the current source, then serves that fixed build from
+`test:local` first builds the current source, then serves that fixed build from
 this environment's own copy under `.local/test-server/` on port 3001. Each
 environment serves its own copy of the build: chunk filenames are
 content-hashed, so building for one environment deletes the exact chunk names
