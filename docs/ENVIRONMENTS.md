@@ -44,7 +44,7 @@ In another terminal:
 npm run test:local
 ```
 
-`dev` uses Vinext/Vite hot reload. `test:local` first builds the current source, then serves that fixed build from
+`test:local` first builds the current source, then serves that fixed build from
 this environment's own copy under `.local/test-server/` on port 3001. Each
 environment serves its own copy of the build: chunk filenames are
 content-hashed, so building for one environment deletes the exact chunk names
@@ -114,7 +114,15 @@ credentials. Restricted page-fetch adapters remain unavailable without this veri
 4. Exercise the change at `http://localhost:3001` as a real user.
 
 Migrations apply on first request and are recorded in `schema_migrations`. Before a schema change,
-copy `.local/test.sqlite` to a dated local backup. Never reset test state merely to make a
+take a dated local backup with `npm run backup:test`. Stop the server first as a precaution, but
+the backup does not depend on it: it uses SQLite's online backup API, so the copy of
+`.local/test.sqlite` is a consistent snapshot even if a writer is active. A copy is kept only if
+it passes `integrity_check` and reports the same schema version as the live file; its own row
+counts are recorded in the manifest. They are not compared with the live file, because a snapshot
+taken while a writer is active can legitimately differ from a count sampled a moment earlier.
+`npm run backup:verify <path>` restores a backup to a scratch directory and requires the same
+integrity, schema version and row counts back. Backups made by the archived Cloudflare stack
+(manifest format 1) can only be verified by file hash. Never reset test state merely to make a
 migration pass.
 
 ## Disposable duplicate-workflow verification
