@@ -29,8 +29,8 @@ import type { JobCountry } from './types';
  * ATS feeds with re-served aggregators (EURES, Adzuna, WhatJobs-*) and boards
  * this project has never reviewed (Workday, SmartRecruiters, Oracle, ...).
  * Only upstream `source` values this project already treats as public employer
- * feeds (docs/SOURCE_POLICY.md §2 — the same seven ATS platforms the local
- * adapters read) are accepted. Everything else is refused at ingest, and the
+ * feeds (docs/SOURCE_POLICY.md §2 — the same seven ATS platforms the adapters
+ * support) are accepted. Everything else is refused at ingest, and the
  * `source` filter is re-checked client-side because the API ignores unknown
  * params rather than refusing them: a dropped filter would otherwise look like
  * a genuinely broad result and ingest the entire unreviewed catalogue.

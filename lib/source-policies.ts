@@ -32,12 +32,12 @@ export const stanceLabel: Record<PolicyStance, string> = {
 
 export const sourcePolicies: SourcePolicy[] = [
   {
-    name: 'Company career boards (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable)',
+    name: 'Company career boards (Greenhouse, Lever, Ashby, Recruitee, Personio)',
     group: 'Authorized APIs',
     stance: 'intended-use',
-    collected: 'Public job postings from 282 verified employer boards: title, company, location, description, posting date. Each board was checked live before listing: it answered, held at least one Netherlands/Switzerland posting, and that posting was long enough (900+ characters) for the language gate to judge.',
-    theirRules: 'These platforms publish an open, unauthenticated job-board endpoint for each customer precisely so job boards and aggregators can read their vacancies. Teamtailor documents a syndication feed on every career site it hosts; Workable publishes the same kind of feed for each account it hosts.',
-    ourPosition: 'This is the endpoint doing the job it exists for. No key, no login, no rate-limit conflict. Reading and republishing stay separate questions: the advertisement text is the employer’s, so it is screened server-side and never republished — you get the facts, our verdict, and a link. Workday is excluded: its endpoint is the careers page’s own data call, not a feed published for aggregators.',
+    collected: 'Public job postings from 282 verified employer boards across Greenhouse, Lever, Ashby, Recruitee and Personio: title, company, location, description, posting date. Each board was checked live before listing: it answered, held at least one Netherlands/Switzerland posting, and that posting was long enough (900+ characters) for the language gate to judge. The adapter additionally supports Teamtailor and Workable feeds, but no verified board currently uses them.',
+    theirRules: 'These five platforms publish an open, unauthenticated job-board endpoint for each customer precisely so job boards and aggregators can read their vacancies. The adapter also reads Teamtailor, which documents a syndication feed on every career site it hosts, and Workable, which publishes the same kind of feed for each account it hosts — both are tested and supported, with no verified board currently configured on either.',
+    ourPosition: 'This is the endpoint doing the job it exists for. No key, no login, no rate-limit conflict. Reading and republishing stay separate questions: the advertisement text is the employer’s, so it is screened server-side and never republished — you get the facts, our verdict, and a link. Teamtailor and Workable are adapter-supported but unused: zero of the 282 verified boards uses them. Workday is excluded: its endpoint is the careers page’s own data call, not a feed published for aggregators.',
     link: 'https://developers.greenhouse.io/job-board.html',
   },
   {
@@ -84,7 +84,7 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'intended-use',
     collected: 'Full-description search results for the saved role keywords, restricted to seven reviewed employer-board upstreams (Greenhouse, Lever, Ashby, Recruitee, Personio, Teamtailor, Workable): title, company, location, description, posting date, link.',
     theirRules: 'Checked 2026-09-24. The terms permit documented API use and prohibit scraping beyond it; robots.txt and llms.txt point agents at exactly this full-description endpoint and ask for an identifying User-Agent. No display, caching or attribution conditions are stated; the advertisement text is aggregated from third parties. The terms say nothing about redistributing results to end users — that question is unresolved (#166).',
-    ourPosition: 'Used as documented: unauthenticated, paced and capped, with an identifying User-Agent. Only the seven ATS platforms this app already reads directly are accepted; re-served aggregators (EURES, Adzuna, WhatJobs) and unreviewed boards are excluded by an explicit allowlist. Advertisement text is screened server-side and not republished — you get the facts, our verdict, and a link. Redistribution gate: direct confirmation of redistribution is still outstanding and must be asked for before launch (#166); until then this source is not counted as launched public coverage.',
+    ourPosition: 'Used as documented: unauthenticated, paced and capped, with an identifying User-Agent. Only the seven ATS platforms reviewed in §2 as published aggregator feeds are accepted; re-served aggregators (EURES, Adzuna, WhatJobs) and unreviewed boards are excluded by an explicit allowlist. Advertisement text is screened server-side and not republished — you get the facts, our verdict, and a link. Redistribution gate: direct confirmation of redistribution is still outstanding and must be asked for before launch (#166); until then this source is not counted as launched public coverage.',
     link: 'https://freehire.me/docs/api',
   },
   {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { atsCompanies } from '../lib/ats-feeds';
 import { sourcePolicies, sourcePoliciesForRole } from '../lib/source-policies';
 
 test('ordinary accounts are not told about administrator-only discovery sources', () => {
@@ -22,15 +23,32 @@ test('administrators retain the complete source-policy record', () => {
   ]) assert.ok(names.includes(privateName), `${privateName} is missing from the administrator view`);
 });
 
-test('T08: the public boards entry covers all seven ATS platforms, not the old five', () => {
+test('T08: the public boards entry names the configured platforms and states Teamtailor/Workable support honestly', () => {
   const boards = sourcePolicies.find((policy) => policy.name.startsWith('Company career boards'));
   assert.ok(boards, 'boards policy entry is missing');
-  for (const platform of ['Greenhouse', 'Lever', 'Ashby', 'Recruitee', 'Personio', 'Teamtailor', 'Workable']) {
-    assert.match(boards!.name, new RegExp(platform), `boards entry no longer names ${platform}`);
+  for (const platform of ['Greenhouse', 'Lever', 'Ashby', 'Recruitee', 'Personio']) {
+    assert.match(boards!.name, new RegExp(platform), `boards entry no longer names configured platform ${platform}`);
   }
-  assert.match(`${boards!.collected} ${boards!.ourPosition}`, /282 verified/);
+  const body = `${boards!.collected} ${boards!.theirRules} ${boards!.ourPosition}`;
+  assert.match(body, /282 verified/);
   assert.match(boards!.ourPosition, /never republished/);
   assert.match(boards!.ourPosition, /Workday is excluded/);
+  // The adapter supports Teamtailor and Workable, but no verified board currently uses them:
+  // the entry must say so plainly instead of implying coverage.
+  assert.match(body, /Teamtailor/);
+  assert.match(body, /Workable/);
+  assert.match(body, /no verified board currently uses them|zero of the 282 verified boards uses them/i);
+  // Reality check against the configured list: all 282 boards sit on the five named platforms.
+  assert.equal(atsCompanies.length, 282);
+  assert.deepEqual(
+    [...new Set(atsCompanies.map((company) => company.platform))].sort(),
+    ['ashby', 'greenhouse', 'lever', 'personio', 'recruitee'],
+  );
+  assert.equal(
+    atsCompanies.filter((company) => company.platform === 'teamtailor' || company.platform === 'workable').length,
+    0,
+    'a Teamtailor or Workable board was configured without updating the transparency entry',
+  );
 });
 
 test('T08: FreeHire names its unresolved redistribution question and its launch gate', () => {
