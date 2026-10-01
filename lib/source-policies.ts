@@ -56,7 +56,7 @@ export const sourcePolicies: SourcePolicy[] = [
     adminOnly: true,
     collected: 'Search results for the saved role keywords: title, company, location, teaser description, salary range, link.',
     theirRules: 'Rechecked 2026-09-09. The API terms permit publishing Adzuna listings and personal research, with free limits of 25 requests per minute and 250 per day. Adverts displayed under the listing-publishing permission must carry “Jobs by Adzuna” branding; published research must name “The Adzuna API” and link to the relevant local site. The standard search API supplies teasers. Adzuna advertises full job details as a separate data service, and its terms require API queries to stay with Adzuna rather than third-party content providers.',
-    ourPosition: 'The standard teaser is too short to confirm that English alone is enough, so Adzuna is retained only as an administrator coverage measure. Ordinary accounts neither search it nor receive its stored jobs or run rows. The app does not follow redirect links to copy third-party full text, changes no saved verdicts, and acknowledges The Adzuna API with links to the Swiss and Dutch sites in the private result view.',
+    ourPosition: 'The standard teaser is too short to confirm that English alone is enough, so Adzuna is retained only as an administrator coverage measure. Ordinary accounts neither search it nor receive its stored jobs or run rows. The app does not follow redirect links to copy third-party full text, changes no saved verdicts, and acknowledges The Adzuna API with links to the Swiss and Dutch sites in the private result view. On the hosted server it runs only with the API key configured, and reports unavailable without it.',
     link: 'https://developer.adzuna.com/docs/terms_of_service',
   },
   {
@@ -66,7 +66,7 @@ export const sourcePolicies: SourcePolicy[] = [
     adminOnly: true,
     collected: 'Search results for the saved role keywords: title, company, location, teaser description, link.',
     theirRules: 'Careerjet issues a unique API key for each publisher website. Its current API documentation requires the real end-user IP and user agent on every query, and its examples require a Referer containing the page that triggered the request.',
-    ourPosition: 'Retained for local administrators only as a discovery aid. It is disabled unless the key, registered site, Referer and real user details are correctly configured, and its credentials must stay unset in hosted environments. The current placeholder registration remains unresolved, so this is not a public feature or evidence that English is sufficient.',
+    ourPosition: 'Retained for local administrators only as a discovery aid. It is disabled unless the key, registered site, Referer and real user details are correctly configured, and its credentials must stay unset in hosted environments, where the search reports it blocked. The current placeholder registration remains unresolved, so this is not a public feature or evidence that English is sufficient.',
     link: 'https://www.careerjet.com/partners/api/',
   },
   {
@@ -93,7 +93,7 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'against-terms',
     collected: 'Search-result pages and job detail pages, read as HTML. The schema.org JobPosting block on each detail page is parsed.',
     theirRules: 'JobCloud\'s terms prohibit crawlers, scrapers, bots, scripting and other automation. robots.txt additionally disallows the job detail pages specifically - the exact pages this reads.',
-    ourPosition: 'Retained for local administrators because its full advertisements have produced three English-confirmed jobs. Knowingly against both the terms and robots.txt, at the operator\'s explicit instruction. Manually triggered only, VPN-gated, capped per run, unauthenticated, with a fixed delay and no attempt to disguise the traffic.',
+    ourPosition: 'Retained for local administrators because its full advertisements have produced three English-confirmed jobs. Knowingly against both the terms and robots.txt, at the operator\'s explicit instruction. Manually triggered only, VPN-gated, capped per run, unauthenticated, with a fixed delay and no attempt to disguise the traffic. Blocked on the hosted server: no hosted exception has been approved.',
     link: 'https://www.jobs.ch/en/terms/',
   },
   {
@@ -102,7 +102,7 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'against-terms',
     collected: 'Search-result pages and job detail pages, read as HTML.',
     theirRules: 'Both are JobCloud properties, so the same terms prohibiting automation apply. Unlike jobs.ch, neither robots.txt disallows the detail pages this reads.',
-    ourPosition: 'Retained for local administrators: jobup.ch has produced six English-confirmed jobs, while JobScout24 remains a low-cost probationary source sharing the same adapter family. Against the platform terms, though without the additional robots.txt conflict that applies to jobs.ch. Same VPN gate, caps and delays.',
+    ourPosition: 'Retained for local administrators: jobup.ch has produced six English-confirmed jobs, while JobScout24 remains a low-cost probationary source sharing the same adapter family. Against the platform terms, though without the additional robots.txt conflict that applies to jobs.ch. Same VPN gate, caps and delays. Both report blocked on the hosted server: no hosted exception has been approved.',
     link: 'https://www.jobs.ch/en/terms/',
   },
   {
@@ -112,7 +112,8 @@ export const sourcePolicies: SourcePolicy[] = [
     adminOnly: true,
     collected: 'The public Netherlands job listing index and the linked job pages.',
     theirRules: 'robots.txt disallows /job/, /jobProvider/ and /jobs-iframe/, and sets Crawl-delay: 1. The /career/jobs-netherlands/ paths this reads are not disallowed.',
-    ourPosition: 'Retained for local administrators after producing one English-confirmed job. No VPN is required: the paths read are outside the disallow list and the 1.2s delay respects the stated crawl-delay. Their general site terms have not been reviewed, so this is not a clean permission or a public feature.',
+    ourPosition: 'Retained for local administrators after producing one English-confirmed job. No VPN is required: the paths read are outside the disallow list and the 1.2s delay respects the stated crawl-delay. Their general site terms have not been reviewed, so this is not a clean permission or a public feature. Blocked on the hosted server pending a terms review: local no-VPN is not hosted clearance.',
+
     link: 'https://www.iamexpat.nl/robots.txt',
   },
   {
@@ -121,7 +122,7 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'unresolved',
     collected: 'The public vacancy listing index and linked vacancy pages.',
     theirRules: 'Rechecked 2026-09-09: robots.txt allows the plain /vacancies listing and detail paths used here, but disallows query-string vacancy searches. No published API or explicit reuse permission was found. The site has previously returned HTTP 403 to automated requests.',
-    ourPosition: 'Retained for local administrators after producing two English-confirmed jobs from three stored advertisements. The adapter uses only the plain listing and details, remains VPN-gated because of the prior blocking, and must stop rather than work around a future block.',
+    ourPosition: 'Retained for local administrators after producing two English-confirmed jobs from three stored advertisements. The adapter uses only the plain listing and details, remains VPN-gated because of the prior blocking, and must stop rather than work around a future block. Blocked on the hosted server: no hosted exception has been approved.',
     link: 'https://undutchables.nl/robots.txt',
   },
   {
@@ -131,7 +132,7 @@ export const sourcePolicies: SourcePolicy[] = [
     adminOnly: true,
     collected: 'When explicitly enabled for a local administrator: role searches, job title, employer, location, posting date and description from the experimental API connection.',
     theirRules: 'The owner reports permission for this local assessment. This has not been independently verified as partner access or public redistribution permission.',
-    ourPosition: 'Disabled by default; local administrators only. The owner made VPN optional for this experiment on 2026-09-20. The specifically approved mobile-header profile uses verified HTTPS without personal OAuth or phone cookies. Four requests maximum per run across both countries, fixed delays, persistent cooldown and stop-on-refusal. Completeness remains unverified, so results do not automatically qualify as English sufficient. Ordinary users cannot search or receive these records.',
+    ourPosition: 'Disabled by default; local administrators only, and blocked on the hosted server until a source-specific hosted decision is made — the local experiment is never silently generalized. The owner made VPN optional for this experiment on 2026-09-20. The specifically approved mobile-header profile uses verified HTTPS without personal OAuth or phone cookies. Four requests maximum per run across both countries, fixed delays, persistent cooldown and stop-on-refusal. Completeness remains unverified, so results do not automatically qualify as English sufficient. Ordinary users cannot search or receive these records.',
   },
   {
     name: 'Nationale Vacaturebank',
