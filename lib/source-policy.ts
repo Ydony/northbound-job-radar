@@ -301,3 +301,51 @@ export function hostedRunnableKeys(): string[] {
 export function hostedBlockedKeys(): string[] {
   return SOURCE_POLICY_REGISTRY.filter((entry) => entry.hosted === 'blocked').map((entry) => entry.key);
 }
+
+/** Minimal adapter shape the hosted/VPN gate needs — avoids a `job-adapters` import cycle. */
+export interface HostedGateAdapter {
+  key: string;
+  access: string;
+  availabilityMessage: string;
+}
+
+export interface HostedGateContext {
+  loopback: boolean;
+  vpnEnforced: boolean;
+}
+
+/**
+ * Per-source hosted/VPN gate (F4, T14). Returns the truthful blocked message when this
+ * source must not be contacted on this run, or null when it may run.
+ *
+ * - `restricted` + no VPN: blocked everywhere. Locally the message names the launcher;
+ *   on the host it names the registry reason (no hosted exception approved).
+ * - `hosted === 'blocked'` on a non-loopback host: blocked with the exact registry
+ *   reason, on its own merit. This covers every hosted-ineligible source — including
+ *   grey-area admin-only rows like IamExpat that are neither `restricted` nor keyed —
+ *   so a future hosted-blocked source can never slip through because it was not named
+ *   here. The local experimental exceptions (IP-bound Careerjet registration,
+ *   loopback-only Indeed authorisation) are never silently generalized to hosted
+ *   production.
+ * - Everything else: runnable under the existing caps, delays and refusal handling,
+ *   which are unchanged. A missing key still reports unavailable, never success.
+ *
+ * Pure function over the registry: `app/api/scrape/route.ts` calls it per source,
+ * and `tests/hosted-admin-eligibility.test.ts` pins the matrix on real adapters.
+ */
+export function hostedBlockReason(
+  adapter: HostedGateAdapter,
+  context: HostedGateContext,
+): string | null {
+  const { loopback, vpnEnforced } = context;
+  if (adapter.access === 'restricted' && !vpnEnforced) {
+    if (loopback) {
+      return 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.';
+    }
+    return hostedEligibilityFor(adapter.key)?.hostedBasis ?? adapter.availabilityMessage;
+  }
+  if (!loopback && hostedEligibilityFor(adapter.key)?.hosted === 'blocked') {
+    return hostedEligibilityFor(adapter.key)!.hostedBasis;
+  }
+  return null;
+}

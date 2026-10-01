@@ -5,6 +5,7 @@ import { adminOnlySourceKeys, jobSourceAdapters } from '../lib/job-adapters';
 import {
   HOSTED_ELIGIBILITIES,
   SOURCE_POLICY_REGISTRY,
+  hostedBlockReason,
   hostedBlockedKeys,
   hostedEligibilityFor,
   hostedRunnableKeys,
@@ -64,8 +65,8 @@ test('the hosted matrix is the one the owner reviews: supported, configuration-n
       .map((row) => row.key).sort(),
     [
       'careerjet-ch', 'careerjet-nl',
-      'iamsterdam.com',
       'iamexpat.nl',
+      'iamsterdam.com',
       'indeed-ch', 'indeed-nl',
       'jobs.ch', 'jobscout24.ch', 'jobup.ch',
       'nationalevacaturebank.nl',
@@ -104,6 +105,72 @@ test('blocked hosted rows name the exact reason an administrator will see', () =
   }
 });
 
+test('hostedBlockReason pins the per-source gate on real adapters', () => {
+  const byKey = (key: string) => {
+    const adapter = jobSourceAdapters.find((row) => row.key === key);
+    assert.ok(adapter, `${key} has no adapter`);
+    return adapter;
+  };
+  // Restricted without a VPN: blocked everywhere. Locally the message names the
+  // launcher; on the host it names the exact registry reason.
+  const jobsCh = byKey('jobs.ch');
+  assert.equal(jobsCh.access, 'restricted');
+  assert.match(
+    hostedBlockReason(jobsCh, { loopback: true, vpnEnforced: false }) ?? '',
+    /npm run dev:private/,
+  );
+  assert.equal(
+    hostedBlockReason(jobsCh, { loopback: false, vpnEnforced: false }),
+    hostedEligibilityFor('jobs.ch')!.hostedBasis,
+  );
+  // Restricted with a VPN locally runs; on a non-loopback host the VPN boundary
+  // cannot be met, so it stays blocked with the registry reason.
+  assert.equal(hostedBlockReason(jobsCh, { loopback: true, vpnEnforced: true }), null);
+  assert.equal(
+    hostedBlockReason(jobsCh, { loopback: false, vpnEnforced: true }),
+    hostedEligibilityFor('jobs.ch')!.hostedBasis,
+  );
+  // Hosted-blocked but neither restricted nor keyed (the grey-area case that must
+  // not fall through): blocked off loopback with the exact registry reason, runnable
+  // on loopback. Inverting `!loopback` would flip both of these — exactly what this
+  // gate exists to prevent — and this test fails on that mutation.
+  const iamexpat = byKey('iamexpat.nl');
+  assert.equal(iamexpat.access, 'grey-area');
+  assert.equal(
+    hostedBlockReason(iamexpat, { loopback: false, vpnEnforced: false }),
+    hostedEligibilityFor('iamexpat.nl')!.hostedBasis,
+  );
+  assert.equal(hostedBlockReason(iamexpat, { loopback: true, vpnEnforced: false }), null);
+  // Loopback-only local experiments are never silently generalized to the host.
+  for (const key of ['indeed-ch', 'careerjet-ch']) {
+    const adapter = byKey(key);
+    assert.equal(
+      hostedBlockReason(adapter, { loopback: false, vpnEnforced: false }),
+      hostedEligibilityFor(key)!.hostedBasis,
+      `${key} must stay blocked off loopback`,
+    );
+    assert.equal(
+      hostedBlockReason(adapter, { loopback: true, vpnEnforced: false }),
+      null,
+      `${key} must run for a local loopback administrator`,
+    );
+  }
+  // Configuration-needed runs on the host (missing credentials report unavailable
+  // downstream, never blocked); supported public sources always run.
+  assert.equal(
+    hostedBlockReason(byKey('adzuna-ch'), { loopback: false, vpnEnforced: false }),
+    null,
+  );
+  assert.equal(
+    hostedBlockReason(byKey('ats-ch'), { loopback: false, vpnEnforced: false }),
+    null,
+  );
+  assert.equal(
+    hostedBlockReason(byKey('ats-ch'), { loopback: true, vpnEnforced: false }),
+    null,
+  );
+});
+
 test('ordinary-account denial is unchanged by the hosted matrix', () => {
   // Same pinned open set as tests/source-access.test.ts: adding a source ordinary
   // accounts can reach must stay a deliberate decision, and the hosted work must not
@@ -120,6 +187,7 @@ test('ordinary-account denial is unchanged by the hosted matrix', () => {
 test('the scrape route gates per source instead of refusing the hosted run', async () => {
   const root = new URL('..', import.meta.url);
   const scrape = await readFile(new URL('app/api/scrape/route.ts', root), 'utf8');
+  const policy = await readFile(new URL('lib/source-policy.ts', root), 'utf8');
   // Server-side administrator authorization still protects trigger, results, URLs, counts,
   // history and source discovery: the role gates are untouched.
   assert.match(scrape, /requestedAll && user\.role !== 'admin'/);
@@ -129,19 +197,24 @@ test('the scrape route gates per source instead of refusing the hosted run', asy
   // supported sources plus truthful per-source blocked rows, so phone-triggered
   // collection continues on the host and can be inspected later.
   assert.doesNotMatch(scrape, /Start the app with "npm run dev:private" first\. That checks for a full VPN route before these sources will run\.',\s*\n\s*\}, \{ status: 409 \}\)/);
-  // The per-source gate reads the explicit hosted matrix and reports the exact reason.
+  // The route delegates to the single pure decision point and reports its reason.
   assert.match(scrape, /hostedBlockReason/);
-  assert.match(scrape, /hostedEligibilityFor\(adapter\.key\)/);
+  assert.match(scrape, /hostedBlockReason\(adapter, \{ loopback, vpnEnforced \}\)/);
   assert.match(scrape, /blocked: true, error: hostedBlock/);
-  // The local-only exception stays local: every hosted-blocked source is blocked
-  // off-loopback on its own merit — including grey-area admin-only rows like IamExpat
-  // that are neither restricted nor keyed — while restricted sources still need the
-  // VPN launcher locally. Naming Indeed/Careerjet explicitly here would let the next
-  // hosted-blocked source slip through, so the narrow form must not return.
   assert.match(scrape, /isLoopbackRequest\(request\)/);
-  assert.match(scrape, /hostedEligibilityFor\(adapter\.key\)\?\.hosted === 'blocked'/);
+  // The gate itself lives in lib/source-policy.ts and reads the explicit hosted
+  // matrix: every hosted-blocked source is blocked off-loopback on its own merit —
+  // including grey-area admin-only rows like IamExpat that are neither restricted
+  // nor keyed — while restricted sources still need the VPN launcher locally.
+  // Naming Indeed/Careerjet explicitly here would let the next hosted-blocked
+  // source slip through, so the narrow form must not return.
+  assert.match(policy, /export function hostedBlockReason/);
+  assert.match(policy, /hostedEligibilityFor\(adapter\.key\)/);
+  assert.match(policy, /hostedEligibilityFor\(adapter\.key\)\?\.hosted === 'blocked'/);
+  assert.match(policy, /adapter\.access === 'restricted' && !vpnEnforced/);
+  assert.match(policy, /!loopback && hostedEligibilityFor/);
+  assert.doesNotMatch(policy, /adapter\.experimentalIndeed \|\| adapter\.key\.startsWith\('careerjet-'\)/);
   assert.doesNotMatch(scrape, /adapter\.experimentalIndeed \|\| adapter\.key\.startsWith\('careerjet-'\)/);
-  assert.match(scrape, /adapter\.access === 'restricted' && !vpnEnforced/);
   // Aggregates still sum the visible rows only, so an ordinary account's totals disclose
   // nothing about admin-only volume on any runtime.
   assert.match(scrape, /visibleSourceReports\(sourceReports, user\.role === 'admin', hiddenForAccount\)/);

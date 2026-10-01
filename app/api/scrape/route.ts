@@ -1,7 +1,7 @@
 import { aggregatorCredentials, authSecrets, ensureSchema, indeedConfiguration } from '@/db/runtime';
 import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
 import { isLoopbackRequest } from '@/lib/indeed/access';
-import { hostedEligibilityFor } from '@/lib/source-policy';
+import { hostedBlockReason } from '@/lib/source-policy';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 import { rateLimit, requireSession } from '@/lib/guard';
@@ -166,34 +166,10 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';
   const vpnEnforced = authSecrets().vpnEnforced;
   const loopback = isLoopbackRequest(request);
-  /**
-   * Per-source hosted/VPN gate (F4, T14). Returns the truthful blocked message when this
-   * source must not be contacted on this run, or null when it may run.
-   *
-   * - `restricted` + no VPN: blocked everywhere. Locally the message names the launcher;
-   *   on the host it names the registry reason (no hosted exception approved).
-   * - `hosted === 'blocked'` on a non-loopback host: blocked with the exact registry
-   *   reason, on its own merit. This covers every hosted-ineligible source — including
-   *   grey-area admin-only rows like IamExpat that are neither `restricted` nor keyed —
-   *   so a future hosted-blocked source can never slip through because it was not named
-   *   here. The local experimental exceptions (IP-bound Careerjet registration,
-   *   loopback-only Indeed authorisation) are never silently generalized to hosted
-   *   production.
-   * - Everything else: runnable under the existing caps, delays and refusal handling,
-   *   which are unchanged. A missing key still reports unavailable, never success.
-   */
-  function hostedBlockReason(adapter: (typeof jobSourceAdapters)[number]): string | null {
-    if (adapter.access === 'restricted' && !vpnEnforced) {
-      if (loopback) {
-        return 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.';
-      }
-      return hostedEligibilityFor(adapter.key)?.hostedBasis ?? adapter.availabilityMessage;
-    }
-    if (!loopback && hostedEligibilityFor(adapter.key)?.hosted === 'blocked') {
-      return hostedEligibilityFor(adapter.key)!.hostedBasis;
-    }
-    return null;
-  }
+  // Per-source hosted/VPN gate (F4, T14): `hostedBlockReason` in `lib/source-policy.ts`
+  // is the single decision point, tested behaviourally in
+  // `tests/hosted-admin-eligibility.test.ts`. It returns the truthful blocked message
+  // when this source must not be contacted on this run, or null when it may run.
   // The no-VPN mode is eligible for authorized APIs and grey-area sources whose robots.txt permits
   // the paths read. `adminOnly` below still removes private sources from ordinary accounts. Only
   // the explicit VPN mode adds sources that prohibit automated access or previously blocked it.
@@ -317,7 +293,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     // Hosted/VPN gate first: a hosted-ineligible source is never contacted on this run.
     // It reports blocked with its exact registry reason — counted, truthful, zero imports —
     // so a VPN absence can never silently produce a misleading success.
-    const hostedBlock = hostedBlockReason(adapter);
+    const hostedBlock = hostedBlockReason(adapter, { loopback, vpnEnforced });
     if (hostedBlock) {
       return done({ ...empty, blocked: true, error: hostedBlock }, 'blocked');
     }
