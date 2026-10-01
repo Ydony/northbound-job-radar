@@ -106,6 +106,7 @@ async function main() {
   let accountDeleted = false;
   let accountRole = '';
 
+  let bodyError;
   try {
     console.log('1/6 Registering a disposable account...');
     const registered = await client.request('/api/auth', {
@@ -289,38 +290,46 @@ async function main() {
         'no advertisement text on the wire',
       ],
     }, null, 2));
-  } finally {
-    // Cleanup failures are fatal, never swallowed: a verifier pointing at a
-    // database it should not have touched must not report success. An account
-    // that took the installer-administrator slot is deliberately left in
-    // place (it cannot self-delete); the abort above already fails the run
-    // with the explanation, so no delete is attempted for it here.
-    if (importedIds.length) {
-      const reset = await client.request('/api/workspace', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirm: 'RESET' }),
-      });
-      if (reset.response.status !== 200) {
-        throw new Error(
-          `cleanup workspace reset failed: expected 200, received ${reset.response.status}: ${JSON.stringify(reset.data)}`,
-        );
-      }
+  } catch (error) {
+    bodyError = error;
+  }
+  // Cleanup failures are fatal, never swallowed: a verifier pointing at a
+  // database it should not have touched must not report success. An account
+  // that took the installer-administrator slot is deliberately left in
+  // place (it cannot self-delete); the abort above already fails the run
+  // with the explanation, so no delete is attempted for it here.
+  const cleanupErrors = [];
+  if (importedIds.length) {
+    const reset = await client.request('/api/workspace', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: 'RESET' }),
+    });
+    if (reset.response.status !== 200) {
+      cleanupErrors.push(new Error(
+        `cleanup workspace reset failed: expected 200, received ${reset.response.status}: ${JSON.stringify(reset.data)}`,
+      ));
     }
-    if (client.cookie && !accountDeleted && accountRole !== 'admin') {
-      const deleted = await client.request('/api/account', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword: password, confirm: 'DELETE' }),
-      });
-      if (deleted.response.status !== 200) {
-        throw new Error(
-          `cleanup account deletion failed: expected 200, received ${deleted.response.status}: ${JSON.stringify(deleted.data)}`,
-        );
-      }
+  }
+  if (client.cookie && !accountDeleted && accountRole !== 'admin') {
+    const deleted = await client.request('/api/account', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: password, confirm: 'DELETE' }),
+    });
+    if (deleted.response.status !== 200) {
+      cleanupErrors.push(new Error(
+        `cleanup account deletion failed: expected 200, received ${deleted.response.status}: ${JSON.stringify(deleted.data)}`,
+      ));
+    } else {
       accountDeleted = true;
     }
   }
+  if (bodyError) {
+    if (cleanupErrors.length) console.error(cleanupErrors.map((e) => e.message).join('\n'));
+    throw bodyError;
+  }
+  if (cleanupErrors.length) throw new Error(cleanupErrors.map((e) => e.message).join('; '));
 }
 
 await main();
