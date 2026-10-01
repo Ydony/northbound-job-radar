@@ -16,7 +16,7 @@ export function transferAdminIdentity(source, destination) {
       throw new Error('Source and destination schema mismatch; transfer refused.');
     }
     const tables = destination.prepare(`SELECT name FROM sqlite_master
-      WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> 'schema_migrations'`).all();
+      WHERE type = 'table' AND substr(name, 1, 7) <> 'sqlite_' AND name <> 'schema_migrations'`).all();
     for (const { name } of tables) {
       if (name === 'indeed_control') {
         // Migration 19 seeds one installation-wide row even in a fresh database.

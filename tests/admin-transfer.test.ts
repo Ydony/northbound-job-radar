@@ -75,6 +75,22 @@ test('refuses a destination with any workspace row without changing it', async (
   }
 });
 
+test('refuses a populated table whose name merely resembles a SQLite internal table', () => {
+  const source = database();
+  const destination = database();
+  try {
+    source.prepare(`INSERT INTO users (id, email, password_hash, role, status, created_at, email_verified_at)
+      VALUES ('admin-1', 'admin@example.test', 'hash', 'admin', 'active', '2026-01-01', '2026-01-02')`).run();
+    destination.exec('CREATE TABLE sqliteXprivate (value TEXT NOT NULL)');
+    destination.prepare("INSERT INTO sqliteXprivate VALUES ('existing')").run();
+    assert.throws(() => transferAdminIdentity(source, destination), /destination.*nonempty/i);
+    assert.equal((destination.prepare('SELECT COUNT(*) AS count FROM users').get() as { count: number }).count, 0);
+  } finally {
+    source.close();
+    destination.close();
+  }
+});
+
 test('refuses operational state changed from the migration seed', () => {
   const source = database();
   const destination = database();
