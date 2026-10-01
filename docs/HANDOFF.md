@@ -1258,3 +1258,48 @@ only. Reviewer: run `npm test`, `npm run lint`, `npm run typecheck`, `npm run bu
 reviewed commit before accepting. No upstream requests made, no credentials read, no owner
 DEV/TEST state touched. Do not push, open a PR, or start T14: the scope gate needs the
 owner's review of the §1 matrix first.
+
+# 2026-10-01 — T43 server-side paging: already landed, live HTTP volume check added
+
+T43 asked to move facets/counts and filtered paging to the server (the old
+`JOB_PAGE_MAX = 2000` whole-holding read, client-side facets in
+`lib/dashboard.ts`) with every filter kept working, plus a >2,000-job API and
+browser test. The server move already exists via INT-05: `lib/catalogue-query.ts`
+(page, aggregates, places, freshness, copies over `vacancies` +
+`user_vacancy_state`), the catalogue branch in `app/api/state/route.ts`
+(40-row default, 2,000 ceiling for explicit reads only), the server pager in
+`app/job-radar.tsx`, and `tests/catalogue-query.test.ts` (~2,600 synthetic rows:
+all filters, cursor walk, page-independent aggregates, audience isolation). The
+`lib/dashboard.ts` filter helpers remain as the pre-migration fallback only.
+Nothing was rebuilt.
+
+Missing was the live-surface half: no script exercised the browser-driven HTTP
+path at volume (`check-visual` seeds 3 cards). Added
+`scripts/verify-catalogue-volume.mjs` (`npm run verify:catalogue-volume`,
+loopback-only): 2,050 `POST /api/jobs` imports — one request per row, never a
+multi-thousand-statement batch (the previous attempt died on `Failed to execute
+statement`) — then default-page size, page-independent aggregates, server-side
+country/source/application/language/view/sort narrowing with 400s on unknown
+values, a full cursor walk without repeats, and no `description` on the wire;
+workspace reset plus account deletion in `finally`. Also updated the stale
+readiness row (`docs/PUBLIC_DEPLOYMENT_READINESS.md`) and the dashboard/facet
+rows (`docs/FUNCTIONALITY_MAP.md`).
+
+Reviewer-run result (Claude acting for the owner, at `6c7a7c41`, throwaway
+server on port 3055 with temp SQLite, stopped afterwards): PASS — 2,050
+imports, default 40-row page, aggregates identical on pages 1 and 3, every
+filter narrowing server-side with 400s on unknown values, 52-page cursor walk
+over 2,050 rows with no repeats or gaps. The author did not run it here (this
+worktree has no node/npm); the pass above is the reviewer's run, not the
+author's.
+
+Scope split, stated plainly: this is an HTTP-level check, not a browser test.
+The repo has no browser-test infrastructure at all, so the browser half of T43
+is not delivered here — the rendered UI at volume (cards, the paging control)
+remains unverified. That half is split out as follow-up work; this entry
+delivers the API half plus the design. Follow-up fix in this same entry's
+review pass: the script now aborts before seeding when the disposable account
+lands in the installer-administrator slot (first registrant on an empty
+database), and cleanup failures exit non-zero instead of being swallowed — so
+it can no longer strand an admin with an unknown password on a fresh dev
+database. Do not push, open a PR, or merge from here.
