@@ -1,0 +1,117 @@
+name: Owner-triggered VPS release with SHA evidence
+
+# T03 (F1): the repeatable VPS release process. Owner-triggered ONLY — no push,
+# pull_request, or schedule trigger — so a merge can never start a production
+# release by itself. The Cloudflare Worker workflow (deploy-prod.yml) is the
+# standby/rollback target while the VPS proposal (#193) is active, and it is
+# likewise manual-only: the two must never race for one production.
+#
+# Rollback is this same workflow dispatched again with `sha` set to the last
+# known-good value (read it from the `production-vps` environment deployment
+# history), plus the instant host-side revert in docs/VPS_RELEASE.md for when
+# no new deploy should happen at all.
+#
+# SHA evidence: only the `record` job carries `environment: production-vps`,
+# and it `needs` the `verify` job. GitHub therefore writes a `production-vps`
+# deployment for a SHA only after the exact artifact built from that SHA
+# passed verification. An unverified or failed SHA can never appear there.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Full 40-character commit SHA on master to release (or to roll back to)'
+        required: true
+      previous_sha:
+        description: 'Last known-good SHA, for the rollback reference in the release record'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse a malformed SHA before checking anything out
+        run: |
+          if ! printf '%s' '${{ inputs.sha }}' | grep -Eq '^[0-9a-f]{40}$'; then
+            echo 'sha must be a full 40-character lowercase commit SHA.'
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+      - name: Refuse a SHA that is not the checked-out commit
+        run: |
+          if [ "$(git rev-parse HEAD)" != '${{ inputs.sha }}' ]; then
+            echo 'Checkout does not match the requested SHA; refusing to build.'
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Confirm the standalone bundle exists
+        run: |
+          test -f dist/standalone/server.js || (echo 'No standalone bundle at dist/standalone/server.js.' && exit 1)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vps-release-${{ inputs.sha }}
+          path: dist/standalone/
+          if-no-files-found: error
+          retention-days: 30
+
+  verify:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: vps-release-${{ inputs.sha }}
+          path: dist/standalone/
+      - name: Serve the exact release artifact from an empty database
+        run: npm run verify:selfhosted
+
+  record:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production-vps
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - name: Refuse a SHA that is not on master
+        run: |
+          git fetch origin master --quiet
+          if ! git merge-base --is-ancestor '${{ inputs.sha }}' origin/master; then
+            echo 'The released SHA is not on master; refusing to record it.'
+            exit 1
+          fi
+      - name: Record the verified production-vps SHA
+        run: |
+          {
+            echo '## production-vps release record'
+            echo ''
+            echo "- verified SHA: \`${{ inputs.sha }}\`"
+            echo "- artifact: \`vps-release-${{ inputs.sha }}\`"
+            echo "- rollback reference: \`${{ inputs.previous_sha }}\`"
+            echo "- verification: build + lint + typecheck + tests + verify:selfhosted, all on this SHA"
+            echo ''
+            echo 'Next: the owner follows docs/VPS_RELEASE.md on the host with this exact SHA,'
+            echo 'then runs the health checks there. Only the host run completes the release.'
+          } >> "$GITHUB_STEP_SUMMARY"
