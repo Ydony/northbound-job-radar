@@ -1,5 +1,37 @@
 # Handover
 
+## 2026-10-02 T31 encrypted-database baseline (F11) — SQL compat proven, encryption gap recorded
+
+T30 (the encryption implementation) does not exist: no T29/T30 artifacts, no
+SQLCipher/SEE/field-encryption dependency, no `PRAGMA key/cipher` or key
+handling in `db/`. So T31 delivers the verifiable half — `npm run
+verify:encrypted-db-baseline` (`scripts/verify-encrypted-db-baseline.mjs`)
+plus `tests/encrypted-db-baseline.test.ts` — all synthetic (`T31-SYNTH-`
+sentinels, `@example.test`, TEST-NET-2), all repo-local work dirs (never
+/tmp; set TMPDIR repo-local when running the older verifiers too, they use
+`os.tmpdir()`).
+
+- SQL compat on fresh + existing synthetic DBs: 9/9 PASS (fresh migrates to
+  v31, copy keeps version/rows/catalogue join, `integrity_check` ok, WAL+FK,
+  tenancy survives copy, single-statement migrations, copy accepts writes).
+- WAL/temp: 3/3 PASS — pre-checkpoint `-wal` carries private plaintext, a
+  naive main-file-only copy is short (not a backup), checkpoint(TRUNCATE) +
+  full copy restores everything.
+- Encryption: ABSENT (the F11 failure, recorded as evidence) — 12/12
+  sentinels readable in the copied file; config review finds no encryption
+  dep, pragma or key handling. Verdict, Litestream caveat (`litestream.yml`
+  tails a plaintext WAL today; T30 must prove the backup path against the
+  encrypted file) and the wrong-key/correct-key criteria T30 must meet are in
+  the script output. The test pins the private-category inventory
+  (public `vacancies`/`vacancy_sources` stay owner-free, private state stays
+  owner-keyed) and carries a TRIPWIRE asserting plaintext that T30 must
+  replace, not delete.
+- Pre-existing, unrelated: `tests/job-room.test.ts` "the end date is kept at
+  collection" fails from 2026-10-02 on — its fixture `endDate: 2026-10-01`
+  is now in the past so the advert parses as expired. Date time-bomb on
+  master, untouched by this change (pure `advertisementToParsedJob`, no DB).
+  Suite otherwise 556/557.
+
 ## 2026-10-01 T05: synthetic administrator identity-only transfer
 
 The T05 branch adds `scripts/admin-identity-transfer.mjs`, a deliberately

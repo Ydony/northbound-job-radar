@@ -27,6 +27,7 @@
     "verify:sqlite-restore": "node --import tsx scripts/verify-sqlite-restore.mjs",
     "verify:f11-encryption": "node --import tsx scripts/verify-f11-encryption.mjs",
     "verify:secret-rotation": "node --import tsx scripts/verify-secret-rotation.mjs",
+    "verify:encrypted-db-baseline": "node --import tsx scripts/verify-encrypted-db-baseline.mjs",
     "verify:selfhosted": "node scripts/verify-selfhosted.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next && stylelint \"app/**/*.css\"",
     "lint:css": "stylelint \"app/**/*.css\"",
