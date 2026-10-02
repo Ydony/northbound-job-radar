@@ -1439,3 +1439,12 @@ bounds how long a resurrecting backup exists (30d/KEEP=10); inside that window a
 restore brings deleted personal data back silently. F13 "prevent deleted accounts
 from silently reappearing" is therefore NOT satisfied; do not claim it at the
 release SHA until the control lands and this script passes.
+
+Rebase + portability (review follow-up): rebased onto `origin/master` (`9920ef5`);
+the only overlap was this tail section — kept origin's T13/T28/T34/T30/T19
+sections first, then T40, no other content change. Reviewer noted the new
+script fails temp-folder cleanup on Windows (EPERM, SQLite file still open):
+`db/sqlite-adapter.ts` now exposes `close()`/`closeSqliteDatabase()` (verify
+scripts only; request paths never close the shared handle) and
+`scripts/verify-deletion-restore.mjs` closes the live handle before
+`rmSync(work)`. Linux behavior unchanged.
