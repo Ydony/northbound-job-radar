@@ -1,5 +1,7 @@
 import { aggregatorCredentials, authSecrets, ensureSchema, indeedConfiguration } from '@/db/runtime';
 import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
+import { isLoopbackRequest } from '@/lib/indeed/access';
+import { hostedBlockReason } from '@/lib/source-policy';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 import { noStoreJson, rateLimit, requireSession } from '@/lib/guard';
@@ -165,6 +167,16 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     }, { status: 409 }) };
   }
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';
+  // Per-source hosted/VPN gate (F4, T14): `hostedBlockReason` in `lib/source-policy.ts`
+  // is the single decision point for what an administrator may run on the hosted server.
+  // The wholesale T15 refusal above already covers mode `all` without a VPN; this covers
+  // what does run — the authorized-mode administrator sources on a hosted installation
+  // (e.g. phone-triggered collection) and any host where the VPN flag cannot be met.
+  // Hosted-ineligible sources report themselves blocked with their exact registry reason
+  // instead of silently succeeding or vanishing; supported and configured sources run
+  // with unchanged caps, delays and refusal handling.
+  const vpnEnforced = authSecrets().vpnEnforced;
+  const loopback = isLoopbackRequest(request);
   // The no-VPN mode is eligible for authorized APIs and grey-area sources whose robots.txt permits
   // the paths read. `adminOnly` below still removes private sources from ordinary accounts. Only
   // the explicit VPN mode adds sources that prohibit automated access or previously blocked it.
@@ -273,7 +285,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   let indeedBatch: ReturnType<typeof collectIndeed> | undefined;
   const searchResults = await Promise.all(activeAdapters.map(async (adapter) => {
     const empty = { adapter, candidates: [] as string[], bulk: [] as ParsedJob[], error: '', missingCredentials: false,
-      blocked: false, indeed: undefined as IndeedBatchResult | undefined };
+      blocked: false, policyBlocked: false, indeed: undefined as IndeedBatchResult | undefined };
     // Counted whichever way this ends, including skipped and failed sources: a bar that only
     // advances on success stops moving exactly when something has gone wrong.
     const done = <T>(value: T, note: string) => {
@@ -281,6 +293,13 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       progress(`${adapter.name}: ${note}`);
       return value;
     };
+    // Hosted/VPN gate first: a hosted-ineligible source is never contacted on this run.
+    // It reports blocked with its exact registry reason — counted, truthful, zero imports —
+    // so a VPN absence or a hosted origin can never silently produce a misleading success.
+    const hostedBlock = hostedBlockReason(adapter, { loopback, vpnEnforced });
+    if (hostedBlock) {
+      return done({ ...empty, blocked: true, policyBlocked: true, error: hostedBlock }, 'blocked');
+    }
     if (adapter.experimentalIndeed) {
       try {
         indeedBatch ??= collectIndeed(db, indeedConfiguration(request, user.role === 'admin'),
@@ -348,12 +367,15 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   const sourceReports: SearchRunSource[] = [];
 
   for (const result of searchResults) {
-    const { adapter, candidates, bulk, error, missingCredentials, blocked, indeed } = result;
+    const { adapter, candidates, bulk, error, missingCredentials, blocked, policyBlocked, indeed } = result;
     screened += 1;
     progress(`Screening ${adapter.name}…`);
     if (blocked) {
-      // A refusal during search: truthfully reported, with nothing imported and nothing
-      // re-attempted. The blocked set already guarantees zero further allowance below.
+      // A refusal during search, or a pre-run hosted/VPN policy block: truthfully reported,
+      // with nothing imported and nothing re-attempted. The blocked set already guarantees
+      // zero further allowance below. A policy block carries the registry reason on its own —
+      // the source was never contacted, so the refusal boilerplate below must not claim it
+      // refused anything.
       sourceReports.push({
         sourceKey: adapter.key,
         sourceName: adapter.name,
@@ -367,7 +389,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
         matchedCount: null,
         duplicateCount: 0,
         skippedCount: 0,
-        message: `${error} The source refused access, so it was left alone for the rest of`
+        message: policyBlocked ? error : `${error} The source refused access, so it was left alone for the rest of`
           + ' this run: no retry, no workaround, no disguised traffic.',
       });
       continue;
