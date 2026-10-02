@@ -151,7 +151,20 @@ class SqliteDatabase {
   }
 }
 
-let cached: { path: string; database: SqliteDatabase } | null = null;
+let cached: { cacheKey: string; database: SqliteDatabase } | null = null;
+
+/** This driver (`node:sqlite`) ships no cipher: there is nothing to inject a key into. */
+const DRIVER_SUPPORTS_ENCRYPTION = false;
+
+export interface OpenSqliteOptions {
+  /**
+   * Database encryption key. Currently ALWAYS refused fail-closed: opening
+   * with a key the driver would ignore reads as encrypted while staying
+   * plaintext. Keyed opens succeed only once the owner-selected cipher driver
+   * (F11/T29) lands behind this same function. See `db/encryption.ts`.
+   */
+  key?: string;
+}
 
 /**
  * The SQLite-backed `DB` binding for the self-hosted target, cached per path.
@@ -161,15 +174,25 @@ let cached: { path: string; database: SqliteDatabase } | null = null;
  * `busy_timeout` so a reader waits for a write to finish instead of failing outright — D1 queues,
  * and code written against D1 does not expect SQLITE_BUSY.
  */
-export function openSqliteDatabase(path: string): SqliteDatabase {
-  if (cached && cached.path === path) return cached.database;
+export function openSqliteDatabase(path: string, options?: OpenSqliteOptions): SqliteDatabase {
+  if (options?.key !== undefined) {
+    throw new Error(
+      "A database key was supplied but this build's SQLite driver offers no cipher; " +
+        'refusing to open as plaintext. This needs the owner-selected encryption driver (F11/T29) ' +
+        'before keyed opens can succeed.',
+    );
+  }
+  const cacheKey = path;
+  if (cached && cached.cacheKey === cacheKey) return cached.database;
   const raw = new DatabaseSync(path);
   raw.exec('PRAGMA journal_mode = WAL');
   raw.exec('PRAGMA busy_timeout = 5000');
   raw.exec('PRAGMA foreign_keys = ON');
   const database = new SqliteDatabase(raw);
-  cached = { path, database };
+  cached = { cacheKey, database };
   return database;
 }
+
+export { DRIVER_SUPPORTS_ENCRYPTION };
 
 export type { SqliteDatabase, SqlitePreparedStatement };
