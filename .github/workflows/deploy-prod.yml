@@ -1,8 +1,12 @@
 name: Build and approve private production deployment
 
+# T03 (F1): owner-triggered ONLY. The push-to-master trigger was removed while
+# the VPS release proposal (#193) is active: every master push already builds
+# and tests through ci.yml, and an automatic Cloudflare production deploy
+# queuing behind every merge would race the VPS release/rollback workflow
+# (release-vps.yml) for one production. The Worker is the standby/rollback
+# target until cutover (#201); dispatch this workflow by hand only.
 on:
-  push:
-    branches: [master]
   workflow_dispatch:
 
 permissions:

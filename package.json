@@ -29,6 +29,7 @@
     "verify:f11-encryption": "node --import tsx scripts/verify-f11-encryption.mjs",
     "verify:secret-rotation": "node --import tsx scripts/verify-secret-rotation.mjs",
     "verify:selfhosted": "node scripts/verify-selfhosted.mjs",
+    "verify:vps-release": "node scripts/verify-vps-release.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next && stylelint \"app/**/*.css\"",
     "lint:css": "stylelint \"app/**/*.css\"",
     "lint:css:rebaseline": "stylelint \"app/**/*.css\" --suppress=scale-unlimited/declaration-strict-value",
