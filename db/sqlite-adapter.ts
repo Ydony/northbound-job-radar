@@ -149,6 +149,17 @@ class SqliteDatabase {
       throw error;
     }
   }
+
+  /**
+   * Release the underlying file handle. Verify scripts open throwaway copies
+   * through the cached adapter and then remove the temp folder: on Linux the
+   * removal succeeds with the handle open, on Windows it fails with EPERM
+   * while `live.sqlite` (and its WAL/SHM sidecars) are still held. Closing
+   * first keeps the same script portable on both.
+   */
+  close(): void {
+    this.db.close();
+  }
 }
 
 let cached: { cacheKey: string; database: SqliteDatabase } | null = null;
@@ -191,6 +202,20 @@ export function openSqliteDatabase(path: string, options?: OpenSqliteOptions): S
   const database = new SqliteDatabase(raw);
   cached = { cacheKey, database };
   return database;
+}
+
+/**
+ * Close the cached handle and drop it, so a caller can remove the underlying
+ * temp files afterwards. Safe to call when nothing is open. Verify scripts
+ * are the only callers; request paths never close the shared handle.
+ */
+export function closeSqliteDatabase(): void {
+  if (!cached) return;
+  const database = cached.database;
+  cached = null;
+  try {
+    database.close();
+  } catch { /* already closed — temp cleanup must still run */ }
 }
 
 export { DRIVER_SUPPORTS_ENCRYPTION };
