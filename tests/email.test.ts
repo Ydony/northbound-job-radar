@@ -225,8 +225,10 @@ test('verification and reset endpoints are rate-limited, single-use, and enumera
   assert.match(reset, /issuePasswordReset/);
   assert.match(confirm, /consumePasswordReset/);
   // Enumeration-safe: the unauthenticated resend/request endpoints always answer the same way.
-  assert.match(verify, /return Response\.json\(\{ ok: true \}\);/);
-  assert.match(reset, /return Response\.json\(\{ ok: true \}\);/);
+  // T19: both answer through the no-store helper now; the pinned property is the identical
+  // shape, not which JSON constructor builds it.
+  assert.match(verify, /return (?:Response\.json|noStoreJson)\(\{ ok: true \}\);/);
+  assert.match(reset, /return (?:Response\.json|noStoreJson)\(\{ ok: true \}\);/);
 });
 
 test('deleting an account removes its verification tokens with everything else', async () => {
@@ -279,6 +281,6 @@ test('delivery outcomes are recorded without ever recording the reason', async (
     assert.doesNotMatch(source, /recordAttempt\([^)]*\.error/, `${name} must not log the refusal text`);
   }
   // The reset response must stay identical whichever way delivery went, or it becomes an
-  // account-existence oracle by timing or shape.
-  assert.match(reset, /return Response\.json\(\{ ok: true \}\);/);
+  // account-existence oracle by timing or shape (T19: built via the no-store helper).
+  assert.match(reset, /return (?:Response\.json|noStoreJson)\(\{ ok: true \}\);/);
 });

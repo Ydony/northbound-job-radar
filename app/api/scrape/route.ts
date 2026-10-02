@@ -2,7 +2,7 @@ import { aggregatorCredentials, authSecrets, ensureSchema, indeedConfiguration }
 import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
-import { rateLimit, requireSession } from '@/lib/guard';
+import { noStoreJson, rateLimit, requireSession } from '@/lib/guard';
 import { CollectionRunBudgets, isAccessRefusal, isRuntimeBudgetExhausted } from '@/lib/collection-budgets';
 import { analyzeLanguage, analyzeStructuredLanguages, type LanguageResult } from '@/lib/analysis';
 import { adminOnlySourceKeys, bulkJobIsRelevant, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
@@ -148,11 +148,11 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   // hidden in the UI - a non-admin calling this directly is refused.
   const body = await request.json().catch(() => ({})) as { mode?: SearchMode; sourceGroup?: string };
   if (body.sourceGroup && (body.sourceGroup !== 'indeed' || user.role !== 'admin')) {
-    return { kind: 'refused', response: Response.json({ error: 'That search selection is not available.' }, { status: 403 }) };
+    return { kind: 'refused', response: noStoreJson({ error: 'That search selection is not available.' }, { status: 403 }) };
   }
   const requestedAll = body.mode === 'all';
   if (requestedAll && user.role !== 'admin') {
-    return { kind: 'refused', response: Response.json({ error: 'That search mode is not available on this account.' }, { status: 403 }) };
+    return { kind: 'refused', response: noStoreJson({ error: 'That search mode is not available on this account.' }, { status: 403 }) };
   }
   // Restricted sources need the VPN, and the button label is not evidence of one. Only the
   // launcher that verifies a full tunnel route sets this, so without it the mode is refused.
@@ -160,7 +160,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   // so a hosted refusal must say the tier is unavailable there, not name a local command
   // no phone can run. The gate itself is unchanged: nothing is searched either way.
   if (requestedAll && !authSecrets().vpnEnforced) {
-    return { kind: 'refused', response: Response.json({
+    return { kind: 'refused', response: noStoreJson({
       error: pageFetchRefusalMessage({ hosted: isHostedCollectionRequest(request) }),
     }, { status: 409 }) };
   }
@@ -207,7 +207,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   if (!criteria.searchNetherlands && !criteria.searchSwitzerland) {
     // Refused rather than run: a search that contacts nothing looks identical to a search that
     // found nothing, and the person would have no way to tell which had happened.
-    return { kind: 'refused', response: Response.json({
+    return { kind: 'refused', response: noStoreJson({
       error: 'Both countries are switched off in Search settings, so a search has nowhere to look.'
         + ' Switch the Netherlands or Switzerland back on, then search again.',
     }, { status: 400 }) };
@@ -217,7 +217,7 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
 
   const searchTerms = searchTermsForRoles(criteria);
   if (!searchTerms.length) {
-    return { kind: 'refused', response: Response.json({
+    return { kind: 'refused', response: noStoreJson({
       error: 'Add at least one role keyword in Search settings, then search again.',
     }, { status: 400 }) };
   }

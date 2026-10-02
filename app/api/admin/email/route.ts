@@ -1,6 +1,6 @@
 import { emailConfiguration, ensureSchema } from '@/db/runtime';
 import { emailConfigured, sendEmailViaResend, type OutgoingEmail } from '@/lib/email';
-import { clientIp, durableRateLimit, requireSession } from '@/lib/guard';
+import { clientIp, durableRateLimit, noStoreJson, requireSession } from '@/lib/guard';
 import { isValidEmail, normalizeEmail } from '@/lib/users';
 
 /**
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     .bind(since).all<{ kind: string; total: number }>();
   const tally = (kind: string) => counts.results.find((row) => row.kind === kind)?.total ?? 0;
 
-  return Response.json({
+  return noStoreJson({
     configured: emailConfigured(config),
     // The sender is not a secret — it appears in the From line of every message sent.
     from: config.from,
@@ -78,12 +78,12 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({})) as { to?: unknown };
   const to = normalizeEmail(body.to);
   if (!isValidEmail(to)) {
-    return Response.json({ error: 'Give a valid address to send the test to.' }, { status: 400 });
+    return noStoreJson({ error: 'Give a valid address to send the test to.' }, { status: 400 });
   }
 
   const config = emailConfiguration();
   if (!emailConfigured(config)) {
-    return Response.json({
+    return noStoreJson({
       error: 'Email is not configured on this installation.',
       missing: [
         ...(config.apiKey === '' ? ['RESEND_API_KEY'] : []),
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
 
   // Resend's refusal is the diagnosis, and it is returned whole. Administrator-only, so the
   // detail that the public routes must never disclose is safe to read here.
-  return Response.json({
+  return noStoreJson({
     sent: result.sent,
     to,
     from: config.from,

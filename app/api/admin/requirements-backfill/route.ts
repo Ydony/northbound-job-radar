@@ -1,5 +1,5 @@
 import { ensureSchema } from '@/db/runtime';
-import { rateLimit, requireSession } from '@/lib/guard';
+import { noStoreJson, rateLimit, requireSession } from '@/lib/guard';
 import { backfillFlattenedDescriptions } from '@/lib/requirements-backfill';
 
 /**
@@ -18,5 +18,5 @@ export async function POST(request: Request) {
   if (limited) return limited;
 
   const report = await backfillFlattenedDescriptions(db, user.id);
-  return Response.json(report);
+  return noStoreJson(report);
 }

@@ -1,5 +1,5 @@
 import { ensureSchema } from '@/db/runtime';
-import { requireSession } from '@/lib/guard';
+import { noStoreJson, requireSession } from '@/lib/guard';
 import { adminOnlySourceKeys } from '@/lib/job-adapters';
 import { audienceExclusionClause } from '@/lib/server-data';
 
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
     byShape.set(shape, (byShape.get(shape) ?? 0) + 1);
   }
 
-  return Response.json({
+  return noStoreJson({
     total: entries.length,
     confirmed: entries.filter((entry) => entry.verdict === 'correct').length,
     disagreements: disagreements.length,

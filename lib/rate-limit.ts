@@ -38,7 +38,7 @@ export function rateLimit(key: string, limit: number, windowMs: number): Respons
     const retryAfter = Math.ceil((current.resetAt - now) / 1000);
     return Response.json(
       { error: `Too many requests. Try again in ${retryAfter} second${retryAfter === 1 ? '' : 's'}.` },
-      { status: 429, headers: { 'retry-after': String(retryAfter) } },
+      { status: 429, headers: { 'retry-after': String(retryAfter), 'cache-control': 'no-store' } },
     );
   }
   current.count += 1;
@@ -78,7 +78,7 @@ export async function durableRateLimit(
   const now = Date.now();
   const unavailable = () => Response.json(
     { error: 'The sign-in service is temporarily unavailable. Try again shortly.' },
-    { status: 503, headers: { 'retry-after': '60' } },
+    { status: 503, headers: { 'retry-after': '60', 'cache-control': 'no-store' } },
   );
   try {
     const row = await db.prepare(`INSERT INTO rate_limits (bucket, count, reset_at) VALUES (?, 1, ?)
@@ -92,7 +92,7 @@ export async function durableRateLimit(
       const retryAfter = Math.max(1, Math.ceil((row.reset_at - now) / 1000));
       return Response.json(
         { error: `Too many requests. Try again in ${retryAfter} second${retryAfter === 1 ? '' : 's'}.` },
-        { status: 429, headers: { 'retry-after': String(retryAfter) } },
+        { status: 429, headers: { 'retry-after': String(retryAfter), 'cache-control': 'no-store' } },
       );
     }
 
@@ -135,7 +135,7 @@ export async function nativeRateLimit(
     if (outcome?.success === false) {
       return Response.json(
         { error: 'Too many requests. Try again in a minute.' },
-        { status: 429, headers: { 'retry-after': '60' } },
+        { status: 429, headers: { 'retry-after': '60', 'cache-control': 'no-store' } },
       );
     }
     return null;

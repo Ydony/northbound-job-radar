@@ -1,5 +1,5 @@
 import { aggregatorCredentials } from '@/db/runtime';
-import { rateLimit, requireSession } from '@/lib/guard';
+import { noStoreJson, rateLimit, requireSession } from '@/lib/guard';
 import { searchAdzuna, searchCareerjet } from '@/lib/job-aggregators';
 
 export interface SourceHealth {
@@ -82,5 +82,5 @@ export async function GET(request: Request) {
     checkedAt: new Date().toISOString(),
     sources,
   };
-  return Response.json(report);
+  return noStoreJson(report);
 }

@@ -2,7 +2,7 @@ import { bindings, emailConfiguration, ensureSchema } from '@/db/runtime';
 import { isLocalBootstrapRequest, isSameOrigin } from '@/lib/auth';
 import { emailConfigured, issuePasswordReset, passwordResetEmail, passwordResetLinkFor,
   sendEmailViaResend } from '@/lib/email';
-import { clientIp, durableRateLimit } from '@/lib/guard';
+import { clientIp, durableRateLimit, noStoreJson } from '@/lib/guard';
 import { findUserByEmail, isValidEmail, normalizeEmail } from '@/lib/users';
 
 async function recordAttempt(db: D1Database, email: string, ip: string, kind: string) {
@@ -17,7 +17,7 @@ async function recordAttempt(db: D1Database, email: string, ip: string, kind: st
 export async function POST(request: Request) {
   await ensureSchema();
   if (!isSameOrigin(request)) {
-    return Response.json({ error: 'Cross-origin request refused.' }, { status: 403 });
+    return noStoreJson({ error: 'Cross-origin request refused.' }, { status: 403 });
   }
   const { db } = bindings();
   const ip = clientIp(request);
@@ -48,9 +48,9 @@ export async function POST(request: Request) {
       } else if (isLocalBootstrapRequest(request)) {
         // Local-only convenience, mirroring registration: with no sender configured there is
         // no email to click, so the token is handed back on loopback.
-        return Response.json({ ok: true, resetToken: reset.token });
+        return noStoreJson({ ok: true, resetToken: reset.token });
       }
     }
   }
-  return Response.json({ ok: true });
+  return noStoreJson({ ok: true });
 }
