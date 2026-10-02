@@ -207,6 +207,35 @@ export function sourcePoliciesForRole(isAdmin: boolean) {
     !policy.adminOnly && policy.group !== 'Restricted sites');
 }
 
+export type SourceGroup = SourcePolicy['group'];
+
+/**
+ * Group blurbs for `/sources`, split by viewer.
+ *
+ * Ordinary accounts see only the sources their own searches use, so their copy must never
+ * mention administrator-only entries — naming them would disclose that such entries exist in
+ * exactly the groups where page-fetched sources sit. The administrator-only sentences are
+ * shown to administrators only.
+ */
+export function sourceGroupBlurb(group: SourceGroup, isAdmin: boolean): string {
+  if (group === 'Authorized APIs') {
+    if (isAdmin) {
+      return 'Official or keyed interfaces, used the way they are published. Public entries run in the default search and need no VPN; entries marked administrator-only are withheld from ordinary accounts.';
+    }
+    return 'Official or keyed interfaces, used the way they are published. These run in the default search and need no VPN.';
+  }
+  if (group === 'Open public pages') {
+    if (isAdmin) {
+      return 'Public pages whose robots.txt does not disallow what is read here, and whose terms say nothing about automated access. Not an explicit permission, but nothing forbids it, and any stated crawl-delay is honoured. Administrator-only entries in this group are not searched for ordinary accounts.';
+    }
+    return 'Public pages whose robots.txt does not disallow what is read here, and whose terms say nothing about automated access. Not an explicit permission, but nothing forbids it, and any stated crawl-delay is honoured. These run in your searches.';
+  }
+  if (group === 'Restricted sites') {
+    return 'Administrator-only sources with access restrictions or unresolved permission. Page-fetching sites require the VPN-checked launcher. The separately approved local Indeed experiment has optional VPN routing; see its entry.';
+  }
+  return 'Sources deliberately left alone, and why. They appear in the app marked blocked or unavailable so an empty result is never mistaken for "no jobs found".';
+}
+
 export const collectionPrinciples = [
   'Only public job advertisements are read. No account is ever logged into, and no page behind a login or access control is fetched.',
   'No personal data about other people is collected. Employer contact details that appear inside an advertisement are stored only as part of that advertisement text.',

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { atsCompanies } from '../lib/ats-feeds';
-import { sourcePolicies, sourcePoliciesForRole } from '../lib/source-policies';
+import { sourceGroupBlurb, sourcePolicies, sourcePoliciesForRole } from '../lib/source-policies';
 
 test('ordinary accounts are not told about administrator-only discovery sources', () => {
   const names = sourcePoliciesForRole(false).map((policy) => policy.name);
@@ -81,4 +81,24 @@ test('T08: unresolved candidates are present, ungated nowhere, and enabled nowhe
   }
   const ordinary = sourcePoliciesForRole(false).map((policy) => policy.name);
   assert.ok(ordinary.some((name) => name.startsWith('Jooble')), 'ordinary accounts lose the Jooble explanation');
+});
+
+test('ordinary-account group blurbs never mention administrator-only entries', () => {
+  for (const group of ['Authorized APIs', 'Open public pages', 'Not used'] as const) {
+    assert.doesNotMatch(
+      sourceGroupBlurb(group, false),
+      /administrator/i,
+      `${group} blurb leaks administrator-only entries to ordinary accounts`,
+    );
+  }
+});
+
+test('administrator group blurbs name the withheld entries where they exist', () => {
+  for (const group of ['Authorized APIs', 'Open public pages'] as const) {
+    assert.match(
+      sourceGroupBlurb(group, true),
+      /administrator/i,
+      `${group} admin blurb should explain the withheld entries`,
+    );
+  }
 });
