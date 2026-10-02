@@ -165,10 +165,10 @@ test('the end date is kept at collection so expiry needs no further request', ()
   // card kept looking current after its window closed. Open advertisements now carry it.
   const parsed = advertisementToParsedJob({
     ...advertisement,
-    publication: { startDate: '2026-08-18', endDate: '2026-10-01' },
+    publication: { startDate: '2026-08-18', endDate: '2099-12-31' },
   });
   assert.ok(parsed);
-  assert.equal(parsed.expiresAt, '2026-10-01');
+  assert.equal(parsed.expiresAt, '2099-12-31');
   const dateless = advertisementToParsedJob({
     ...advertisement,
     publication: { startDate: '2026-08-18' },
