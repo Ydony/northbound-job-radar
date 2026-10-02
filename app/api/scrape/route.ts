@@ -1,5 +1,7 @@
 import { aggregatorCredentials, authSecrets, ensureSchema, indeedConfiguration } from '@/db/runtime';
 import { collectIndeed, type IndeedBatchResult } from '@/lib/indeed/collection';
+import { isLoopbackRequest } from '@/lib/indeed/access';
+import { hostedBlockReason } from '@/lib/source-policy';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { isIndeedUrl, languageForIndeed } from '@/lib/indeed/normalize';
 import { rateLimit, requireSession } from '@/lib/guard';
@@ -154,14 +156,20 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   if (requestedAll && user.role !== 'admin') {
     return { kind: 'refused', response: Response.json({ error: 'That search mode is not available on this account.' }, { status: 403 }) };
   }
-  // Restricted sources need the VPN, and the button label is not evidence of one. Only the
-  // launcher that verifies a full tunnel route sets this, so without it the mode is refused.
-  if (requestedAll && !authSecrets().vpnEnforced) {
-    return { kind: 'refused', response: Response.json({
-      error: 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.',
-    }, { status: 409 }) };
-  }
+  // Restricted page-fetching needs the verified VPN launcher, and the button label is not
+  // evidence of one. Only the launcher that verifies a full tunnel route sets
+  // `VPN_ENFORCED`. Without it the mode is NOT refused wholesale (F4): an administrator
+  // on the hosted server must be able to trigger collection by phone and receive the
+  // supported sources, while every hosted-ineligible source reports itself blocked with
+  // its exact registry reason instead of silently succeeding or vanishing. See
+  // `hostedBlockReason` below and `hosted` in `lib/source-policy.ts`.
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';
+  const vpnEnforced = authSecrets().vpnEnforced;
+  const loopback = isLoopbackRequest(request);
+  // Per-source hosted/VPN gate (F4, T14): `hostedBlockReason` in `lib/source-policy.ts`
+  // is the single decision point, tested behaviourally in
+  // `tests/hosted-source-assessment.test.ts`. It returns the truthful blocked message
+  // when this source must not be contacted on this run, or null when it may run.
   // The no-VPN mode is eligible for authorized APIs and grey-area sources whose robots.txt permits
   // the paths read. `adminOnly` below still removes private sources from ordinary accounts. Only
   // the explicit VPN mode adds sources that prohibit automated access or previously blocked it.
@@ -169,6 +177,10 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   // a verified VPN, so it is gated on the mode. `adminOnly` means a source the owner may use but
   // that is not offered to anyone else - Careerjet is licensed to one declared IP, while IamExpat
   // is read from public pages - so it is gated on the account, in every mode.
+  // A third rule, `hosted` in `lib/source-policy.ts`, decides what an administrator may run on
+  // the hosted server (F4): supported sources run there with unchanged caps/delays/refusals,
+  // and hosted-ineligible ones are reported blocked per source by `hostedBlockReason`, never
+  // silently omitted or claimed as success.
   const hiddenForAccount = user.role === 'admin' ? new Set<string>() : adminOnlySourceKeys();
   const permittedAdapters = jobSourceAdapters.filter((adapter) =>
     (mode === 'all' || adapter.access !== 'restricted') && !hiddenForAccount.has(adapter.key)
@@ -278,6 +290,13 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
       progress(`${adapter.name}: ${note}`);
       return value;
     };
+    // Hosted/VPN gate first: a hosted-ineligible source is never contacted on this run.
+    // It reports blocked with its exact registry reason — counted, truthful, zero imports —
+    // so a VPN absence can never silently produce a misleading success.
+    const hostedBlock = hostedBlockReason(adapter, { loopback, vpnEnforced });
+    if (hostedBlock) {
+      return done({ ...empty, blocked: true, error: hostedBlock }, 'blocked');
+    }
     if (adapter.experimentalIndeed) {
       try {
         indeedBatch ??= collectIndeed(db, indeedConfiguration(request, user.role === 'admin'),
@@ -349,8 +368,9 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
     screened += 1;
     progress(`Screening ${adapter.name}…`);
     if (blocked) {
-      // A refusal during search: truthfully reported, with nothing imported and nothing
-      // re-attempted. The blocked set already guarantees zero further allowance below.
+      // A refusal during search, or a pre-run hosted/VPN policy block: truthfully reported,
+      // with nothing imported and nothing re-attempted. The blocked set already guarantees
+      // zero further allowance below.
       sourceReports.push({
         sourceKey: adapter.key,
         sourceName: adapter.name,
