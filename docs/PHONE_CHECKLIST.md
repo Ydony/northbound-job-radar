@@ -16,6 +16,28 @@ What those cannot prove: how the pages feel under a thumb, whether anything is
 unreachable behind a hover-only or desktop-width interaction, and whether a search
 survives backgrounding the phone browser. That is this checklist.
 
+## Latest synthetic run (Spark, 2026-10-02, commit `fbcb062`)
+
+`npm run verify:phone` against a fresh empty dev database (`ALLOW_SIGNUPS=true`,
+loopback `:3002` because another task's server held `:3000`): **10/10 checks pass**,
+with the administrator `/sources` half exercised (`adminSourceStatusExercised: true`).
+Lint and typecheck clean; unit suite 554/555 — the one failure is unrelated and
+pre-existing: `tests/job-room.test.ts` "the end date is kept at collection" uses a
+hardcoded `endDate: '2026-10-01'`, which is now in the past, so the fixture parses as
+expired. `npm run check:visual` (390px browser layout) could not run here — no
+Chrome/Edge in the container — and remains an owner-machine step.
+
+Two observations from building the walkthrough, for the owner to judge:
+
+1. After an email change in Settings, the success message says only "Saved. Your
+   session has been refreshed." The new address must still be verified (via the
+   emailed link) before the next sign-in — the API enforces this correctly, but the
+   message never mentions the email. Consider saying so when `verificationRequired`
+   is returned.
+2. The walkthrough deliberately asserts nothing about the rendered dashboard cards
+   over HTTP: `/` serves only the session-gated shell until hydration. Card layout at
+   phone width rests on `check:visual` and this checklist's results section.
+
 ## Setup
 
 - Phone only from here on. If any step needs the PC, stop and record it — that is a finding.
