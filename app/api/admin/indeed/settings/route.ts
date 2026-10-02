@@ -1,5 +1,5 @@
 import { ensureSchema } from '@/db/runtime';
-import { requireSession } from '@/lib/guard';
+import { noStoreJson, requireSession } from '@/lib/guard';
 import { cleanIndeedSettingsInput, indeedSettingsFromRow } from '@/lib/indeed/settings';
 
 /**
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     .bind(user.id).first<{
       nl_location: unknown; nl_radius_km: unknown; ch_location: unknown; ch_radius_km: unknown; updated_at: unknown;
     }>().catch(() => null);
-  return Response.json({ settings: indeedSettingsFromRow(row) },
+  return noStoreJson({ settings: indeedSettingsFromRow(row) },
     { headers: { 'cache-control': 'no-store' } });
 }
 
@@ -38,7 +38,7 @@ export async function PUT(request: Request) {
   try {
     cleaned = cleanIndeedSettingsInput(body);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : 'Invalid Indeed settings.' }, { status: 400 });
+    return noStoreJson({ error: error instanceof Error ? error.message : 'Invalid Indeed settings.' }, { status: 400 });
   }
   const now = new Date().toISOString();
   await db.prepare(`INSERT INTO indeed_settings (user_id, nl_location, nl_radius_km, ch_location, ch_radius_km, updated_at)
@@ -52,5 +52,5 @@ export async function PUT(request: Request) {
     .bind(user.id).first<{
       nl_location: unknown; nl_radius_km: unknown; ch_location: unknown; ch_radius_km: unknown; updated_at: unknown;
     }>();
-  return Response.json({ settings: indeedSettingsFromRow(row) });
+  return noStoreJson({ settings: indeedSettingsFromRow(row) });
 }

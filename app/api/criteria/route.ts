@@ -1,5 +1,5 @@
 import { ensureSchema } from '@/db/runtime';
-import { requireSession } from '@/lib/guard';
+import { noStoreJson, requireSession } from '@/lib/guard';
 import { normalizeRoleKeywords } from '@/lib/criteria';
 import { criteriaFromRow, type CriteriaRow, type SearchRoleRow } from '@/lib/server-data';
 import type { ContractType, Seniority, WorkplaceMode } from '@/lib/types';
@@ -38,7 +38,7 @@ export async function PUT(request: Request) {
   const seniority = (cleanText(body.seniority) || 'any') as Seniority;
   const contractType = (cleanText(body.contractType) || 'any') as ContractType;
   if (!workplaces.has(workplace) || !seniorities.has(seniority) || !contractTypes.has(contractType)) {
-    return Response.json({ error: 'One or more search filters are invalid.' }, { status: 400 });
+    return noStoreJson({ error: 'One or more search filters are invalid.' }, { status: 400 });
   }
 
   const input = {
@@ -76,5 +76,5 @@ export async function PUT(request: Request) {
     db.prepare('SELECT position, role FROM search_roles WHERE user_id = ? ORDER BY position').bind(user.id).all<SearchRoleRow>(),
   ]);
   const criteria = criteriaFromRow(row, roles.results);
-  return Response.json({ criteria });
+  return noStoreJson({ criteria });
 }

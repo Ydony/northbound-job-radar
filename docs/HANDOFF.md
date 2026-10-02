@@ -1365,3 +1365,19 @@ T13/T28/T34 sections first, then the T30 section above. `db/encryption.ts`,
 `tests/sqlite-encryption.test.ts`, and `scripts/verify-sqlite-encryption.mjs`
 replayed cleanly with no content conflict. Re-ran the T30 evidence at the
 rebased commit (see rebase verification below).
+
+# 2026-10-02 — T19: no-store on private API responses (+ pre-existing job-room failure)
+
+T19 closed the `Cache-Control: no-store` gap: new pure `lib/no-store.ts`
+(`noStoreJson`/`withNoStore`, re-exported from `lib/guard.ts`) now covers every
+private API route, the guard denials, and all three limiter refusals at the
+source. The atomic fail-closed `durableRateLimit`, Turnstile fail-closed check,
+hashed single-use email tokens, epoch revocation, cookie flags and CSRF origin
+checks all already existed with tests and were verified, not rebuilt.
+`tests/no-store.test.ts` (7 tests) pins the policy incl. a route-wide scan;
+`tests/email.test.ts` scan regexes now accept `noStoreJson`. Full suite:
+561/562 pass; lint and typecheck clean. The one failure is pre-existing and
+unrelated: `tests/job-room.test.ts` "the end date is kept at collection" uses a
+fixture `endDate: 2026-10-01`, which is now in the past against the real clock,
+so the (correct) expiry refusal trips the assertion. Fails identically on the
+pristine tree; needs a relative-date fixture, split out of T19 scope.

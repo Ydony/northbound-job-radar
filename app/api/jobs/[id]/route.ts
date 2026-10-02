@@ -1,6 +1,6 @@
 import { ensureSchema } from '@/db/runtime';
 import { mirrorCatalogueForJob } from '@/lib/catalogue';
-import { requireSession } from '@/lib/guard';
+import { noStoreJson, requireSession } from '@/lib/guard';
 import { isHiddenSourceForRole } from '@/lib/job-adapters';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { normalizeLanguageFeedback } from '@/lib/language-feedback';
@@ -22,17 +22,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const hasVisibilityStatus = body.visibilityStatus !== undefined;
   const hasLanguageFeedback = body.languageFeedback !== undefined;
   if (!hasSavedState && !hasApplicationStatus && !hasVisibilityStatus && !hasLanguageFeedback) {
-    return Response.json({ error: 'No supported update was provided.' }, { status: 400 });
+    return noStoreJson({ error: 'No supported update was provided.' }, { status: 400 });
   }
-  if (hasSavedState && typeof body.isSaved !== 'boolean') return Response.json({ error: 'Invalid saved state.' }, { status: 400 });
+  if (hasSavedState && typeof body.isSaved !== 'boolean') return noStoreJson({ error: 'Invalid saved state.' }, { status: 400 });
   const applicationStatus = body.applicationStatus as ApplicationStatus;
-  if (hasApplicationStatus && !applicationStatuses.has(applicationStatus)) return Response.json({ error: 'Invalid application status.' }, { status: 400 });
+  if (hasApplicationStatus && !applicationStatuses.has(applicationStatus)) return noStoreJson({ error: 'Invalid application status.' }, { status: 400 });
   const visibilityStatus = body.visibilityStatus as VisibilityStatus;
-  if (hasVisibilityStatus && !visibilityStatuses.has(visibilityStatus)) return Response.json({ error: 'Invalid visibility status.' }, { status: 400 });
+  if (hasVisibilityStatus && !visibilityStatuses.has(visibilityStatus)) return noStoreJson({ error: 'Invalid visibility status.' }, { status: 400 });
   const feedback = hasLanguageFeedback
     ? normalizeLanguageFeedback(body.languageFeedback, body.correctedLanguageStatus, body.languageFeedbackReason)
     : null;
-  if (hasLanguageFeedback && !feedback) return Response.json({ error: 'Invalid language feedback.' }, { status: 400 });
+  if (hasLanguageFeedback && !feedback) return noStoreJson({ error: 'Invalid language feedback.' }, { status: 400 });
 
   const job = await db.prepare(`SELECT id, source_url, source_key, source_job_id, canonical_url, identity_fingerprint,
       title, company, location, posted_at, language_status, language_summary, language_signals, description, duplicate_of
@@ -53,12 +53,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       location: string;
       posted_at: string;
     }>();
-  if (!job) return Response.json({ error: 'Job not found.' }, { status: 404 });
+  if (!job) return noStoreJson({ error: 'Job not found.' }, { status: 404 });
   // A stored row from an admin-only source is unreachable to an ordinary account, even by a
   // guessed id: the same 404 as a missing row, so existence is never disclosed. This covers
   // historical rows kept across a demotion, not just fresh search results.
   if (isHiddenSourceForRole(job.source_key, job.source_url, user.role === 'admin')) {
-    return Response.json({ error: 'Job not found.' }, { status: 404 });
+    return noStoreJson({ error: 'Job not found.' }, { status: 404 });
   }
 
   const statements: D1PreparedStatement[] = [];
@@ -132,5 +132,5 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   // INT-04 (#163): the saved/applied/dismissed/correction change above is private
   // state — mirror it so the catalogue side agrees with the `jobs` row.
   await mirrorCatalogueForJob(db, user.id, id, NORMALIZATION_VERSION);
-  return Response.json({ ok: true, feedback, isSaved: body.isSaved, applicationStatus, visibilityStatus });
+  return noStoreJson({ ok: true, feedback, isSaved: body.isSaved, applicationStatus, visibilityStatus });
 }

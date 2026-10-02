@@ -2,7 +2,7 @@ import { authSecrets, bindings, emailConfiguration, ensureSchema, turnstileSecre
 import { clearedSessionCookie, createSessionValue, isLocalBootstrapRequest, isSameOrigin, sessionCookie } from '@/lib/auth';
 import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
   verificationLinkFor } from '@/lib/email';
-import { clientIp, durableRateLimit, nativeRateLimit } from '@/lib/guard';
+import { clientIp, durableRateLimit, nativeRateLimit, noStoreJson } from '@/lib/guard';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 import { authenticate, countUsers, createUser, findUserByEmail, isValidEmail, normalizeEmail,
   passwordProblem, touchLastSeen } from '@/lib/users';
@@ -33,7 +33,7 @@ async function verifyRegistrationBot(
 ): Promise<Response | null> {
   const { secretKey } = turnstileSecrets();
   if (!secretKey && !isLocalBootstrapRequest(request)) {
-    return Response.json({ error: 'Registration is not available on this installation.' }, { status: 503 });
+    return noStoreJson({ error: 'Registration is not available on this installation.' }, { status: 503 });
   }
   // No key configured, and we got past the refusal above, so this is a local installation.
   // There is no bot check to run here, and pretending to run one costs more than it says:
@@ -48,7 +48,7 @@ async function verifyRegistrationBot(
   const verification = await verifyTurnstileToken(token, { secretKey, remoteIp: ip });
   if (!verification.ok) {
     await recordAttempt(db, email, ip, 'bot-rejected');
-    return Response.json({ error: 'The bot check did not pass. Reload and try again.' }, { status: 400 });
+    return noStoreJson({ error: 'The bot check did not pass. Reload and try again.' }, { status: 400 });
   }
   return null;
 }
@@ -56,11 +56,11 @@ async function verifyRegistrationBot(
 export async function POST(request: Request) {
   await ensureSchema();
   if (!isSameOrigin(request)) {
-    return Response.json({ error: 'Cross-origin request refused.' }, { status: 403 });
+    return noStoreJson({ error: 'Cross-origin request refused.' }, { status: 403 });
   }
   const { sessionSecret } = authSecrets();
   if (!sessionSecret) {
-    return Response.json({ error: 'This installation is not configured. Set SESSION_SECRET and restart.' }, { status: 503 });
+    return noStoreJson({ error: 'This installation is not configured. Set SESSION_SECRET and restart.' }, { status: 503 });
   }
 
   const ip = clientIp(request);
@@ -90,11 +90,11 @@ export async function POST(request: Request) {
     return limited;
   }
 
-  if (!isValidEmail(email)) return Response.json({ error: 'Enter a valid email address.' }, { status: 400 });
+  if (!isValidEmail(email)) return noStoreJson({ error: 'Enter a valid email address.' }, { status: 400 });
 
   if (action === 'register') {
     const problem = passwordProblem(password);
-    if (problem) return Response.json({ error: problem }, { status: 400 });
+    if (problem) return noStoreJson({ error: problem }, { status: 400 });
     const botCheck = await verifyRegistrationBot(request, db, email, ip, body.turnstileToken);
     if (botCheck) return botCheck;
     // Registration is closed by default once the owner exists, so a public deployment cannot be
@@ -103,16 +103,16 @@ export async function POST(request: Request) {
     if (existing === 0 && !isLocalBootstrapRequest(request)) {
       // Otherwise the first stranger to discover an empty hosted database becomes its admin,
       // even though registration is "closed". Hosting needs an out-of-band admin bootstrap.
-      return Response.json({ error: 'Administrator setup is available only on this computer.' }, { status: 403 });
+      return noStoreJson({ error: 'Administrator setup is available only on this computer.' }, { status: 403 });
     }
     if (existing > 0 && (authSecrets().allowSignups ?? '') !== 'true') {
-      return Response.json({ error: 'Registration is closed on this installation.' }, { status: 403 });
+      return noStoreJson({ error: 'Registration is closed on this installation.' }, { status: 403 });
     }
     if (await findUserByEmail(db, email)) {
       // Deliberately the same shape as a successful registration: telling a stranger which
       // addresses already have accounts is an enumeration oracle.
       await recordAttempt(db, email, ip, 'register-duplicate');
-      return Response.json({ error: 'That address cannot be registered. If it is yours, sign in instead.' }, { status: 400 });
+      return noStoreJson({ error: 'That address cannot be registered. If it is yours, sign in instead.' }, { status: 400 });
     }
     const { user, claimedLegacyWorkspace } = await createUser(db, email, password);
     await recordAttempt(db, email, ip, 'register');
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
       // The installer account only: created on this computer, with remote first-signup
       // blocked, so there is no address to prove. It signs straight in as before.
       const value = await createSessionValue(user.id, sessionSecret, user.sessionEpoch);
-      return Response.json({ ok: true, role: user.role, claimedLegacyWorkspace }, {
+      return noStoreJson({ ok: true, role: user.role, claimedLegacyWorkspace }, {
         headers: { 'set-cookie': sessionCookie(value, isSecureRequest(request)) },
       });
     }
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
       // failure becomes visible, and the response here must not vary by address.
       await recordAttempt(db, email, ip, sent.sent ? 'email-sent' : 'email-failed');
     }
-    return Response.json({
+    return noStoreJson({
       ok: true,
       verificationRequired: true,
       verificationEmailSent,
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
     const { secretKey } = turnstileSecrets();
     if (secretKey) {
       const check = await verifyTurnstileToken(body.turnstileToken, { secretKey, remoteIp: ip });
-      if (!check.ok) return Response.json({ error: 'The bot check did not pass. Reload and try again.' }, { status: 400 });
+      if (!check.ok) return noStoreJson({ error: 'The bot check did not pass. Reload and try again.' }, { status: 400 });
     }
   }
 
@@ -164,29 +164,29 @@ export async function POST(request: Request) {
   if (!user) {
     await recordAttempt(db, email, ip, 'failed');
     // Deliberately vague: never reveal whether the address exists or the account is disabled.
-    return Response.json({ error: 'Incorrect email or password.' }, { status: 401 });
+    return noStoreJson({ error: 'Incorrect email or password.' }, { status: 401 });
   }
   if (!user.emailVerified) {
     // The password was right, so this caller owns the credential — telling them the address
     // is unconfirmed reveals nothing to a stranger. Unverified accounts get no session.
     await recordAttempt(db, email, ip, 'unverified');
-    return Response.json({
+    return noStoreJson({
       error: 'Check your email for a verification link before signing in.',
       needsVerification: true,
     }, { status: 403 });
   }
   await Promise.all([touchLastSeen(db, user.id), recordAttempt(db, email, ip, 'login')]);
   const value = await createSessionValue(user.id, sessionSecret, user.sessionEpoch);
-  return Response.json({ ok: true, role: user.role }, {
+  return noStoreJson({ ok: true, role: user.role }, {
     headers: { 'set-cookie': sessionCookie(value, isSecureRequest(request)) },
   });
 }
 
 export async function DELETE(request: Request) {
   if (!isSameOrigin(request)) {
-    return Response.json({ error: 'Cross-origin request refused.' }, { status: 403 });
+    return noStoreJson({ error: 'Cross-origin request refused.' }, { status: 403 });
   }
-  return Response.json({ ok: true }, {
+  return noStoreJson({ ok: true }, {
     headers: { 'set-cookie': clearedSessionCookie(isSecureRequest(request)) },
   });
 }

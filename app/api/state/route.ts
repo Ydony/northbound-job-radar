@@ -12,7 +12,7 @@ import {
   type CatalogueQueryInput,
 } from '@/lib/catalogue-query';
 import { newSinceCutoff } from '@/lib/dashboard';
-import { clientIp, requireSession } from '@/lib/guard';
+import { clientIp, noStoreJson, requireSession } from '@/lib/guard';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
 import { adminOnlySourceKeys, isHostedCollectionRequest } from '@/lib/job-adapters';
 import { decodeJobsCursor, parsePageLimit } from '@/lib/paging';
@@ -150,15 +150,15 @@ export async function GET(request: Request) {
   }
 
   const { size: pageSize, error: limitError } = parsePageLimit(url.searchParams.get('limit'), JOB_PAGE_MAX, JOB_PAGE_DEFAULT);
-  if (limitError) return Response.json({ error: limitError }, { status: 400 });
+  if (limitError) return noStoreJson({ error: limitError }, { status: 400 });
   const { cursor, error: cursorError } = decodeCatalogueCursor(url.searchParams.get('cursor'));
-  if (cursorError) return Response.json({ error: cursorError }, { status: 400 });
+  if (cursorError) return noStoreJson({ error: cursorError }, { status: 400 });
   // The "what's new since last run" baseline: the latest finished run's start,
   // or the last seven days before any run. Server-derived, so the `new` view
   // cannot be widened by a crafted cutoff.
   const since = newSinceCutoff(searchRunsFromRows(runs.results, []), new Date().toISOString());
   const { filters, error: filterError } = parseCatalogueFilters(url.searchParams, searchCriteria, since);
-  if (filterError) return Response.json({ error: filterError }, { status: 400 });
+  if (filterError) return noStoreJson({ error: filterError }, { status: 400 });
 
   const audience = { hiddenSourceKeys, hideIndeedRecords };
   const unplaced: CatalogueQueryInput = {
@@ -200,7 +200,7 @@ export async function GET(request: Request) {
     return sources ? { ...job, duplicateCount: sources.length, duplicateSources: [...new Set(sources)] } : job;
   });
 
-  return Response.json({
+  return noStoreJson({
     ...shared,
     jobs,
     // Folded copies under the current filters, page-independent: the number
@@ -257,9 +257,9 @@ async function legacyStateResponse(
   shared: Record<string, unknown>,
 ) {
   const { size: pageSize, error: limitError } = parsePageLimit(url.searchParams.get('limit'), JOB_PAGE_MAX);
-  if (limitError) return Response.json({ error: limitError }, { status: 400 });
+  if (limitError) return noStoreJson({ error: limitError }, { status: 400 });
   const { cursor, error: cursorError } = decodeJobsCursor(url.searchParams.get('cursor'));
-  if (cursorError) return Response.json({ error: cursorError }, { status: 400 });
+  if (cursorError) return noStoreJson({ error: cursorError }, { status: 400 });
   const [page, collectionTotals] = await Promise.all([
     queryJobsPage(db, userId, {
       hiddenSourceKeys,
@@ -285,7 +285,7 @@ async function legacyStateResponse(
       return sources ? { ...job, duplicateCount: sources.length, duplicateSources: [...new Set(sources)] } : job;
     });
 
-  return Response.json({
+  return noStoreJson({
     ...shared,
     jobs: visibleJobs,
     hiddenDuplicates: allJobs.length - visibleJobs.length,

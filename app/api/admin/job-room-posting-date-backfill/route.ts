@@ -1,5 +1,5 @@
 import { ensureSchema } from '@/db/runtime';
-import { rateLimit, requireSession } from '@/lib/guard';
+import { noStoreJson, rateLimit, requireSession } from '@/lib/guard';
 import { backfillJobRoomPostingDates } from '@/lib/job-room-backfill';
 
 export async function POST(request: Request) {
@@ -11,5 +11,5 @@ export async function POST(request: Request) {
   if (limited) return limited;
 
   const report = await backfillJobRoomPostingDates(db, user.id);
-  return Response.json(report);
+  return noStoreJson(report);
 }
