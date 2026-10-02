@@ -5,7 +5,7 @@
  * The CV upload and matching feature was removed. Keep disclosures aligned with
  * active routes and storage, not with a dormant feature flag.
  */
-export const PRIVACY_UPDATED_ON = '2026-09-24';
+export const PRIVACY_UPDATED_ON = '2026-10-01';
 
 export interface DataItem {
   what: string;
@@ -74,7 +74,9 @@ export const privacySummary = 'This page describes exactly what is stored, why, 
     + 'line: search keywords and locations are sent to selected job sources; account credentials and saved advertisements are not sent to job sites or AI services.';
 
 export const whereDataLives = [
-  'Data is currently held in a local D1-compatible database on this computer. This installation is not publicly hosted.',
+  'Your data lives in the installation you signed in to. Local installations hold it in a D1-compatible SQLite database on that computer and never send it anywhere except the job sources you search and the email provider below.',
+  'The private production installation runs on Cloudflare — a Worker with its own remote database, a single administrator account and registration closed. It is not a public service and its data is never seeded from local installations.',
+  'No automated backup replica is currently attached to the hosted database; copies outside the live database are not backups. A 30-day off-box replica is proposed for the self-hosted target and stays undecided until the owner chooses a provider and a region.',
   'Administrators of this installation can see that an account exists, its email address, and how many jobs it holds. They cannot read your job list through the admin screen.',
   'Job searches send your role keywords and chosen locations to the job sources listed on the sources page. They never receive your email.',
   'When you register, your browser loads a bot check from Cloudflare (Turnstile) and this server verifies the resulting token with Cloudflare. Cloudflare sees your IP address as part of that check, under their privacy policy; the token itself is verified and not stored.',
@@ -131,4 +133,20 @@ export const visitCounting = [
   'To avoid counting the same person twice in one day, a short marker is derived from a secret that changes every day. The IP address and browser used to derive it are never stored.',
   'Because the secret changes daily and the markers are deleted once the day ends, two visits on different days cannot be connected, and a marker cannot be traced back to a person.',
   'What remains is a plain daily number: how many visits, and how many distinct visitors.',
+  'Those daily numbers are currently kept indefinitely. Capping them is one of the proposed retention periods below.',
 ];
+
+/**
+ * Retention periods for accounts, searches, logs, tokens and backups are
+ * proposed in `docs/RETENTION_AND_PROCESSORS_REVIEW.md` and waiting for the
+ * owner's approval — they are NOT enforced yet. This note says so plainly, so
+ * the page never promises a deletion schedule the software does not run. The
+ * “Kept for” values above describe what the code does today.
+ */
+export const retentionReviewNote = {
+  title: 'Retention under review',
+  body: 'Some data currently has no end date: your saved jobs and search history stay until you delete '
+    + 'them, and the daily visit totals above are kept indefinitely. Concrete retention periods are '
+    + 'proposed and waiting for the owner’s approval before anything is deleted automatically; until '
+    + 'then, nothing on this page promises a schedule the software does not run.',
+};

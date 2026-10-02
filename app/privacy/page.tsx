@@ -1,5 +1,5 @@
 import { cookieNotice, dataWeHold, notCollected, PRIVACY_UPDATED_ON, privacyHeadline, privacySummary,
-  visitCounting, whereDataLives, yourRights } from '@/lib/privacy-policy';
+  retentionReviewNote, visitCounting, whereDataLives, yourRights } from '@/lib/privacy-policy';
 
 export const metadata = {
   title: 'Privacy — Ik ben een appel',
@@ -73,6 +73,13 @@ export default function PrivacyPage() {
           <p>There is no analytics provider, no tracking cookie, and no visitor profile.</p>
         </div>
         <ul className="plain-list">{visitCounting.map((line) => <li key={line}>{line}</li>)}</ul>
+      </section>
+
+      <section className="policy-group">
+        <div className="policy-group-head">
+          <h2>{retentionReviewNote.title}</h2>
+          <p>{retentionReviewNote.body}</p>
+        </div>
       </section>
 
       <section className="policy-group">
