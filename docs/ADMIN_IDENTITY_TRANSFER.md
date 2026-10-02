@@ -2,7 +2,9 @@
 
 This is a **synthetic rehearsal and code contract**, not authorization or a
 procedure to copy a real account. The owner checkpoint for a real transfer,
-secret setup and rollback remains open under F2/T07. Do not run this code on
+secret setup and rollback remains open under F2/T07 (see
+`docs/ADMIN_TRANSFER_ROLLBACK.md` for the secure-transfer, secret-setup and
+rollback checklist). Do not run this code on
 production files or include real database rows, hashes, addresses or secrets in
 a ticket, log or assistant prompt.
 
@@ -27,7 +29,9 @@ destination with any pre-existing domain data. The only permitted nonempty
 destination table is `schema_migrations` plus the **untouched** `indeed_control`
 row seeded by migration 19. The refusal and insert occur inside a destination
 transaction, so a failed check leaves it unchanged. It does not delete or
-replace existing rows.
+replace existing rows. There is no reverse/copy-back path: a transfer into a
+nonempty database is refused in both directions, so rollback is a service/DNS
+switch back to the untouched old host, never a database merge.
 
 Run `npm run verify:admin-transfer` for a reproducible rehearsal. It creates
 throwaway old/new databases with the app's current migrations, seeds a
@@ -37,6 +41,14 @@ administrator/verification state, checks that job/token rows did not move,
 checks the epoch bump and nonempty-destination refusal, then removes the
 throwaway files. `tests/admin-transfer.test.ts` covers the field-level contract
 and refusal cases. Neither command uses DEV, TEST, Cloudflare or production.
+
+Run `npm run verify:transfer-rollback` for the rollback side on throwaway
+synthetic data. It transfers a synthetic administrator, confirms the retained
+password verifier and the epoch increment, confirms job rows did not move, then
+proves a second forward transfer and the reverse transfer back into the old
+database are both refused with both databases unchanged.
+`tests/transfer-rollback.test.ts` pins the same contract at unit speed and runs
+the rehearsal end to end. Neither touches DEV, TEST, Cloudflare or production.
 
 This proof does **not** establish that the owner's real password verifies on
 the new host, that host secrets are independent, or that rollback and DNS
