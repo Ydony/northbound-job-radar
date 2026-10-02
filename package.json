@@ -33,6 +33,7 @@
     "verify:deploy-hardening": "node scripts/verify-deploy-hardening.mjs",
     "verify:selfhosted": "node scripts/verify-selfhosted.mjs",
     "verify:vps-release": "node scripts/verify-vps-release.mjs",
+    "verify:security-privacy": "node scripts/verify-security-privacy.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next && stylelint \"app/**/*.css\"",
     "lint:css": "stylelint \"app/**/*.css\"",
     "lint:css:rebaseline": "stylelint \"app/**/*.css\" --suppress=scale-unlimited/declaration-strict-value",
