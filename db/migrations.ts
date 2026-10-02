@@ -787,4 +787,33 @@ export const runtimeMigrations: RuntimeMigration[] = [
       'CREATE INDEX IF NOT EXISTS auth_events_created_idx ON auth_events(created_at)',
     ],
   },
+  {
+    // T40b (F13): a backup taken before an account deletion, restored after it,
+    // silently resurrects the deleted account — users, search_roles and
+    // auth_events rows reappear with no warning. Backup expiry alone only
+    // bounds the window (30-day Litestream retention): inside that window a
+    // restore still brings deleted personal data back. So deletion records a
+    // tombstone in the SAME batch (lib/account-deletion.ts), and the restore
+    // procedure re-applies tombstoned deletions to the restored copy before it
+    // serves traffic (scripts/reconcile-deletions.mjs, docs/DEPLOY.md).
+    //
+    // The tombstone holds one-way SHA-256 hashes only — never the id or the
+    // address — plus the deletion and expiry timestamps. Reconciliation hashes
+    // each candidate id/address in the restored copy and deletes the matches,
+    // so the plaintext is never needed after deletion. Tombstones expire with
+    // the backups they protect: 720h (30 days), the same bound as
+    // deploy/litestream.yml, purged on boot in ensureSchema(). A tombstone
+    // has no user_id column by design, so it is never account data itself.
+    version: 33,
+    name: 'deletion_tombstones',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS deleted_accounts (
+        user_id_hash TEXT PRIMARY KEY NOT NULL,
+        email_hash TEXT NOT NULL DEFAULT '',
+        deleted_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      )`,
+      'CREATE INDEX IF NOT EXISTS deleted_accounts_expires_idx ON deleted_accounts(expires_at)',
+    ],
+  },
 ];

@@ -144,7 +144,7 @@ export async function DELETE(request: Request) {
     }
   }
 
-  await db.batch(accountDeletionStatements(db, user.id, user.email));
+  await db.batch(await accountDeletionStatements(db, user.id, user.email));
   // INT-04 (#163): forget this account's catalogue state. The shared catalogue keeps
   // rows other accounts still hold; only rows nobody holds are removed.
   await removeUserVacancyState(db, user.id);

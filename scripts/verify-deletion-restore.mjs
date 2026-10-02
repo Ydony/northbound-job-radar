@@ -1,45 +1,37 @@
 #!/usr/bin/env node
 /**
- * T40 (F13) — Verify deletion, backup expiry and deletion reconciliation
- * after restore; scope any missing control.
+ * T40/T40b (F13) — Verify deletion, backup expiry and deletion reconciliation
+ * after restore.
  *
  * Synthetic fixtures only (throwaway temp files, `@example.test` addresses).
  * Run with: `node --import tsx scripts/verify-deletion-restore.mjs`
  * Prints JSON evidence on stdout.
  *
- * Part A — BACKUP EXPIRY (passes today):
+ * Part A — BACKUP EXPIRY:
  *   A1. `deploy/litestream.yml` sets a bounded replica retention (720h = 30d),
  *       so a deleted account ages out of off-box snapshots/WAL within 30 days.
  *   A2. `scripts/backup-local.mjs` prunes local recovery copies to KEEP newest
  *       and never prunes the backup just written (synthetic simulation below).
  *
- * Part B — DELETION RECONCILIATION AFTER RESTORE (fails today: the scoped gap):
- *   A backup taken BEFORE an account deletion, restored AFTER it, silently
- *   resurrects the deleted account and its owned rows. No `deleted_accounts`
- *   tombstone table exists, `ensureSchema()` performs no reconciliation, and
- *   the `docs/DEPLOY.md` restore procedure has no deletion-reconciliation step.
- *   F13 requires that "backup expiry and restore procedures prevent deleted
- *   accounts from silently reappearing" — backup expiry alone only bounds the
- *   window (30 days); inside that window a restore resurrects without warning.
+ * Part B — DELETION RECONCILIATION AFTER RESTORE (the T40b control):
+ *   A backup taken BEFORE an account deletion, restored AFTER it, would
+ *   silently resurrect the deleted account and its owned rows. The control:
+ *   - `accountDeletionStatements` (lib/account-deletion.ts) records a
+ *     `deleted_accounts` tombstone — SHA-256 hashes only, never the id or the
+ *     address — in the same batch as the deletion, expiring after 720h (the
+ *     same bound as the backups it protects).
+ *   - `scripts/reconcile-deletions.mjs` copies the live tombstone set into the
+ *     restored scratch copy and re-applies tombstoned deletions BEFORE the
+ *     copy serves traffic (docs/DEPLOY.md restore procedure).
  *
- *   Exit status: 0 when reconciliation holds (deleted rows stay deleted after
- *   restore), 1 when the gap is present. This script is the failing acceptance
- *   check for the follow-up control task; wire it into CI only once that
- *   control lands, otherwise it documents the gap.
+ *   This part drives the real control on synthetic data: two accounts, a
+ *   pre-deletion backup, a live deletion, a restore into scratch, then the
+ *   documented reconcile step as a child process — and asserts the deleted
+ *   account stays deleted while the bystander is untouched.
  *
- * Scoped missing control (not implemented here — needs the T38 retention-table
- * owner decision first):
- *   - Record deletions durably: a `deleted_accounts` tombstone (user id and/or
- *     email hash + deleted_at) written in the same batch as
- *     `accountDeletionStatements`, so it exists in every backup taken after
- *     the deletion. Tombstones themselves expire on the retention schedule.
- *   - Reconcile on restore: a `reconcile-deletions` step in the restore
- *     procedure (and in this script) that re-applies tombstoned deletions to
- *     the restored copy before it ever serves traffic.
- *   - Procedural-only alternative (weaker): compare restored `users` against a
- *     separately kept deletion log. Scoped as weaker because the log itself
- *     needs backup/expiry handling, which re-creates the same problem.
+ * Exit status: 0 when backup expiry and reconciliation both hold, 1 otherwise.
  */
+import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -108,8 +100,7 @@ if (!KEEP || !guardsJustWritten) {
 
 // ---------- Part B: deletion reconciliation after restore ----------
 
-// No reconciliation mechanism exists to find: tombstone table, schema-level
-// purge of resurrected rows, or a restore-procedure step.
+// The control exists in code and in the restore procedure.
 const runtimeSource = await readFile(join(projectRoot, 'db', 'runtime.ts'), 'utf8')
   + await readFile(join(projectRoot, 'db', 'migrations.ts'), 'utf8')
   + await readFile(join(projectRoot, 'lib', 'account-deletion.ts'), 'utf8');
@@ -118,16 +109,22 @@ const hasTombstoneTable = /deleted_accounts|deletion_tombstone|deleted_users/i.t
 const restoreMentionsDeletion = /reconcil|tombstone|deleted account|reappear|resurrect/i.test(deployDoc);
 evidence.partB.tombstoneTableExists = hasTombstoneTable;
 evidence.partB.restoreProcedureReconcilesDeletions = restoreMentionsDeletion;
+if (!hasTombstoneTable) {
+  failures.push('no deletion-tombstone table exists — restoring a pre-deletion backup would resurrect the account.');
+}
+if (!restoreMentionsDeletion) {
+  failures.push('docs/DEPLOY.md has no deletion-reconciliation restore step — a restored copy could serve tombstoned rows.');
+}
 
 // Synthetic live database with two accounts.
-const work = mkdtempSync(join(tmpdir(), 't40-restore-'));
+const work = mkdtempSync(join(tmpdir(), 't40b-restore-'));
 const livePath = join(work, 'live.sqlite');
 const preDeleteBackup = join(work, 'pre-delete-backup.sqlite');
 const scratchPath = join(work, 'scratch.sqlite');
 process.env.SQLITE_PATH = livePath;
 
 const { bindings, ensureSchema } = await import('../db/runtime.ts');
-const { accountDeletionStatements } = await import('../lib/account-deletion.ts');
+const { accountDeletionStatements, hashDeletionIdentity } = await import('../lib/account-deletion.ts');
 await ensureSchema();
 const { db } = bindings();
 
@@ -160,8 +157,8 @@ for (const suffix of ['-wal', '-shm', '-journal']) {
   if (existsSync(livePath + suffix)) copyFileSync(livePath + suffix, preDeleteBackup + suffix);
 }
 
-// DELETE the victim on live; confirm live deletion holds.
-await db.batch(accountDeletionStatements(db, victim.id, victim.email));
+// DELETE the victim on live; confirm live deletion holds and a tombstone was recorded.
+await db.batch(await accountDeletionStatements(db, victim.id, victim.email));
 const liveVictimUsers = await db.prepare('SELECT COUNT(*) AS total FROM users WHERE id = ?')
   .bind(victim.id).first('total');
 const liveVictimRoles = await db.prepare('SELECT COUNT(*) AS total FROM search_roles WHERE user_id = ?')
@@ -173,11 +170,41 @@ if (!evidence.partB.liveDeletionHolds) {
   failures.push('live account deletion left victim rows behind or lost the bystander — see lib/account-deletion.ts.');
 }
 
+const expectedUserHash = await hashDeletionIdentity(victim.id);
+const expectedEmailHash = await hashDeletionIdentity(victim.email);
+const tombstone = await db.prepare('SELECT user_id_hash, email_hash, deleted_at, expires_at FROM deleted_accounts WHERE user_id_hash = ?')
+  .bind(expectedUserHash).first();
+evidence.partB.tombstoneRecorded = tombstone?.email_hash === expectedEmailHash
+  && typeof tombstone?.deleted_at === 'string' && typeof tombstone?.expires_at === 'string';
+if (!evidence.partB.tombstoneRecorded) {
+  failures.push('account deletion recorded no tombstone — a later restore would resurrect the account.');
+}
+// The tombstone must hold hashes only: neither the id nor the address appears anywhere in it.
+const tombstoneBlob = JSON.stringify(await db.prepare('SELECT * FROM deleted_accounts').all().then((r) => r.results));
+evidence.partB.tombstoneHoldsNoPlaintext = !tombstoneBlob.includes(victim.id) && !tombstoneBlob.includes(victim.email);
+if (!evidence.partB.tombstoneHoldsNoPlaintext) {
+  failures.push('a tombstone holds plaintext identity — it must hold one-way hashes only.');
+}
+
 // RESTORE the pre-deletion backup into scratch (stands in for `litestream restore -o <scratch>`).
 copyFileSync(preDeleteBackup, scratchPath);
 for (const suffix of ['-wal', '-shm', '-journal']) {
   if (existsSync(preDeleteBackup + suffix)) copyFileSync(preDeleteBackup + suffix, scratchPath + suffix);
 }
+
+// RECONCILE with the documented restore step, in a child process so the check
+// exercises the procedure the operator actually runs — not an in-process shortcut.
+let reconcileExit = -1;
+try {
+  execFileSync(process.execPath, ['--import', 'tsx', join(projectRoot, 'scripts', 'reconcile-deletions.mjs'),
+    '--live', livePath, '--restored', scratchPath], { cwd: projectRoot, stdio: 'pipe' });
+  reconcileExit = 0;
+} catch (error) {
+  reconcileExit = error?.status ?? 1;
+  failures.push(`the documented reconcile step failed on the restored copy: ${String(error?.stderr ?? error?.message ?? error).slice(0, 500)}`);
+}
+evidence.partB.reconcileScriptExit = reconcileExit;
+
 const restored = new DatabaseSync(scratchPath);
 restored.exec('PRAGMA foreign_keys = ON');
 const restoredVictimUsers = restored.prepare('SELECT COUNT(*) AS total FROM users WHERE id = ?')
@@ -186,6 +213,11 @@ const restoredVictimRoles = restored.prepare('SELECT COUNT(*) AS total FROM sear
   .get(victim.id).total;
 const restoredVictimEvents = restored.prepare('SELECT COUNT(*) AS total FROM auth_events WHERE email = ?')
   .get(victim.email).total;
+const restoredBystanderUsers = restored.prepare('SELECT COUNT(*) AS total FROM users WHERE id = ?')
+  .get(bystander.id).total;
+const restoredBystanderRoles = restored.prepare('SELECT COUNT(*) AS total FROM search_roles WHERE user_id = ?')
+  .get(bystander.id).total;
+const scratchTombstones = restored.prepare('SELECT COUNT(*) AS total FROM deleted_accounts').get().total;
 restored.close();
 // Portability: the live handle is held by the cached SQLite adapter. On Linux
 // removing the temp folder succeeds with it open; on Windows the same removal
@@ -197,28 +229,31 @@ try {
 } catch { /* already closed — temp cleanup must still run */ }
 rmSync(work, { recursive: true, force: true });
 
-evidence.partB.restoredVictimRows = {
+evidence.partB.restoredVictimRowsAfterReconcile = {
   users: restoredVictimUsers, search_roles: restoredVictimRoles, auth_events: restoredVictimEvents,
 };
-evidence.partB.deletedAccountReappears = restoredVictimUsers > 0 || restoredVictimRoles > 0;
+evidence.partB.bystanderIntactAfterReconcile = restoredBystanderUsers === 1 && restoredBystanderRoles === 1;
+evidence.partB.scratchHoldsTombstones = scratchTombstones >= 1;
+evidence.partB.deletedAccountReappears = restoredVictimUsers > 0 || restoredVictimRoles > 0 || restoredVictimEvents > 0;
 if (evidence.partB.deletedAccountReappears) {
   failures.push(
-    'SCOPED GAP (T40): restoring a backup taken before an account deletion silently resurrects '
-    + `the deleted account (users=${restoredVictimUsers}, search_roles=${restoredVictimRoles}, `
-    + `auth_events=${restoredVictimEvents}). No tombstone table, no ensureSchema() reconciliation, `
-    + 'and no restore-procedure step re-applies the deletion. Backup expiry (30d replicas, KEEP=10 '
-    + 'local) only bounds how long a resurrecting backup exists — inside that window a restore '
-    + 'brings deleted personal data back with no warning. See the header of this script for the '
-    + 'scoped control (tombstones + reconcile-on-restore); it needs the T38 retention-table owner '
-    + 'decision before implementation.',
+    'restoring a backup taken before an account deletion resurrected the deleted account '
+    + `(users=${restoredVictimUsers}, search_roles=${restoredVictimRoles}, `
+    + `auth_events=${restoredVictimEvents}) even after the documented reconcile step.`,
   );
+}
+if (!evidence.partB.bystanderIntactAfterReconcile) {
+  failures.push('reconciliation removed the bystander account — it must delete only tombstoned rows.');
+}
+if (!evidence.partB.scratchHoldsTombstones) {
+  failures.push('the reconciled copy holds no tombstones — a second restore would resurrect again.');
 }
 
 evidence.ok = failures.length === 0;
 evidence.failures = failures;
 console.log(JSON.stringify(evidence, null, 2));
 if (!evidence.ok) {
-  console.error(`\nT40 verification FAILED with ${failures.length} finding(s) (see failures above).`);
+  console.error(`\nT40b verification FAILED with ${failures.length} finding(s) (see failures above).`);
   process.exit(1);
 }
-console.log('\nT40 verification PASS: backups expire on a bound and restores reconcile deletions.');
+console.log('\nT40b verification PASS: backups expire on a bound and restores reconcile deletions.');

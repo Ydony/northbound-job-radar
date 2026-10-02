@@ -267,6 +267,11 @@ export function ensureSchema() {
       // Single-use email tokens expire after 24h/1h; the sweep removes expired-but-unconsumed
       // rows even when nobody requests a new link (T39/F13).
       await db.prepare("DELETE FROM auth_events WHERE created_at < datetime('now', '-30 days')").run();
+      // T40b/F13: deletion tombstones expire with the backups they protect (720h / 30 days,
+      // the Litestream bound in deploy/litestream.yml). Expired tombstones are purged here;
+      // reconciliation always runs before purging, so a lingering backup never outlives
+      // the tombstone that would re-delete its resurrected rows (lib/account-deletion.ts).
+      await db.prepare("DELETE FROM deleted_accounts WHERE expires_at < datetime('now')").run();
       await purgeExpiredTokens(db);
       await db.prepare('PRAGMA optimize').run();
     })().catch((error) => {

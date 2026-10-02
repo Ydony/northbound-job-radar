@@ -145,7 +145,7 @@ export async function DELETE(request: Request) {
     return noStoreJson({ error: 'That is the only active administrator.' }, { status: 409 });
   }
 
-  await db.batch(accountDeletionStatements(db, userId, target.email));
+  await db.batch(await accountDeletionStatements(db, userId, target.email));
   // INT-04 (#163): forget the deleted account's catalogue state. The shared catalogue
   // keeps rows other accounts still hold; only rows nobody holds are removed.
   await removeUserVacancyState(db, userId);

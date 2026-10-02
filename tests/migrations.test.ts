@@ -4,7 +4,7 @@ import test from 'node:test';
 import { CV_REMOVAL_VERSION, runtimeMigrations } from '../db/migrations';
 
 test('runtime migrations are ordered and contain one statement per prepared query', () => {
-  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]);
+  assert.deepEqual(runtimeMigrations.map((migration) => migration.version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]);
   for (const migration of runtimeMigrations) {
     assert.equal(migration.statements.length > 0, true);
     assert.equal(migration.statements.every((statement) => statement.trim().length > 0 && !/;\s*\S/.test(statement)), true);
@@ -128,6 +128,25 @@ test('fresh databases reach every migration: base columns must not duplicate a l
         `base table ${table} already defines ${column}, which a migration re-adds`);
     }
   }
+});
+
+test('deletion tombstones hold hashes only and expire with the backups they protect', () => {
+  // T40b (F13): restoring a pre-deletion backup resurrects the account, so
+  // deletion records a tombstone and the restore procedure re-applies it. The
+  // tombstone must never hold the id or the address — only their hashes — and
+  // must expire no later than the 30-day backup retention it protects.
+  const migration = runtimeMigrations.find((entry) => entry.version === 33);
+  assert.ok(migration, 'migration 33 is missing');
+  const sql = migration.statements.join('\n');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS deleted_accounts \(/);
+  assert.match(sql, /user_id_hash TEXT PRIMARY KEY NOT NULL/);
+  assert.match(sql, /email_hash TEXT NOT NULL/);
+  assert.match(sql, /deleted_at TEXT NOT NULL/);
+  assert.match(sql, /expires_at TEXT NOT NULL/);
+  assert.match(sql, /deleted_accounts_expires_idx ON deleted_accounts\(expires_at\)/);
+  assert.doesNotMatch(sql, /user_id TEXT NOT NULL/);
+  assert.doesNotMatch(sql, /email TEXT NOT NULL/);
+  assert.doesNotMatch(sql, /DELETE FROM|DROP TABLE/);
 });
 
 test('public refresh persists locks, cursors, cooldowns and a single queue row', () => {
