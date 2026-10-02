@@ -4,7 +4,8 @@ import { accountDeletionStatements } from '@/lib/account-deletion';
 import { removeUserVacancyState } from '@/lib/catalogue';
 import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
   verificationLinkFor } from '@/lib/email';
-import { noStoreJson, rateLimit, requireSession } from '@/lib/guard';
+import { clientIp, noStoreJson, rateLimit, requireSession } from '@/lib/guard';
+import { recordSecurityEvent } from '@/lib/security-events';
 import { findUserById, findUserByEmail, isValidEmail, normalizeEmail, passwordProblem, revokeSessions } from '@/lib/users';
 
 function isSecureRequest(request: Request) {
@@ -28,7 +29,10 @@ export async function PATCH(request: Request) {
   const { db, user } = session;
 
   const limited = rateLimit(`account:${user.id}`, 10, 15 * 60_000);
-  if (limited) return limited;
+  if (limited) {
+    await recordSecurityEvent(db, { email: user.email, ip: clientIp(request), kind: 'throttled' });
+    return limited;
+  }
 
   const body = await request.json().catch(() => ({})) as {
     currentPassword?: unknown; newEmail?: unknown; newPassword?: unknown;
@@ -69,9 +73,20 @@ export async function PATCH(request: Request) {
   }
 
   if (!updates.length) return noStoreJson({ error: 'Nothing to change.' }, { status: 400 });
+  const changedPassword = body.newPassword !== undefined;
   await db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...bindings, user.id).run();
   // Any outstanding reset links become useless once the password changes.
   await db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(user.id).run();
+  // Minimal security log: what changed, never the secret itself. The address
+  // recorded is the one the account holds after the change.
+  const eventIp = clientIp(request);
+  const eventEmail = changedEmail || user.email;
+  if (changedPassword) {
+    await recordSecurityEvent(db, { email: eventEmail, ip: eventIp, kind: 'password-change' });
+  }
+  if (changedEmail) {
+    await recordSecurityEvent(db, { email: changedEmail, ip: eventIp, kind: 'email-change' });
+  }
 
   let verificationEmailSent = false;
   let verificationToken = '';

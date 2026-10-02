@@ -3,6 +3,7 @@ import { createSessionValue, isLocalBootstrapRequest, isSameOrigin, sessionCooki
 import { consumeEmailVerification, emailConfigured, issueEmailVerification, markEmailVerified,
   sendEmailViaResend, verificationEmail, verificationLinkFor } from '@/lib/email';
 import { clientIp, durableRateLimit, noStoreJson } from '@/lib/guard';
+import { recordSecurityEvent } from '@/lib/security-events';
 import { findUserByEmail, findUserById, isValidEmail, normalizeEmail } from '@/lib/users';
 
 function isSecureRequest(request: Request) {
@@ -11,8 +12,7 @@ function isSecureRequest(request: Request) {
 }
 
 async function recordAttempt(db: D1Database, email: string, ip: string, kind: string) {
-  await db.prepare('INSERT INTO auth_events (id, email, ip, kind, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), email, ip, kind, new Date().toISOString()).run();
+  await recordSecurityEvent(db, { email, ip, kind });
 }
 
 /** Follows the emailed link: a single-use token proves the address and signs the account in. */
@@ -24,7 +24,10 @@ export async function GET(request: Request) {
   }
   const { db } = bindings();
   const limited = await durableRateLimit(db, `verify-confirm:ip:${clientIp(request)}`, 20, 15 * 60_000);
-  if (limited) return limited;
+  if (limited) {
+    await recordAttempt(db, '', clientIp(request), 'throttled');
+    return limited;
+  }
 
   const token = new URL(request.url).searchParams.get('token') ?? '';
   if (!token) return noStoreJson({ error: 'This link is invalid or has expired.' }, { status: 400 });

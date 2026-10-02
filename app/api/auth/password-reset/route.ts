@@ -3,11 +3,11 @@ import { isLocalBootstrapRequest, isSameOrigin } from '@/lib/auth';
 import { emailConfigured, issuePasswordReset, passwordResetEmail, passwordResetLinkFor,
   sendEmailViaResend } from '@/lib/email';
 import { clientIp, durableRateLimit, noStoreJson } from '@/lib/guard';
+import { recordSecurityEvent } from '@/lib/security-events';
 import { findUserByEmail, isValidEmail, normalizeEmail } from '@/lib/users';
 
 async function recordAttempt(db: D1Database, email: string, ip: string, kind: string) {
-  await db.prepare('INSERT INTO auth_events (id, email, ip, kind, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), email, ip, kind, new Date().toISOString()).run();
+  await recordSecurityEvent(db, { email, ip, kind });
 }
 
 /**
