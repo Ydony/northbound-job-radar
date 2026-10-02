@@ -27,7 +27,26 @@ Restart=on-failure
 RestartSec=5
 # Replication must never starve serving or collection.
 CPUWeight=50
+# Same containment as the web unit (T37 hardening): unprivileged, read-only
+# OS, private /tmp and /dev, no home access. Litestream reads the SQLite file
+# and writes only to the off-box replica, so its only writable local path is
+# the database directory itself.
 NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+StateDirectory=ikbeneenappel
+ReadWritePaths=/var/lib/ikbeneenappel
+# DELIBERATELY NOT SET: MemoryDenyWriteExecute and SystemCallFilter — see the
+# note in ikbeneenappel-web.service. Litestream is Go, not Node, but the units
+# share one reviewed posture rather than two divergent ones.
 
 [Install]
 WantedBy=multi-user.target

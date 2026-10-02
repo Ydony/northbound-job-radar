@@ -19,6 +19,19 @@
 # misc
 .DS_Store
 *.pem
+*.key
+
+# database and backup artefacts — never commit a live, restored or drilled
+# database, its journals, dumps or replica state (T37)
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-shm
+*.db-wal
+*.sql.gz
+*.dump
 
 # debug
 npm-debug.log*

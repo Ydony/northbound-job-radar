@@ -93,6 +93,14 @@ The custom `.nl` domain is attached and verified working (see above);
 
 ## Self-hosted target: continuous backup and restore (VPS-07, #200)
 
+**Service/proxy hardening and host verification live in two places (T37):
+`npm run verify:deploy-hardening` proves the templates, artefacts, secrets
+and production dependencies from the repo; `docs/VPS_HOST_CHECKS.md` is the
+owner-run checklist that proves the machine actually matches — units,
+ports/SSH/updates, file permissions, TLS, the 404 probes and the real
+Litestream drill. The checklist needs authorized private access and blocks
+cutover (#201) until every box is checked.**
+
 D1 was managed — backups were Cloudflare's problem. On the VPS they are
 ours, and this is the single largest new operational risk in #193.
 
