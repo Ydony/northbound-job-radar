@@ -49,6 +49,25 @@ The launcher starts an installed VPN client when necessary, waits briefly for au
 and refuses to start Ik ben een appel unless it detects a supported active adapter with a full
 IPv4 tunnel route. It then shows the exit IP and country using Cloudflare's trace endpoint.
 
+## Hosted installations
+
+The enforced launcher is local-only: there is no VPN route to verify on a hosted
+installation (production Worker, VPS, phone access), so the page-fetching tier —
+jobs.ch, jobup.ch, JobScout24 and Undutchables — is unavailable there. This is stated
+where it matters rather than implied:
+
+- `POST /api/scrape` with `mode: 'all'` is still refused without `VPN_ENFORCED`, but a
+  non-loopback request gets a hosted refusal naming the unavailable sources instead of
+  the local `npm run dev:private` command (`pageFetchRefusalMessage` in
+  `lib/job-adapters.ts`; same loopback heuristic as the Indeed `localExecution` gate).
+- The dashboard tells the administrator the tier is unavailable there instead of showing
+  the **Search all — VPN on** button (`pageFetchAvailable` / `hostedInstallation` in
+  `/api/state`). **Find new jobs** still searches the authorized sources.
+- `/sources` says so on each restricted entry.
+
+The gate itself is unchanged: nothing page-fetching runs without verified enforcement,
+anywhere. No proxy, rotation, or disguised traffic was added to work around this.
+
 Run only the check with:
 
 ```text

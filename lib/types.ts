@@ -247,6 +247,20 @@ export interface AppState {
    *  can see them anyway - it exists so the "view as user" preview hides the same rows the
    *  server already withholds from everyone else. */
   adminOnlySources?: string[];
+  /**
+   * T15 (F4): whether the page-fetching tier (`mode: 'all'`) can run against this
+   * installation right now. True only when the process was started through the
+   * VPN-enforced launcher. Missing on older responses; callers must treat a missing
+   * value as unavailable, never as available.
+   */
+  pageFetchAvailable?: boolean;
+  /**
+   * T15 (F4): whether this response was served to a non-loopback request, i.e. a hosted
+   * installation the local VPN launcher cannot reach. The client uses this together with
+   * `pageFetchAvailable` to explain an unavailable tier truthfully instead of naming a
+   * local command. Same loopback heuristic as the Indeed `localExecution` gate.
+   */
+  hostedInstallation?: boolean;
   jobs: JobRecord[];
   criteria: SearchCriteria;
   /**

@@ -6,7 +6,7 @@ import { rateLimit, requireSession } from '@/lib/guard';
 import { CollectionRunBudgets, isAccessRefusal, isRuntimeBudgetExhausted } from '@/lib/collection-budgets';
 import { analyzeLanguage, analyzeStructuredLanguages, type LanguageResult } from '@/lib/analysis';
 import { adminOnlySourceKeys, bulkJobIsRelevant, descriptionMatchesRoles, jobSourceAdapters, REQUEST_DELAY_MS,
-  sourceStatusForAvailability,
+  isHostedCollectionRequest, pageFetchRefusalMessage, sourceStatusForAvailability,
   type SearchMode } from '@/lib/job-adapters';
 import { canonicalJobUrl, isGloballyStableSourceJobId, sourceInfoForUrl, sourceJobIdFromUrl } from '@/lib/job-identity';
 import { isSafeManualJobUrl } from '@/lib/job-sources';
@@ -156,9 +156,12 @@ async function runSearch(request: Request, report: Report): Promise<SearchOutcom
   }
   // Restricted sources need the VPN, and the button label is not evidence of one. Only the
   // launcher that verifies a full tunnel route sets this, so without it the mode is refused.
+  // T15 (F4): hosted installations have no such launcher — the VPN workflow is local-only —
+  // so a hosted refusal must say the tier is unavailable there, not name a local command
+  // no phone can run. The gate itself is unchanged: nothing is searched either way.
   if (requestedAll && !authSecrets().vpnEnforced) {
     return { kind: 'refused', response: Response.json({
-      error: 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.',
+      error: pageFetchRefusalMessage({ hosted: isHostedCollectionRequest(request) }),
     }, { status: 409 }) };
   }
   const mode: SearchMode = requestedAll ? 'all' : 'authorized';

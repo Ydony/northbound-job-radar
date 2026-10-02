@@ -721,6 +721,15 @@ export default function JobRadar() {
    * no roles, no runs, nothing saved. `loading` is already true for exactly that window.
    */
   const accountLoaded = !loading && !loadError;
+  /**
+   * T15 (F4): the page-fetching tier is unavailable on a hosted installation — the VPN
+   * launcher is local-only, so no VPN route can be verified there. Gated on `accountLoaded`
+   * per #141: before the account (and these server-sent flags) arrive, nothing may claim
+   * the tier is unavailable, so the control renders as it always has until then.
+   */
+  const pageFetchShelvedHere = accountLoaded
+    && (state.hostedInstallation ?? false)
+    && !(state.pageFetchAvailable ?? false);
   const draftHasNoRoles = !criteriaDraft.roleKeywords.some((keyword) => (keyword ?? '').trim());
   const noRolesToSearch = accountLoaded && draftHasNoRoles;
   const latestRun = useMemo(() => {
@@ -1201,9 +1210,10 @@ export default function JobRadar() {
           so one place states what the last run did. The buttons stay disabled while a
           run is in flight (duplicate-click protection) and admin diagnostics stay here. */}
       <section className="workflow run-strip">
-        {isAdmin && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
+        {isAdmin && !pageFetchShelvedHere && <button className="jobs-button admin-only" type="button" disabled={loading || Boolean(loadError) || Boolean(scrapeBusy) || noCountrySearched || noRolesToSearch} onClick={() => findJobs('all')} title="Administrator only. Adds the page-fetching sources. Connect the VPN first.">
           {scrapeBusy === 'all' ? 'Searching all sites…' : 'Search all — VPN on'} <span>⟳</span>
         </button>}
+        {isAdmin && pageFetchShelvedHere && <p className="form-message" role="status">Page-fetching sources are unavailable on this hosted installation — the VPN launcher is local-only, so there is no VPN route to verify here. “Find new jobs” below still searches the authorized sources.</p>}
         {noCountrySearched && <p className="form-message" role="status">Both countries are switched off in
           {' '}<a href="#criteria" onClick={() => setSettingsOpen(true)}>Search settings</a>, so there is
           nowhere to search. Turn the Netherlands or Switzerland back on.</p>}
