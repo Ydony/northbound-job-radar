@@ -247,7 +247,7 @@ details.filters > summary { display:none; }@media(max-width:850px){details.filte
   .criteria-grid .country-switches,.criteria-grid .keywords-required,.criteria-grid .keywords-excluded{grid-column:span 2}}
 @media(max-width:580px){.criteria-grid{grid-template-columns:minmax(0,1fr)}
   .criteria-grid .country-switches,.criteria-grid .keywords-required,.criteria-grid .keywords-excluded{grid-column:auto}}
-@media(max-width:850px){.topbar{grid-template-columns:minmax(0,1fr) auto}nav{display:none}.result-layout{grid-template-columns:minmax(0,1fr)}.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.filters>b{grid-column:1/-1}.filters button{min-height:var(--size-tap-min,44px);padding:var(--space-3)}.filters button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.import-panel form{grid-template-columns:minmax(0,1fr)}.import-panel .wide{grid-column:auto}.feedback-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.feedback-form button{grid-column:1/-1;justify-self:start}}
+@media(max-width:850px){.topbar{grid-template-columns:minmax(0,1fr) auto}nav{display:flex;grid-column:1/-1;grid-row:2;gap:4px 20px;overflow-x:auto;padding:0 0 8px;white-space:nowrap}nav a{align-items:center;display:inline-flex;min-height:var(--size-tap-min,44px);padding:12px 2px}nav .nav-signout,nav .view-toggle{align-items:center;display:inline-flex;min-height:var(--size-tap-min,44px);white-space:nowrap}.result-layout{grid-template-columns:minmax(0,1fr)}.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.filters>b{grid-column:1/-1}.filters button{min-height:var(--size-tap-min,44px);padding:var(--space-3)}.filters button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.import-panel form{grid-template-columns:minmax(0,1fr)}.import-panel .wide{grid-column:auto}.feedback-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.feedback-form button{grid-column:1/-1;justify-self:start}}
 @media(max-width:580px){.source-pill{display:none}.workflow{grid-template-columns:minmax(0,1fr)}.workflow-copy{grid-column:auto}.section-heading{align-items:flex-start;flex-direction:column;gap:var(--space-3)}.filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.job-card{grid-template-columns:minmax(0,1fr)}.apply-link{grid-column:1}.job-topline{align-items:flex-start;flex-direction:column}.feedback-form{grid-template-columns:minmax(0,1fr)}.feedback-form button{grid-column:1}.import-footer,footer{align-items:flex-start;flex-direction:column}.import-footer .primary{width:100%;justify-content:center}}
 
 @media(max-width:850px){.filters>b.filter-group,.source-filter{grid-column:1/-1}}
@@ -732,7 +732,10 @@ footer > a {
   .country-options { flex-direction:column; }
   .country-switches .switch { width:100%; }
   .add-role { align-self:flex-start; background:none; border:0; color:var(--green); cursor:pointer; font-size:14px; font-weight:800; min-height:var(--size-tap-min,44px); padding:0; }
-  .settings-bar .run-button, .settings-bar /* Search statistics. The same three numbers in the same order; the cards stack
+  /* The primary search action stacks full-width on a phone, like the workflow
+     search buttons below: side by side the two buttons squeeze the bar at 375px. */
+  .settings-bar .run-button { min-height:48px; width:100%; }
+  /* Search statistics. The same three numbers in the same order; the cards stack
      one per row while the three cells inside each card stay side by side. */
   .source-dashboard { padding-block:20px 22px; }
   
