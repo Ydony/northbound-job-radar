@@ -2,7 +2,8 @@ import { authSecrets, bindings, emailConfiguration, ensureSchema, turnstileSecre
 import { clearedSessionCookie, createSessionValue, isLocalBootstrapRequest, isSameOrigin, sessionCookie } from '@/lib/auth';
 import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
   verificationLinkFor } from '@/lib/email';
-import { clientIp, durableRateLimit, nativeRateLimit, noStoreJson } from '@/lib/guard';
+<import { clientIp, durableRateLimit, nativeRateLimit, noStoreJson } from '@/lib/guard';
+import { recordSecurityEvent } from '@/lib/security-events';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 import { authenticate, countUsers, createUser, findUserByEmail, isValidEmail, normalizeEmail,
   passwordProblem, touchLastSeen } from '@/lib/users';
@@ -13,8 +14,7 @@ function isSecureRequest(request: Request) {
 }
 
 async function recordAttempt(db: D1Database, email: string, ip: string, kind: string) {
-  await db.prepare('INSERT INTO auth_events (id, email, ip, kind, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), email, ip, kind, new Date().toISOString()).run();
+  await recordSecurityEvent(db, { email, ip, kind });
 }
 
 /**

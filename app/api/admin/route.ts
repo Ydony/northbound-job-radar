@@ -3,7 +3,8 @@ import { removeUserVacancyState } from '@/lib/catalogue';
 import { hashPassword } from '@/lib/auth';
 import { accountDeletionStatements } from '@/lib/account-deletion';
 import { readDailyVisits } from '@/lib/analytics';
-import { noStoreJson, requireSession } from '@/lib/guard';
+<import { clientIp, noStoreJson, requireSession } from '@/lib/guard';
+import { recordSecurityEvent } from '@/lib/security-events';
 import { listUsers, revokeSessions, type UserRecord } from '@/lib/users';
 
 export interface AdminOverview {
@@ -14,9 +15,14 @@ export interface AdminOverview {
 }
 
 /** Administrative actions are recorded so account changes are attributable after the fact. */
-async function recordAdminAction(db: D1Database, actorEmail: string, targetEmail: string, action: string) {
-  await db.prepare('INSERT INTO auth_events (id, email, ip, kind, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), targetEmail, '', `admin:${action} by ${actorEmail}`, new Date().toISOString()).run();
+async function recordAdminAction(
+  db: D1Database,
+  actorEmail: string,
+  targetEmail: string,
+  action: 'disable' | 'enable' | 'promote' | 'demote' | 'set-password' | 'delete-account',
+  ip: string,
+) {
+  await recordSecurityEvent(db, { email: targetEmail, ip, kind: `admin-${action}`, actor: actorEmail });
 }
 
 async function activeAdminCount(db: D1Database) {
@@ -84,23 +90,23 @@ export async function PATCH(request: Request) {
     if (wouldRemoveLastAdmin) return noStoreJson({ error: 'That is the only active administrator.' }, { status: 409 });
     await db.prepare("UPDATE users SET status = 'disabled' WHERE id = ?").bind(userId).run();
     await revokeSessions(db, userId);
-    await recordAdminAction(db, actor.email, target.email, 'disable');
+<    await recordAdminAction(db, actor.email, target.email, 'disable', clientIp(request));
     return noStoreJson({ ok: true });
   }
   if (action === 'enable') {
     await db.prepare("UPDATE users SET status = 'active' WHERE id = ?").bind(userId).run();
-    await recordAdminAction(db, actor.email, target.email, 'enable');
+    await recordAdminAction(db, actor.email, target.email, 'enable', clientIp(request));
     return noStoreJson({ ok: true });
   }
   if (action === 'promote') {
     await db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").bind(userId).run();
-    await recordAdminAction(db, actor.email, target.email, 'promote');
+    await recordAdminAction(db, actor.email, target.email, 'promote', clientIp(request));
     return noStoreJson({ ok: true });
   }
   if (action === 'demote') {
     if (wouldRemoveLastAdmin) return noStoreJson({ error: 'That is the only active administrator.' }, { status: 409 });
     await db.prepare("UPDATE users SET role = 'user' WHERE id = ?").bind(userId).run();
-    await recordAdminAction(db, actor.email, target.email, 'demote');
+<    await recordAdminAction(db, actor.email, target.email, 'demote', clientIp(request));
     return noStoreJson({ ok: true });
   }
   if (action === 'set-password') {
@@ -114,7 +120,7 @@ export async function PATCH(request: Request) {
       db.prepare('DELETE FROM email_verifications WHERE user_id = ?').bind(userId),
     ]);
     await revokeSessions(db, userId);
-    await recordAdminAction(db, actor.email, target.email, 'set-password');
+<    await recordAdminAction(db, actor.email, target.email, 'set-password', clientIp(request));
     return noStoreJson({ ok: true });
   }
   return noStoreJson({ error: 'Unknown action.' }, { status: 400 });
@@ -143,6 +149,6 @@ export async function DELETE(request: Request) {
   // INT-04 (#163): forget the deleted account's catalogue state. The shared catalogue
   // keeps rows other accounts still hold; only rows nobody holds are removed.
   await removeUserVacancyState(db, userId);
-  await recordAdminAction(db, actor.email, target.email, 'delete-account');
+<  await recordAdminAction(db, actor.email, target.email, 'delete-account', clientIp(request));
   return noStoreJson({ ok: true });
 }

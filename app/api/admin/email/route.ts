@@ -1,6 +1,7 @@
 import { emailConfiguration, ensureSchema } from '@/db/runtime';
 import { emailConfigured, sendEmailViaResend, type OutgoingEmail } from '@/lib/email';
-import { clientIp, durableRateLimit, noStoreJson, requireSession } from '@/lib/guard';
+<import { clientIp, durableRateLimit, noStoreJson, requireSession } from '@/lib/guard';
+import { recordSecurityEvent } from '@/lib/security-events';
 import { isValidEmail, normalizeEmail } from '@/lib/users';
 
 /**
@@ -73,7 +74,10 @@ export async function POST(request: Request) {
   // An administrator can still fat-finger a loop. Resend's own quota is not the thing to
   // discover that with.
   const limited = await durableRateLimit(db, `email-test:ip:${ip}`, 10, 15 * 60_000);
-  if (limited) return limited;
+  if (limited) {
+    await recordSecurityEvent(db, { email: '', ip, kind: 'throttled' });
+    return limited;
+  }
 
   const body = await request.json().catch(() => ({})) as { to?: unknown };
   const to = normalizeEmail(body.to);
@@ -109,8 +113,7 @@ export async function POST(request: Request) {
   };
 
   const result = await sendEmailViaResend(config, message);
-  await db.prepare('INSERT INTO auth_events (id, email, ip, kind, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), to, ip, result.sent ? 'email-sent' : 'email-failed', stamp).run();
+  await recordSecurityEvent(db, { email: to, ip, kind: result.sent ? 'email-sent' : 'email-failed' });
 
   // Resend's refusal is the diagnosis, and it is returned whole. Administrator-only, so the
   // detail that the public routes must never disclose is safe to read here.

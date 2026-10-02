@@ -771,4 +771,20 @@ export const runtimeMigrations: RuntimeMigration[] = [
       )`,
     ],
   },
+  {
+    // T44 (F12): the security log grows beyond sign-ins — password/email changes
+    // and administrator actions join the throttles already recorded — so the
+    // table needs an attribution column and a kind index. Previously the
+    // administrator's address was embedded in `kind` as `admin:<action> by
+    // <actor>` because there was nowhere else to put it; new rows store
+    // `admin-<action>` in `kind` with the administrator in `actor`, and the
+    // reader understands both. Retention is unchanged (30 days, T38).
+    version: 32,
+    name: 'security_event_actor_and_kind_index',
+    statements: [
+      "ALTER TABLE auth_events ADD COLUMN actor TEXT NOT NULL DEFAULT ''",
+      'CREATE INDEX IF NOT EXISTS auth_events_kind_idx ON auth_events(kind, created_at)',
+      'CREATE INDEX IF NOT EXISTS auth_events_created_idx ON auth_events(created_at)',
+    ],
+  },
 ];

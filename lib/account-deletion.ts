@@ -65,6 +65,10 @@ export function accountDeletionStatements(
     ...ownedDataDeletionStatements(db, userId),
     db.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(userId),
     db.prepare('DELETE FROM auth_events WHERE email = ?').bind(email),
+    // Administrator attribution is personal data too: rows this account caused
+    // as an actor are removed with the account. The `delete-account` row the
+    // administrator writes afterwards is a new row, not a survivor of this batch.
+    db.prepare('DELETE FROM auth_events WHERE actor = ?').bind(email),
     db.prepare('DELETE FROM users WHERE id = ?').bind(userId),
   ];
 }
