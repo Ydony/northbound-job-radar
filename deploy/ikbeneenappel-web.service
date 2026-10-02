@@ -30,7 +30,34 @@ ExecStart=/usr/bin/node /opt/ikbeneenappel/dist/standalone/server.js
 Restart=on-failure
 RestartSec=5
 CPUWeight=200
+# Never run as root and never regain privileges (T37 hardening).
 NoNewPrivileges=true
+# Read-only OS, private /tmp and /dev, no access to home directories. The app
+# only reads its bundle under /opt/ikbeneenappel and writes the SQLite file
+# named by SQLITE_PATH, so everything else stays read-only or invisible.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+# Writable paths for ProtectSystem=strict. /var/lib/ikbeneenappel is the
+# expected SQLITE_PATH directory (StateDirectory creates and chowns it before
+# ExecStart); keep SQLITE_PATH inside it. /opt/ikbeneenappel is NOT writable:
+# the bundle is replaced by deploy, never by the running process.
+StateDirectory=ikbeneenappel
+ReadWritePaths=/var/lib/ikbeneenappel
+# DELIBERATELY NOT SET (reviewed, T37):
+# - MemoryDenyWriteExecute=true breaks Node's JIT (V8 maps writable+executable
+#   pages); it would crash the process on start.
+# - SystemCallFilter=@system-service would need a per-Node-version allowlist
+#   and turns every runtime upgrade into a potential outage; NoNewPrivileges
+#   plus the Protect*/Private*/Restrict* set above is the containment instead.
+# Revisit both only with a staging boot of the exact Node build.
 
 [Install]
 WantedBy=multi-user.target

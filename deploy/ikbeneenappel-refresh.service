@@ -34,4 +34,22 @@ WorkingDirectory=/opt/ikbeneenappel
 EnvironmentFile=/etc/ikbeneenappel/env
 ExecStart=/usr/bin/node --import tsx /opt/ikbeneenappel/scripts/run-refresh.mjs
 CPUWeight=50
+# Same containment as the web unit (T37 hardening): unprivileged, read-only OS,
+# private /tmp and /dev, no home access. The tick reads the bundle and
+# reads/writes only the SQLite file named by SQLITE_PATH, which must live
+# under /var/lib/ikbeneenappel (see StateDirectory below).
 NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+StateDirectory=ikbeneenappel
+ReadWritePaths=/var/lib/ikbeneenappel
+# DELIBERATELY NOT SET: MemoryDenyWriteExecute and SystemCallFilter — see the
+# note in ikbeneenappel-web.service.
