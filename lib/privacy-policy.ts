@@ -19,7 +19,9 @@ export const dataWeHold: DataItem[] = [
     what: 'Your email address and a hash of your password',
     why: 'To let you sign in and to reach your own workspace. The password itself is never stored: only a PBKDF2-SHA256 hash with a salt unique to you.',
     legalBasis: 'Performance of a contract (providing the account you asked for).',
-    kept: 'Until you delete your account, which removes it immediately.',
+    kept: 'Until you delete your account, which removes it immediately. Deletion leaves a one-way '
+      + 'hash marker (no email address, no password) for up to 30 days so a restored backup cannot bring '
+      + 'the account back; the marker is then deleted automatically.',
   },
   {
     what: 'The job advertisements you have collected, and your notes on them',
@@ -103,7 +105,10 @@ export const yourRights = [
   },
   {
     right: 'Erasure',
-    how: 'Delete individual jobs, reset the whole workspace, or delete your account outright in Settings. Deletion is immediate and permanent.',
+    how: 'Delete individual jobs, reset the whole workspace, or delete your account outright in Settings. '
+      + 'Deletion is immediate and permanent on the live database. Backups expire within 30 days, and a '
+      + 'restored backup is reconciled against the deletion markers before it serves traffic, so a deleted '
+      + 'account cannot reappear from an older copy.',
   },
   {
     right: 'Restriction and objection',

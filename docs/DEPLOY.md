@@ -131,7 +131,7 @@ sudo -u ikbeneenappel litestream restore \
   -config /etc/ikbeneenappel/litestream.yml \
   -o /var/lib/ikbeneenappel/restore-drill.sqlite
 
-# 3. Confirm the schema version matches production (currently 31; compare
+# 3. Confirm the schema version matches production (currently 33; compare
 #    against the live file, not from memory).
 sudo -u ikbeneenappel sqlite3 /var/lib/ikbeneenappel/restore-drill.sqlite \
   "SELECT MAX(version) FROM schema_migrations;"
@@ -145,6 +145,22 @@ for t in users vacancies vacancy_sources user_vacancy_state jobs; do
   echo "$(sudo -u ikbeneenappel sqlite3 "$SQLITE_PATH" "SELECT COUNT(*) FROM $t;") / \
 $(sudo -u ikbeneenappel sqlite3 /var/lib/ikbeneenappel/restore-drill.sqlite "SELECT COUNT(*) FROM $t;")"
 done
+
+# 4b. Reconcile deletions (T40b/F13) — required, before serving anything.
+# A backup taken before an account deletion still holds that account, so a
+# restored copy resurrects deleted accounts unless their deletions are
+# re-applied. Account deletion records a one-way-hash tombstone
+# (`deleted_accounts`, lib/account-deletion.ts); this step copies the live
+# tombstone set into the scratch copy and re-deletes every tombstoned row,
+# then purges expired tombstones. The live file is only read, never written.
+# Without this step a restored backup silently brings deleted personal data
+# back the moment it serves traffic — backup expiry (30 days) only bounds how
+# long such a backup exists, it does not stop the reappearance.
+sudo -u ikbeneenappel node --import tsx scripts/reconcile-deletions.mjs \
+  --live "$SQLITE_PATH" --restored /var/lib/ikbeneenappel/restore-drill.sqlite
+# expected: JSON evidence plus "Reconciliation PASS"; exit non-zero means the
+# scratch copy still holds a tombstoned account — do not serve it.
+npm run verify:deletion-restore # synthetic rehearsal of this exact sequence
 
 # 5. Serve the app from the scratch copy and load one real account's
 #    dashboard over it (SQLITE_PATH pointed at the scratch file on a

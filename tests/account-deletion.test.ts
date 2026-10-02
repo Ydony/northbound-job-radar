@@ -164,6 +164,11 @@ const NON_USER_TABLE_DISPOSITION: Record<string, string> = {
   // deletion leaves it alone.
   public_refresh_state: 'installation-wide source locks/cursors/cooldowns, not user data',
   public_refresh_queue: 'single-row coalesced-refresh flag, not user data',
+  // T40b (F13): deletion tombstones are one-way hashes (user id + address) with
+  // deletion/expiry timestamps and no user_id column by design. Reconciliation
+  // reads them after a restore; account deletion writes them and never removes
+  // them, and expired ones are purged on boot rather than deleted per account.
+  deleted_accounts: 'hash-only tombstones matched at restore reconciliation, never account data',
 };
 
 async function fullSchemaFixture() {
@@ -280,6 +285,9 @@ test('the shared deletion helper covers every derived table; routes delegate to 
   assert.match(helper, /DELETE FROM password_resets WHERE user_id = \?/);
   assert.match(helper, /DELETE FROM auth_events WHERE email = \?/);
   assert.match(helper, /DELETE FROM users WHERE id = \?/);
+  // T40b: every full deletion records a hash-only tombstone in the same batch,
+  // so a restore can re-apply it. Workspace reset keeps the account and writes none.
+  assert.match(helper, /INSERT OR IGNORE INTO deleted_accounts/);
 
   const accountRoute = await readFile(new URL('../app/api/account/route.ts', import.meta.url), 'utf8');
   const adminRoute = await readFile(new URL('../app/api/admin/route.ts', import.meta.url), 'utf8');
@@ -311,7 +319,7 @@ test('deleting an account empties every derived table and leaves the other accou
     await seedOwner(db, schema, victim);
     await seedOwner(db, schema, bystander);
 
-    await db.batch(accountDeletionStatements(db, victim.id, victim.email));
+    await db.batch(await accountDeletionStatements(db, victim.id, victim.email));
 
     for (const table of scoped) {
       assert.equal(await countFor(db, table, 'user_id', victim.id), 0, `${table} still holds victim rows`);
