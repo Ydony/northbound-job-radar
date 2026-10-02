@@ -28,10 +28,18 @@ Production password recovery is `npm run reset:prod-admin-password` after
 `npm run build:prod`. It refuses anything other than exactly one active admin,
 generates a temporary password, revokes existing sessions, and prints it only
 after verifying the remote D1 hash. The owner must change it in Settings.
-Workers caps PBKDF2 at 100,000 iterations, so all newly created hashes use that
-limit. Older 210,000-iteration local hashes cannot authenticate on the hosted
-Worker; do not copy local users to production. Before opening public sign-ups,
-replace this compatibility compromise with a reviewed password-hashing scheme.
+Workers caps PBKDF2 at 100,000 iterations, so hashes created on the hosted Worker
+use that limit. Node (local dev/test and the VPS target) has no such cap and creates
+600,000-iteration PBKDF2-SHA256 hashes, the OWASP 2023 minimum, benchmarked locally at
+~145 ms per hash with `npm run benchmark:password-hash` (re-run it on the VPS before
+treating the number as reviewed there; tune with `PASSWORD_HASH_ITERATIONS`). Verification
+accepts any iteration count in range on either runtime, and a successful Node login
+transparently upgrades a legacy 100k/210k hash to the current policy without changing
+the password (see `lib/auth.ts`, `lib/users.ts:authenticate`, and
+`tests/password-hash-policy.test.ts`). Older 210,000-iteration local hashes verify on
+Node but cannot authenticate on the hosted Worker; do not copy local users to production.
+Before opening public sign-ups, this compromise still needs a final review in the
+hosting environment that will actually verify the passwords.
 
 The supported environments are documented in `docs/ENVIRONMENTS.md`:
 

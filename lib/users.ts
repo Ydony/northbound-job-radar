@@ -1,4 +1,4 @@
-import { hashPassword, verifyPassword } from './auth';
+import { currentPasswordIterations, hashPassword, passwordHashNeedsRehash, verifyPassword } from './auth';
 
 export type UserRole = 'admin' | 'user';
 export type UserStatus = 'active' | 'disabled';
@@ -108,15 +108,41 @@ export async function createUser(db: D1Database, email: string, password: string
 
 /**
  * Verifies a sign-in. A missing account still runs a hash comparison so the response time does not
- * reveal which addresses are registered.
+ * reveal which addresses are registered. The dummy uses the current iteration target so its
+ * cost matches a real verification.
  */
+export function dummyHashForTiming() {
+  return `pbkdf2$${currentPasswordIterations()}$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=`;
+}
+
 export async function authenticate(db: D1Database, email: string, password: string) {
   const row = await findUserByEmail(db, email);
-  const storedHash = row?.password_hash
-    ?? 'pbkdf2$100000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+  const storedHash = row?.password_hash ?? dummyHashForTiming();
   const matches = await verifyPassword(password, storedHash);
   if (!row || !matches || row.status !== 'active') return null;
+  await rehashPasswordIfNeeded(db, row.id, password, row.password_hash);
   return userFromRow(row);
+}
+
+/**
+ * Upgrades a legacy hash after a successful login: the plaintext password just proved
+ * itself against the stored hash, so it can be re-hashed under the current policy
+ * without disclosing or changing anything. A failed upgrade keeps the working legacy
+ * hash and never fails the login it follows. The write is conditional on the stored
+ * hash still being the one just verified, so a password changed in between (reset,
+ * second session) is never overwritten by this stale upgrade.
+ */
+export async function rehashPasswordIfNeeded(db: D1Database, userId: string, password: string, storedHash: string) {
+  if (!passwordHashNeedsRehash(storedHash)) return false;
+  try {
+    const upgraded = await hashPassword(password);
+    if (!await verifyPassword(password, upgraded)) return false;
+    const result = await db.prepare('UPDATE users SET password_hash = ? WHERE id = ? AND password_hash = ?')
+      .bind(upgraded, userId, storedHash).run();
+    return (result.meta.changes ?? 0) > 0;
+  } catch {
+    return false;
+  }
 }
 
 export async function touchLastSeen(db: D1Database, id: string, now = new Date().toISOString()) {

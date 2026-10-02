@@ -1294,3 +1294,27 @@ match the schema, redaction patterns from the test hold against the map, guard.t
 Reviewer (Claude): run `npx tsx --test tests/private-data-map.test.ts` and
 `node --import tsx scripts/verify-private-data-map.mjs` at the reviewed commit before accepting.
 No real secrets, production data, or host access were involved; no push/PR/merge.
+
+# 2026-10-01 — Password-hashing policy benchmark + versioned verification + legacy rehash (T34)
+
+`lib/auth.ts` now carries a reviewed policy instead of a bare 100k constant: Node
+(local/VPS) creates 600,000-iteration PBKDF2-SHA256 hashes (OWASP 2023 minimum;
+`npm run benchmark:password-hash` measures ~136 ms hash / ~127 ms verify on this
+machine — re-run on the VPS before treating it as reviewed there, tune with
+`PASSWORD_HASH_ITERATIONS`), while the hosted Worker keeps the 100k cap it can
+verify. The iteration count is the stored version: `parsePasswordHash()` reads it
+back, `passwordHashNeedsRehash()` flags only weaker hashes (never downgrades), and
+`authenticate()` in `lib/users.ts` upgrades a legacy 100k/210k hash on successful
+login without touching the password. Verification rejects counts below 1,000,
+above 2,000,000, and wrong-length salts/hashes. `scripts/bootstrap-prod-admin.mjs`
+and `scripts/reset-prod-admin-password.mjs` pin `WORKERS_PBKDF2_CAP` explicitly —
+both run on Node but their hashes are verified by the hosted Worker, and the Node
+default there would repeat the 2026-09-24 sign-in outage; revisit after cutover
+(#201). `docs/DEPLOY.md` records the new compromise.
+
+Evidence (all synthetic, no real credentials): `tests/password-hash-policy.test.ts`
+(version parsing, no-downgrade, legacy-login upgrade + password unchanged,
+wrong-password/disabled/missing never rehash, Miniflare D1), updated
+`tests/auth-worker.test.ts` (explicit 100k for the Workers runtime),
+`npm run benchmark:password-hash` table above; full suite 561/561, `tsc` and
+`eslint` clean.

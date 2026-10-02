@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm, rmdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
-import { hashPassword, verifyPassword } from '../lib/auth.ts';
+import { WORKERS_PBKDF2_CAP, hashPassword, verifyPassword } from '../lib/auth.ts';
 import { isValidEmail, normalizeEmail, passwordProblem } from '../lib/users.ts';
 
 const help = `Usage: npm run bootstrap:prod-admin [-- --dry-run]
@@ -106,7 +106,10 @@ try {
   const problem = passwordProblem(password);
   if (problem) throw new Error(problem);
 
-  const hash = await hashPassword(password);
+  // Pinned to the Workers cap, not the Node default: this hash is verified by the
+  // hosted Worker, which rejects PBKDF2 above 100,000 iterations (2026-09-24 sign-in
+  // outage). Revisit after the self-hosted cutover (#201) verifies passwords on Node.
+  const hash = await hashPassword(password, WORKERS_PBKDF2_CAP);
   if (!await verifyPassword(password, hash)) throw new Error('Password hash self-check failed.');
   tempDirectory = await mkdtemp(join(tmpdir(), 'ikben-bootstrap-'));
   if (dryRun) {
