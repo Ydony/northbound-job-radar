@@ -206,6 +206,38 @@ warning; past 2 GB or under 1 GB fails. The off-box restore drill above
 and the retirement/deletion decision itself stay owner-run and are
 recorded on the F8 record, not in this output.
 
+## Self-hosted target: encrypted backup and separate recovery key (F11/T33)
+
+Litestream replicates checkpointed SQLite pages; it is **not** assumed to
+encrypt them, and a stolen replica must not yield readable private records.
+So off-box copies travel as AES-256-GCM envelopes (`lib/backup-encryption.ts`,
+`NBENC1` format, `node:crypto` only — no homemade cryptography):
+
+- **Encrypt before leaving the host.** After the same WAL checkpoint as the
+  plaintext drill, the database file plus any `-wal`/`-shm`/`-journal`
+  sidecars are each encrypted; a raw sidecar is never shipped. The replica
+  bucket additionally requires SSE (R2/B2 SSE-S3 or equivalent) and TLS.
+- **The recovery key never travels with the backup.** It is a 256-bit random
+  value held in a separate root-owned `0600` file (`BACKUP_RECOVERY_KEY_FILE`,
+  or `BACKUP_RECOVERY_KEY` env), injected at restore time only. The manifest
+  records plaintext/ciphertext digests and a 16-hex-char key fingerprint —
+  enough to match backup to key, never enough to decrypt.
+- **Fail closed.** Absent key, wrong key and tampered envelopes all refuse to
+  decrypt; there is no silent plaintext fallback.
+- **Rotation/revocation.** Generate a new key, re-encrypt, verify the new
+  backup restores, then destroy old key copies. A backup re-encrypted under
+  the new key does not open with the old one (demonstrated in the drill).
+
+**Synthetic drill.** `npm run verify:encrypted-backup` runs the encrypted
+shape end to end on throwaway synthetic fixtures: encrypt, prove the backup
+directory holds no key material and no readable fixture, decrypt into an
+isolated scratch directory, confirm schema version/counts/`integrity_check`/
+catalogue join, then prove wrong-key/tamper/absent-key failure and rotation.
+Evidence is redacted (fingerprint only). Unit contract:
+`tests/backup-encryption.test.ts`. The owner-run VPS drill additionally
+restores from a real encrypted replica before cutover (#201); nothing from a
+real restore enters the repo, an issue, or a transcript.
+
 ## Keep the private site out of search results
 
 All pages carry robots metadata and all page/API responses carry `X-Robots-Tag:
