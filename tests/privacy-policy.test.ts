@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { dataWeHold, notCollected, privacyHeadline, privacySummary, whereDataLives,
-  yourRights } from '../lib/privacy-policy';
+import { dataWeHold, notCollected, privacyHeadline, privacySummary, retentionReviewNote,
+  visitCounting, whereDataLives, yourRights } from '../lib/privacy-policy';
 
 /**
  * The privacy page is the one page whose entire purpose is being true.
@@ -68,4 +68,31 @@ test('verification and reset emails name their delivery provider', () => {
   const tokens = dataWeHold.find((item) => /verification and password-reset/i.test(item.what));
   assert.ok(tokens, 'verification/reset tokens are not disclosed at all');
   assert.match(tokens!.kept, /expir/i);
+});
+
+test('hosting disclosure covers the private production installation, not only local', () => {
+  // T38: the old copy claimed the data sits on "this computer" and the setup is
+  // "not publicly hosted", which is false for the live Cloudflare installation.
+  const lines = whereDataLives.join(' ');
+  assert.match(lines, /Cloudflare/);
+  assert.match(lines, /registration closed/);
+  assert.doesNotMatch(lines, /not publicly hosted/);
+  assert.match(lines, /D1-compatible/);
+});
+
+test('the notice is honest about backups: none attached, replica undecided', () => {
+  const lines = whereDataLives.join(' ');
+  assert.match(lines, /No automated backup replica is currently attached/);
+  assert.match(lines, /undecided/);
+});
+
+test('the retention note promises no schedule the code does not run', () => {
+  assert.match(retentionReviewNote.body, /not enforced|does not run|waiting/i);
+  assert.doesNotMatch(retentionReviewNote.body, /\bCV\b/);
+});
+
+test('the newly added notice copy stays free of removed-feature claims', () => {
+  const added = JSON.stringify({ retentionReviewNote, visitCounting, whereDataLives });
+  assert.doesNotMatch(added, /\bCVs?\b/i);
+  assert.doesNotMatch(added, /\bR2\b/);
 });
