@@ -1201,3 +1201,25 @@ the settled login page, avoiding its old navigation race. Built local Worker on
 passed; the missing-card canary correctly failed its assertions. Lint, typecheck
 and build passed. No owner DEV/TEST state was touched and no providers were called.
 Production promotion is separate; do not assume this entry alone means deployed.
+
+# 2026-10-02 — T31: encrypted-DB migration, WAL/temp and SQL-compat verification (F11 Proposed)
+
+`tests/encrypted-db-migration.test.ts` (4 tests) + `npm run verify:encrypted-db`
+(`scripts/verify-encrypted-db.mjs`): fresh build reaches all 31 migrations; a
+genuine pre-28 database (legacy base + migrations 1–27 with synthetic users/jobs/
+feedback/CV fixtures) upgrades through the real ensureSchema to v31 with fixtures
+surviving, CV storage removed, verification timestamps backfilled, and the shared
+advert merged into one catalogue row with 1:1 private state; UPSERT…RETURNING,
+all-or-nothing batch, WAL/FK pragmas and datetime arithmetic verified through the
+adapter; -wal sidecar inventoried with SQLITE_TMPDIR-contained temp hygiene; a
+checkpoint-then-copy drill restores with the same version and catalogue join.
+
+`db/runtime.ts` exports the legacy base as `baseSchemaStatements` (rename only;
+`tests/migrations.test.ts` pin and one comment updated). No cipher exists yet, so
+the byte scans assert plaintext fixtures ARE readable in -wal and the main file —
+`f11_at_rest: FAIL` by design; the cipher trial must flip those assertions.
+
+Pre-existing failure, not from this change (reproduced on clean HEAD via stash):
+`tests/job-room.test.ts` "the end date is kept at collection" — fixture endDate
+2026-10-01 is now in the past (today 2026-10-02) so the parser correctly refuses
+the advert. Needs a fixture date refresh independent of T31.

@@ -16,7 +16,7 @@ test('the final schema removes CV storage without recreating it after restart', 
   assert.ok(migration);
   assert.match(migration.statements.join('\n'), /DROP TABLE IF EXISTS cvs/);
   const runtime = await readFile(new URL('../db/runtime.ts', import.meta.url), 'utf8');
-  assert.match(runtime, /schemaStatements\.slice\(appliedVersions\.has\(CV_REMOVAL_VERSION\) \? 1 : 0\)/);
+  assert.match(runtime, /baseSchemaStatements\.slice\(appliedVersions\.has\(CV_REMOVAL_VERSION\) \? 1 : 0\)/);
 });
 
 test('Job-Room backfill migration records successful detail fetches per owned job', () => {

@@ -7,7 +7,9 @@ import { CV_REMOVAL_VERSION, runtimeMigrations } from './migrations';
 
 // This is the legacy base, not the final schema. Fresh databases also run every migration,
 // including the cluster_version column; adding it here would duplicate migration 17's ALTER.
-const schemaStatements = [
+// Exported for T31 verification so a genuine pre-28 database can be built (base + only the
+// migrations under test) without duplicating these statements in fixtures.
+export const baseSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS cvs (
     id TEXT PRIMARY KEY NOT NULL,
     slot TEXT NOT NULL UNIQUE,
@@ -236,7 +238,7 @@ export function ensureSchema() {
       const appliedVersions = new Set(applied.results.map((row) => row.version));
       // Fresh and pre-28 databases need the historical CV base while migrations 1–27 run.
       // Once migration 28 has removed it, never recreate that table on a later boot.
-      for (const statement of schemaStatements.slice(appliedVersions.has(CV_REMOVAL_VERSION) ? 1 : 0)) {
+      for (const statement of baseSchemaStatements.slice(appliedVersions.has(CV_REMOVAL_VERSION) ? 1 : 0)) {
         await db.prepare(statement).run();
       }
       for (const migration of runtimeMigrations) {

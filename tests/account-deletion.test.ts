@@ -59,7 +59,7 @@ function parseColumnDef(fragment: string): ColumnDef | null {
 }
 
 function extractBaseStatements(runtimeSource: string): string[] {
-  // The whole file, not just the schemaStatements block: ensureSchema() also creates
+  // The whole file, not just the baseSchemaStatements block: ensureSchema() also creates
   // schema_migrations inline, and it is a real table with a disposition below.
   const statements: string[] = [];
   // Backreference, not a character class: a backtick statement may contain '' defaults.
