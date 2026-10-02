@@ -24,6 +24,7 @@
     "verify:sqlite-import": "node --import tsx scripts/verify-sqlite-import.mjs",
     "verify:admin-transfer": "node --import tsx scripts/verify-admin-transfer.mjs",
     "verify:transfer-rollback": "node --import tsx scripts/verify-transfer-rollback.mjs",
+    "verify:encrypted-db": "node --import tsx scripts/verify-encrypted-db.mjs",
     "verify:sqlite-restore": "node --import tsx scripts/verify-sqlite-restore.mjs",
     "verify:f11-encryption": "node --import tsx scripts/verify-f11-encryption.mjs",
     "verify:secret-rotation": "node --import tsx scripts/verify-secret-rotation.mjs",
