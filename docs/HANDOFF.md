@@ -1411,3 +1411,40 @@ unrelated: `tests/job-room.test.ts` "the end date is kept at collection" uses a
 fixture `endDate: 2026-10-01`, which is now in the past against the real clock,
 so the (correct) expiry refusal trips the assertion. Fails identically on the
 pristine tree; needs a relative-date fixture, split out of T19 scope.
+
+# T40 (2026-10-02) — Deletion/backup-expiry/restore-reconciliation verification (F13)
+
+What already existed: `lib/account-deletion.ts` with `tests/account-deletion.test.ts`
+(6/6 pass, re-run this packet); backup expiry via `deploy/litestream.yml`
+`retention: 720h` (30d off-box snapshots/WAL) and `scripts/backup-local.mjs`
+KEEP=10 pruning with a just-written guard; restore rehearsal
+`scripts/verify-sqlite-restore.mjs` (PASS — version/counts/integrity/join match,
+but it restores a live copy, never a pre-deletion one).
+
+New: `scripts/verify-deletion-restore.mjs` (`node --import tsx
+scripts/verify-deletion-restore.mjs`, synthetic fixtures only, eslint clean).
+Part A passes (720h bounded, KEEP=10 + guard, 12→10 prune simulation keeps the
+just-written copy). Part B re-verifies live deletion holds, then proves the
+missing control: a backup taken before `accountDeletionStatements` and restored
+after resurrects the victim account wholesale (users=1, search_roles=1,
+auth_events=1 in the restored copy). No tombstone table, no `ensureSchema()`
+reconciliation, no restore-procedure step. Exits 1 by design — the failing
+acceptance check for the follow-up control, not CI-ready.
+
+Scoped, not built (needs the T38 retention-table owner decision first):
+`deleted_accounts` tombstones written with the deletion batch + a
+reconcile-on-restore step before a restored copy serves traffic; procedural-only
+comparison against a separate deletion log scoped as weaker. Backup expiry only
+bounds how long a resurrecting backup exists (30d/KEEP=10); inside that window a
+restore brings deleted personal data back silently. F13 "prevent deleted accounts
+from silently reappearing" is therefore NOT satisfied; do not claim it at the
+release SHA until the control lands and this script passes.
+
+Rebase + portability (review follow-up): rebased onto `origin/master` (`9920ef5`);
+the only overlap was this tail section — kept origin's T13/T28/T34/T30/T19
+sections first, then T40, no other content change. Reviewer noted the new
+script fails temp-folder cleanup on Windows (EPERM, SQLite file still open):
+`db/sqlite-adapter.ts` now exposes `close()`/`closeSqliteDatabase()` (verify
+scripts only; request paths never close the shared handle) and
+`scripts/verify-deletion-restore.mjs` closes the live handle before
+`rmSync(work)`. Linux behavior unchanged.
