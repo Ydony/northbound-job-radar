@@ -72,7 +72,7 @@ const checks = [];
 const admin = session();
 const target = session();
 
-console.log('1/9 Signing in as the administrator...');
+console.log('1/10 Signing in as the administrator...');
 await expect(await admin.request('/api/auth', json({ email: adminEmail, password: adminPassword })),
   200, 'admin sign-in');
 const overview = await expect(await admin.request('/api/admin'), 200, 'admin overview');
@@ -81,7 +81,7 @@ assert(Array.isArray(overview.users), 'the overview must list accounts');
 assert(!JSON.stringify(overview).includes('sourceUrl'), 'the overview must not expose job lists');
 checks.push('admin overview is counts-only');
 
-console.log('2/9 Creating a disposable target account...');
+console.log('2/10 Creating a disposable target account...');
 const targetRegistration = await expect(
   await target.request('/api/auth', json({ action: 'register', email: targetEmail, password: targetPassword })),
   200, 'target registration');
@@ -95,7 +95,7 @@ if (targetRegistration?.verificationRequired) {
 await expect(await target.request('/api/state'), 200, 'target can use its own workspace');
 checks.push('target account created');
 
-console.log('3/9 Confirming a non-admin cannot reach administration...');
+console.log('3/10 Confirming a non-admin cannot reach administration...');
 await expect(await target.request('/api/admin'), 403, 'non-admin overview must be refused');
 await expect(await target.request('/api/admin', patch({ userId: 'anything', action: 'promote' })),
   403, 'non-admin promote must be refused');
@@ -106,7 +106,7 @@ const targetId = listed.users.find((user) => user.email === targetEmail)?.id;
 assert(targetId, 'the new account should appear in the overview');
 const adminId = listed.users.find((user) => user.email === adminEmail)?.id;
 
-console.log('4/9 Promoting and demoting...');
+console.log('4/10 Promoting and demoting...');
 await expect(await admin.request('/api/admin', patch({ userId: targetId, action: 'promote' })), 200, 'promote');
 assert((await admin.request('/api/admin')).data.users.find((u) => u.id === targetId)?.role === 'admin',
   'promote must take effect');
@@ -115,7 +115,7 @@ assert((await admin.request('/api/admin')).data.users.find((u) => u.id === targe
   'demote must take effect');
 checks.push('promote and demote');
 
-console.log('5/9 Disabling, and confirming it ends the session immediately...');
+console.log('5/10 Disabling, and confirming it ends the session immediately...');
 await expect(await admin.request('/api/admin', patch({ userId: targetId, action: 'disable' })), 200, 'disable');
 // The point of disabling is that it takes effect now, not when their cookie happens to expire.
 const afterDisable = await target.request('/api/state');
@@ -125,13 +125,13 @@ await expect(await target.request('/api/auth', json({ email: targetEmail, passwo
   401, 'a disabled account must not be able to sign in');
 checks.push('disable revokes access immediately');
 
-console.log('6/9 Re-enabling...');
+console.log('6/10 Re-enabling...');
 await expect(await admin.request('/api/admin', patch({ userId: targetId, action: 'enable' })), 200, 'enable');
 await expect(await target.request('/api/auth', json({ email: targetEmail, password: targetPassword })),
   200, 'an enabled account can sign in again');
 checks.push('enable restores access');
 
-console.log('7/9 Resetting a password, and confirming the old one dies...');
+console.log('7/10 Resetting a password, and confirming the old one dies...');
 await expect(await admin.request('/api/admin', patch({ userId: targetId, action: 'set-password', newPassword: resetPassword })),
   200, 'set-password');
 await expect(await session().request('/api/auth', json({ email: targetEmail, password: targetPassword })),
@@ -142,7 +142,7 @@ await expect(await admin.request('/api/admin', patch({ userId: targetId, action:
   400, 'a weak replacement password must be refused');
 checks.push('password reset invalidates the old password');
 
-console.log('8/9 Confirming the last administrator cannot be removed...');
+console.log('8/10 Confirming the last administrator cannot be removed...');
 await expect(await admin.request('/api/admin', patch({ userId: adminId, action: 'demote' })),
   409, 'demoting the only administrator must be refused');
 await expect(await admin.request('/api/admin', patch({ userId: adminId, action: 'disable' })),
@@ -153,12 +153,23 @@ await expect(await admin.request('/api/admin', del({ userId: targetId })),
   400, 'deletion without confirmation must be refused');
 checks.push('last-administrator and self-action guards');
 
-console.log('9/9 Deleting the disposable account...');
+console.log('9/10 Deleting the disposable account...');
 await expect(await admin.request('/api/admin', del({ userId: targetId, confirm: 'DELETE' })), 200, 'delete');
 const finalUsers = (await admin.request('/api/admin')).data.users;
 assert(!finalUsers.some((user) => user.email === targetEmail), 'the deleted account must be gone');
 await expect(await session().request('/api/auth', json({ email: targetEmail, password: resetPassword })),
   401, 'a deleted account must not be able to sign in');
 checks.push('account deletion');
+
+console.log('10/10 Reading the security event log as the administrator...');
+const events = await expect(await admin.request('/api/admin/security-events'), 200, 'security events');
+assert(Array.isArray(events.events), 'the log must return rows');
+assert(events.retention?.days === 30, 'the log must state its 30-day retention');
+assert(Array.isArray(events.alerts), 'the log must carry the burst alert summary');
+assert(!JSON.stringify(events).includes(resetPassword), 'the log must never carry a secret');
+const deletion = events.events.find((row) => row.kind === 'admin:delete-account' && row.email === targetEmail);
+assert(deletion, 'the account deletion must leave a security event behind');
+await expect(await session().request('/api/admin/security-events'), 401, 'anonymous log reads must be refused');
+checks.push('security event log is administrator-only with retention and alerts');
 
 console.log(JSON.stringify({ ok: true, environment: baseUrl, checks }, null, 2));

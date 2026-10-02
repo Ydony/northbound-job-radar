@@ -46,10 +46,10 @@ export const dataWeHold: DataItem[] = [
     kept: 'Only single-use token hashes are kept here: verification links expire after 24 hours and reset links after 1 hour, and used or expired tokens are deleted. Resend’s own delivery logs are governed by their policy.',
   },
   {
-    what: 'Sign-in records: the email tried, the IP address, and whether it succeeded',
-    why: 'To detect and slow down password guessing. Sign-in rate limiting keeps short-lived per-address attempt counters in the same database; those buckets can contain an IP address and are deleted when their 15-minute window rolls over. These two are the only places an IP address is stored.',
+    what: 'Security event records: the email tried, the IP address, what happened, and when',
+    why: 'To detect and slow down password guessing, token guessing and account abuse. This covers sign-in success and failure, abuse-limit hits, password and email changes, verification and password-reset outcomes, email delivery outcomes, and administrator actions on accounts. Sign-in rate limiting keeps short-lived per-address attempt counters in the same database; those buckets can contain an IP address and are deleted when their 15-minute window rolls over. These two are the only places an IP address is stored. The records never hold job content, passwords, tokens or refusal text, and only an administrator can read them; repeated failures are surfaced to the administrator as a burst alert.',
     legalBasis: 'Legitimate interest in keeping accounts secure.',
-    kept: 'Sign-in records are automatically deleted after 30 days; rate-limit counters when their window ends.',
+    kept: 'Security event records are automatically deleted after 30 days; rate-limit counters when their window ends. Deleting your account removes the records held under its current address at once.',
   },
   {
     what: 'A daily count of visits and distinct visitors',
