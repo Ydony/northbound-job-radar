@@ -30,8 +30,30 @@ After=network.target
 [Service]
 Type=oneshot
 User=ikbeneenappel
+Group=ikbeneenappel
 WorkingDirectory=/opt/ikbeneenappel
 EnvironmentFile=/etc/ikbeneenappel/env
 ExecStart=/usr/bin/node --import tsx /opt/ikbeneenappel/scripts/run-refresh.mjs
 CPUWeight=50
+# --- Hardening (T37): same sandbox as the web unit. ---
+# The collector reads the app tree and writes only the database directory.
 NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ikbeneenappel
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RemoveIPC=true
+SystemCallArchitectures=native
+UMask=0027
+# MemoryDenyWriteExecute and PrivateUsers deliberately absent: see the web
+# unit for why (V8 JIT; ownership of /var/lib/ikbeneenappel).

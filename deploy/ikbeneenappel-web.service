@@ -24,13 +24,40 @@ After=network.target
 [Service]
 Type=simple
 User=ikbeneenappel
+Group=ikbeneenappel
 WorkingDirectory=/opt/ikbeneenappel
 EnvironmentFile=/etc/ikbeneenappel/env
 ExecStart=/usr/bin/node /opt/ikbeneenappel/dist/standalone/server.js
 Restart=on-failure
 RestartSec=5
 CPUWeight=200
+# --- Hardening (T37). Verified by scripts/verify-deploy-hardening.mjs. ---
+# NoNewPrivileges + User= already present (2026-09-29 review baseline).
 NoNewPrivileges=true
+# Read-only /usr and /etc; the only writable paths are the database
+# directory and the unit's private /tmp. SQLITE_PATH must live under
+# /var/lib/ikbeneenappel or the unit cannot open it.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ikbeneenappel
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RemoveIPC=true
+SystemCallArchitectures=native
+UMask=0027
+# Deliberately ABSENT: MemoryDenyWriteExecute=true and PrivateUsers=true.
+# V8's JIT needs writable-executable pages, so MDWX kills Node at startup;
+# PrivateUsers would remap the service UID away from ownership of
+# /var/lib/ikbeneenappel. Both omissions are explicit, not oversights.
 
 [Install]
 WantedBy=multi-user.target

@@ -21,13 +21,34 @@ After=network.target
 [Service]
 Type=simple
 User=ikbeneenappel
+Group=ikbeneenappel
 EnvironmentFile=/etc/ikbeneenappel/env
 ExecStart=/usr/local/bin/litestream replicate -config /etc/ikbeneenappel/litestream.yml
 Restart=on-failure
 RestartSec=5
 # Replication must never starve serving or collection.
 CPUWeight=50
+# --- Hardening (T37): same sandbox as the web unit. ---
+# Litestream reads the database file and ships bytes off-box; it writes only
+# the database directory (lock/socket side files) and its private /tmp.
 NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ikbeneenappel
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RemoveIPC=true
+SystemCallArchitectures=native
+UMask=0027
 
 [Install]
 WantedBy=multi-user.target
