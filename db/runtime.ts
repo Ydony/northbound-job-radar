@@ -1,6 +1,7 @@
 import { DRIVER_SUPPORTS_ENCRYPTION, openSqliteDatabase } from './sqlite-adapter';
 import { decideDatabaseOpen, isEncryptionRequired, resolveDatabaseKey } from './encryption';
 import { isLoopbackRequest } from '../lib/indeed/access';
+import { purgeExpiredTokens } from '../lib/email';
 import { canonicalJobUrl, jobIdentityFingerprint, sourceInfoForUrl, sourceJobIdFromUrl } from '../lib/job-identity';
 import type { NativeRateLimiter } from '../lib/rate-limit';
 import { detectWorkplaceType } from '../lib/workplace';
@@ -263,7 +264,10 @@ export function ensureSchema() {
       await backfillIncompleteJobIdentities(db);
       await backfillWorkplaceTypes(db);
       // Retention: sign-in records hold IPs for abuse prevention only and expire after 30 days.
+      // Single-use email tokens expire after 24h/1h; the sweep removes expired-but-unconsumed
+      // rows even when nobody requests a new link (T39/F13).
       await db.prepare("DELETE FROM auth_events WHERE created_at < datetime('now', '-30 days')").run();
+      await purgeExpiredTokens(db);
       await db.prepare('PRAGMA optimize').run();
     })().catch((error) => {
       schemaReady = undefined;

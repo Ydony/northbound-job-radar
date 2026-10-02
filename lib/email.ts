@@ -193,3 +193,15 @@ export async function markEmailVerified(db: D1Database, userId: string, now = ne
   await db.prepare("UPDATE users SET email_verified_at = ? WHERE id = ? AND email_verified_at = ''")
     .bind(now, userId).run();
 }
+
+/**
+ * Log/token expiry sweep (T39/F13): single-use email tokens die at 24h/1h and are deleted
+ * on consume, but an expired-yet-unconsumed row would otherwise linger until the next issue
+ * for any account sweeps it away. `ensureSchema()` calls this on boot alongside the 30-day
+ * `auth_events` purge, so expiry holds even when nobody requests a new link. One SQL
+ * statement per `prepare()` call, as everywhere else.
+ */
+export async function purgeExpiredTokens(db: D1Database, nowIso = new Date().toISOString()) {
+  await db.prepare('DELETE FROM email_verifications WHERE expires_at <= ?').bind(nowIso).run();
+  await db.prepare('DELETE FROM password_resets WHERE expires_at <= ?').bind(nowIso).run();
+}
