@@ -76,6 +76,34 @@ and `scripts/verify-local-backup.mjs` still back up `.wrangler/<env>/state`,
 which no longer exists on the new stack (backup/restore belongs to the #200
 track, not T01).
 
+## 2026-10-02 T42 security/privacy release evidence (F13, unapproved worker packet)
+
+Spark packet T42, synthetic-only, no push/PR. Assembled the reproducible F13
+evidence for independent Codex review at this SHA rather than rebuilding what
+exists: `npm run verify:security-privacy` (redacted JSON, 23 pass / 2 blocking
+/ 1 accepted gap; `-- --strict` exits 1 while blocking remains),
+`tests/security-privacy-evidence.test.ts` (10/10), and
+`docs/SECURITY_PRIVACY_RELEASE.md` (retention table pending owner approval,
+recipients/regions, redaction rules, Codex checklist, T23 gate, §10 newly
+merged controls). Related suites re-run green: privacy-policy,
+account-deletion, security-headers, email, no-store, password-hash-policy,
+security-matrix, deploy-hardening, log-redaction, security-events,
+deletion-tombstones.
+
+Rebase follow-up (reviewer: rebase on origin/master, keep both sides, re-run):
+rebased onto `edb9d70`; kept origin's T20/T05/T01 sections plus this T42
+section, and kept all master scripts plus `verify:security-privacy` in
+`package.json`. Newly merged controls now listed in the evidence (T19
+no-store/limiter, T34 password hashing, T36 SSRF hardening, T37 unit
+hardening, T39 log redaction, T44 security events, T40b deletion tombstones;
+T33 encrypted backup updates R8). `R7-no-store` flipped blocking→pass (T19
+covers every private route; only the public Turnstile sitekey route stays
+bare). Full suite 756/756 + capacity probe 7/7, lint + typecheck clean (the
+old job-room date-bomb failure is fixed on master via a far-future fixture).
+T23 stays blocked on retention owner approval (T38, `R1-approval`) and the
+unwitnessed real encrypted-restore drill (`R8-encrypted-restore`) — both are
+`blocking` findings in the evidence JSON.
+
 ## 2026-09-27 the VPS work, and dev/test moved onto the new stack
 
 **This supersedes the hosting entry below it, which says "nothing is implemented and no scope

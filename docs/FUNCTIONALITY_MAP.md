@@ -52,6 +52,7 @@ The VPN setup and private launchers in `scripts/` are local administrator toolin
 - `lib/auth.ts` checks mutating requests against the full request origin. `middleware.ts` adds a per-request script nonce; `lib/security-policy.ts` constructs the CSP. The policy admits exactly the Turnstile challenge host (widget script and frame) for the registration bot check, nothing else. `next.config.ts` supplies the other security headers.
 - `lib/job-sources.ts` checks manually supplied apply URLs. The automated search path validates source-provided URLs before saving them.
 - `tests/` covers core transformations and several route contracts. `scripts/verify-dev-workflow.mjs` and `scripts/verify-admin-actions.mjs` exercise fresh synthetic accounts; `npm run check:visual` exercises a browser. Passing unit tests does not prove a hosted multi-user deployment is safe.
+- Release evidence for privacy/retention review (F13, T42): `npm run verify:security-privacy` assembles redacted JSON (`-- --strict` fails while any `blocking` finding remains), `tests/security-privacy-evidence.test.ts` pins the invariants, and `docs/SECURITY_PRIVACY_RELEASE.md` holds the retention table, recipients/regions, redaction rules and the Codex checklist gating T23.
 
 ## Where to change a behavior
 
