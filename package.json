@@ -35,6 +35,7 @@
     "test": "tsx --test tests/**/*.test.ts && node --test tests/capacity-probe.test.mjs",
     "typecheck": "tsc --noEmit",
     "verify:dev": "node scripts/verify-dev-workflow.mjs",
+    "verify:phone": "node scripts/verify-phone-workflow.mjs",
     "check:design": "node scripts/check-design.mjs",
     "check:visual": "node scripts/check-visual.mjs",
     "check:visual:canary": "node scripts/check-visual.mjs --canary",
