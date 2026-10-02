@@ -93,7 +93,7 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'against-terms',
     collected: 'Search-result pages and job detail pages, read as HTML. The schema.org JobPosting block on each detail page is parsed.',
     theirRules: 'JobCloud\'s terms prohibit crawlers, scrapers, bots, scripting and other automation. robots.txt additionally disallows the job detail pages specifically - the exact pages this reads.',
-    ourPosition: 'Retained for local administrators because its full advertisements have produced three English-confirmed jobs. Knowingly against both the terms and robots.txt, at the operator\'s explicit instruction. Manually triggered only, VPN-gated, capped per run, unauthenticated, with a fixed delay and no attempt to disguise the traffic.',
+    ourPosition: 'Retained for local administrators because its full advertisements have produced three English-confirmed jobs. Knowingly against both the terms and robots.txt, at the operator\'s explicit instruction. Manually triggered only, VPN-gated, capped per run, unauthenticated, with a fixed delay and no attempt to disguise the traffic. On a hosted installation this source is unavailable: the VPN launcher is local-only.',
     link: 'https://www.jobs.ch/en/terms/',
   },
   {
@@ -102,7 +102,7 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'against-terms',
     collected: 'Search-result pages and job detail pages, read as HTML.',
     theirRules: 'Both are JobCloud properties, so the same terms prohibiting automation apply. Unlike jobs.ch, neither robots.txt disallows the detail pages this reads.',
-    ourPosition: 'Retained for local administrators: jobup.ch has produced six English-confirmed jobs, while JobScout24 remains a low-cost probationary source sharing the same adapter family. Against the platform terms, though without the additional robots.txt conflict that applies to jobs.ch. Same VPN gate, caps and delays.',
+    ourPosition: 'Retained for local administrators: jobup.ch has produced six English-confirmed jobs, while JobScout24 remains a low-cost probationary source sharing the same adapter family. Against the platform terms, though without the additional robots.txt conflict that applies to jobs.ch. Same VPN gate, caps and delays. On a hosted installation both are unavailable: the VPN launcher is local-only.',
     link: 'https://www.jobs.ch/en/terms/',
   },
   {
@@ -121,7 +121,7 @@ export const sourcePolicies: SourcePolicy[] = [
     stance: 'unresolved',
     collected: 'The public vacancy listing index and linked vacancy pages.',
     theirRules: 'Rechecked 2026-09-09: robots.txt allows the plain /vacancies listing and detail paths used here, but disallows query-string vacancy searches. No published API or explicit reuse permission was found. The site has previously returned HTTP 403 to automated requests.',
-    ourPosition: 'Retained for local administrators after producing two English-confirmed jobs from three stored advertisements. The adapter uses only the plain listing and details, remains VPN-gated because of the prior blocking, and must stop rather than work around a future block.',
+    ourPosition: 'Retained for local administrators after producing two English-confirmed jobs from three stored advertisements. The adapter uses only the plain listing and details, remains VPN-gated because of the prior blocking, and must stop rather than work around a future block. On a hosted installation it is unavailable: the VPN launcher is local-only.',
     link: 'https://undutchables.nl/robots.txt',
   },
   {

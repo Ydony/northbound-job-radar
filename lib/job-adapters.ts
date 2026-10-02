@@ -1,5 +1,5 @@
 import { searchAtsBoards } from './ats-feeds';
-import { INDEED_SOURCE_KEYS, isIndeedRecord } from './indeed/access';
+import { INDEED_SOURCE_KEYS, isIndeedRecord, isLoopbackRequest } from './indeed/access';
 import { searchAdzuna, searchCareerjet, type AggregatorCredentials } from './job-aggregators';
 import { searchEures } from './eures';
 import { searchFreehire } from './freehire';
@@ -415,6 +415,54 @@ export const jobSourceAdapters: JobSourceAdapter[] = [
 
 export function sourceStatusForAvailability(availability: JobSourceAdapter['availability']): SourceRunStatus {
   return availability === 'enabled' ? 'complete' : availability;
+}
+
+/**
+ * T15 (F4): the page-fetching tier cannot run everywhere the app runs.
+ *
+ * `restricted` sources additionally require the VPN-enforced launcher, which verifies a full
+ * tunnel route on the local machine and sets `VPN_ENFORCED`. A hosted installation (production
+ * Worker, VPS, phone access) has no such launcher — the VPN workflow is local-only — so without
+ * it the mode is refused. What the refusal *says* depends on where the request arrived:
+ *
+ * - local (loopback): the launcher exists and can be used, so the message names it;
+ * - hosted (anything else): no launcher can fix this, so the message must not suggest one.
+ *   Naming `npm run dev:private` to someone on a phone is how a truthful refusal becomes a
+ *   misleading one. The loopback heuristic is the same one the Indeed experiment already uses
+ *   (`localExecution` in `db/runtime.ts`), so the two gates cannot disagree about what counts
+ *   as local.
+ */
+export function isHostedCollectionRequest(request: Request): boolean {
+  return !isLoopbackRequest(request);
+}
+
+/** Adapter keys whose search additionally requires the VPN-enforced launcher.
+ *
+ * Only the runnable tier: `iamsterdam.com` and `nationalevacaturebank.nl` share the
+ * `restricted` access but are `disabled`/`unavailable`, so no mode ever contacts them and
+ * naming them in a refusal would blame the VPN for sources that would not run with one.
+ */
+export function restrictedSourceKeys(): string[] {
+  return jobSourceAdapters
+    .filter((adapter) => adapter.access === 'restricted' && adapter.availability === 'enabled')
+    .map((adapter) => adapter.key);
+}
+
+/**
+ * The refusal text for a page-fetching (`mode: 'all'`) search without VPN enforcement.
+ * Hosted callers are told the tier is unavailable there; local callers are told how to
+ * start it. Neither promises a result, and neither retries, reroutes or disguises anything.
+ */
+export function pageFetchRefusalMessage(options: { hosted: boolean }): string {
+  if (options.hosted) {
+    const names = restrictedSourceKeys()
+      .map((key) => jobSourceAdapters.find((adapter) => adapter.key === key)!.name)
+      .join(', ');
+    return `The page-fetching sources (${names}) are not available on this hosted installation:`
+      + ' the VPN launcher is local-only, so there is no VPN route to verify here.'
+      + ' "Find new jobs" still searches the authorized sources.';
+  }
+  return 'Start the app with "npm run dev:private" first. That checks for a full VPN route before these sources will run.';
 }
 
 /** Postings shorter than this are not worth storing; the same threshold the search applied per job. */

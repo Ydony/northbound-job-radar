@@ -14,7 +14,7 @@ import {
 import { newSinceCutoff } from '@/lib/dashboard';
 import { clientIp, requireSession } from '@/lib/guard';
 import { indeedSettingsFromRow } from '@/lib/indeed/settings';
-import { adminOnlySourceKeys } from '@/lib/job-adapters';
+import { adminOnlySourceKeys, isHostedCollectionRequest } from '@/lib/job-adapters';
 import { decodeJobsCursor, parsePageLimit } from '@/lib/paging';
 import { adminOnlySourcePolicyKeys } from '@/lib/source-policy';
 import { criteriaFromRow, ensureCurrentJobClusters, ensureSearchText, jobFromRow, normalizeStoredJobs, queryCollectionTotals, queryJobsPage, searchRunsFromRows, visibleSearchRuns, type CriteriaRow,
@@ -132,6 +132,12 @@ export async function GET(request: Request) {
     // already withholds from everyone else. The server is what enforces it; this is what makes the
     // preview honest, and it is only ever non-empty for an administrator, who can see them anyway.
     adminOnlySources: user.role === 'admin' ? [...adminOnlySourceKeys()] : [],
+    // T15 (F4): collection controls need to know whether the page-fetching tier can run here,
+    // and — when it cannot — whether a local launcher could change that. Neither value is a
+    // secret: the scrape route already discloses both in its refusal. Ordinary accounts receive
+    // them too, so an administrator previewing as a user sees the same controls they would.
+    pageFetchAvailable: authSecrets().vpnEnforced,
+    hostedInstallation: isHostedCollectionRequest(request),
     criteria: searchCriteria,
     // The ordinary-audience preview mirrors what an ordinary account receives,
     // so it never carries Indeed settings even for the requesting administrator.
