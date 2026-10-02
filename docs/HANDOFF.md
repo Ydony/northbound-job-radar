@@ -1201,3 +1201,28 @@ the settled login page, avoiding its old navigation race. Built local Worker on
 passed; the missing-card canary correctly failed its assertions. Lint, typecheck
 and build passed. No owner DEV/TEST state was touched and no providers were called.
 Production promotion is separate; do not assume this entry alone means deployed.
+
+# 2026-10-02 — Security/privacy release evidence assembly (T42, F13)
+
+Built only the missing assembly; existing checks were inventoried and run, not
+rebuilt: `tests/account-deletion.test.ts`, `tests/privacy-policy.test.ts`,
+`tests/security-headers.test.ts`, `tests/auth.test.ts`, `tests/email.test.ts`,
+`tests/tenant-route-bindings.test.ts`, `tests/public-admin-isolation.test.ts`,
+`tests/admin-discovery-isolation.test.ts`, `tests/rate-limit.test.ts` (72 tests,
+all pass), plus `scripts/verify-local-backup.mjs` / `verify-sqlite-restore.mjs`
+and `docs/PUBLIC_DEPLOYMENT_READINESS.md` as the release-gate doc.
+
+New: `docs/SECURITY_PRIVACY_RETENTION.md` (retention table with IMPLEMENTED vs
+PROPOSED-owner-pending rows, recipients/regions, log policy, no-export decision,
+Codex review checklist), `scripts/verify-security-privacy.mjs` (`npm run
+verify:security-privacy`; 10 unit files + static hygiene + `npm audit --omit=dev`,
+emits redacted JSON only), `tests/security-privacy-evidence.test.ts` (8 tests
+pinning the evidence contract). Gate verdict at this commit: pass (80 unit tests,
+7/7 checks, 0 high/critical production advisories). Lint + typecheck clean.
+
+Not done / open: PROPOSED retention periods, backup expiry, and the restore
+runbook need owner approval before implementation (F13 checkpoint stays closed);
+no secrets/host access used. Pre-existing failure unrelated to this change:
+`tests/job-room.test.ts` "the end date is kept at collection ..." fails because
+its fixture endDate 2026-10-01 is now in the past (verified failing on the
+pristine tree via `git stash -u`); full suite is 562/563 for that reason alone.
