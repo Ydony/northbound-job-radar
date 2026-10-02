@@ -4,7 +4,7 @@ import { accountDeletionStatements } from '@/lib/account-deletion';
 import { removeUserVacancyState } from '@/lib/catalogue';
 import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
   verificationLinkFor } from '@/lib/email';
-<import { clientIp, noStoreJson, rateLimit, requireSession } from '@/lib/guard';
+import { clientIp, noStoreJson, rateLimit, requireSession } from '@/lib/guard';
 import { recordSecurityEvent } from '@/lib/security-events';
 import { findUserById, findUserByEmail, isValidEmail, normalizeEmail, passwordProblem, revokeSessions } from '@/lib/users';
 
@@ -72,7 +72,7 @@ export async function PATCH(request: Request) {
     bindings.push(await hashPassword(newPassword));
   }
 
-<  if (!updates.length) return noStoreJson({ error: 'Nothing to change.' }, { status: 400 });
+  if (!updates.length) return noStoreJson({ error: 'Nothing to change.' }, { status: 400 });
   const changedPassword = body.newPassword !== undefined;
   await db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...bindings, user.id).run();
   // Any outstanding reset links become useless once the password changes.

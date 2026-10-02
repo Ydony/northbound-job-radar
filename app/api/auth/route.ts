@@ -2,7 +2,7 @@ import { authSecrets, bindings, emailConfiguration, ensureSchema, turnstileSecre
 import { clearedSessionCookie, createSessionValue, isLocalBootstrapRequest, isSameOrigin, sessionCookie } from '@/lib/auth';
 import { emailConfigured, issueEmailVerification, sendEmailViaResend, verificationEmail,
   verificationLinkFor } from '@/lib/email';
-<import { clientIp, durableRateLimit, nativeRateLimit, noStoreJson } from '@/lib/guard';
+import { clientIp, durableRateLimit, nativeRateLimit, noStoreJson } from '@/lib/guard';
 import { recordSecurityEvent } from '@/lib/security-events';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 import { authenticate, countUsers, createUser, findUserByEmail, isValidEmail, normalizeEmail,

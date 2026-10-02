@@ -3,7 +3,7 @@ import { removeUserVacancyState } from '@/lib/catalogue';
 import { hashPassword } from '@/lib/auth';
 import { accountDeletionStatements } from '@/lib/account-deletion';
 import { readDailyVisits } from '@/lib/analytics';
-<import { clientIp, noStoreJson, requireSession } from '@/lib/guard';
+import { clientIp, noStoreJson, requireSession } from '@/lib/guard';
 import { recordSecurityEvent } from '@/lib/security-events';
 import { listUsers, revokeSessions, type UserRecord } from '@/lib/users';
 
@@ -90,7 +90,7 @@ export async function PATCH(request: Request) {
     if (wouldRemoveLastAdmin) return noStoreJson({ error: 'That is the only active administrator.' }, { status: 409 });
     await db.prepare("UPDATE users SET status = 'disabled' WHERE id = ?").bind(userId).run();
     await revokeSessions(db, userId);
-<    await recordAdminAction(db, actor.email, target.email, 'disable', clientIp(request));
+    await recordAdminAction(db, actor.email, target.email, 'disable', clientIp(request));
     return noStoreJson({ ok: true });
   }
   if (action === 'enable') {
@@ -106,7 +106,7 @@ export async function PATCH(request: Request) {
   if (action === 'demote') {
     if (wouldRemoveLastAdmin) return noStoreJson({ error: 'That is the only active administrator.' }, { status: 409 });
     await db.prepare("UPDATE users SET role = 'user' WHERE id = ?").bind(userId).run();
-<    await recordAdminAction(db, actor.email, target.email, 'demote', clientIp(request));
+    await recordAdminAction(db, actor.email, target.email, 'demote', clientIp(request));
     return noStoreJson({ ok: true });
   }
   if (action === 'set-password') {
@@ -120,7 +120,7 @@ export async function PATCH(request: Request) {
       db.prepare('DELETE FROM email_verifications WHERE user_id = ?').bind(userId),
     ]);
     await revokeSessions(db, userId);
-<    await recordAdminAction(db, actor.email, target.email, 'set-password', clientIp(request));
+    await recordAdminAction(db, actor.email, target.email, 'set-password', clientIp(request));
     return noStoreJson({ ok: true });
   }
   return noStoreJson({ error: 'Unknown action.' }, { status: 400 });
@@ -149,6 +149,6 @@ export async function DELETE(request: Request) {
   // INT-04 (#163): forget the deleted account's catalogue state. The shared catalogue
   // keeps rows other accounts still hold; only rows nobody holds are removed.
   await removeUserVacancyState(db, userId);
-<  await recordAdminAction(db, actor.email, target.email, 'delete-account', clientIp(request));
+  await recordAdminAction(db, actor.email, target.email, 'delete-account', clientIp(request));
   return noStoreJson({ ok: true });
 }

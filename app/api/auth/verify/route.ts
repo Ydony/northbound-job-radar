@@ -2,7 +2,7 @@ import { authSecrets, bindings, emailConfiguration, ensureSchema } from '@/db/ru
 import { createSessionValue, isLocalBootstrapRequest, isSameOrigin, sessionCookie } from '@/lib/auth';
 import { consumeEmailVerification, emailConfigured, issueEmailVerification, markEmailVerified,
   sendEmailViaResend, verificationEmail, verificationLinkFor } from '@/lib/email';
-<import { clientIp, durableRateLimit, noStoreJson } from '@/lib/guard';
+import { clientIp, durableRateLimit, noStoreJson } from '@/lib/guard';
 import { recordSecurityEvent } from '@/lib/security-events';
 import { findUserByEmail, findUserById, isValidEmail, normalizeEmail } from '@/lib/users';
 

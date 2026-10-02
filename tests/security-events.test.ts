@@ -226,7 +226,7 @@ test('the security viewer is administrator-only, minimal, and carries the alert 
   assert.match(viewer, /normalizeSecurityEvent/);
   assert.match(viewer, /retention/);
   assert.match(viewer, /alerts/);
-  assert.match(viewer, /cache-control.*no-store/i);
+  assert.match(viewer, /noStoreJson/, 'the viewer must answer through the T19 no-store helper');
   // Minimal columns only: no job, password, token, or refusal-text field may be selected.
   assert.doesNotMatch(viewer, /SELECT[^;]*(description|password|token|reason)/i);
   assert.doesNotMatch(viewer, /jobs|vacancies/i, 'the viewer must never touch job tables');

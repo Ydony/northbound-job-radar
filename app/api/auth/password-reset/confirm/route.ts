@@ -1,7 +1,7 @@
 import { bindings, ensureSchema } from '@/db/runtime';
 import { hashPassword, isSameOrigin } from '@/lib/auth';
 import { consumePasswordReset, markEmailVerified } from '@/lib/email';
-<import { clientIp, durableRateLimit, noStoreJson } from '@/lib/guard';
+import { clientIp, durableRateLimit, noStoreJson } from '@/lib/guard';
 import { recordSecurityEvent } from '@/lib/security-events';
 import { findUserById, passwordProblem, revokeSessions } from '@/lib/users';
 

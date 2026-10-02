@@ -1,5 +1,5 @@
 import { ensureSchema } from '@/db/runtime';
-import { requireSession } from '@/lib/guard';
+import { noStoreJson, requireSession } from '@/lib/guard';
 import {
   evaluateSecurityAlerts,
   isSecurityEventKind,
@@ -41,12 +41,12 @@ export async function GET(request: Request) {
     : DEFAULT_LIMIT;
   const kindFilter = url.searchParams.get('kind') ?? '';
   if (kindFilter !== '' && !isSecurityEventKind(kindFilter)) {
-    return Response.json({ error: 'Unknown event kind.' }, { status: 400 });
+    return noStoreJson({ error: 'Unknown event kind.' }, { status: 400 });
   }
   const sinceParam = url.searchParams.get('since') ?? '';
   const since = sinceParam !== '' ? new Date(sinceParam) : null;
   if (sinceParam !== '' && (since === null || Number.isNaN(since.getTime()))) {
-    return Response.json({ error: 'Invalid since timestamp.' }, { status: 400 });
+    return noStoreJson({ error: 'Invalid since timestamp.' }, { status: 400 });
   }
 
   const conditions: string[] = [];
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
 
   const alerts = await evaluateSecurityAlerts(db);
 
-  return Response.json(
+  return noStoreJson(
     {
       events: withActor.map((row) => normalizeSecurityEvent(row)),
       total: totalRow?.total ?? withActor.length,
@@ -107,6 +107,5 @@ export async function GET(request: Request) {
       },
       alerts,
     },
-    { headers: { 'cache-control': 'no-store' } },
   );
 }

@@ -60,16 +60,26 @@ test('server code never logs: no console output in app, lib or worker', async ()
 });
 
 test('audit writes carry only approved literal kinds, never detail', async () => {
-  // Every auth_events write is one of the two helpers (per-route recordAttempt, admin
-  // recordAdminAction) or the email-diagnostics INSERT. The kind column is the only
-  // free-text-adjacent field, so it may only ever be a literal from this list — never
-  // a refusal reason, token, password, or request body. Resend's refusal text can quote
-  // the address it refused, which is why outcomes are recorded as bare email-sent/failed.
+  // Every auth_events write goes through the central `recordSecurityEvent`
+  // helper in lib/security-events.ts (per-route recordAttempt wrappers, admin
+  // recordAdminAction, and the account route's credential-change calls) — the
+  // raw INSERT lives in that helper alone, so writers reference the helper
+  // instead of hand-rolling SQL. The email-diagnostics route only reads. The
+  // kind column is the only free-text-adjacent field, so it may only ever be
+  // a literal from this list — never a refusal reason, token, password, or
+  // request body. Resend's refusal text can quote the address it refused,
+  // which is why outcomes are recorded as bare email-sent/failed. T44 extends
+  // the log beyond sign-ins: password/email changes and administrator actions
+  // (stored as `admin-<action>` with the administrator in the separate `actor`
+  // column) join the throttles already recorded.
   const approved = new Set([
     'throttled', 'register', 'register-duplicate', 'login', 'failed', 'unverified',
     'bot-rejected', 'reset-request', 'reset-confirm', 'reset-invalid',
     'email-sent', 'email-failed', 'verify', 'verify-invalid',
+    'password-change', 'email-change',
     'disable', 'enable', 'promote', 'demote', 'set-password', 'delete-account',
+    'admin-disable', 'admin-enable', 'admin-promote', 'admin-demote',
+    'admin-set-password', 'admin-delete-account',
   ]);
   const writers = [
     'app/api/auth/route.ts',
@@ -78,18 +88,30 @@ test('audit writes carry only approved literal kinds, never detail', async () =>
     'app/api/auth/password-reset/confirm/route.ts',
     'app/api/admin/route.ts',
     'app/api/admin/email/route.ts',
+    'app/api/account/route.ts',
   ];
   for (const file of writers) {
     const source = await read(file);
-    assert.match(source, /INSERT INTO auth_events/, `${file} must keep its audit write visible`);
+    assert.match(source, /INSERT INTO auth_events|recordSecurityEvent/,
+      `${file} must keep its audit write visible (directly or through the shared helper)`);
     // No error/detail/refusal value may flow into the write: the only interpolation
-    // allowed is the admin `admin:<action> by <actor>` kind, built from two emails.
+    // allowed is the administrator `admin-<action>` kind with the actor in the
+    // separate actor column (legacy rows used `admin:<action> by <actor>`).
     assert.doesNotMatch(source, /recordAttempt\([^)]*\.error/, `${file} must not log error text`);
     assert.doesNotMatch(source, /recordAttempt\([^)]*token/, `${file} must not log tokens`);
     assert.doesNotMatch(source, /recordAttempt\([^)]*password/, `${file} must not log passwords`);
+    assert.doesNotMatch(source, /recordSecurityEvent\([^)]*\.error/, `${file} must not log error text`);
+    assert.doesNotMatch(source, /recordSecurityEvent\([^)]*Token/, `${file} must not log tokens`);
+    assert.doesNotMatch(source, /recordSecurityEvent\([^)]*newPassword/, `${file} must not log passwords`);
     assert.doesNotMatch(source, /\.bind\([^)]*\.error/, `${file} must not bind error text`);
   }
-  // Every literal kind passed to recordAttempt, plus every admin action, is approved.
+  // The helper itself holds the only INSERT; it must refuse unknown kinds.
+  const helper = await read('lib/security-events.ts');
+  assert.match(helper, /INSERT INTO auth_events/, 'the shared helper must hold the single audit INSERT');
+  assert.match(helper, /Refusing to log unknown security event kind/,
+    'the shared helper must refuse kinds outside the allow-list');
+  // Every literal kind passed to recordAttempt / recordSecurityEvent, plus every
+  // admin action, is approved.
   const kinds: string[] = [];
   for (const file of writers) {
     const source = await read(file);
@@ -98,23 +120,33 @@ test('audit writes carry only approved literal kinds, never detail', async () =>
       if (literal.startsWith("'")) kinds.push(literal.slice(1, -1));
       else kinds.push('email-sent', 'email-failed');
     }
-    for (const match of source.matchAll(/recordAdminAction\(db, [^,]+, [^,]+, '([a-z-]+)'\)/g)) {
+    for (const match of source.matchAll(/kind: '([a-z-]+)'/g)) {
       kinds.push(match[1]);
+    }
+    for (const match of source.matchAll(/recordAdminAction\(db, [^,]+, [^,]+, '([a-z-]+)'(?:, [^)]+)?\)/g)) {
+      kinds.push(match[1]);
+      kinds.push(`admin-${match[1]}`);
     }
   }
   assert.ok(kinds.length > 0, 'the scan must actually find audit kinds');
   for (const kind of kinds) {
     assert.ok(approved.has(kind), `audit kind '${kind}' is not an approved literal`);
   }
-  // The one dynamic kind is administrator-attribution only: `admin:<action> by <email>`.
+  // Administrator attribution lives in the actor column, never in tokens or secrets.
   const admin = await read('app/api/admin/route.ts');
-  assert.match(admin, /`admin:\$\{action\} by \$\{actorEmail\}`/);
+  assert.match(admin, /`admin-\$\{action\}`/);
+  assert.match(admin, /actor: actorEmail/, 'the administrator must be stored in the actor column');
   assert.doesNotMatch(admin, /admin:\$\{[^}]*token[^}]*\}/i, 'the admin kind must not carry tokens');
+  assert.doesNotMatch(admin, /`admin:[^`]*by /,
+    'new rows must not embed the actor in the kind string (legacy reader still understands old rows)');
 });
 
 test('audit reads stay administrator-only and aggregate, never row-level', async () => {
-  // auth_events holds emails and IPs, so only the administrator diagnostics route may
-  // read it — and only as sent/failed counts, never as rows that could be browsed.
+  // auth_events holds emails and IPs, so only administrator routes may read it.
+  // The email diagnostics route reads sent/failed counts; the T44 security
+  // viewer (GET /api/admin/security-events) is the one place rows may be
+  // browsed — administrator-only, minimal columns, no-store, allow-listed
+  // kind filter — because burst triage needs the recent rows, not just totals.
   for (const file of await tsFiles('app/api')) {
     const source = await read(file);
     if (!source.includes('FROM auth_events')) continue;
@@ -124,6 +156,14 @@ test('audit reads stay administrator-only and aggregate, never row-level', async
   const diagnostics = await read('app/api/admin/email/route.ts');
   assert.match(diagnostics, /SELECT kind, COUNT\(\*\)/);
   assert.doesNotMatch(diagnostics, /SELECT \*/);
+  // The row-level viewer stays minimal: no job, password, token, or refusal
+  // text may be selected, and it must never touch job tables.
+  const viewer = await read('app/api/admin/security-events/route.ts');
+  assert.match(viewer, /adminOnly: true/);
+  assert.match(viewer, /noStoreJson/, 'the viewer must answer through the T19 no-store helper');
+  assert.doesNotMatch(viewer, /SELECT[^;]*(description|password|token|reason)/i);
+  assert.doesNotMatch(viewer, /jobs|vacancies/i, 'the viewer must never touch job tables');
+  assert.match(viewer, /isSecurityEventKind\(kindFilter\)/, 'the kind filter must be allow-listed');
 });
 
 test('raw single-use tokens reach a response only on loopback', async () => {

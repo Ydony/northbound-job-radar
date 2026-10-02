@@ -1,6 +1,6 @@
 import { emailConfiguration, ensureSchema } from '@/db/runtime';
 import { emailConfigured, sendEmailViaResend, type OutgoingEmail } from '@/lib/email';
-<import { clientIp, durableRateLimit, noStoreJson, requireSession } from '@/lib/guard';
+import { clientIp, durableRateLimit, noStoreJson, requireSession } from '@/lib/guard';
 import { recordSecurityEvent } from '@/lib/security-events';
 import { isValidEmail, normalizeEmail } from '@/lib/users';
 

@@ -2,7 +2,7 @@ import { bindings, emailConfiguration, ensureSchema } from '@/db/runtime';
 import { isLocalBootstrapRequest, isSameOrigin } from '@/lib/auth';
 import { emailConfigured, issuePasswordReset, passwordResetEmail, passwordResetLinkFor,
   sendEmailViaResend } from '@/lib/email';
-<import { clientIp, durableRateLimit, noStoreJson } from '@/lib/guard';
+import { clientIp, durableRateLimit, noStoreJson } from '@/lib/guard';
 import { recordSecurityEvent } from '@/lib/security-events';
 import { findUserByEmail, isValidEmail, normalizeEmail } from '@/lib/users';
 
