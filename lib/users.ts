@@ -128,15 +128,18 @@ export async function authenticate(db: D1Database, email: string, password: stri
  * Upgrades a legacy hash after a successful login: the plaintext password just proved
  * itself against the stored hash, so it can be re-hashed under the current policy
  * without disclosing or changing anything. A failed upgrade keeps the working legacy
- * hash and never fails the login it follows.
+ * hash and never fails the login it follows. The write is conditional on the stored
+ * hash still being the one just verified, so a password changed in between (reset,
+ * second session) is never overwritten by this stale upgrade.
  */
 export async function rehashPasswordIfNeeded(db: D1Database, userId: string, password: string, storedHash: string) {
   if (!passwordHashNeedsRehash(storedHash)) return false;
   try {
     const upgraded = await hashPassword(password);
     if (!await verifyPassword(password, upgraded)) return false;
-    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(upgraded, userId).run();
-    return true;
+    const result = await db.prepare('UPDATE users SET password_hash = ? WHERE id = ? AND password_hash = ?')
+      .bind(upgraded, userId, storedHash).run();
+    return (result.meta.changes ?? 0) > 0;
   } catch {
     return false;
   }

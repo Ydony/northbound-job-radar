@@ -3,7 +3,7 @@ import test from 'node:test';
 import { Miniflare } from 'miniflare';
 import { currentPasswordIterations, hashPassword, NODE_PBKDF2_ITERATIONS, parsePasswordHash,
   passwordHashNeedsRehash, verifyPassword, WORKERS_PBKDF2_CAP } from '../lib/auth';
-import { authenticate } from '../lib/users';
+import { authenticate, rehashPasswordIfNeeded } from '../lib/users';
 
 /**
  * T34: versioned password-hashing policy with legacy-login rehash. All passwords and
@@ -143,6 +143,26 @@ test('a wrong password, a disabled account, or a missing account never rewrites 
     assert.equal(await authenticate(db, 'disabled@example.test', PASSWORD), null);
     assert.equal(await storedHash(db, 'u2'), legacy, 'a disabled account must not rehash');
     assert.equal(await authenticate(db, 'nobody@example.test', PASSWORD), null);
+  } finally {
+    await dispose();
+  }
+});
+
+test('a password changed between read and rehash is not overwritten by the stale upgrade', async () => {
+  const { db, dispose } = await loginDb();
+  try {
+    const legacy = await hashPassword(PASSWORD, 100_000);
+    await seedUser(db, 'u1', 'concurrent@example.test', legacy);
+    // A concurrent password change (reset, second session) lands before the
+    // rehash write; the rehash still holds the stale hash it just verified.
+    const replacement = await hashPassword('another synthetic password 9876543210');
+    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(replacement, 'u1').run();
+
+    assert.equal(await rehashPasswordIfNeeded(db, 'u1', PASSWORD, legacy), false,
+      'the stale upgrade must report that it did not apply');
+    assert.equal(await storedHash(db, 'u1'), replacement,
+      'the concurrent password must survive the stale rehash');
+    assert.ok(await verifyPassword('another synthetic password 9876543210', await storedHash(db, 'u1')));
   } finally {
     await dispose();
   }
