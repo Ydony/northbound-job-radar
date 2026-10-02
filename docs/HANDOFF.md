@@ -1,5 +1,35 @@
 # Handover
 
+## 2026-10-02 T20 phone-viewport walkthrough (F6), worktree branch `opl/task-T124-20261002-151654`
+
+New: `scripts/verify-phone-walkthrough.mjs` (`npm run verify:phone`), green. It boots the real
+standalone bundle on a throwaway empty database (own port 3220, no provider keys, loopback-only,
+temp under `os.tmpdir()` which this environment points inside the worktree) and walks the F6
+acceptance path with synthetic admin + ordinary accounts: roles/countries/keywords, authorized
+search with truthful per-source report + restricted-mode refusal, one seeded ad per verdict with a
+language explanation on every card, verdict correction, save/applied/dismiss/restore,
+filter/page/return-without-lost-state, admin overview (counts-only) + `/api/health`, ordinary-user
+403s on both, email/password change with stale-session revocation and re-verification of the changed
+address, page renders under a phone UA, and static guards pinning the bounded phone CSS fixes.
+Cleanup deletes the ordinary account; deleting the only admin is refused (409), which the harness
+asserts as the last-administrator guard holding.
+
+Two bounded phone defects fixed in `app/globals.css`: (1) `nav{display:none}` at ≤850px made
+Settings/Admin/Sign out/View-as-user unreachable on a phone — navigation now drops to its own
+scrollable row with 44px targets; (2) a dangling `.settings-bar .run-button, .settings-bar`
+selector swallowed the phone `.source-dashboard` rule and lost the intended run-button rule —
+Find new jobs now stacks full-width at 48px on a phone.
+
+Also green: lint, typecheck, `check:design` 11/11, build. Unit suite 554/555: the one failure is
+pre-existing and unrelated (verified on the clean tree via `git stash -u`) —
+`tests/job-room.test.ts` "the end date is kept at collection" hardcodes endDate 2026-10-01 as a
+future date and today is 2026-10-02, so the fixture ad now parses as expired. It needs its
+fixture date moved, not anything from this task.
+
+Not exercised: `scripts/check-visual.mjs` (needs Chrome/Edge; none installed here) and the
+owner's physical-phone repeat, which is the fourth F6 acceptance bullet and stays an owner step.
+No push/PR/merge per packet rules.
+
 ## 2026-10-01 T05: synthetic administrator identity-only transfer
 
 The T05 branch adds `scripts/admin-identity-transfer.mjs`, a deliberately
